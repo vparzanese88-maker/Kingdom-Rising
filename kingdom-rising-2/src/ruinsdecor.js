@@ -52,7 +52,7 @@ function stainAtlas() { const N = 256, [c, g] = canvas(N * 2); g.fillStyle = '#f
     g.stroke(); };
   for (let k = 0; k < 4; k++) crack(N / 2, N / 2, k * 1.6 + rr(), N * 0.42, 2.0, 0); blot(0, 0, 6, '120,104,88', 10, 30, 0.25); g.restore();
   // 1: damp and dirt
-  g.save(); g.beginPath(); g.rect(N, 0, N, N); g.clip(); blot(N, 0, 26, '96,84,70', 18, 60, 0.32); blot(N, 0, 12, '70,60,52', 8, 28, 0.3); g.restore();
+  g.save(); g.beginPath(); g.rect(N, 0, N, N); g.clip(); blot(N, 0, 22, '110,98,84', 18, 60, 0.22); blot(N, 0, 10, '84,74,64', 8, 28, 0.2); g.restore();
   // 2: moss creeping between the stones
   g.save(); g.beginPath(); g.rect(0, N, N, N); g.clip(); blot(0, N, 26, '92,118,52', 14, 52, 0.42); blot(0, N, 16, '60,86,38', 8, 26, 0.4); for (let i = 0; i < 260; i++) { const a = rr() * 6.283, r = Math.sqrt(rr()) * N * 0.4; g.fillStyle = `rgba(${rr() < 0.5 ? '70,96,40' : '120,140,60'},${0.3 + rr() * 0.4})`; g.fillRect(N / 2 + Math.cos(a) * r, N + N / 2 + Math.sin(a) * r, 2 + rr() * 3, 2 + rr() * 3); } g.restore();
   // 3: soot and old scorch marks
@@ -75,11 +75,11 @@ function plantAtlas() { const N = 256, [c, g] = canvas(N * 4, N); seedR(4321);
   const stem = (x, h, lean, col = '#4a6a2a', w = 2) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(x, N); g.quadraticCurveTo(x + lean * 0.3, N - h * 0.6, x + lean, N - h); g.stroke(); return [x + lean, N - h]; };
   const leafy = (ox) => { for (let i = 0; i < 26; i++) { const x = ox + N * (0.1 + rr() * 0.8), h = N * (0.15 + rr() * 0.3), l = (rr() - 0.5) * 40; const gr = g.createLinearGradient(0, N, 0, N - h); gr.addColorStop(0, '#2e4a1e'); gr.addColorStop(1, '#7a9a44'); g.fillStyle = gr; g.beginPath(); g.moveTo(x - 4, N); g.quadraticCurveTo(x + l * 0.4, N - h * 0.6, x + l, N - h); g.quadraticCurveTo(x + l * 0.4 + 2, N - h * 0.6, x + 4, N); g.fill(); } };
   // daisies
-  leafy(0); for (let i = 0; i < 9; i++) { const [x, y] = stem(N * (0.12 + rr() * 0.76), N * (0.35 + rr() * 0.4), (rr() - 0.5) * 30); for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283; g.fillStyle = '#fbf8ee'; g.beginPath(); g.ellipse(x + Math.cos(a) * 7, y + Math.sin(a) * 5, 6, 2.6, a, 0, 7); g.fill(); } g.fillStyle = '#f0c030'; g.beginPath(); g.arc(x, y, 4.5, 0, 7); g.fill(); }
+  leafy(0); for (let i = 0; i < 9; i++) { const [x, y] = stem(N * (0.12 + rr() * 0.76), N * (0.35 + rr() * 0.4), (rr() - 0.5) * 30); for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283; g.fillStyle = '#fbf8ee'; g.beginPath(); g.ellipse(x + Math.cos(a) * 12, y + Math.sin(a) * 9, 11, 4.5, a, 0, 7); g.fill(); } g.fillStyle = '#f0c030'; g.beginPath(); g.arc(x, y, 7, 0, 7); g.fill(); }
   // poppies
-  leafy(N); for (let i = 0; i < 7; i++) { const [x, y] = stem(N + N * (0.12 + rr() * 0.76), N * (0.4 + rr() * 0.45), (rr() - 0.5) * 36, '#5a7a32', 2.4); g.fillStyle = rr() < 0.25 ? '#f0a020' : '#d8281e'; for (let k = 0; k < 4; k++) { const a = k / 4 * 6.283 + 0.4; g.beginPath(); g.ellipse(x + Math.cos(a) * 6, y + Math.sin(a) * 4, 9, 7, a, 0, 7); g.fill(); } g.fillStyle = '#2a1a14'; g.beginPath(); g.arc(x, y, 3.5, 0, 7); g.fill(); }
+  leafy(N); for (let i = 0; i < 7; i++) { const [x, y] = stem(N + N * (0.12 + rr() * 0.76), N * (0.4 + rr() * 0.45), (rr() - 0.5) * 36, '#5a7a32', 2.4); g.fillStyle = rr() < 0.25 ? '#f0a020' : '#d8281e'; for (let k = 0; k < 4; k++) { const a = k / 4 * 6.283 + 0.4; g.beginPath(); g.ellipse(x + Math.cos(a) * 10, y + Math.sin(a) * 7, 15, 12, a, 0, 7); g.fill(); } g.fillStyle = '#2a1a14'; g.beginPath(); g.arc(x, y, 5, 0, 7); g.fill(); }
   // lavender and bluebells
-  leafy(N * 2); for (let i = 0; i < 14; i++) { const [x, y] = stem(N * 2 + N * (0.1 + rr() * 0.8), N * (0.45 + rr() * 0.45), (rr() - 0.5) * 28, '#5a7048', 1.6); const col = rr() < 0.6 ? ['#8a6ad0', '#a080e0', '#7058b8'] : ['#5a78e0', '#7894f0', '#4a64c8']; for (let k = 0; k < 9; k++) { g.fillStyle = col[k % 3]; g.beginPath(); g.ellipse(x - (k / 9) * (x - (x - 2)) , y + k * 4.5, 3.2, 2.6, 0, 0, 7); g.fill(); } }
+  leafy(N * 2); for (let i = 0; i < 14; i++) { const [x, y] = stem(N * 2 + N * (0.1 + rr() * 0.8), N * (0.45 + rr() * 0.45), (rr() - 0.5) * 28, '#5a7048', 1.6); const col = rr() < 0.6 ? ['#8a6ad0', '#a080e0', '#7058b8'] : ['#5a78e0', '#7894f0', '#4a64c8']; for (let k = 0; k < 9; k++) { g.fillStyle = col[k % 3]; g.beginPath(); g.ellipse(x + Math.sin(k) * 1.5, y + k * 6, 5.5, 4.2, 0, 0, 7); g.fill(); } }
   // tall grass with seed heads
   for (let i = 0; i < 60; i++) { const x = N * 3 + N * (0.08 + rr() * 0.84), h = N * (0.4 + rr() * 0.55), l = (rr() - 0.5) * 60, w = 2 + rr() * 3; const gr = g.createLinearGradient(0, N, 0, N - h); gr.addColorStop(0, '#3e5a24'); gr.addColorStop(0.6, '#8a9a4a'); gr.addColorStop(1, '#d8c880'); g.fillStyle = gr; g.beginPath(); g.moveTo(x - w, N); g.quadraticCurveTo(x + l * 0.4, N - h * 0.6, x + l, N - h); g.quadraticCurveTo(x + l * 0.4 + w * 0.3, N - h * 0.6, x + w, N); g.fill();
     if (i % 4 === 0) { g.fillStyle = '#e0cc8a'; g.beginPath(); g.ellipse(x + l, N - h, 2.6, 9, l * 0.01, 0, 7); g.fill(); } }
@@ -94,10 +94,10 @@ function groundDetail(root) {
     if (blocked(x, z, 0.1, h)) { if (kind < 0.5) continue; } // (some damp and moss reaches right up to the walls)
     if (inMosaic(x, z) && kind > 0.12) continue;
     const near = laneD(x, z);
-    if (kind < 0.24) put(stains, x, z, h, 1.6 + rr() * 2.6, 0, 0.03); // cracks
+    if (kind < 0.24) { if (h === Y && (x > 32 || x < -44)) continue; put(stains, x, z, h, 1.4 + rr() * 2.0, 0, 0.03); } // cracks (in the paving only)
     else if (kind < 0.5) put(stains, x, z, h, 2.5 + rr() * 4, 1, 0.025); // damp / dirt
     else if (kind < 0.68) { if (near < 1.2 && h === Y) continue; put(stains, x, z, h, 1.8 + rr() * 3, 2, 0.028); } // moss (worn off where everyone walks)
-    else if (kind < 0.72) put(stains, x, z, h, 1.4 + rr() * 2, 3, 0.027); // soot
+    else if (kind < 0.72) continue;
     else if (kind < 0.88) { if (inMosaic(x, z)) continue; put(litter, x, z, h, 1.2 + rr() * 1.4, 0, 0.04); } // fallen leaves
     else if (kind < 0.93) put(litter, x, z, h, 1.0 + rr() * 1.2, 1, 0.042); // straw
     else if (kind < 0.97) { if (near < 1.5) continue; put(litter, x, z, h, 0.9 + rr() * 0.8, 2, 0.045); } // broken pottery (to the side)
@@ -106,7 +106,7 @@ function groundDetail(root) {
   for (const f of world.fires) { const h = f.pos.y - 1.55 * (f.size / 0.45); if (Math.abs(h - Y) < 0.1 || levelAt(f.pos.x, f.pos.z) != null) stains.flat(f.pos.x, h + 0.029, f.pos.z, 3.6, 3.6, rr() * 6, cell(3)); }
   // puddles: in the streets, the alleys and the outer path (low ground, between the stones), each with a dark damp rim
   let n = 0; for (let i = 0; i < 900 && n < 30; i++) { const x = (rr() - 0.5) * 114, z = (rr() - 0.5) * 150, h = levelAt(x, z); if (h !== Y || inMosaic(x, z) || blocked(x, z, 0.8)) continue; if (Math.abs(x) > 33 && x > 0) continue; // (not in the garden)
-    const s = 0.9 + rr() * 1.5, a = rr() * 6.283; for (const sz of [1, -1]) { wet.flat(x, Y + 0.05, z * sz, s * 1.4, s, a, [0, 0, 1, 1]); mud.flat(x, Y + 0.031, z * sz, s * 2.1, s * 1.6, a, cell(1)); } n++; }
+    const s = 0.9 + rr() * 1.5, a = rr() * 6.283; for (const sz of [1, -1]) { wet.flat(x, Y + 0.05, z * sz, s * 1.4, s, a, [0, 0, 1, 1]); mud.flat(x, Y + 0.031, z * sz, s * 1.7, s * 1.3, a, cell(1)); } n++; }
   for (const b of [mud]) { stains.p.push(...b.p); stains.n.push(...b.n); stains.uv.push(...b.uv); }
   const mul = new THREE.MeshBasicMaterial({ map: stainAtlas(), transparent: true, depthWrite: false, fog: false, blending: THREE.CustomBlending, blendSrc: THREE.DstColorFactor, blendDst: THREE.ZeroFactor, blendEquation: THREE.AddEquation, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const m1 = new THREE.Mesh(stains.geo(), mul); m1.renderOrder = 1; root.add(m1);
@@ -203,10 +203,10 @@ function dust(root) { seedR(2222); const boxes = [[-14, 14, 20, 72, 9], [33, 58,
 
 // far away, beyond the plain: a ring of mountains, snow on the high peaks, blue with distance; a castle on a hill to the north
 function skyline(root) { seedR(6061); const P = [], N = [], C = [], push = (g, col) => { g = g.index ? g.toNonIndexed() : g; g.computeVertexNormals(); const p = g.attributes.position, nn = g.attributes.normal; for (let i = 0; i < p.count; i++) { P.push(p.getX(i), p.getY(i), p.getZ(i)); N.push(nn.getX(i), nn.getY(i), nn.getZ(i)); const c = col(p.getX(i), p.getY(i), p.getZ(i), nn.getY(i)); C.push(c.r, c.g, c.b); } };
-  const rock = new THREE.Color('#585a74'), rockW = new THREE.Color('#7a6a70'), snow = new THREE.Color('#f4f0f4'), forest = new THREE.Color('#3e4a3a'), tmp = new THREE.Color();
+  const rock = new THREE.Color('#3a3c52'), rockW = new THREE.Color('#5a4a54'), snow = new THREE.Color('#d8d4e0'), forest = new THREE.Color('#26302a'), tmp = new THREE.Color();
   const peak = (x, z, w, h, d) => { const g = new THREE.ConeGeometry(1, 1, 7, 4, false); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i) + 0.5, j = (1 - y) * 0.35; p.setXYZ(i, p.getX(i) * (1 + (rr() - 0.5) * j) * w, Y - 30 + y * h * (1 + (rr() - 0.5) * 0.12 * (1 - y)), p.getZ(i) * (1 + (rr() - 0.5) * j) * d); }
-    g.rotateY(rr() * 6); g.translate(x, 0, z); const snowLine = Y - 30 + h * (0.62 + rr() * 0.1);
-    push(g, (px, py, pz, ny) => { const f = (py - (Y - 30)) / h; tmp.copy(f < 0.3 ? forest : rock).lerp(rockW, Math.max(0, Math.min(1, f * 1.5 - 0.3)) * 0.5); if (py > snowLine && ny > 0.25) tmp.copy(snow); return tmp; }); };
+    g.rotateY(rr() * 6); g.translate(x, 0, z); const snowLine = Y - 30 + h * (0.74 + rr() * 0.1);
+    push(g, (px, py, pz, ny) => { const f = (py - (Y - 30)) / h; tmp.copy(f < 0.3 ? forest : rock).lerp(rockW, Math.max(0, Math.min(1, f * 1.5 - 0.3)) * 0.5); if (py > snowLine && ny > 0.35) tmp.copy(snow); return tmp; }); };
   for (let i = 0; i < 44; i++) { const a = i / 44 * Math.PI * 2 + rr() * 0.08, r = 1300 + rr() * 450, x = Math.cos(a) * r, z = Math.sin(a) * r, h = 420 + rr() * 380; peak(x, z, 200 + rr() * 220, h, 180 + rr() * 220);
     if (rr() < 0.8) peak(x + (rr() - 0.5) * 300, z + (rr() - 0.5) * 300, 120 + rr() * 120, h * (0.55 + rr() * 0.3), 120 + rr() * 120); }
   for (let i = 0; i < 30; i++) { const a = rr() * Math.PI * 2, r = 700 + rr() * 300, g = new THREE.IcosahedronGeometry(1, 1); g.scale(140 + rr() * 140, 70 + rr() * 80, 120 + rr() * 120); g.translate(Math.cos(a) * r, Y - 25, Math.sin(a) * r); push(g, () => tmp.copy(forest).lerp(rockW, 0.25)); } // (wooded foothills)

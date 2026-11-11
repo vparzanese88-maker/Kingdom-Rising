@@ -283,7 +283,6 @@ function half(sz, team) {
   pyramid(-42.5, Y + 15.7, Z(47), 5, 9, 2.2, 0); for (const [x1, z1, x2, z2] of [[-44.8, 51.4, -40.2, 51.4], [-44.8, 42.6, -44.8, 51.4], [-40.2, 42.6, -40.2, 51.4]]) rail(x1, Z(z1), x2, Z(z2), Y + 12.5, M.stone, 0.9);
   banner(-40.05, Y + 11.4, Z(47), RY(Math.PI / 2), team, 1.6, 2.6); brazier(-43.5, Z(49.5), Y + 12.5, 0.8); crystal(-37, Y + 9, Z(66), 0.8, tc);
   for (const z of [36, 58]) { torch(-35.3, Y + 10.6, Z(z), Math.PI / 2); } cache(-43, Z(60), Y + 9, 3);
-  { const z = Z(48.6); put(BOX(2.2, 3.4, 1.6), M.stoneD, -33.9, Y + 1.7, z); put(BOX(2.4, 0.3, 1.8), M.moss, -33.9, Y + 3.5, z, 0, 0, false); addBox(-33.9, z, 1.1, 0.8, 0, 'map', Y, Y + 3.4); rubble(-33.6, Z(47.2), 4, 0.8); } // (a fallen block seals the blind slot between the rampart and the lane wall)
   // a gatehouse across the walkway at the top of the plaza stairs: the only way along the rampart is through its 3.2 m arch
   { const gz = Z(28.2), GH = 4.6; for (const [x0, x1] of [[-45.6, -41.6], [-38.4, -34.4]]) { const c = (x0 + x1) / 2; wall(c, gz, x1 - x0, 2.4, Y + 9, GH, M.stoneD); put(BOX(x1 - x0 + 0.3, 0.3, 2.7), M.stone, c, Y + 9 + GH + 0.15, gz, 0, 0, false); }
     put(BOX(3.6, 1.0, 2.4), M.stone, -40, Y + 9 + GH - 0.5, gz); addBox(-40, gz, 1.8, 1.2, 0, 'map', Y + 9 + GH - 1.0, Y + 9 + GH); // (the lintel: 3.6 m clear under it)

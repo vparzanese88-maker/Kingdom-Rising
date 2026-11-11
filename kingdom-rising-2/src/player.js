@@ -17,7 +17,7 @@ import { BATTLE } from './battlemap.js';
 import { summonPets } from './pets.js';
 import { buildAdsView } from './adsview.js';
 import { abilityFx, bodyPoseTick } from './abilityfx.js';
-import { attachFpArms, tickFpArms, heroHeight, hasHeroModel, bowRest } from './heromodels.js';
+import { attachFpArms, tickFpArms, heroHeight, hasHeroModel, bowRest, ikArm } from './heromodels.js';
 import { makeFearSkull } from './combat.js';
 import { noteTexture, luteToChest, playNotes, addOutline, arenaSpec, arenaBody, arenaDecor, arenaWeaponDecor, arenaLookTick, makeShrunkenHead, makeClaws, goblinGun, makeBomb, makeBook } from './arenalooks.js';
 import { plantBanner } from './banners.js';
@@ -1920,7 +1920,14 @@ export class Player {
       else { armReach(ch, 'R', tR, 6); armReach(ch, 'L', tL, 6); } } /* (right hand round the wrist of the stock at the trigger, left under the barrel at a band) */
     else { armReach(ch, 'R', at(-0.1, -0.05), 5); armReach(ch, 'L', at(0.42, -0.04), 5); }
     const pq = g.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
-    g.position.copy(g.parent.worldToLocal(want.clone())); g.quaternion.copy(pq.multiply(q)); ud.aimed = true;
+    if (musket && mdl) { /* (the owner: the model's own hands on the gun: the right fist round the wrist of the stock, the left under the fore-end; the gun is placed after the arms are posed, so the arms reach for it here) */
+      const bq = ch.root.getWorldQuaternion(new THREE.Quaternion()), rtv = new THREE.Vector3(-1, 0, 0).applyQuaternion(bq), dn = new THREE.Vector3(0, -1, 0);
+      for (const [nm, t, sx] of [['Right', want.clone(), 1], ['Left', null, -1]]) { const A = HB[nm + 'Arm'], F = HB[nm + 'ForeArm'], Hd = HB[nm + 'Hand']; if (!A || !F || !Hd) continue;
+        let tg = t; if (!tg) { g.position.copy(g.parent.worldToLocal(want.clone())); g.quaternion.copy(pq.clone().multiply(q)); g.updateWorldMatrix(true, false); tg = new THREE.Vector3(0, (bbuss ? 0.26 : port ? 0.5 : 0.42), 0).applyMatrix4(g.matrixWorld); const wr = Hd.getWorldPosition(new THREE.Vector3()), fa = wr.clone().sub(F.getWorldPosition(new THREE.Vector3())).normalize(); tg.addScaledVector(fa, -0.35 * Hd.getWorldPosition(new THREE.Vector3()).distanceTo(F.getWorldPosition(new THREE.Vector3())) * 0.3); } /* (the left hand under the fore-stock, where the gun now lies: its wrist placed so the palm, not the wrist, closes on the wood) */
+        const so = t && (ch.hmSockets || []).find(k => k.parent === Hd); if (so) { Hd.updateWorldMatrix(true, true); tg.sub(so.getWorldPosition(new THREE.Vector3()).sub(Hd.getWorldPosition(new THREE.Vector3()))); } /* (the fist, not the wrist, at the grip) */
+        const s0 = A.getWorldPosition(new THREE.Vector3()); ikArm(null, A, F, Hd, tg, s0.clone().addScaledVector(rtv, sx * L).addScaledVector(dn, L)); Hd.updateWorldMatrix(true, true); }
+      g.parent.updateWorldMatrix(true, false); }
+    g.position.copy(g.parent.worldToLocal(want.clone())); g.quaternion.copy(g.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q)); ud.aimed = true;
   }
   // Skyrim-style: weapons away on your back, or back in your hands (any attack, ability, block or hit draws them)
   sheatheWeapons() { return; /* (weapons always stay drawn) */ if (this.sheathed || this.atk || this.dodge || !this.weapon) return; this.sheathed = true; this.press = null; this.block = false; sheathe(this.ch, true); this.vmShow(false); S.swap && S.swap(); this.drawAnimT = 0.35; }

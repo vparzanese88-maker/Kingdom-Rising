@@ -11,6 +11,7 @@ import { addBox, addSurface, addCircle, world } from './world.js';
 import { AR, COLORS } from './arenamap.js';
 import { makeKit, kitMat, glowify, buildGround, bakeVerts, heartwood, motes, backdrop, plantMeshy, ruinsLook, tufts } from './ruinsart.js';
 import { G as GS } from './state.js';
+import { buildAmbientLife, updateAmbientLife } from './ambientlife.js';
 
 const Y = 3; // ground level
 const S = (c, r = 0.9, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, o));
@@ -387,6 +388,7 @@ export function buildRuins(scene) {
   for (const { mat, sh, list } of geoBuckets.values()) { bakeVerts(list, mat, LIGHTS, Y); const geo = mergeGeometries(list, false); if (!geo) continue; const m = new THREE.Mesh(geo, mat); m.castShadow = sh; m.receiveShadow = true; m.matrixAutoUpdate = false; m.updateMatrix(); root.add(m);
     if (mat === M.barkT || mat === M.leafT || mat === M.leafTD) fallback.push(['tree', m]); if (mat === M.rockT) fallback.push(['rock', m]); }
   geoBuckets.clear(); AR.root = root; GS.mapLook = ruinsLook;
+  buildAmbientLife(root); // birds over the walls, butterflies and pollen round the plaza
   // the owner's Meshy trees and rocks take over from the stand-ins once they load
   plantMeshy(root, { tree: TREES.slice(), rock: ROCKS.slice(), edge: EDGE_ROCKS }, (kind) => { for (const [k, m] of fallback) if (k === kind) m.visible = false; });
   return root;
@@ -409,4 +411,4 @@ function paintGround(L, px, pz, pr) { let q = 11; const r = () => (q = (q * 1680
   for (let i = 0; i < 220; i++) { const x = (r() - 0.5) * 118, z = (r() - 0.5) * 196; if (Math.abs(z) > 74) continue; disc('grass', x, z, 0.4 + r() * 1.6, 2, 0.3 + r() * 0.4); } // weeds in the cracks
   for (let i = 0; i < 40; i++) { const x = (r() - 0.5) * 110, z = (r() - 0.5) * 140; disc('earth', x, z, 1 + r() * 2.5, 4, 0.25); } }
 // gates: the portcullis rolls up when the fight starts
-export function updateRuins(dt) { AR.time.value += dt; const open = AR.gatesOpen ? 1 : 0; for (const b of AR.gateBars) { b.scale.y += ((open ? 0.03 : 1) - b.scale.y) * Math.min(1, dt * 1.6); b.visible = b.scale.y > 0.035; } }
+export function updateRuins(dt) { AR.time.value += dt; updateAmbientLife(dt); const open = AR.gatesOpen ? 1 : 0; for (const b of AR.gateBars) { b.scale.y += ((open ? 0.03 : 1) - b.scale.y) * Math.min(1, dt * 1.6); b.visible = b.scale.y > 0.035; } }

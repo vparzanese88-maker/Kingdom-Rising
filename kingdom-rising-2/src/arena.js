@@ -1279,6 +1279,7 @@ export function lmbAttack(p) {
     return W.element === 'fire' ? ['Fire Bolt', 'A ball of fire that bursts where it lands, burning the enemy it hits and scorching those around it.' + hs, 'fireball', 'fire'] : W.element === 'frost' ? ['Frost Bolt', 'An icy bolt that slows the enemy it hits for 3 s.' + hs, 'snow', 'frost'] : ['Arcane Bolt', 'A fast bolt of arcane force, straight where you aim.' + hs, 'sparkle', 'arcane']; }
   if (wt === 'fists') return cls === 'monk' ? ['Fist Combo', 'Jab, cross, hook and uppercut, then a spinning kick that lands head high, a jab and a two-fisted slam; you keep running while you strike.', 'fist', 'steel'] : ['Jab and Cross', 'Fast punches, left and right.', 'fist', 'steel'];
   if (wt === 'dagger' || wt === 'daggers') return cls === 'rogue' ? ['Dagger Combo', 'Two quick stabs, then a leaping spin that slashes both blades down on everyone around you.', 'swords', 'shadow'] : ['Dagger Stabs', 'Quick, short-reaching stabs.', 'swords', 'shadow'];
+  if (wt === 'quarterstaff') return cls === 'monk' ? ['Staff Combo', 'An overhead slam with your quarterstaff, then a driving thrust.', 'staff', 'gold'] : ['Staff Blows', 'Quick blunt blows with your staff.', 'staff', 'steel'];
   if (wt === 'spear') return ['Spear Thrust', 'Long-reaching thrusts with your spear.', 'spear', 'steel'];
   if (wt === 'axe' || wt === 'handaxes') return ['Axe Chops', 'Quick chops, left and right.', 'axe', 'nature'];
   if (wt === 'maceshield') return ['Mace Blows', 'A swing and a smash with your mace, in turn.', 'hammer', 'gold'];

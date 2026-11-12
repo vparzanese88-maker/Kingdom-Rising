@@ -66,6 +66,7 @@ export const KIT = {
   // ranger
   ar_firearrow: ['arrow', 'fire', 'A huge burning arrow that sets the target alight and stuns it for 1.5 s. You flip backwards.'],
   focus: ['eye', 'gold', 'Shoot twice as fast for 8 s.'],
+  ar_fanshot: ['arrowfan', 'nature', 'Loose six arrows at once in a wide fan in front of you.'],
   ar_bola: ['bola', 'nature', 'Two arrows tied by a cord: slows the target for 3 s and heals you 10%.'],
   ar_arrowrain: ['volley', 'nature', 'Rain arrows on a 7 m circle for 3 s.', 1],
   // musketeer

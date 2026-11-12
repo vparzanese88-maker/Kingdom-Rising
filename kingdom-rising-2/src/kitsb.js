@@ -143,14 +143,14 @@ function frostbind(c, a, ctx) {
 
 // Glacier Wall (right click): a wall of jagged ice pillars bursts out of the ground in front of him for 4 s. It is solid: no one walks
 // through it, and shots that hit it shatter. Enemies caught where it rises are thrown clear and slowed. Then it cracks and falls apart.
-const WALL = { dist: 3.4, hw: 3.4, hd: 0.5, h: 2.8, dur: 4 };
+const WALL = { dist: 3.6, hw: 4.6, hd: 0.7, h: 3.0, dur: 4 }; /* (the owner: a little wider, and nobody gets through) */
 function glacierWall(c, a, ctx) {
   const dir = flatDir(aimDirOf(c, castFrom(c), ctx.T)), side = V3(dir.z, 0, -dir.x), C = c.pos.clone().addScaledVector(dir, WALL.dist); C.y = gy(C); faceDir(c, dir);
   const g = new THREE.Group(), mat = ICE(), pil = []; g.position.copy(C); g.rotation.y = Math.atan2(dir.x, dir.z); G.scene.add(g);
-  for (let i = 0; i < 11; i++) { const u = i / 10 - 0.5, h = WALL.h * (0.8 + Math.random() * 0.35) * (1 - Math.abs(u) * 0.45), m = new THREE.Mesh(new THREE.CylinderGeometry(0.14 + Math.random() * 0.1, 0.42 + Math.random() * 0.18, h, 5), mat);
+  for (let i = 0; i < 15; i++) { const u = i / 14 - 0.5, h = WALL.h * (0.8 + Math.random() * 0.35) * (1 - Math.abs(u) * 0.45), m = new THREE.Mesh(new THREE.CylinderGeometry(0.14 + Math.random() * 0.1, 0.42 + Math.random() * 0.18, h, 5), mat);
     m.position.set(u * WALL.hw * 2, -h, (Math.random() - 0.5) * 0.3); m.rotation.set((Math.random() - 0.5) * 0.25, Math.random() * 3, (Math.random() - 0.5) * 0.25); m.userData = { h, d: Math.abs(u) * 0.12 }; g.add(m); pil.push(m); }
   for (let i = 0; i < 8; i++) { const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.25 + Math.random() * 0.2, 0), mat); m.position.set((Math.random() - 0.5) * WALL.hw * 2, -1, (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.3)); m.userData = { h: 0.3, d: 0.1 + Math.random() * 0.1 }; g.add(m); pil.push(m); }
-  const yaw = Math.atan2(dir.x, dir.z); let col = addBox(C.x, C.z, WALL.hw, WALL.hd, -yaw, 'kbicewall', C.y - 1, C.y + WALL.h);
+  const yaw = Math.atan2(dir.x, dir.z); let col = addBox(C.x, C.z, WALL.hw, WALL.hd, yaw, 'kbicewall', C.y - 1, C.y + WALL.h + 2); /* (turned with the wall itself: the old -yaw mirrored it, so at most angles the solid part missed the ice) */
   // throw clear anyone standing in it, and slow enemies near it
   for (const u of foes(c).concat(friends(c))) { const dx = u.pos.x - C.x, dz = u.pos.z - C.z, lx = dx * side.x + dz * side.z, lz = dx * dir.x + dz * dir.z; if (Math.abs(lx) > WALL.hw + 0.5 || Math.abs(lz) > 2.2) continue;
     if (Math.abs(lz) < WALL.hd + 0.6) { const push = (lz >= 0 ? 1 : -1) * (WALL.hd + 0.8) - lz; u.pos.addScaledVector(dir, push); if (!isP(u) && u.root) u.root.position.copy(u.pos); }

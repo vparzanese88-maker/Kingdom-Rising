@@ -953,7 +953,7 @@ export class Player {
     } else if (W.kind === 'gun') { const sight = (this.adsK || 0) > 0.7; this.fireGun(a.name === 'release' ? a.charge : 0, a.name === 'release' || sight, sight ? 1.15 : 1); if (sight) this.recoil = Math.max(this.recoil, 1.6);
     } else if (W.kind === 'staff' && a.name === 'reap') { this.reap(a, base);
     } else if (W.kind === 'staff') {
-      const from = this.camDist < 0.6 ? (this.vmWorld(this.vm.weapons.flame) || G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion))) : (this.ch.weapons.main?.userData.flame?.getWorldPosition(new THREE.Vector3()) || this.ch.weapons.main?.userData.orb?.getWorldPosition(new THREE.Vector3()) || this.handPos());
+      const from = this.camDist < 0.6 ? (this.vmWorld(this.vm.weapons.flame) || G.camera.position.clone().add(new THREE.Vector3(0.12, -0.12, -0.9).applyQuaternion(G.camera.quaternion))) : (((o) => { let r = o; while (r && r.parent) r = r.parent; return o && r === G.scene ? o.getWorldPosition(new THREE.Vector3()) : null; })(this.ch.weapons.main?.userData.flame || this.ch.weapons.main?.userData.orb) || this.handPos()); /* (only a staff head that is really on him: a removed one sits at the middle of the map) */
       const dir = this.aimDir(from), el = W.element, big = a.big && a.charge > 0.2, ch = a.charge || 0;
       const invCrit = this.phaseInvis && this.stealth > 0; if (invCrit) { this.stealth = 0; this.phaseInvis = false; } // (the first cast out of Phase Shift crits, and ends it)
       if (this.h.arena && this.h.cls === 'bombardier' && G.hooks.bombThrow) { // the goblin throws the bomb from his fist: it bounces, then goes off (bomber.js)

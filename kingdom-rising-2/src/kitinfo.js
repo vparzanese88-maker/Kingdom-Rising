@@ -59,10 +59,12 @@ export const KIT = {
   ar_overgrowth: ['tree', 'nature', 'A great tree tears out of the ground in front of you; its roots whip out to everyone within 15 m, seizing enemies (20% damage, rooted 1.6 s) and healing allies 25%. For 6 s it heals allies within 12 m 5% a second.', 1],
   // shaman
   sh_wave: ['wave', 'frost', 'Water bursts up under you and every ally within 12 m. You heal 20%, they heal 28%.'],
-  ar_chainbolt: ['bolt', 'frost', 'A bolt of lightning at your target that jumps to two more enemies nearby, slowing them all.'],
+  ar_chainbolt: ['bolt', 'frost', 'A bolt of lightning at your target that jumps to two more enemies nearby, slowing them and stunning them for 0.4 s.'],
+  ar_spiritwolf: ['wolf', 'nature', 'A spirit wolf bursts out of green smoke and hunts the enemy nearest your crosshair for 6 s.'],
+  sh_leap: ['spear', 'steel', 'Leap 9 m straight ahead spear first, striking everyone where you land.'],
   sh_hex: ['frog', 'nature', 'Turn the enemy you aim at into a frog for 2.5 s.'],
-  ar_totem: ['totem', 'nature', 'Throw a totem that heals allies within 10 m by 36% over 6 s.'],
-  ar_spirittotem: ['bolt', 'frost', 'A bolt from the sky charges your spear and a storm follows you for 4 s: forked lightning strikes the enemies round you and leaps between them, the rain heals your allies, and then the storm breaks on every enemy within 14 m, stunning them.', 1],
+  ar_totem: ['totem', 'nature', 'Throw a totem that heals allies within 10 m by 6% a second for 10 s. Two can stand at once.'],
+  ar_spirittotem: ['bolt', 'frost', 'A bolt from the sky charges your spear and a storm follows you for 4 s: fast forked lightning strikes the enemies round you and leaps between them, green lightning heals you and your allies, and then the storm breaks on every enemy within 14 m, stunning them.', 1],
   // ranger
   ar_firearrow: ['arrow', 'fire', 'A huge burning arrow that sets the target alight and stuns it for 1.5 s. You flip backwards.'],
   focus: ['eye', 'gold', 'Shoot twice as fast for 8 s.'],

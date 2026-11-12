@@ -238,7 +238,7 @@ export function druidElder(c) {
 }
 
 // ======================= SHAMAN: Call of Lightning =======================
-export const STORM = { charge: 0.65, dur: 4.0, every: 0.55, r: 14, hop: 8, hops: 3, strike: 0.045, jump: 0.035, rain: 0.03, finale: 0.1, finStun: 0.8, slow: 0.8 };
+export const STORM = { charge: 0.65, dur: 4.0, every: 0.28, healR: 18, healBolt: 0.035, r: 14, hop: 8, hops: 3, strike: 0.045, jump: 0.035, rain: 0.03, finale: 0.1, finStun: 0.8, slow: 0.8 };
 const boltCore = new THREE.CylinderGeometry(1, 1, 1, 5, 1, true), up = V3(0, 1, 0);
 // a forked bolt from a to b: a white-hot core in a blue glow, flickering out in a fifth of a second
 function bolt(a, b, o = {}) { const g = new THREE.Group(), L = a.distanceTo(b), N = Math.max(3, Math.round(L / (o.step || 1.1))), d = b.clone().sub(a), ax = d.clone().normalize(), s1 = V3(ax.z, 0, -ax.x); if (s1.lengthSq() < 0.01) s1.set(1, 0, 0); s1.normalize(); const s2 = ax.clone().cross(s1).normalize();
@@ -259,7 +259,7 @@ export function shamanStorm(c) {
   const tipOf = () => c.pos.clone().setY(c.pos.y + lift(c) + hgt(c) * 1.12);
   snd(c.pos, (N, Tn) => { N(0, 0.9, { type: 'lowpass', f: 200, f2: 700, gain: 0.5, a: 0.5 }); N(0, 0.9, { type: 'bandpass', f: 400, f2: 1800, q: 0.8, gain: 0.2, a: 0.6 }); Tn(0, 0.9, { type: 'sawtooth', f: 40, f2: 80, gain: 0.08, a: 0.5 }); }, 0.35);
   const thunder = (p, big) => { if (S.kb) S.kb('thunder', p, big ? 1.4 : 0.8); else S.cast && S.cast('lightning', p, big ? 1.4 : 0.7); };
-  const struck = new Map(); let wave = 0, waveT = 0, charged = false, fin = false, flT = 0;
+  const struck = new Map(), healed = new Map(); let wave = 0, waveT = 0, charged = false, fin = false, flT = 0;
   const strike = (from, u, frac, sky) => { if (!u || u.dead) return; const to = chest(u); bolt(from, to, { w: sky ? 0.09 : 0.055, forks: sky ? 3 : 1, life: sky ? 0.25 : 0.18 }); if (sky) bolt(from, to, { w: 0.04, forks: 1, col: '#b8a0ff', life: 0.18 });
     V.light(to, '#bfe0ff', sky ? 10 : 6, 0.2, 14); V.burst('lightning', to, sky ? 26 : 14, { speed: 8, size: 0.16 }); V.burst('spark', to, 10, { speed: 6, size: 0.12 }); ultHurt(u, frac, c, 'lightning', !sky); ultSlow(u, 0.6, T.slow); struck.set(u, G.time);
     if (sky) { const gp = u.pos.clone(); gp.y = gy(gp) + 0.2; V.burst('smoke', gp, 14, { speed: 2, vy: 2, size: 0.9, life: 0.9 }); thunder(to, false); } else S.kb ? S.kb('zapsmall', to, 1) : null; };
@@ -279,7 +279,8 @@ export function shamanStorm(c) {
         if (fs.length) { const u = fs[0], sky = V3(u.pos.x + (Math.random() - 0.5) * 3, cloud.position.y - 0.5, u.pos.z + (Math.random() - 0.5) * 3); strike(sky, u, T.strike, true); shakeAt(u.pos, 0.25);
           let prev = u; const hit = new Set([u]); for (let h = 0; h < T.hops; h++) { const nx = near(foesOf(c), prev.pos, T.hop).filter(v => !hit.has(v)).sort((x, y) => flat(x.pos, prev.pos) - flat(y.pos, prev.pos))[0]; if (!nx) break; hit.add(nx); const pf = prev; later(0.07 * (h + 1), () => strike(chest(pf), nx, T.jump, false)); prev = nx; } }
         else { const a = Math.random() * 6.28, q = C.clone().add(V3(Math.sin(a) * (4 + Math.random() * 6), 0, Math.cos(a) * (4 + Math.random() * 6))); q.y = gy(q); bolt(V3(q.x, cloud.position.y - 0.5, q.z), q, { w: 0.08, forks: 2 }); V.light(q.clone().setY(q.y + 1), '#cfe8ff', 8, 0.2, 14); V.burst('lightning', q.clone().setY(q.y + 0.2), 16, { speed: 6 }); thunder(q, false); }
-        if (wave % 2 === 0) for (const u of near(ultFriends(c), C, T.r)) { ultHeal(u, T.rain); V.burst('water', chest(u), 8, { speed: 2 }); } } }
+        { const pals = near(ultFriends(c).concat(c), C, T.healR).filter((u, i, a) => a.indexOf(u) === i && !u.dead).sort((x, y) => (healed.get(x) || 0) - (healed.get(y) || 0)); const u = pals[0]; /* (the owner: green lightning that heals: every wave a green bolt from the cloud strikes him or an ally, the one struck longest ago, reaching a little further than the storm's damage) */
+          if (u) { healed.set(u, G.time); const to = chest(u), sky = V3(u.pos.x + (Math.random() - 0.5) * 2, cloud.position.y - 0.5, u.pos.z + (Math.random() - 0.5) * 2); bolt(sky, to, { w: 0.08, forks: 2, col: '#3aff6a', life: 0.24 }); bolt(sky, to, { w: 0.035, forks: 1, col: '#b0ffb0', life: 0.18 }); V.light(to, '#7aff9a', 8, 0.2, 12); V.burst('heal', to, 18, { speed: 3, vy: 2 }); V.burst('leaf', to, 8, { speed: 3 }); ultHeal(u, T.healBolt); } } } }
     // the finale: the storm's heart breaks over him, a bolt on every enemy round him at once
     if (!fin && t >= T.charge + T.dur) { fin = true; const tip = tipOf(); bolt(cloud.position.clone().setY(cloud.position.y - 0.5), tip, { w: 0.13, forks: 5, life: 0.35 }); V.light(tip, '#e8f4ff', 22, 0.4, 30); shakeAt(c.pos, 1.1); stopFor(c, 0.07); thunder(tip, true);
       snd(c.pos, (N, Tn) => { Tn(0, 1.4, { type: 'sine', f: 58, f2: 24, gain: 0.8, a: 0.002 }); N(0.05, 2.0, { type: 'lowpass', f: 600, f2: 50, gain: 0.7, a: 0.1 }); }, 0.4);

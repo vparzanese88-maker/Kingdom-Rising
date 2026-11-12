@@ -1691,6 +1691,9 @@ export class Player {
           this.dealDamage(cur, P(a.dmg) * k, hitO(cur, { ranged: true, el: 'lightning', slow: a.slow || 2 })); src = to; k *= 0.75; const last = cur; cur = mobsInRadius(last.pos, 9).filter(o => !hit.includes(o) && foe(o) && !o.isStruct).sort((x, y) => x.pos.distanceTo(last.pos) - y.pos.distanceTo(last.pos))[0]; }
         if (!first) { const to = from.clone().addScaledVector(this.aimDir(from), 20); lightning(from, to, '#cfe8ff'); }
         S.cast('lightning', this.pos, 1); anim('cast', 0.4); return true; }
+      case 'spiritwolf': { if (G.hooks.shamanWolf) G.hooks.shamanWolf(this); anim('cast', 0.45); return true; } /* (the owner: a spirit wolf hunts the enemy nearest your crosshair for 6 s) */
+      case 'spearleap': { /* (the owner: the shaman leaps straight forward, spear first; everyone where she lands is struck and knocked back) */
+        const to = this.pos.clone().addScaledVector(f, 9); to.y = heightAt(to.x, to.z); this.leap = { t: 0, dur: 0.5, from: this.pos.clone(), to, dmg: P(a.dmg), r: 2.8, hgt: 1.8 }; V.burst('dust', this.pos.clone().setY(this.pos.y + 0.2), 16, { speed: 3 }); S.swingW && S.swingW('spear', 1.3, this.pos); anim('leap', 0.55); return true; }
       case 'pounce': { /* (the owner: the beastmaster's Pounce: a leap onto the enemy you aim at; everyone where he lands is knocked down) */
         const tg = aimTarget(14); let to; if (tg) { const d = tg.pos.clone().sub(this.pos).setY(0); const L = d.length(); to = this.pos.clone().addScaledVector(d.normalize(), Math.max(0, L - 1.0)); } else to = this.pos.clone().addScaledVector(f, 10);
         to.y = heightAt(to.x, to.z); this.leap = { t: 0, dur: 0.55, from: this.pos.clone(), to, dmg: P(a.dmg), r: 3, hgt: 2.4 }; S.roar ? S.roar(this.pos) : null; V.burst('dust', this.pos.clone().setY(this.pos.y + 0.2), 16, { speed: 3 }); anim('leap', 0.6); return true; }

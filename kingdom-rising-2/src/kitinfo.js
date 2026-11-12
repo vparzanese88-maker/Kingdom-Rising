@@ -30,11 +30,11 @@ export const KIT = {
   deathgrip: ['grasp', 'shadow', 'Pull the enemy you aim at to you and stun them.'],
   ar_grasp: ['chains', 'shadow', 'A giant skeletal hand bursts up where you aim, crushes every enemy within 4.5 m (their souls heal you) and slams them into the ground: 45% of their health and a stun. Abyssal Armor: you take 40% less damage for 6 s.', 1],
   // cleric
-  radiantheal: ['suncross', 'gold', 'Heal yourself 16% and allies within 10 m 25%.'],
-  ar_purify: ['sparkle', 'frost', 'Cleanse yourself and allies within 12 m of stuns, slows and damage over time, and heal 10%.'],
-  holysmite: ['lightdown', 'gold', 'A sword of light falls from the sky onto the enemy you aim at (or where you aim). Everyone within 2.4 m is hit hard and stunned for 0.6 s.'],
+  radiantheal: ['shieldglow', 'gold', 'Three shields of light spin round you and the ally you aim at: both take 35% less damage for 6 s.'],
+  ar_purify: ['sparkle', 'frost', 'Cleanse yourself and allies within 12 m, heal 10%, and none of you can be slowed or snared for 4 s. For 5 s a warm light round you heals everyone near you.'],
+  holysmite: ['lightdown', 'gold', 'A spiked ball of light flies from your weapon and rolls 12 m ahead, knocking down everyone in its path.'],
   ar_mendC: ['beam', 'gold', 'A strong heal on the ally you aim at (or yourself). Works through walls.'],
-  ar_miracle: ['angel', 'gold', 'Wings of light lift you off the ground: every ally within 30 m (you too) heals 35% at once and 25% more over 4 s, is cleansed, and anyone near death is untouchable for 2 s. The wing beat hurls nearby enemies away.', 1],
+  ar_miracle: ['angel', 'gold', 'Wings of light lift you off the ground and you hover as you move: every ally within 30 m (you too) heals 35% at once and 25% more over 4 s, is cleansed, takes 30% less damage and runs faster for 6 s, and anyone near death is untouchable for 2 s. The wing beat hurls nearby enemies away.', 1],
   // monk
   flyingkick: ['kick', 'gold', 'Fly forward with a kick that hits everything in your way.'],
   hundredfists: ['fistburst', 'red', 'A blur of punches on the enemy in front of you. Gold chi fists pour off your hands and the flurry ends with a palm of light.'],

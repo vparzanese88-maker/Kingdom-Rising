@@ -1148,7 +1148,7 @@ export class Player {
 
   // the arena's ultimate: ready at 100% charge, fires straight away, then charges again
   ultimate() { const h = this.h, id = h.arenaUlt; if (!id || this.dead) return; if (G.time - (this.abLockT || -9) < 0.25) return; if (this.phaseInvis && this.stealth > 0) { this.stealth = 0; this.phaseInvis = false; } if (h.camp && h.level < 7) { S.error && S.error(); G.hooks.toast && G.hooks.toast('Your ultimate unlocks at level 7', '🔒', 'bad'); return; } if ((h.ultCharge || 0) < 100) { S.error(); G.hooks.toast && G.hooks.toast(`Ultimate ${Math.floor(h.ultCharge || 0)}% charged`, '★', 'bad'); return; } V.ultUntil = performance.now() + 7000; /* (an ultimate may draw its big rings) */
-    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; this.abLockT = G.time; if (h.ultRefund) { h.ultRefund = false; return; } if (id === 'ar_assassinate') return; /* (the owner: no animation, no flash: an instant shadow strike) */ this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 || id === 'ar_bertha' || id === 'ar_banner' || id === 'ar_wrath' || id === 'ar_arrowrain' ? 0 : /* (the ranger: no pose at all) */ /* (the paladin: just his slam) */ /* (the warrior: no cast pose for his banner) */ Math.max(this.ultPoseT || 0, 1.5); V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); /* (the owner: no generic ring at the start of any ultimate; each has its own look) */ V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; if (id === 'ar_bladestorm') { this.tpT = 5.3; this.tpDist = 5.5; } else { this.tpDist = 0; this.tpT = (id === 'ar_demon' || id === 'ar_wrath' || id === 'ar_fists' || id === 'ar_assassinate' || id === 'ar_arrowrain' || id === 'ar_overgrowth' || id === 'ar_spirittotem' || id === 'ar_miracle' || id === 'ar_bertha') ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } } /* (third person while the ultimate plays) */
+    const k = ABILITIES[h.cls].findIndex(a => a.id === id); if (k < 0) return; this.cd['a' + (k + 1)] = 0; this.abCast = null; this.summonCast = null; h.ultRefund = false; this.ability(k); h.ultCharge = h.ultRefund ? 100 : 0; this.abLockT = G.time; if (h.ultRefund) { h.ultRefund = false; return; } if (id === 'ar_assassinate') return; /* (the owner: no animation, no flash: an instant shadow strike) */ this.ultImmT = Math.max(this.ultImmT || 0, 2.2); this.ultPoseT = this.oozeT > 0 || id === 'ar_bertha' || id === 'ar_banner' || id === 'ar_wrath' || id === 'ar_arrowrain' || id === 'ar_miracle' ? 0 : /* (the cleric: no pose, she hovers and keeps moving) */ /* (the ranger: no pose at all) */ /* (the paladin: just his slam) */ /* (the warrior: no cast pose for his banner) */ Math.max(this.ultPoseT || 0, 1.5); V.burst(h.cls === 'necromancer' ? 'poison' : 'gold', this.pos.clone().setY(this.pos.y + 1.2), 60, { speed: 6 }); /* (the owner: no generic ring at the start of any ultimate; each has its own look) */ V.addShake(0.3); { const ua = ABILITIES[h.cls][k]; if (id === 'ar_bladestorm') { this.tpT = 5.3; this.tpDist = 5.5; } else { this.tpDist = 0; this.tpT = (id === 'ar_demon' || id === 'ar_wrath' || id === 'ar_fists' || id === 'ar_assassinate' || id === 'ar_arrowrain' || id === 'ar_overgrowth' || id === 'ar_spirittotem' || id === 'ar_miracle' || id === 'ar_bertha') ? 0 : Math.min(4, Math.max(2.2, (ua && ua.dur) || 0)); } } /* (third person while the ultimate plays) */
     V.burst('gold', this.pos.clone().setY(this.pos.y + 1.5), 50, { speed: 6 }); V.addShake(0.35); S.battleCry && S.battleCry(); }
   // where a ground-aimed ultimate lands: on the enemy you aim at (or the one nearest the crosshair's line, within about
   // 13 degrees left or right, when the aim point is near or beyond them), else the ground under the crosshair. Aiming a
@@ -1691,7 +1691,10 @@ export class Player {
           this.dealDamage(cur, P(a.dmg) * k, hitO(cur, { ranged: true, el: 'lightning', slow: a.slow || 2 })); src = to; k *= 0.75; const last = cur; cur = mobsInRadius(last.pos, 9).filter(o => !hit.includes(o) && foe(o) && !o.isStruct).sort((x, y) => x.pos.distanceTo(last.pos) - y.pos.distanceTo(last.pos))[0]; }
         if (!first) { const to = from.clone().addScaledVector(this.aimDir(from), 20); lightning(from, to, '#cfe8ff'); }
         S.cast('lightning', this.pos, 1); anim('cast', 0.4); return true; }
-      case 'spiritwolf': { if (G.hooks.shamanWolf) G.hooks.shamanWolf(this); anim('cast', 0.45); return true; } /* (the owner: a spirit wolf hunts the enemy nearest your crosshair for 6 s) */
+      case 'purify': { if (G.hooks.clericPurify) G.hooks.clericPurify(this, a); anim('cast', 0.45); return true; }
+      case 'smiteball': { const from = this.handPos ? this.handPos() : this.pos.clone().setY(this.pos.y + 1.2); if (G.hooks.clericSmite) G.hooks.clericSmite(this, this.aimDir(from), from); anim('swing1', 0.5); return true; }
+      case 'lightshields': { const al = G.hooks.aimAlly ? G.hooks.aimAlly(this, 40) : null; if (G.hooks.clericShields) G.hooks.clericShields(this, al && al !== this ? al : null); anim('cast', 0.45); return true; }
+      case 'shamanwolf': { if (G.hooks.shamanWolf) G.hooks.shamanWolf(this); anim('cast', 0.45); return true; } /* (the owner: a spirit wolf hunts the enemy nearest your crosshair for 6 s) */
       case 'spearleap': { /* (the owner: the shaman leaps straight forward, spear first; everyone where she lands is struck and knocked back) */
         const to = this.pos.clone().addScaledVector(f, 9); to.y = heightAt(to.x, to.z); this.leap = { t: 0, dur: 0.5, from: this.pos.clone(), to, dmg: P(a.dmg), r: 2.8, hgt: 1.8 }; V.burst('dust', this.pos.clone().setY(this.pos.y + 0.2), 16, { speed: 3 }); S.swingW && S.swingW('spear', 1.3, this.pos); anim('leap', 0.55); return true; }
       case 'pounce': { /* (the owner: the beastmaster's Pounce: a leap onto the enemy you aim at; everyone where he lands is knocked down) */
@@ -2236,6 +2239,7 @@ export class Player {
     if (this.defBannerT > G.time) dmg *= 0.25; /* (the owner: inside the War Banner's ring you take 75% less damage) */
     if ((this.ultImmT || 0) > 0 && !this.dead) return 0; // (casting an ultimate: untouchable while it plays)
     if (this.bannerT > G.time) dmg *= 0.6; // (War Banner)
+    if ((this.guardT || 0) > G.time) dmg *= 1 - (this.guardK || 0.3); // (the cleric's light shields and wings: less damage taken)
     dmg *= Game.arenaTakenK(this.h); if (this.h.arena) { dmg = Game.arenaIn(this, this.h, dmg, o); const th = Game.arenaPassive(this.h, 'thorns'); if (th && o.melee && src && src.arenaBot && !src.dead) { src.hp -= dmg * 0.08 * th; V.burst('spark', src.pos.clone().setY(src.pos.y + 1.1), 6, { speed: 3 }); if (src.hp <= 0) src.die(this); } } // (arena: tanks, toughness and passives)
     if (this.sheathed && !this.dead) this.drawWeapons(); this.hurtT0 = G.time;
     if (src && src.pos && !src.pet && src !== this) { this.lastHitBy = src; this.lastHitAt = G.time; } // (hurtT is a countdown used elsewhere)
@@ -2243,14 +2247,15 @@ export class Player {
     if (this.iframes > 0 || (this.dodge && !this.dodge.charge)) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Dodged', 'miss'); return; }
     const front = src && src.pos ? Math.abs(angDiff(this.yaw, Math.atan2(src.pos.x - this.pos.x, src.pos.z - this.pos.z))) < 1.3 : true;
     // a timed block (raised just before the hit lands) deflects all of it, costs nothing and staggers the attacker
-    if (this.block && front && this.W && G.time - (this.blockStart || -9) < 0.3) {
+    const clerBlock = this.h.arena && this.cls === 'cleric'; // (the owner: the cleric's block takes 75% off every hit and costs a third of her endurance per hit; no perfect block)
+    if (this.block && front && this.W && !clerBlock && G.time - (this.blockStart || -9) < 0.3) {
       S.block(this.W.hands === 'shield', this.pos); S.hit('metal', this.pos, 1.4); V.burst('spark', this.handPos(true), 30, { speed: 7 }); V.ring(this.pos, 1.6, '#ffe28a', 0.25); V.addShake(0.15); G.hitstop = 0.07;
       V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Perfect block!', 'crit');
       if (src && src.status && !src.remote && !src.isStruct) src.status.stun = Math.max(src.status.stun || 0, 0.9);
       return;
     }
     if (this.block && front && this.W) {
-      const red = Math.min(0.95, this.W.block + this.wp('block') * 0.1); const cost = dmg * 0.6 * (1 - this.wp('block') * 0.25);
+      const red = clerBlock ? 0.75 : Math.min(0.95, this.W.block + this.wp('block') * 0.1); const cost = clerBlock ? (this.maxEnd || 100) / 3 : dmg * 0.6 * (1 - this.wp('block') * 0.25);
       if (this.end >= cost * 0.5 || this.pk('unbreak') || this.buffs.fort > 0) { this.end = Math.max(0, this.end - cost); this.endUseT = 1; dmg *= 1 - red; S.block(this.W.hands === 'shield', this.pos); V.burst('spark', this.handPos(true), 14, { speed: 5 }); V.addShake(0.12); if (dmg < 1) return; }
       else { this.block = false; this.stagger = 0.8; V.number(this.pos.clone().setY(this.pos.y + this.eye), 'Guard broken!', 'bad'); S.hit('metal', this.pos); }
     }
@@ -2283,6 +2288,7 @@ export class Player {
     if (this.hp <= 0) { this.hp = 0; this.die(); }
   }
   debuff(type, t, dps = 0) {
+    if ((type === 'slow' || type === 'root') && (this.snareImmT || 0) > G.time) return; // (Purifying Light: no slows or snares)
     if (type === 'stun' && this.block && this.pk('immov')) return; // Immovable
     this.db = this.db || {};
     const d = this.db[type] || (this.db[type] = { t: 0, dps: 0 });

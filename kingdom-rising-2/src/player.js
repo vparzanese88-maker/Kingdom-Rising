@@ -959,6 +959,7 @@ export class Player {
       if (this.h.arena && this.h.cls === 'bombardier' && G.hooks.bombThrow) { // the goblin throws the bomb from his fist: it bounces, then goes off (bomber.js)
         G.hooks.bombThrow(this, from, dir, base); S.swing && S.swing(); V.burst('spark', from, 6, { speed: 2 }); return; }
       if (this.h.arena && this.h.cls === 'priest') { // a bolt of dawn light: every hit on an enemy heals the most hurt ally near you (atonement)
+        { const al = G.hooks.aimAlly ? G.hooks.aimAlly(this, 40) : null; if (al && al !== this && G.hooks.priestHealBolt) { G.hooks.priestHealBolt(this, al, from, 0.06); S.cast('holy', from, 0.7); V.burst('gold', from, 8, { speed: 2 }); return; } } /* (the owner: aimed at an ally, the bolt heals them) */
         spawnProjectile({ wpn: true, pos: from, vel: dir.multiplyScalar(48), grav: 0.5, radius: 0.24, dmg: base * 0.85, owner: 'player', kind: 'dawn', life: 3, home: true, onHit: (p, m, pos) => { if (m) { this.dealDamage(m, p.dmg, { el: 'arcane' }); G.hooks.atone && G.hooks.atone(this, 0.045); } V.burst('gold', pos, 18, { speed: 4 }); V.light(pos, '#ffe080', 3, 0.2); S.cast('holy', pos, 0.5); } });
         S.cast('holy', from, 0.7); V.burst('gold', from, 8, { speed: 2 }); return; }
       if (G.newFx && !a.big) base *= 0.7; // campaign: plain bolts hit softer; spells and the held stream carry the damage
@@ -2247,7 +2248,7 @@ export class Player {
     if (this.iframes > 0 || (this.dodge && !this.dodge.charge)) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Dodged', 'miss'); return; }
     const front = src && src.pos ? Math.abs(angDiff(this.yaw, Math.atan2(src.pos.x - this.pos.x, src.pos.z - this.pos.z))) < 1.3 : true;
     // a timed block (raised just before the hit lands) deflects all of it, costs nothing and staggers the attacker
-    const clerBlock = this.h.arena && this.cls === 'cleric'; // (the owner: the cleric's block takes 75% off every hit and costs a third of her endurance per hit; no perfect block)
+    const clerBlock = this.h.arena && ['cleric', 'warrior'].includes(this.h.cls || this.cls); // (the owner: the cleric's and the warrior's block takes 75% off every hit and costs a third of her endurance per hit; no perfect block)
     if (this.block && front && this.W && !clerBlock && G.time - (this.blockStart || -9) < 0.3) {
       S.block(this.W.hands === 'shield', this.pos); S.hit('metal', this.pos, 1.4); V.burst('spark', this.handPos(true), 30, { speed: 7 }); V.ring(this.pos, 1.6, '#ffe28a', 0.25); V.addShake(0.15); G.hitstop = 0.07;
       V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Perfect block!', 'crit');
@@ -2404,7 +2405,7 @@ export class Player {
   // ---------- update ----------
   update(dt) {
     const h = this.h;
-    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt * (this.buffs.formTime > 0 ? 2 : 1)); // Timeless Form: abilities recharge twice as fast
+    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt * (this.buffs.formTime > 0 ? 2 : 1) * ((this.cdBoostT || 0) > G.time ? 1.25 : 1)); // (the warrior's Banner of Haste: 25% faster inside its ring) // Timeless Form: abilities recharge twice as fast
     this.useCd = Math.max(0, this.useCd - dt); this.iframes = Math.max(0, this.iframes - dt); this.comboT -= dt; this.stealth = Math.max(0, this.stealth - dt);
     for (const k of ['poisonW', 'flame', 'clarity', 'wolfRun', 'ward', 'anthem', 'warsong', 'reload', 'eagle', 'leech', 'storm', 'cry', 'fury', 'adren', 'tq', 'surge', 'swind', 'barrierT', 'wall', 'stand', 'rage', 'fort', 'rampage', 'focus', 'undying', 'bWar', 'bVigor', 'bStone', 'lich', 'formFire', 'formFrost', 'formArcane', 'formVoid', 'formTime', 'avatar', 'iceblock', 'phase', 'power', 'mward', 'missiles']) this.buffs[k] = Math.max(0, (this.buffs[k] || 0) - dt); /* (missiles: the wizard's Magic Missiles) */ if (this.buffs.barrierT <= 0) this.buffs.barrier = 0; this.stagger = Math.max(0, (this.stagger || 0) - dt);
     this.hurtT = Math.max(0, this.hurtT - dt); this.regenDelay = Math.max(0, (this.regenDelay || 0) - dt); this.swapT = Math.max(0, (this.swapT || 0) - dt); this.landT = Math.max(0, (this.landT || 0) - dt * 3.5);

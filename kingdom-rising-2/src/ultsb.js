@@ -223,7 +223,7 @@ export function bearForm(c) {
 // ======================= Priest: Salvation =======================
 const BEAM_G = new THREE.CylinderGeometry(0.55, 0.9, 1, 16, 1, true), SPEAR_LG = new THREE.ConeGeometry(0.28, 4.6, 6);
 export function salvation(c) {
-  const T = Object.assign({}, UB_TUNE.salv, G.salvTune || {}), me = isP(c) ? c : null, C = c.pos.clone(); C.y = ultGround(C);
+  const T = Object.assign({}, UB_TUNE.salv, { heal0: 0.5, hot: 0, spears: 0 }, G.salvTune || {}), me = isP(c) ? c : null, C = c.pos.clone(); C.y = ultGround(C); /* (the owner: she prays, and a light from the heavens falls on every living ally wherever they are, healing 50%) */
   if (me) { me.ultImmT = Math.max(me.ultImmT || 0, 1.2); me.ultPoseT = 1.4; } else c.invulnT = Math.max(c.invulnT || 0, G.time + 1.2);
   const chest = me ? c.ch && c.ch.chest : c.model && c.model.chest, wings = makeWings(); wings.scale.setScalar(0.01); if (wings.userData.mat) { wings.userData.mat = wings.userData.mat; wings.userData.mat.color.set('#ffb830'); wings.userData.mat.opacity = 0.5; } let wingHost = null;
   if (chest) { wings.position.set(0, 0.15, -0.2); chest.add(wings); wingHost = 'chest'; } else { G.scene.add(wings); wingHost = 'world'; }
@@ -232,7 +232,7 @@ export function salvation(c) {
   S.castRise && S.castRise(0.5, 'holy'); S.cast && S.cast('holy', C, 1.8); S.smiteFall && S.smiteFall(C); V.burst('gold', C.clone().setY(C.y + 1), 120, { speed: 8 }); V.light(C.clone().setY(C.y + 3), '#ffe9a0', 16, 0.8, 34);
   later(0.12, () => { V.burst('gold', c.pos.clone().setY(c.pos.y + 1.6), 60, { speed: 12, vy: 2 }); hitstop(0.05); V.addShake(0.4); }); // (the wings snap open)
   // the rays: one falls on each ally (and on him); they heal at once, then over the next seconds, and cannot fall below 1 health for 3 s
-  const allies = near(ultFriends(c), C, T.r); if (!allies.includes(c)) allies.push(c);
+  const allies = ultFriends(c).filter(u => u && !u.dead); if (!allies.includes(c)) allies.push(c);
   const rays = allies.map((u, i) => { const g = new THREE.Group(), outer = new THREE.Mesh(BEAM_G, addM('#ffe08a', 0)), core = new THREE.Mesh(BEAM_G, addM('#fffbe8', 0)); core.scale.set(0.35, 1, 0.35); g.add(outer, core); G.scene.add(g); return { u, g, outer, core, d: 0.1 + i * 0.07, hit: false }; });
   const foes = near(ultFoes(c), C, T.r), spears = []; foes.forEach((u, i) => { for (let s = 0; s < T.spears; s++) spears.push({ u, at: 0.6 + s * 1.4 + i * 0.09 + Math.random() * 0.1 }); });
   if (allies.length > 1 || foes.length) feed(c, 'calls down Salvation!');
@@ -240,9 +240,9 @@ export function salvation(c) {
   timer((t, dt) => { const k = ease(t / 0.4) * (1 - ease((t - T.dur) / 0.6)), lift = ease(t / 0.7) * (1 - ease((t - T.dur + 0.2) / 0.6));
     wings.scale.setScalar(Math.max(0.01, (wingHost === 'chest' ? 0.9 : 0.8) * k)); const sides = wings.userData.sides; if (sides) sides.forEach((w, i) => { w.rotation.y = (i ? -1 : 1) * (0.2 + Math.sin(t * 3.2) * 0.28); w.rotation.z = (i ? 1 : -1) * Math.sin(t * 3.2) * 0.12; });
     if (wingHost === 'world') { wings.position.copy(c.pos).setY(c.pos.y + hgt(c) * 0.75); wings.rotation.y = c.yaw || 0; }
-    const body = me ? c.ch && c.ch.body : c.model && c.model.body; if (body) body.position.y = lift * 1.4 + Math.sin(t * 3.2) * 0.1 * lift;
+    const body = me ? c.ch && c.ch.body : c.model && c.model.body; if (body) body.position.y = 0;
     const yaw = me ? (c.bodyYaw != null ? c.bodyYaw : c.yaw) : (c.yaw || 0); crown.position.copy(c.pos).add(V3(-Math.sin(yaw) * 0.25, hgt(c) + 0.15 + lift * 1.4, -Math.cos(yaw) * 0.25)); crown.rotation.set(0, yaw, t * 0.8); crown.scale.setScalar(Math.max(0.01, k * 1.3)); crown.visible = !me || camDist(crown.position) > 1.6;
-    wings.visible = !me || !!me.cine || (me.tpT || 0) > 0 || camDist(c.pos.clone().setY(c.pos.y + 1.4)) > 1.5;
+    wings.visible = false; crown.visible = false; /* (no wings or crown: she just prays) */
     if (Math.random() < 0.6 * k) V.emit('gold', c.pos.clone().add(V3((Math.random() - 0.5) * 3, 1 + lift * 1.4 + Math.random() * 2, (Math.random() - 0.5) * 3)), { speed: 0.3, vy: -0.6, size: 0.3, life: 1.4, grav: 0.4 }); // (feathers of light drifting down)
     for (const r of rays) { const u = r.u, tt = t - r.d; if (tt < 0) continue; const p = u.pos, gy0 = p.y; const drop = Math.min(1, tt / 0.18), fade = 1 - ease((t - T.dur + 0.3) / 0.6);
       const len = H * drop, selfK = u === c ? Math.max(0, 1 - Math.max(0, tt - 0.5) / 0.5) : 1; /* (his own ray only flashes: the camera sits behind him, inside it) */ r.g.position.set(p.x, gy0 + H - len / 2, p.z); r.g.scale.set(1, len, 1); r.outer.material.opacity = 0.28 * fade * selfK * (tt < 0.4 ? 1.8 - tt * 2 : 1); r.core.material.opacity = 0.6 * fade * selfK * (tt < 0.4 ? 1.6 - tt * 1.5 : 0.6 + Math.sin(t * 7) * 0.1);

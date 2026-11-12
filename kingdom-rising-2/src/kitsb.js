@@ -389,6 +389,19 @@ function chainsLight(c, a, ctx) {
   return true;
 }
 
+// (the owner) the priest's Blinding Light: a blast of light bursts out of her; every enemy within 8 m is blinded and runs off
+// in a random direction for 2 s
+function blindingLight(c, a, ctx) { const C = c.pos.clone(), R = a.r || 8, dur = a.blind || 2; anim(c, 'castBig', 0.5); S.cast && S.cast('holy', C, 1.4);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), addM('#fffbe8', 0.9)); ball.position.copy(C).setY(C.y + hgt(c) * 0.6); G.scene.add(ball); V.light(ball.position.clone(), '#fff6d0', 22, 0.5, 30); V.burst('gold', ball.position.clone(), 90, { speed: 12 }); kick(c, 0.35, 0, 0.04);
+  tick((dt) => { const k = Math.min(1, (ball.userData.t = (ball.userData.t || 0) + dt) / 0.35); ball.scale.setScalar(0.5 + R * k); ball.material.opacity = 0.9 * (1 - k); if (k >= 1) { kill(ball); return true; } return false; });
+  for (const u of foes(c)) { if (u.pos.distanceTo(C) > R) continue; const away = u.pos.clone().add(V3((Math.random() - 0.5) * 12, 0, (Math.random() - 0.5) * 12)); /* (a random point: they flee from it) */
+    hurt(c, u, ctx.P(a.dmg || 0.3), { el: 'holy', ranged: true });
+    if (isP(u)) { u.fearT = Math.max(u.fearT || 0, dur); u.fearFrom = away; u.blindT = G.time + dur; G.hooks.toast && G.hooks.toast('Blinded!', '☀', 'bad'); if (u === G.player && typeof document !== 'undefined') { const ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;background:#fffbe8;pointer-events:none;z-index:50;opacity:0.95'; document.body.appendChild(ov); let bt = 0; tick((dt) => { bt += dt; ov.style.opacity = String(0.95 * Math.max(0, 1 - Math.max(0, bt - dur * 0.4) / (dur * 0.6))); if (bt > dur) { ov.remove(); return true; } return false; }); } }
+    else if (u.status) { u.status.fear = Math.max(u.status.fear || 0, dur); u.fearFrom = away; }
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), addM('#ffffff', 0.85)); G.scene.add(glow); tick((dt) => { glow.userData.t = (glow.userData.t || 0) + dt; glow.position.copy(u.pos).setY(u.pos.y + hgt(u) * 0.92); glow.material.opacity = 0.85 * (1 - glow.userData.t / dur) * (0.7 + 0.3 * Math.sin(glow.userData.t * 20)); if (glow.userData.t > dur || u.dead) { kill(glow); return true; } return false; }); /* (a white glare over their eyes) */
+    V.burst('gold', chest(u), 20, { speed: 4 }); }
+  return true; }
+
 // ======================================================================= BOMBARDIER
 // Tar Bomb: a clay pot of tar lobbed where you aim splats into a black, bubbling puddle 5 m across for 6 s: enemies wading in it are
 // slowed hard. The detonator (right click) sets every puddle you have out ablaze: it roars up in flame for 3 s, burning whoever is in it.
@@ -424,7 +437,7 @@ export function igniteTar(owner) { let n = 0; for (const T of KB.tars.slice()) i
 
 // ======================================================================= dispatch
 const CAST = { kbflamewave: flameWave, kblash: lightningLash, kbfrost: frostbind, kbicewall: glacierWall, kbshards: mirrorShards, kblock: mindLock, kbmez: mesmerize, kbdecoy: mirrorImage,
-  kbrend: savageRend, kbpounce: pounce, kbroar: feralRoar, kbhide: primalHide, kbhalo: haloDawn, kbword: wordShielding, kbchains: chainsLight, kbtar: tarBomb };
+  kbrend: savageRend, kbpounce: pounce, kbroar: feralRoar, kbhide: primalHide, kbhalo: haloDawn, kbword: wordShielding, kbchains: chainsLight, kbblind: blindingLight, kbtar: tarBomb };
 KB.has = (t) => !!CAST[t];
 KB.cast = (c, a, ctx = {}) => { try { return CAST[a.t](c, a, Object.assign({ P: (n) => n || 0 }, ctx)); } catch (e) { console.error('kitsb', a.t, e); return true; } };
 // when a computer fighter uses each move (returns who to use it on, or null)
@@ -446,6 +459,7 @@ KB.want = (b, a, T, dT, hp) => {
     case 'kbhalo': { const al = friends(b).filter(u => u !== b && u.hp / u.maxHp < 0.75 && u.pos.distanceTo(me) < 15).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; return al || (T && dT < 15 ? T : null); }
     case 'kbword': { const n = friends(b).filter(u => u.hp / u.maxHp < 0.75 && u.pos.distanceTo(me) < (a.r || 14)).length; return n >= 2 || hp < 0.6 || (n >= 1 && recent) ? b : null; }
     case 'kbchains': return T && dT < 24 && !st ? T : null;
+    case 'kbblind': return foes(b).filter(u => u.pos.distanceTo(me) < 7.5).length >= 1 ? b : null;
     case 'kbtar': return T && dT < 20 ? T : null;
   } return null; };
 G.hooks.kb = KB;
@@ -465,8 +479,9 @@ export const KB_AB = {
     { id: 'bm_hide', name: 'Primal Hide', t: 'kbhide', kit: true, level: 1, cd: 20, cost: 0, fx: 'dust', dur: 4, taken: 0.6, heal: 0.2, desc: '' }],
   priest: [{ id: 'pr_sunhalo', name: 'Halo of Dawn', t: 'kbhalo', kit: true, level: 1, cd: 10, cost: 0, fx: 'gold', dmg: 0.9, heal: 0.12, slow: 1.5, desc: '' },
     { id: 'pr_word2', name: 'Word of Shielding', t: 'kbword', kit: true, level: 1, cd: 16, cost: 0, fx: 'gold', heal: 0.15, amount: 0.15, dur: 5, r: 14, desc: '' },
-    { id: 'pr_chains2', name: 'Chains of Light', t: 'kbchains', kit: true, level: 1, cd: 13, cost: 0, fx: 'gold', dmg: 0.6, root: 2, desc: '' }],
+    { id: 'pr_chains2', name: 'Chains of Light', t: 'kbchains', kit: true, level: 1, cd: 13, cost: 0, fx: 'gold', dmg: 0.6, root: 2, desc: '' },
+    { id: 'pr_blind', name: 'Blinding Light', t: 'kbblind', kit: true, level: 1, cd: 14, cost: 0, fx: 'gold', dmg: 0.3, r: 8, blind: 2, desc: '' }],
   bombardier: [{ id: 'bo_tar', name: 'Tar Bomb', t: 'kbtar', kit: true, level: 1, cd: 12, cost: 0, fx: 'fire', dmg: 0.3, desc: '' }],
 };
-export const KB_KITS = { elementalist: ['el_flamewave', 'el_lash', 'el_frostbind'], enchanter: ['en_shards', 'en_mindlock', 'en_mesmer'], beastmaster: ['bm_rend', 'bm_pounce', 'bm_roar'], priest: ['pr_sunhalo', 'pr_word2', 'pr_chains2'], bombardier: ['bo_rocket', 'bo_tar', 'bo_stickies'] };
+export const KB_KITS = { elementalist: ['el_flamewave', 'el_lash', 'el_frostbind'], enchanter: ['en_shards', 'en_mindlock', 'en_mesmer'], beastmaster: ['bm_rend', 'bm_pounce', 'bm_roar'], priest: ['pr_sunhalo', 'pr_word2', 'pr_blind'], bombardier: ['bo_rocket', 'bo_tar', 'bo_stickies'] };
 export const KB_RMB = { elementalist: 'el_icewall', enchanter: 'en_decoy', beastmaster: 'bm_hide' };

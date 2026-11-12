@@ -4,7 +4,7 @@
 export const KIT = {
   // warrior
   ar_flameblade: ['flamesword', 'fire', 'Set your sword on fire for 8 s. Every hit burns.'],
-  ar_mendbanner: ['mendbanner', 'nature', 'Plant a banner that heals you and nearby allies for 8 s.'],
+  ar_mendbanner: ['mendbanner', 'gold', 'Plant a banner for 8 s: you and allies inside its ring recharge abilities 25% faster.'],
   ar_charge: ['shieldcharge', 'gold', 'Charge behind your shield, knocking down and stunning everyone in your path.'],
   ar_shbash: ['shieldbash', 'steel', 'Bash the enemy in front of you: knocked back and stunned for 1.2 s.'],
   ar_banner: ['shieldbanner', 'gold', 'Plant a giant war banner. You and allies within 10 m take 75% less damage for 8 s.', 1],
@@ -138,12 +138,13 @@ export const KIT = {
   // priest
   pr_sunhalo: ['halo', 'gold', 'Throw a spiked halo of dawn like a boomerang: out 16 m and back to you. Allies it passes heal 12% each way; enemies it cuts are hurt and slowed.'],
   pr_word2: ['shieldglow', 'gold', 'Speak a word of light: golden letters stream to you and every ally within 14 m, healing 15% and shielding 15% of their health for 5 s.'],
+  pr_blind: ['sun', 'gold', 'A blast of light bursts out of you: every enemy within 8 m is blinded and runs off in a random direction for 2 s.'],
   pr_chains2: ['chains', 'gold', 'Throw a spear of dawn: golden chains burst out of the ground around the enemy it hits and hold them in place for 2 s.'],
   pr_halo: ['halo', 'gold', 'A ring of light heals allies around you 25% and you 15%.'],
   pr_word: ['shieldglow', 'gold', 'A shield absorbs about 20% of your health for 6 s.'],
   pr_chains: ['chains', 'gold', 'Chain the enemy you aim at in place for 2 s.'],
-  ar_mendP: ['sun', 'gold', 'Heal the ally you aim at (or yourself) and shield them for 4 s. Works through walls.'],
-  ar_salvation: ['wings', 'gold', 'Wings of dawn lift you: rays of light heal every ally within 16 m 60% and they cannot die for 3 s; spears of light fall on enemies.', 1],
+  ar_mendP: ['sun', 'gold', 'Heal the ally you aim at (or yourself). Works through walls. 4 s cooldown.'],
+  ar_salvation: ['wings', 'gold', 'Pray to the gods: a bright light comes down from the heavens on every living ally, wherever they are, healing them 50%, and they cannot die for 3 s.', 1],
   // bombardier
   aim: ['aim', 'steel', 'Aim down your sights.'],
   bo_rocket: ['rocketboot', 'fire', 'Rocket forward, burning everything in your way.'],

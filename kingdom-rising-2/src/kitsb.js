@@ -256,6 +256,22 @@ export function eleStorm(c, a = {}) {
   return true;
 }
 
+// ---------- (the owner) the necromancer's Life Siphon (right click): a red splash of blood flies at the enemy you aim at; it bursts on
+// them, and a splash of their blood flies back to him twice as fast and heals him by what it took ----------
+const bloodBall = (s = 1) => { const g = new THREE.Group(), red = new THREE.MeshStandardMaterial({ color: '#8a0008', emissive: '#a00010', emissiveIntensity: 0.9, roughness: 0.25, metalness: 0.1 }), dark = new THREE.MeshStandardMaterial({ color: '#4a0004', emissive: '#600008', emissiveIntensity: 0.6, roughness: 0.3 });
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.2 * s, 12, 10), red); core.scale.set(1, 1, 1.5); g.add(core); for (let i = 0; i < 7; i++) { const d = new THREE.Mesh(new THREE.SphereGeometry((0.05 + Math.random() * 0.06) * s, 6, 5), i % 2 ? red : dark); d.position.set((Math.random() - 0.5) * 0.3 * s, (Math.random() - 0.5) * 0.3 * s, -(0.1 + Math.random() * 0.4) * s); g.add(d); } return g; };
+function bloodSplash(c, a, ctx) {
+  const from = castFrom(c), dir = aimDirOf(c, from, ctx.T), n = ctx.P(a.dmg || 1.1); faceDir(c, flatDir(dir)); anim(c, 'castRel', 0.4); S.cast && S.cast('shadow', from, 0.8); S.hit && S.hit('flesh', from, 0.5);
+  const ball = bloodBall(1); ball.lookAt(from.clone().add(dir));
+  fly(c, { from, dir, speed: a.speed || 26, range: 30, mesh: ball, radius: 0.8, spin: (m, dt, t, v) => { m.lookAt(m.position.clone().add(v)); m.children.forEach((k, i) => { if (i) k.position.x += Math.sin(t * 30 + i) * 0.004; }); },
+    trail: (p) => { if (Math.random() < 0.8) V.emit('blood', p.clone(), { speed: 0.6, size: 0.25, life: 0.45, grav: 8 }); },
+    onEnd: (hit, at) => { V.burst('blood', at.clone(), 34, { speed: 5, size: 0.35, grav: 10 }); S.hit && S.hit('flesh', at, 1.1); if (!hit) return;
+      const got = hurt(c, hit, n, { el: 'shadow', ranged: true, noLeech: true }) || n; const back = bloodBall(0.8); back.position.copy(at); G.scene.add(back); const sp = (a.speed || 26) * 2; let t = 0;
+      tick((dt) => { t += dt; if (c.dead) { kill(back); return true; } const to = chest(c).sub(back.position), L = to.length(); if (L < 0.5 || t > 3) { kill(back); if (KB.heal) KB.heal(c, got * (a.heal || 1), c); V.burst('blood', chest(c), 18, { speed: 3, size: 0.3 }); V.burst('heal', chest(c), 10, { speed: 2, vy: 1.5 }); S.heal && S.heal(); return true; }
+        to.divideScalar(L); back.position.addScaledVector(to, Math.min(L, sp * dt)); back.lookAt(back.position.clone().add(to)); if (Math.random() < 0.8) V.emit('blood', back.position.clone(), { speed: 0.5, size: 0.22, life: 0.35, grav: 6 }); return false; }); } });
+  return true;
+}
+
 // ======================================================================= ENCHANTER
 const mirrorTex = () => canvasTex('mirror', 128, 160, (x, w, h) => { const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#f6eaff'); g.addColorStop(0.35, '#b9a6e8'); g.addColorStop(0.5, '#ffffff'); g.addColorStop(0.62, '#a890e0'); g.addColorStop(1, '#5a3a9a'); x.fillStyle = g; x.fillRect(0, 0, w, h);
   x.strokeStyle = 'rgba(255,255,255,0.7)'; x.lineWidth = 3; for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(-20 + i * 40, h); x.lineTo(60 + i * 40, 0); x.stroke(); } x.strokeStyle = '#ff9af0'; x.lineWidth = 8; x.strokeRect(4, 4, w - 8, h - 8); });
@@ -522,7 +538,7 @@ function tarBomb(c, a, ctx) {
 export function igniteTar(owner) { let n = 0; for (const T of KB.tars.slice()) if (T.owner === owner && T.ignite && T.ignite()) n++; return n; }
 
 // ======================================================================= dispatch
-const CAST = { kbfireform: fireForm, kbiceform: iceForm, kbflamewave: flameWave, kblash: lightningLash, kbfrost: frostbind, kbicewall: glacierWall, kbshards: mirrorShards, kblock: mindLock, kbmez: mesmerize, kbdecoy: mirrorImage,
+const CAST = { kbblood: bloodSplash, kbfireform: fireForm, kbiceform: iceForm, kbflamewave: flameWave, kblash: lightningLash, kbfrost: frostbind, kbicewall: glacierWall, kbshards: mirrorShards, kblock: mindLock, kbmez: mesmerize, kbdecoy: mirrorImage,
   kbrend: savageRend, kbpounce: pounce, kbroar: feralRoar, kbhide: primalHide, kbhalo: haloDawn, kbword: wordShielding, kbchains: chainsLight, kbblind: blindingLight, kbtar: tarBomb };
 KB.has = (t) => !!CAST[t]; KB.eleStorm = eleStorm;
 KB.cast = (c, a, ctx = {}) => { try { return CAST[a.t](c, a, Object.assign({ P: (n) => n || 0 }, ctx)); } catch (e) { console.error('kitsb', a.t, e); return true; } };
@@ -531,6 +547,7 @@ KB.want = (b, a, T, dT, hp) => {
   const recent = G.time - (b.hurtT || 0) < 2.5, st = T && stunned(T), me = b.pos;
   switch (a.t) {
     case 'kbflamewave': return T && dT < 12 ? T : null;
+    case 'kbblood': return T && dT < 24 && (hp < 0.85 || Math.random() < 0.5) ? T : null;
     case 'kbfireform': return T && dT < 16 ? b : null;
     case 'kbiceform': return hp < 0.4 && recent ? b : null;
     case 'kblash': return T && dT < 8.5 ? T : null;
@@ -553,6 +570,7 @@ KB.want = (b, a, T, dT, hp) => {
 G.hooks.kb = KB;
 // the moves themselves (pushed into ABILITIES by arena.js kitRules0; the short texts live in kitinfo.js)
 export const KB_AB = {
+  necromancer: [{ id: 'nx_blood', name: 'Life Siphon', t: 'kbblood', kit: true, level: 1, cd: 4, cost: 0, fx: 'blood', dmg: 1.1, heal: 1, speed: 26, desc: '' }],
   elementalist: [{ id: 'el_fireform', name: 'Fire Form', t: 'kbfireform', kit: true, level: 1, cd: 18, cost: 0, fx: 'fire', dur: 6, burn: 0.22, desc: '' },
     { id: 'el_iceform', name: 'Ice Form', t: 'kbiceform', kit: true, level: 1, cd: 16, cost: 0, fx: 'frost', dur: 5, r: 4.2, dmg: 1.0, stun: 1.2, desc: '' },
     { id: 'el_flamewave', name: 'Flame Wave', t: 'kbflamewave', kit: true, level: 1, cd: 9, cost: 0, fx: 'fire', dmg: 1.5, burn: 0.3, desc: '' },

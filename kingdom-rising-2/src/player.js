@@ -1254,7 +1254,7 @@ export class Player {
       case 'ar_bladestorm': { if (!G.hooks.arenaStorm) break; G.hooks.arenaStorm(this); break; } // (you steer the whirlwind)
       case 'ar_fists': { if (!G.hooks.arenaFists) break; G.hooks.arenaFists(this); break; } // (the whirlwind of fists, centred on you)
       case 'ar_wrath': { if (!G.hooks.arenaWrath) break; { const fw = this.aimDir ? this.aimDir(this.pos.clone().setY(this.pos.y + 1.5)) : null; if (fw && Math.hypot(fw.x, fw.z) > 0.05) this.yaw = Math.atan2(fw.x, fw.z); } G.hooks.arenaWrath(this); break; } // (Dawnbreaker: the fissure tears out the way he faces)
-      case 'ar_demon': { if (!G.hooks.arenaHarvest) break; G.hooks.arenaHarvest(this); break; } // (the owner: Soul Harvest: siphon beams to every enemy round him, then bone spikes)
+      case 'ar_demon': { if (!G.hooks.arenaDemon) break; const gp = this.ultPoint(24); /* (on the enemy you aim at, not the fence behind them) */ G.hooks.arenaDemon(this, gp); this.headUpT = 1.2; S.demon && S.demon(this.pos, 1.8); break; } // (the owner: the demon ultimate is back: it rises in a ring of green hellfire where you aim)
       case 'ar_mendsong': { // Song of Mending: heals around the bard, notes on everyone it touches, no circles
         this.addRegen(ab.self || 0.3, ab.dur || 6); playNotes(G.scene, this, '#ffd860', 9); if (G.hooks.allyFx) G.hooks.allyFx(this.pos, [ab.r || 10, ab.ally || 0.25, null, 0], 1, 'notes');
         S.cast('holy', this.pos, 0.6); S.heal && S.heal(); this.atk = { name: 'castRel', t: 0.15, dur: 0.5, hit: true, noQueue: true }; break; }

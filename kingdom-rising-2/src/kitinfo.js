@@ -103,8 +103,9 @@ export const KIT = {
   drainlife: ['drain', 'nature', 'Toggle a beam that drains your target for up to 5 s, slowing them and healing you.'],
   ar_bonespikes: ['ribcage', 'steel', 'A line of bone spears bursts out of the ground toward where you aim, hitting and slowing everyone on it.'],
   ar_boneprison: ['ribcage', 'shadow', 'A cage of ribs bursts up around the enemy you aim at and roots them for 1.5 s.'],
+  nx_blood: ['drain', 'nature', 'Hurl a red splash of blood at the enemy you aim at; a splash of their blood flies back to you twice as fast and heals you by the damage it did. 4 s cooldown.'],
   bonearmor: ['ribcage', 'steel', 'A cage of bones absorbs 30% of your health.'],
-  ar_demon: ['drain', 'shadow', 'Siphon beams drain every enemy within 12 m for 4 s and heal you; then bone spikes erupt under them and knock them down.', 1],
+  ar_demon: ['skull', 'shadow', 'A ring of green hellfire bursts up where you aim and slows everyone inside; a skeletal demon claws its way out, seizes the nearest enemy, lifts them overhead and bites their head off.', 1],
   // elementalist
   el_fireform: ['flame', 'fire', 'Become a great ball of fire for 6 s: attack twice as fast, move 25% faster, and leave a trail of blazing ground that burns enemies who stand in it.'],
   el_iceform: ['crystal', 'frost', 'Freeze yourself into hard permafrost for 5 s: you cannot move or attack, but take no damage. Press again to break out early; either way the ice explodes, knocking down everyone within 4 m.'],

@@ -95,7 +95,7 @@ const REC = {
     abMoves: { ar_spiritwolf: 'abHex', sh_leap: 'tsA', ar_chainbolt: 'abHex', sh_wave: 'abWave', sh_wolf: 'abWolf', sh_hex: 'abHex', ar_totem: 'abTotem', ar_spirittotem: 'abSpirit' } }, /* (his spear thrusts stay as they are) */
   necromancer: { clips: { ncast1: A_('necro_cast1'), ncast2: A_('necro_cast2'), nslash: A_('necro_cslash'), nspin: A_('necro_spin') }, heightClips: ['ncast2'],
     moves: { nReap: ['nslash', 0.55, 1.45, 1.17, false, 0, false, 0.69], abDrain: ['ncast1', 0.33, 1.8, 0.63, false, 0.8], abBreath: ['ncast1', 0.33, 1.8, 1.4, false, 0.8], abSkull: ['ncast2', 0.1, 1.5, 1.23, false, 0.7], abDemon: ['nspin', 0.1, 2.03, 0.93, true, 1.3], abBone: ['ncast2', 0.1, 1.5, 1.23, false, 0.6] },
-    moveFor: { reap: 'nReap' }, abMoves: { drainlife: 'abDrain', ar_plaguebreath: 'abBreath', ar_skullfear: 'abSkull', ar_demon: 'abDemon', bonearmor: 'abBone' } }, /* (Charged Slash: the scythe's reap) */
+    moveFor: { reap: 'nReap' }, abMoves: { drainlife: 'abDrain', nx_blood: 'abDrain', ar_plaguebreath: 'abBreath', ar_skullfear: 'abSkull', ar_demon: 'abDemon', bonearmor: 'abBone' } }, /* (Charged Slash: the scythe's reap) */
   priest: { clips: { pcast1: A_('priest_cast1'), pcast2: A_('priest_cast2') }, heightClips: ['pcast2'],
     moves: { pCast: ['pcast2', 0.5, 1.45, 1.23, false, 0, false, 0.77], abHalo: ['pcast1', 0.33, 1.8, 1.4, false, 0.8], abWord: ['pcast2', 0.1, 1.5, 1.23, false, 0.6], abChains: ['pcast1', 0.33, 1.8, 0.63, false, 0.8], abSalv: ['pcast1', 0.33, 2.67, 1.4, true, 1.6] },
     moveFor: { cast: 'pCast' }, abMoves: { pr_halo: 'abHalo', ar_mendP: 'abHalo', pr_word: 'abWord', pr_chains: 'abChains', ar_salvation: 'abSalv', pr_sunhalo: 'abChains', pr_word2: 'abWord', pr_chains2: 'abHalo' } },

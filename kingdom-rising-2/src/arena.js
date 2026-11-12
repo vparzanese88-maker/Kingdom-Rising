@@ -63,9 +63,9 @@ const RESPAWN_T = 6, PICK_T = 60; // (60 s in the holding rooms to pick and buff
 export const ARENA_KITS = { // F, C, Q. Healers heal; tanks sustain; supports do a bit of everything; damage dealers burst
   warrior: ['ar_shbash', 'ar_mendbanner', 'ar_charge'], /* (the owner: F Shield Bash, C Banner of Haste, Q Shield Charge; right click blocks) */ berserker: ['earthsplitter', 'ar_legsweep', 'ar_battleshout'], /* (the owner: Leap Strike on F, a leg sweep on C, a battle shout on Q) */ paladin: ['layonhands', 'smitearc', 'hammerstrike'], darkknight: ['ar_soulrend', 'gravewall', 'ar_gravegrasp'], /* (Soul Rend on F, Bone Guard on C, Grasp of the Grave on Q; right click Shadow Chains) */
   cleric: ['radiantheal', 'ar_purify', 'holysmite'], monk: ['flyingkick', 'hundredfists', 'pressure'],
-  bard: ['ar_warsong', 'ar_anthem', 'ar_ballad'], druid: ['regrowth', 'ar_thorns', 'ar_roots'], shaman: ['ar_chainbolt', 'ar_spiritwolf', 'sh_leap'], /* (the owner: F Chain Lightning with a short stun, C a spirit wolf, Q a spear leap) */
+  bard: ['ar_warsong', 'ar_anthem', 'ar_ballad'], druid: ['regrowth', 'ar_thorns', 'ar_roots'], shaman: ['ar_chainbolt', 'ar_spiritwolf', 'sh_leap'], /* (the owner: F Chain Lightning with a short stun, C a spirit wolf, Q a spear charge) */
   ranger: ['ar_firearrow', 'focus', 'ar_bola'], /* (the owner: F a huge fire arrow that hurls him back and stuns, C Hunter's Focus, Q a double-arrow bola that slows and heals him) */ musketeer: ['ar_powerload', 'ar_beartrap', 'ar_buckwide'], blunderbuss: ['ar_heavyblast', 'buckshot', 'powdercharge'], wizard: ['ar_missiles', 'blink', 'ar_arcshield'], /* (the owner: F Magic Missiles, C Blink, Q Temporal Bolt; Disintegrate left the kit) */
-  rogue: ['ar_leechstab', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'ar_bonespikes', 'ar_boneprison'], elementalist: ['el_flamewave', 'el_lash', 'el_frostbind'], enchanter: ['en_shards', 'en_mindlock', 'en_mesmer'], beastmaster: ['bm_rend', 'bm_pounce', 'bm_roar'], /* (kitsb.js: the reworked kits) */
+  rogue: ['ar_leechstab', 'eviscerate', 'kidney'], necromancer: ['drainlife', 'ar_bonespikes', 'ar_boneprison'], elementalist: ['el_fireform', 'el_iceform', 'el_frostbind'], /* (the owner: F Fire Form, C Ice Form, Q Frostbind) */ enchanter: ['en_shards', 'en_mindlock', 'en_mesmer'], beastmaster: ['bm_rend', 'bm_pounce', 'bm_roar'], /* (kitsb.js: the reworked kits) */
   priest: ['pr_sunhalo', 'pr_word2', 'pr_blind'], /* (the owner: Q is Blinding Light) */ bombardier: ['bo_rocket', 'bo_tar', 'bo_stickies'], /* (kitsb.js: the priest's three heals (right click Flash of Dawn, F Halo of Dawn, C Word of Shielding) and Chains of Light; the bombardier's Tar Bomb replaces the smoke bomb) */ /* (Q sticky bombs; right click the detonator; the old Cluster and Sticky Bomb are retired) */
 };
 export const ROLE = { warrior: 'Tank', berserker: 'Tank', paladin: 'Tank', darkknight: 'Tank', blunderbuss: 'Tank', cleric: 'Healer', druid: 'Healer', shaman: 'Healer', bard: 'Healer', priest: 'Healer' }; // everyone else: Damage
@@ -245,7 +245,7 @@ function designRules() {
   if (!abIn('elementalist', 'ar_flamewave')) ABILITIES.elementalist.push({ id: 'ar_flamewave', name: 'Flame Wave', t: 'flamewave', kit: true, level: 1, cd: 9, cost: 0, fx: 'fire', dmg: 1.5, burn: 0.3, desc: '' }); /* (the owner: no pets for anyone) */
   if (!abIn('shaman', 'ar_chainbolt')) ABILITIES.shaman.push({ id: 'ar_chainbolt', name: 'Chain Lightning', t: 'chainbolt', kit: true, level: 1, cd: 9, cost: 0, fx: 'lightning', dmg: 1.4, slow: 2, stun: 0.4, desc: '' });
   if (!abIn('shaman', 'ar_spiritwolf')) ABILITIES.shaman.push({ id: 'ar_spiritwolf', name: 'Spirit Wolf', t: 'shamanwolf', kit: true, level: 1, cd: 15, cost: 0, fx: 'leaf', desc: '' });
-  if (!abIn('shaman', 'sh_leap')) ABILITIES.shaman.push({ id: 'sh_leap', name: 'Spear Leap', t: 'spearleap', kit: true, level: 1, cd: 9, cost: 0, fx: 'dust', dmg: 1.5, desc: '' });
+  if (!abIn('shaman', 'sh_leap')) ABILITIES.shaman.push({ id: 'sh_leap', name: 'Spear Charge', t: 'spearcharge', kit: true, level: 1, cd: 9, cost: 0, fx: 'dust', dmg: 1.5, stun: 0.6, desc: '' }); /* (the owner: a charge along the ground ending in a thrust of the spear, not a leap) */
   if (!abIn('beastmaster', 'ar_pounce')) ABILITIES.beastmaster.push({ id: 'ar_pounce', name: 'Pounce', t: 'pounce', kit: true, level: 1, cd: 10, cost: 0, fx: 'blood', dmg: 1.6, desc: '' }); /* (the owner: no pets for the shaman or the beastmaster) */
   if (!abIn('blunderbuss', 'ar_heavyblast')) ABILITIES.blunderbuss.push({ id: 'ar_heavyblast', name: 'Heavy Blast', t: 'heavyblast', kit: true, level: 1, cd: 9, cost: 0, fx: 'fire', dmg: 2.4, desc: '' },
     { id: 'ar_buttsmack', name: 'Butt Smack', t: 'buttsmack', kit: true, level: 1, cd: 8, cost: 0, fx: 'steel', dmg: 1.0, stun: 1.2, desc: '' }); /* (the owner's blunderbuss: F a heavy blast that throws him back, right click a gun-butt smack that knocks them down) */
@@ -895,22 +895,31 @@ export function druidOvergrowth(caster) { const T = Object.assign({}, OVERGROWTH
 // (the owner) the shaman's Spirit Wolf: a wolf bursts out of green spirit smoke beside her and hunts the enemy nearest her crosshair
 // for 6 s, running it down and biting; if that one dies it turns on the next. Not a pet: it comes and goes with the spell.
 let _wolfP = null; function loadWolf() { if (!_wolfP) _wolfP = import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => new Promise((res) => new GLTFLoader().load('models/wolf.glb', (g) => res(g.scene), undefined, () => res(null)))); return _wolfP; }
-export const WOLF = { dur: 6, speed: 11, bite: 0.65, hurt: 0.035, reach: 1.9, len: 1.9, range: 32, yaw: 0 };
+export const WOLF = { dur: 6, speed: 11, bite: 0.9, hurt: 0.04, reach: 2.4, len: 2.6, range: 32, yaw: 0, gait: 11 }; /* (the owner: bigger, no bright lights, a gallop and a pounce instead of sliding) */
 export function shamanWolf(caster, tgt) { const T = Object.assign({}, WOLF, G.wolfTune || {}), me = caster === G.player, g = new THREE.Group(), spin = new THREE.Group(); g.add(spin); G.scene.add(g);
   const yaw0 = me ? (caster.bodyYaw ?? caster.yaw) : (caster.yaw || 0), side = new THREE.Vector3(Math.cos(yaw0), 0, -Math.sin(yaw0)); g.position.copy(caster.pos).addScaledVector(side, -1.3); g.position.y = ultGround(g.position); g.rotation.y = yaw0;
   loadWolf().then((src) => { if (!src || g.userData.gone) return; const b = src.clone(true), bx = new THREE.Box3().setFromObject(b), sz = bx.getSize(new THREE.Vector3()), long = sz.x > sz.z; const k = T.len / Math.max(sz.x, sz.z); b.scale.setScalar(k); if (long) b.rotation.y = Math.PI / 2; b.updateMatrixWorld(true);
-    const bb = new THREE.Box3().setFromObject(b), c = bb.getCenter(new THREE.Vector3()); b.position.set(-c.x, -bb.min.y, -c.z); b.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (o.material) { o.material = o.material.clone(); if ('emissive' in o.material) { o.material.emissive = new THREE.Color('#1a6a3a'); o.material.emissiveIntensity = 0.35; } } } }); spin.rotation.y = T.yaw; spin.add(b); });
+    const bb = new THREE.Box3().setFromObject(b), c = bb.getCenter(new THREE.Vector3()); b.position.set(-c.x, -bb.min.y, -c.z); b.traverse((o) => { if (o.isMesh) o.castShadow = true; }); spin.rotation.y = T.yaw; spin.add(b); });
   const pick = () => { const fs = ultFoes(caster).filter((u) => !u.dead && u.pos.distanceTo(caster.pos) < T.range); if (!fs.length) return null; if (me && caster.aimDir) { const from = caster.pos.clone().setY(caster.pos.y + 1.5), d = caster.aimDir(from); return fs.map((u) => [u, u.pos.clone().setY(u.pos.y + 1).sub(from).normalize().dot(d)]).sort((x, y) => y[1] - x[1])[0][0]; } return fs.sort((x, y) => x.pos.distanceTo(g.position) - y.pos.distanceTo(g.position))[0]; };
-  let prey = tgt && !tgt.dead ? tgt : pick(), t = 0, bite = 0, lunge = 0; const puff = (p) => { V.burst('smoke', p.clone().setY(p.y + 0.6), 26, { speed: 2.5, vy: 1.5, size: 0.9, life: 0.9 }); V.burst('leaf', p.clone().setY(p.y + 0.6), 20, { speed: 4 }); V.burst('heal', p.clone().setY(p.y + 0.6), 14, { speed: 2, vy: 2 }); V.light(p.clone().setY(p.y + 1), '#5aff8a', 6, 0.4, 10); };
+  let prey = tgt && !tgt.dead ? tgt : pick(), t = 0, bite = 0, lunge = 0, pounce = 0, bit = true, shake = 0, ph = 0, runK = 0; const puff = (p) => { V.burst('smoke', p.clone().setY(p.y + 0.6), 30, { speed: 2.2, vy: 1.2, size: 1.1, life: 1.0 }); V.burst('dust', p.clone().setY(p.y + 0.3), 16, { speed: 3 }); }; /* (dark spirit smoke: no flashes or glowing sparks) */
   puff(g.position); S.roar && S.roar(g.position); spin.scale.setScalar(0.01);
   G.timers.push({ update: (dt) => { t += dt; const grow = Math.min(1, t / 0.25), fade = Math.max(0, Math.min(1, (t - T.dur) / 0.3)); spin.scale.setScalar(Math.max(0.01, grow * (1 - fade)));
       if (t > T.dur + 0.3 || (caster.dead && t > 0.3)) { g.userData.gone = true; puff(g.position); G.scene.remove(g); return true; }
       if (!prey || prey.dead) prey = pick(); bite -= dt; lunge = Math.max(0, lunge - dt * 4);
-      if (prey && t < T.dur) { const to = prey.pos.clone().sub(g.position).setY(0), d = to.length(); if (d > 0.01) g.rotation.y = Math.atan2(to.x, to.z);
-        if (d > T.reach) { g.position.addScaledVector(to.normalize(), Math.min(d - T.reach * 0.8, T.speed * dt)); spin.position.y = Math.abs(Math.sin(t * 15)) * 0.16; spin.rotation.x = Math.sin(t * 15) * 0.08; }
-        else { spin.position.y = 0; spin.rotation.x = -lunge * 0.35; if (bite <= 0) { bite = T.bite; lunge = 1; const hp = prey.pos.clone().setY(prey.pos.y + 1); ultHurt(prey, T.hurt, caster, 'blood', true); ultSlow(prey, 0.5, 0.8); V.burst('blood', hp, 12, { speed: 4 }); S.hit && S.hit('flesh', hp, 0.8); } } }
-      else { spin.position.y = 0; }
-      g.position.y = ultGround(g.position); spin.position.z = lunge * 0.5; return false; } });
+      const L = T.len; let run = 0;
+      if (prey && t < T.dur) { const to = prey.pos.clone().sub(g.position).setY(0), d = to.length(); if (d > 0.01) { const want = Math.atan2(to.x, to.z), dy = Math.atan2(Math.sin(want - g.rotation.y), Math.cos(want - g.rotation.y)); g.rotation.y += dy * Math.min(1, dt * 10); }
+        if (d > T.reach && pounce <= 0) { run = 1; g.position.addScaledVector(to.normalize(), Math.min(d - T.reach * 0.8, T.speed * dt)); }
+        else if (bite <= 0 && pounce <= 0) { pounce = 0.42; bite = T.bite; bit = false; S.growl && S.growl('wolf', g.position, 1); }
+        if (pounce > 0 && !bit && pounce < 0.24) { bit = true; const hp = prey.pos.clone().setY(prey.pos.y + 1); ultHurt(prey, T.hurt, caster, 'blood', true); ultSlow(prey, 0.5, 0.8); V.burst('blood', hp, 14, { speed: 4 }); S.hit && S.hit('flesh', hp, 0.9); shake = 0.35; } }
+      // the gallop: the body rocks nose-down and up, bounds and stretches with each stride; paws kick up dust
+      runK += (run - runK) * Math.min(1, dt * 8); ph += dt * T.gait * (0.4 + runK * 0.6); const sn = Math.sin(ph), ab = Math.abs(Math.sin(ph * 0.5 + 0.3));
+      let y = ab * 0.2 * L * 0.25 * runK, rx = sn * 0.13 * runK, z = 0, sz = 1 + sn * 0.05 * runK;
+      if (runK > 0.3 && Math.sin(ph) > 0.97) V.burst('dust', g.position.clone().setY(g.position.y + 0.1), 4, { speed: 1.5, size: 0.5 });
+      // the pounce: a crouch, a spring up and forward onto the prey, then down again
+      if (pounce > 0) { pounce -= dt; const k = 1 - pounce / 0.42; if (k < 0.25) { y -= 0.08 * L * (k / 0.25); rx = -0.2 * (k / 0.25); } else { const j = (k - 0.25) / 0.75; y += Math.sin(j * Math.PI) * 0.32 * L; z += Math.sin(Math.min(1, j * 1.4) * Math.PI * 0.5) * 0.45 * L * (1 - Math.max(0, (j - 0.6) / 0.4)); rx = 0.32 * Math.cos(j * Math.PI); } }
+      if (shake > 0) { shake -= dt; spin.rotation.z = Math.sin(shake * 60) * 0.12 * (shake / 0.35); } else spin.rotation.z = 0;
+      spin.position.y = y; spin.position.z = z; spin.rotation.x = rx; spin.scale.z = spin.scale.x * sz;
+      g.position.y = ultGround(g.position); return false; } });
   return true; }
 // (the owner) the cleric's Purifying Light: she and every ally within 12 m are cleansed, healed a little and cannot be slowed or
 // snared for 4 s; for 5 s more a warm light around her mends everyone near her
@@ -1154,8 +1163,8 @@ export const ULTS = {
         if (u === G.player) { if (u.vel) u.vel.set(n.x * 9, 9, n.z * 9); u.onGround = false; u.debuff && u.debuff('stun', 1); daze(1); } else if (u.status) { u.status.stun = Math.max(u.status.stun || 0, 1); if (u.model) u.model.kdLeft = Math.max(u.model.kdLeft || 0, 2.7); u.pos.addScaledVector(n, 2.5); if (u.root) u.root.position.copy(u.pos); } }
       return true; } },
   // (ultsb.js) a storm cloud over where you aim: lightning forks onto everyone under it and ice spears rain, then a meteor punches through its eye
-  elementalist: { id: 'ar_meteors', name: 'Elemental Storm', t: 'meteors', aim: 'ground', desc: 'A storm cloud tears open over where you aim (7 m across) for 3 s: lightning forks down onto every enemy under it (up to 4 strikes, 4% each, a jolt each time) and ice spears rain down (4% and slowed), then a burning meteor punches through the eye of the storm: 28% of their health at the centre, 14% at the edge, burning and knocking them down.',
-    run(c, at) { return elementalStorm(c, at); } },
+  elementalist: { id: 'ar_meteors', name: 'Ice Storm & Hellfire', t: 'meteors', aim: 'self', desc: 'Rise off the ground, arms out wide, for 5 s. A blizzard whirls round you (8 m): every enemy in it is frozen solid while they stay inside. Over a wider ring (14 m) hellfire rains from the sky on your enemies.',
+    run(c) { return G.hooks.kb && G.hooks.kb.eleStorm ? G.hooks.kb.eleStorm(c) : true; } }, /* (the owner: an ice storm round him that freezes everyone in it, hellfire raining over a wider ring, and he hovers in the middle, arms out) */
   // (ultsb.js) a giant spectral clock over the spot: everyone under it is spellbound while its hands race to midnight, then it shatters onto them
   enchanter: { id: 'ar_charm', name: 'Mass Charm', t: 'charm', aim: 'ground', desc: 'A giant spectral clock appears over where you aim, its pendulum swinging: every enemy within 8 m is spellbound and helpless for 3 s, tied to it by threads of light while its hands race to midnight. At the stroke of twelve it shatters and its glass rains down onto them for 22% of their health.',
     run(c, at) { return massCharm(c, at); } },
@@ -1851,6 +1860,7 @@ class ArenaBot {
     if (this.pending && (this.pending.t -= dt) <= 0) { const f = this.pending.fn; this.pending = null; if (!(st.stun > 0)) f(); }
     let speed = 0;
     if (this.dashing) { const D = this.dashing, step = Math.min(D.left, 13 * dt * Math.min(1, 0.4 + D.t * 3)); D.t += dt; D.left -= step; this.pos.addScaledVector(D.dir, step); speed = 13; this.yaw = Math.atan2(D.dir.x, D.dir.z); if (Math.random() < 0.3) V.burst('dust', this.pos.clone().setY(this.pos.y + 0.2), 3, { speed: 2 }); if (D.left <= 0.01 || D.t > 1.2) { this.dashing = null; D.onEnd(); } }
+    else if (this.buffs.iceblock > 0) { speed = 0; this.cast = null; this.pending = null; } // (Ice Form: frozen in place)
     else if (A.state === 'fight' && st.fear > 0 && !(st.stun > 0) && this.fearFrom) { // feared: run blindly away, arms up
       const d = V3(this.pos.x - this.fearFrom.x, 0, this.pos.z - this.fearFrom.z); if (d.lengthSq() < 0.01) d.set(1, 0, 0); d.normalize(); d.applyAxisAngle(V3(0, 1, 0), Math.sin(G.time * 2 + this.arenaF.i) * 0.5);
       const fa = Math.atan2(d.x, d.z); this.yaw += Math.atan2(Math.sin(fa - this.yaw), Math.cos(fa - this.yaw)) * Math.min(1, dt * 6); this.pos.addScaledVector(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), 5.2 * dt); speed = 5.2; this.cast = null;
@@ -1962,7 +1972,7 @@ class ArenaBot {
     let px = 0, pz = 0; for (const f of A.F) { if (!f.alive) continue; const u = unitOf(f); if (u === this) continue; const dx = me.x - u.pos.x, dz = me.z - u.pos.z, d = Math.hypot(dx, dz); if (d < 1.3 && d > 0.01) { px += dx / d * (1.3 - d); pz += dz / d * (1.3 - d); } }
     const mx = tx - me.x + px * 3, mz = tz - me.z + pz * 3, L = Math.hypot(mx, mz);
     const far = !T || dT > 14 || !!roomOf(me.x, me.z); // run between fights, walk-speed footwork inside them (players run 5.2)
-    let sp = (far ? 6.4 : 4.6) * Game.arenaSpeedK(this.h) * (this.ringSlowT > G.time ? 0.156 : this.ultSlowT > G.time ? this.ultSlowK : st.slow > 0 ? 0.55 : 1) * (this.buffs.swind > 0 ? 1.3 : 1) * (this.buffs.anthem > 0 ? 1.4 : 1) /* (Anthem of Swiftness) */ * (this.buffs.rampage > 0 ? 1.2 : 1);
+    let sp = (far ? 6.4 : 4.6) * Game.arenaSpeedK(this.h) * (this.ringSlowT > G.time ? 0.156 : this.ultSlowT > G.time ? this.ultSlowK : st.slow > 0 ? 0.55 : 1) * (this.buffs.swind > 0 ? 1.3 : 1) * ((this.fireFormT || 0) > G.time ? 1.25 : 1) * (this.buffs.iceblock > 0 ? 0 : 1) * (this.buffs.anthem > 0 ? 1.4 : 1) /* (Anthem of Swiftness) */ * (this.buffs.rampage > 0 ? 1.2 : 1);
     this.vel = this.vel || V3(); const want = L > 0.3 ? V3(mx / L * Math.min(sp, L * 3), 0, mz / L * Math.min(sp, L * 3)) : V3(); this.vel.lerp(want, Math.min(1, dt * 4)); me.x += this.vel.x * dt; me.z += this.vel.z * dt; sp = this.vel.length(); // speed up and slow down, no snapping
     const face = T ? Math.atan2(T.pos.x - me.x, T.pos.z - me.z) : L > 0.3 ? Math.atan2(mx, mz) : this.yaw; this.yaw += Math.atan2(Math.sin(face - this.yaw), Math.cos(face - this.yaw)) * Math.min(1, dt * 6);
     return sp;
@@ -1971,8 +1981,8 @@ class ArenaBot {
   fight() {
     const T = this.target, me = this.pos, dT = T ? Math.hypot(T.pos.x - me.x, T.pos.z - me.z) : 99, hp = this.hp / this.maxHp;
     if (this.gcd <= 0) { const a = this.choose(T, dT, hp); if (a) return; }
-    if (T && this.swingT <= 0 && dT <= this.range + 0.4) { // a plain attack
-      const sw = (this.W.kind === 'gun' ? 1.6 : this.W.kind === 'bow' ? 1.0 : this.W.kind === 'staff' ? 0.9 : 0.75) / (this.W.speed || 1) * (this.buffs.focus > 0 ? (this.h && this.h.cls === 'ranger' ? 0.5 : 0.75) : this.buffs.rampage > 0 ? 0.75 : 1); /* (Pack Frenzy: faster blows too; the ranger's Hunter's Focus twice as fast) */
+    if (T && this.swingT <= 0 && dT <= this.range + 0.4 && !(this.buffs.iceblock > 0)) { // a plain attack
+      const sw = (this.W.kind === 'gun' ? 1.6 : this.W.kind === 'bow' ? 1.0 : this.W.kind === 'staff' ? 0.9 : 0.75) / (this.W.speed || 1) * (this.buffs.focus > 0 ? (this.h && this.h.cls === 'ranger' ? 0.5 : 0.75) : this.buffs.rampage > 0 ? 0.75 : 1) * ((this.fireFormT || 0) > G.time ? 0.5 : 1); /* (Fire Form: twice as fast) */ /* (Pack Frenzy: faster blows too; the ranger's Hunter's Focus twice as fast) */
       this.swingT = sw * 1.25 * Game.ARENA_PACE * (this.cls === 'warrior' ? 1.25 : 1) / (this.buffs.shout > 0 ? 1.35 : 1) / (this.buffs.warsong > 0 ? 1.3 : 1); const raw = (this.phaseInvis && this.stealth > 0 ? (this.stealth = 0, this.phaseInvis = false, 2) : 1) /* (out of Phase Shift: a crit, and he shows) */ * this.base * 0.95 * this.dmgMul() * Game.ARENA_PACE; /* (slower, heavier blows: same damage per second, each hit lands harder) */
       if (this.ranged) { this.act = this.W.kind === 'staff' ? 'cast' : 'shoot'; this.actT = 0; this.actSp = 1.4; this.aimLock = this.W.kind === 'gun' ? 0.75 : 0.55; /* plant your feet to aim, then fire */ const miss = dT > 10 && Math.random() < 0.12 + (dT - 10) * 0.012;
         this.pending = { t: 0.4, fn: () => { if (T.dead) return; if (this.cls === 'bombardier') { botBomb(this, T, raw * BOMB.throw.k, false); return; } /* (a real bomb, lobbed to land at their feet) */ const bomb = this.cls === 'bombardier', pri = this.cls === 'priest'; shot(this, T, bomb ? SHOT_COL.fire : pri ? SHOT_COL.holy : this.W.kind === 'staff' ? SHOT_COL[this.W.element] || SHOT_COL.arcane : SHOT_COL.phys, () => { if (miss) { V.number(T.pos.clone().setY(T.pos.y + 2), 'Miss', 'miss'); return; } hitUnit(this, T, raw, { ranged: true }); if (pri) atone(this, 0.045); if (bomb) { for (const u of enemiesOf(this)) if (u !== T && !u.dead && Math.hypot(u.pos.x - T.pos.x, u.pos.z - T.pos.z) < 3) hitUnit(this, u, raw * 0.6, { ranged: true }); V.burst('fire', T.pos.clone().setY(T.pos.y + 0.8), 40, { speed: 6 }); V.ring(T.pos.clone().setY(T.pos.y + 0.1), 3, '#ff9030', 0.35); S.explode && S.explode(T.pos, 0.4); } }, false, bomb ? 'bomb' : undefined); } }; }
@@ -1983,7 +1993,7 @@ class ArenaBot {
   }
   ready(a) { return (this.cd[a.id] || 0) <= 0; }
   choose(T, dT, hp) {
-    if (this.status.silence > 0) return null; /* (silenced: basic attacks only) */ const abs = this.abs.filter(a => this.ready(a) && !(a.id === 'drainlife' && this.cls === 'necromancer')); /* (Life Siphon: necroBot runs it) */ if (!abs.length) return null;
+    if (this.buffs.iceblock > 0) return null; /* (Ice Form: no spells while frozen) */ if (this.status.silence > 0) return null; /* (silenced: basic attacks only) */ const abs = this.abs.filter(a => this.ready(a) && !(a.id === 'drainlife' && this.cls === 'necromancer')); /* (Life Siphon: necroBot runs it) */ if (!abs.length) return null;
     const use = (a, tgt) => { this.cd[a.id] = Math.max(a.cd || 0, a.t === 'heal' || a.t === 'hot' ? 4 : 1.5) * Game.perkCd(Game.perkLvl(this.h, a.id, 'cd')) * Game.arenaCdAll(this.h) * (0.95 + Math.random() * 0.15); this.gcd = 1.5;
       const melee = ['strike', 'flurry', 'dash', 'cone'].includes(a.t) || (!a.t && !LEG_RANGED.has(a.id) && !!LEG[a.id]), wind = !isSupport(a) && a.t !== 'summon' && !(a.t || '').startsWith('pet') ? (melee ? 0.5 : 0.7) : 0;
       const ct = wind * 0.6; // no cast times in the arena: heals and spells go off at once (attacks keep a short, readable swing)
@@ -2013,7 +2023,7 @@ class ArenaBot {
         if (a.t === 'lightshields' && fightNear && (nHurt >= 1 || hp < 0.8)) return use(a, this);
         if (a.t === 'smiteball' && T && dT < 11) return use(a, T);
         if (a.t === 'shamanwolf' && T && dT < 26) return use(a, T);
-        if (a.t === 'spearleap' && T && dT > 3 && dT < 10) return use(a, T);
+        if ((a.t === 'spearleap' || a.t === 'spearcharge') && T && dT > 2.5 && dT < 11) return use(a, T);
         if (a.t === 'kbword' && (nHurt >= 1 || hp < 0.7)) return use(a, this); /* (the priest's Word of Shielding: heal + shield the hurt team around her) */ /* (the berserker: the axe at someone out of reach) */ } }
     // 2. defences when under pressure
     if (hp < 0.6 && G.time - (this.hurtT || 0) < 2) { const d = abs.find(a => (a.t === 'buff' && ['ward', 'fort', 'stand', 'barrier', 'iceblock', 'phase', 'undying', 'lich', 'wall'].includes(a.buff) && !a.eq) || (LEG_SELF[a.id] && ['wall', 'stand', 'barrier', 'undying', 'fort'].includes(LEG_SELF[a.id][0])) || a.t === 'stealth'); if (d) return use(d, this); }
@@ -2090,6 +2100,7 @@ class ArenaBot {
       case 'purify': { anim('cast'); clericPurify(this, a); return; }
       case 'smiteball': { if (!T) return; anim('cast'); clericSmite(this, T.pos.clone().sub(this.pos)); return; }
       case 'lightshields': { anim('cast'); const al = alliesOf(this, true).filter(u => u !== this).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; clericShields(this, al); return; }
+      case 'spearcharge': { if (!T) return; const d = V3(T.pos.x - me.x, 0, T.pos.z - me.z), L = d.length(); if (L > 12) return; this.dashing = { dir: d.normalize(), left: Math.max(0, L - 1.6), t: 0, onEnd: () => { anim('thrust1'); hitUnit(this, T, P(a.dmg), Object.assign({}, o, { stun: a.stun || 0.6, melee: true })); V.burst('spark', T.pos.clone().setY(T.pos.y + 1.1), 14, { speed: 5 }); } }; V.burst('dust', me.clone().setY(me.y + 0.3), 16, { speed: 3 }); return; }
       case 'spearleap': { if (!T) return; anim('cast'); later(0.35, () => { if (!T.dead && T.pos.distanceTo(this.pos) < 10) ultHurt(T, 0.1, this, 'dust'); }); return; }
       case 'totem': { const al = alliesOf(this, true).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0] || this; shamanTotem(this, al.pos.clone()); return; }
       case 'spirittotem': shamanStorm(this); return; /* (ults5.js: Call of Lightning) */

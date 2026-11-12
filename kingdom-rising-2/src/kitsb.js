@@ -17,7 +17,7 @@ import { V } from './vfx.js';
 import { S } from './audio.js';
 import { solidAt, addBox } from './world.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { ultFoes, ultFriends, ultGround, silenceUnit, A as AR_A } from './arena.js';
+import { ultFoes, ultFriends, ultGround, silenceUnit, ultHurt, A as AR_A } from './arena.js';
 import { lobVel } from './bomber.js';
 
 // arena.js links its unit helpers here at start (hitUnit, healUnit, slowUnit are private to it)
@@ -166,6 +166,92 @@ function glacierWall(c, a, ctx) {
       if (Math.random() < 0.2) V.emit('frost', C.clone().addScaledVector(side, (Math.random() - 0.5) * WALL.hw * 2).setY(C.y + Math.random() * WALL.h), { speed: 0.3, size: 0.25, life: 0.8 });
       if (t >= WALL.dur) { broke = true; col.on = false; S.kb('shatter', C, 1.2); S.kb('icewall', C, 0.6); V.burst('frost', C.clone().setY(C.y + 1.2), 80, { speed: 6, radius: 5 }); for (const m of pil) { m.userData.v = V3((Math.random() - 0.5) * 3, 2 + Math.random() * 3, (Math.random() - 0.5) * 4); m.userData.s = Math.random() * 6; } } }
     else { const k = (t - WALL.dur) / 0.8; for (const m of pil) { m.userData.v.y -= 14 * dt; m.position.addScaledVector(m.userData.v, dt); m.rotation.x += m.userData.s * dt; m.scale.setScalar(Math.max(0.01, 1 - k)); } if (k >= 1) { kill(g); return true; } }
+    return false; });
+  return true;
+}
+
+// ---------- (the owner) the elementalist's forms and his ultimate ----------
+const heroMesh = (c) => { const ch = isP(c) ? c.ch : c.model; return ch && ch.heroModel && ch.heroModel !== 'loading' ? ch.heroModel.m : null; };
+const charOf = (c) => isP(c) ? c.ch : c.model;
+const fireTex = () => canvasTex('fireglow', 128, 128, (x, w) => { const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,255,235,1)'); g.addColorStop(0.22, 'rgba(255,225,130,1)'); g.addColorStop(0.5, 'rgba(255,120,25,0.8)'); g.addColorStop(0.78, 'rgba(190,40,0,0.3)'); g.addColorStop(1, 'rgba(120,20,0,0)'); x.fillStyle = g; x.fillRect(0, 0, w, w); });
+// Fire Form (F): he becomes a great rolling ball of fire for 6 s: attacks twice as fast, moves 25% faster, and leaves a trail of blazing
+// ground behind him that burns enemies standing in it
+function fireForm(c, a, ctx) {
+  const dur = a.dur || 6, R = 0.95; c.fireFormT = G.time + dur;
+  const g = new THREE.Group(); G.scene.add(g);
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(R * 0.5, 2), new THREE.MeshBasicMaterial({ color: '#fff4c8' })); g.add(core);
+  const shells = [[R * 0.72, '#ffc040', 0.8], [R * 0.92, '#ff7414', 0.55], [R * 1.18, '#ff3c00', 0.28]].map(([r, col, op]) => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 2), addM(col, op)); g.add(m); return m; });
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); glow.scale.setScalar(R * 4.2); g.add(glow);
+  const tongues = []; for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(new THREE.ConeGeometry(0.15, 1, 6), addM(i % 3 ? '#ff6a14' : '#ffd250', 0.75)); m.userData = { a: i / 16 * Math.PI * 2, e: (Math.random() - 0.5) * 1.4, s: 0.6 + Math.random() * 0.7, ph: Math.random() * 6 }; g.add(m); tongues.push(m); }
+  S.cast && S.cast('fire', c.pos, 1.5); S.explode && S.explode(c.pos, 0.5, 'fire'); V.burst('fire', c.pos.clone().setY(c.pos.y + 1), 90, { speed: 7, size: 1.1 }); V.burst('ember', c.pos.clone().setY(c.pos.y + 1), 50, { speed: 8 }); V.light(c.pos.clone().setY(c.pos.y + 1.2), '#ff8030', 9, 0.4, 14); kick(c, 0.35, 8);
+  const patches = []; let t = 0, last = c.pos.clone(), drop = 0, roll = 0, ended = false;
+  tick((dt) => { t += dt; const on = (c.fireFormT || 0) > G.time && !c.dead, hm = heroMesh(c);
+    if (on) { if (hm) hm.visible = false; g.position.set(c.pos.x, c.pos.y + R * 1.02 + (c.hoverH && !isP(c) ? c.hoverH : 0), c.pos.z);
+      const mv = c.pos.clone().sub(last).setY(0), dist = mv.length(); last.copy(c.pos); roll += dist / R; drop += dist;
+      g.scale.setScalar(Math.max(0.01, ease(t / 0.25) * (1 + Math.sin(t * 22) * 0.035)));
+      core.rotation.set(roll, t * 2, 0); shells.forEach((m, i) => { m.rotation.set(-t * (1.4 + i) + roll, t * (2 + i * 0.7), t * 0.5); m.scale.setScalar(1 + Math.sin(t * (9 + i * 3) + i) * 0.07); });
+      for (const m of tongues) { const u = m.userData, an = u.a + t * 2.4, up = 0.55 + 0.45 * Math.sin(t * 13 + u.ph); m.position.set(Math.cos(an) * R * 0.62, u.e * R * 0.4 + R * 0.25, Math.sin(an) * R * 0.62); m.scale.set(1, u.s * up * 1.4, 1); m.rotation.set(Math.sin(t * 7 + u.ph) * 0.35, 0, Math.cos(t * 6 + u.ph) * 0.35); }
+      if (Math.random() < 0.9) V.emit('fire', g.position.clone().add(V3((Math.random() - 0.5) * R * 1.6, (Math.random() - 0.3) * R, (Math.random() - 0.5) * R * 1.6)), { speed: 0.8, vy: 2.6, size: 0.75, life: 0.5 });
+      if (Math.random() < 0.5) V.emit('ember', g.position.clone(), { speed: 2.5, vy: 2, size: 0.18, life: 0.9 });
+      if (drop > 0.75) { drop = 0; const p = c.pos.clone(); p.y = gy(p); const m = new THREE.Mesh(new THREE.CircleGeometry(0.95, 20), new THREE.MeshBasicMaterial({ map: fireTex(), color: '#ffffff', transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })); m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6; m.position.copy(p).setY(p.y + 0.06); G.scene.add(m); patches.push({ m, p, t: 0, tk: 0 }); } }
+    else if (!ended) { ended = true; if (hm) hm.visible = true; V.burst('fire', g.position.clone(), 60, { speed: 5, size: 0.9 }); V.burst('smoke', g.position.clone(), 24, { speed: 2, size: 1.2, life: 1 }); kill(g); }
+    // the blazing trail: each patch burns for 3.5 s and sears enemies standing in it twice a second
+    for (let i = patches.length - 1; i >= 0; i--) { const P2 = patches[i]; P2.t += dt; P2.tk -= dt; const life = 3.5, f = Math.min(1, (life - P2.t) / 0.6); P2.m.material.opacity = 0.9 * Math.max(0, f) * (0.8 + Math.sin(t * 18 + i) * 0.2); P2.m.scale.setScalar(0.9 + Math.sin(t * 9 + i) * 0.08);
+      if (Math.random() < 0.35) V.emit('fire', P2.p.clone().add(V3((Math.random() - 0.5) * 1.4, 0.15, (Math.random() - 0.5) * 1.4)), { speed: 0.4, vy: 2.2, size: 0.6, life: 0.45 });
+      if (P2.tk <= 0) { P2.tk = 0.5; for (const u of foes(c)) if (Math.hypot(u.pos.x - P2.p.x, u.pos.z - P2.p.z) < 1.15 && Math.abs(u.pos.y - P2.p.y) < 1.5) hurt(c, u, ctx.P(a.burn || 0.22), { el: 'fire', ranged: true }); }
+      if (P2.t >= life) { kill(P2.m); patches.splice(i, 1); } }
+    return ended && !patches.length; });
+  return true;
+}
+// Ice Form (C): he freezes himself into hard permafrost: he cannot move or attack, but nothing hurts him. It lasts 5 s, or until he
+// presses it again; either way the ice then explodes and knocks down everyone close by
+function iceForm(c, a, ctx) {
+  if (c.iceFormOn && (c.buffs.iceblock || 0) > 0) { c.buffs.iceblock = 0; if (isP(c)) c.iframes = 0; return true; } // (pressed again: break out now)
+  const dur = a.dur || 5, H = hgt(c); c.buffs.iceblock = dur; c.iceFormOn = true; if (isP(c)) { c.iframes = Math.max(c.iframes || 0, dur); c.vel.set(0, c.vel.y, 0); c.atk = null; } else { c.cast = null; c.pending = null; c.dashing = null; }
+  const g = new THREE.Group(), mat = ICE(); G.scene.add(g); const cr = [];
+  for (let i = 0; i < 18; i++) { const an = i / 18 * Math.PI * 2 + Math.random() * 0.3, rr = 0.42 + Math.random() * 0.22, h = H * (0.5 + Math.random() * 0.65); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.2 + Math.random() * 0.12, h, 6), mat); m.position.set(Math.cos(an) * rr, h / 2 - 0.05, Math.sin(an) * rr); m.rotation.set(Math.sin(an) * 0.3 + (Math.random() - 0.5) * 0.3, Math.random() * 3, -Math.cos(an) * 0.3 + (Math.random() - 0.5) * 0.3); g.add(m); cr.push(m); }
+  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), mat); shell.scale.set(0.6, H * 0.6, 0.6); shell.position.y = H * 0.5; g.add(shell); cr.push(shell);
+  S.kb('icewall', c.pos, 1.0); V.burst('frost', c.pos.clone().setY(c.pos.y + 1), 60, { speed: 4 }); V.light(c.pos.clone().setY(c.pos.y + 1.2), '#a8e0ff', 7, 0.3, 10); kick(c, 0.3, 3); anim(c, 'castRel', 0.4);
+  let t = 0, done = false, bt = 0;
+  tick((dt) => { t += dt; const on = (c.buffs.iceblock || 0) > 0 && !c.dead;
+    if (!done) { g.position.set(c.pos.x, gy(c.pos), c.pos.z); g.scale.setScalar(Math.max(0.01, ease(t / 0.18))); if (isP(c)) { c.atk = null; c.vel.x = 0; c.vel.z = 0; } else { c.cast = null; c.pending = null; } if (Math.random() < 0.25) V.emit('frost', c.pos.clone().setY(c.pos.y + Math.random() * H), { speed: 0.3, size: 0.25, life: 0.8 }); }
+    if (!on && !done) { done = true; c.iceFormOn = false; if (isP(c)) c.iframes = 0; const C = c.pos.clone(), R = a.r || 4.2;
+      S.kb('shatter', C, 1.4); S.explode && S.explode(C, 0.7, 'frost'); V.burst('frost', C.clone().setY(C.y + 1), 140, { speed: 9, radius: 2 }); V.burst('stone', C.clone().setY(C.y + 0.6), 40, { speed: 8, grav: 14 }); V.light(C.clone().setY(C.y + 1), '#c8f0ff', 10, 0.35, 14); kick(c, 0.6, 6, 0.06);
+      for (const u of foes(c)) { const d = Math.hypot(u.pos.x - C.x, u.pos.z - C.z); if (d > R) continue; const n = V3(u.pos.x - C.x, 0, u.pos.z - C.z); if (n.lengthSq() < 1e-4) n.set(1, 0, 0); n.normalize(); hurt(c, u, ctx.P(a.dmg || 1.0), { el: 'frost', melee: true, stun: a.stun || 1.2, big: true, knock: isP(c) ? n.multiplyScalar(8) : undefined }); V.burst('frost', chest(u), 20, { speed: 4 }); }
+      for (const m of cr) { const wp = m.position.clone(); m.userData.v = V3(wp.x * 8 + (Math.random() - 0.5) * 3, 3 + Math.random() * 4, wp.z * 8 + (Math.random() - 0.5) * 3); m.userData.s = (Math.random() - 0.5) * 12; } }
+    if (done) { bt += dt; for (const m of cr) { if (!m.userData.v) continue; m.userData.v.y -= 16 * dt; m.position.addScaledVector(m.userData.v, dt); m.rotation.x += m.userData.s * dt; m.scale.setScalar(Math.max(0.01, 1 - bt / 0.8)); } if (bt >= 0.8) { kill(g); return true; } }
+    return false; });
+  return true;
+}
+// arms flung out wide (the hero model's own arms; see arenalooks armsOut)
+const armsOut = (c, dur) => { const ch = charOf(c); if (ch) ch.armsOutLeft = dur; };
+// the ultimate: he rises a hand's breadth off the ground, arms out wide, for 5 s. A blizzard whirls round him (8 m): everyone in it is
+// frozen solid while they stay inside. Over a wider ring (14 m) hellfire rains from the sky onto his enemies
+export function eleStorm(c, a = {}) {
+  const dur = a.dur || 5, RI = a.ri || 8, RF = a.rf || 14, me = isP(c), frozen = new Map();
+  const g = new THREE.Group(); G.scene.add(g);
+  const snow = new THREE.Mesh(new THREE.CylinderGeometry(RI, RI * 0.9, 7, 40, 1, true), new THREE.MeshBasicMaterial({ color: '#dff4ff', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })); snow.position.y = 3.3; g.add(snow);
+  const snow2 = snow.clone(); snow2.material = snow.material.clone(); snow2.scale.set(0.7, 1.1, 0.7); g.add(snow2);
+  const frost = new THREE.Mesh(new THREE.CircleGeometry(RI, 48), new THREE.MeshBasicMaterial({ color: '#cfeeff', transparent: true, opacity: 0, depthWrite: false })); frost.rotation.x = -Math.PI / 2; frost.position.y = 0.05; g.add(frost);
+  const sky = new THREE.Mesh(new THREE.CircleGeometry(RF, 48), new THREE.MeshBasicMaterial({ color: '#ff5a10', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); sky.rotation.x = Math.PI / 2; sky.position.y = 22; g.add(sky);
+  S.cast && S.cast('frost', c.pos, 1.6); S.cast && S.cast('fire', c.pos, 1.4); S.rumble && S.rumble(c.pos, 1.4); V.addShake && me && V.addShake(0.6); armsOut(c, dur);
+  if (me) { c.ultImmT = Math.max(c.ultImmT || 0, 0.6); }
+  let t = 0, rain = 0; const balls = [];
+  tick((dt) => { t += dt; const live = t < dur && !c.dead, k = Math.min(1, t / 0.6) * Math.max(0, Math.min(1, (dur - t) / 0.5));
+    c.hoverH = 0.38 * ease(Math.min(t / 0.5, (dur + 0.3 - t) / 0.5)); if (!me && charOf(c) && charOf(c).root) charOf(c).root.position.y += c.hoverH;
+    g.position.set(c.pos.x, gy(c.pos), c.pos.z); snow.rotation.y += dt * 2.6; snow2.rotation.y -= dt * 3.4; snow.material.opacity = 0.16 * k; snow2.material.opacity = 0.12 * k; frost.material.opacity = 0.32 * k; sky.material.opacity = 0.22 * k;
+    if (live) { for (let i = 0; i < 6; i++) { const an = Math.random() * 6.28, r = Math.sqrt(Math.random()) * RI; V.emit('frost', V3(c.pos.x + Math.cos(an) * r, gy(c.pos) + Math.random() * 5, c.pos.z + Math.sin(an) * r), { speed: 3, size: 0.3, life: 0.7 }); }
+      // the blizzard: everyone inside is frozen solid, held as long as they are in it
+      for (const u of foes(c)) { const d = Math.hypot(u.pos.x - c.pos.x, u.pos.z - c.pos.z), inside = d < RI; let F = frozen.get(u);
+        if (inside) { if (isP(u)) u.debuff && u.debuff('freeze', 0.25); else if (u.status) { u.status.stun = Math.max(u.status.stun || 0, 0.25); u.cast = null; } if (!F) { const ice = new THREE.Group(), mat = ICE(), hh = hgt(u); for (let i = 0; i < 7; i++) { const an = i / 7 * 6.28, s = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.2, hh * (0.6 + Math.random() * 0.5), 6), mat); s.position.set(Math.cos(an) * 0.35, hh * 0.35, Math.sin(an) * 0.35); s.rotation.set(Math.sin(an) * 0.25, 0, -Math.cos(an) * 0.25); ice.add(s); } const bl = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), mat); bl.scale.set(0.55, hh * 0.58, 0.55); bl.position.y = hh * 0.5; ice.add(bl); G.scene.add(ice); F = { ice, tk: 0 }; frozen.set(u, F); V.burst('frost', chest(u), 24, { speed: 3 }); S.kb && S.kb('zapsmall', u.pos, 0.5); }
+          F.ice.position.set(u.pos.x, gy(u.pos), u.pos.z); F.tk -= dt; if (F.tk <= 0) { F.tk = 0.5; ultHurt(u, 0.025, c, 'frost', true); } }
+        else if (F) { V.burst('frost', chest(u), 20, { speed: 4 }); kill(F.ice); frozen.delete(u); } }
+      // hellfire: burning rocks fall from the sky all over the wider ring and burst where they land
+      rain -= dt; while (rain <= 0) { rain += 0.09; const tg = foes(c).filter(u => Math.hypot(u.pos.x - c.pos.x, u.pos.z - c.pos.z) < RF), aimed = tg.length && Math.random() < 0.35 ? tg[(Math.random() * tg.length) | 0] : null; const an = Math.random() * 6.28, r = Math.sqrt(Math.random()) * RF, at = aimed ? aimed.pos.clone() : V3(c.pos.x + Math.cos(an) * r, 0, c.pos.z + Math.sin(an) * r); at.y = gy(at);
+        const m = new THREE.Group(), rock = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 0), new THREE.MeshStandardMaterial({ color: '#3a2016', emissive: '#ff4a10', emissiveIntensity: 1.2, flatShading: true })), fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); fl.scale.setScalar(1.6); m.add(rock, fl); const from = at.clone().add(V3((Math.random() - 0.5) * 4, 24, (Math.random() - 0.5) * 4)); m.position.copy(from); G.scene.add(m); balls.push({ m, from, at, t: 0, T: 0.55 }); } }
+    for (let i = balls.length - 1; i >= 0; i--) { const B = balls[i]; B.t += dt; const f = Math.min(1, B.t / B.T); B.m.position.lerpVectors(B.from, B.at, f * f); B.m.rotation.x += dt * 9; if (Math.random() < 0.7) V.emit('fire', B.m.position.clone(), { speed: 0.5, size: 0.6, life: 0.35 });
+      if (f >= 1) { const at = B.at; V.burst('fire', at.clone().setY(at.y + 0.4), 22, { speed: 5, size: 0.8 }); V.burst('ember', at.clone().setY(at.y + 0.3), 10, { speed: 6 }); if (Math.random() < 0.3) S.explode && S.explode(at, 0.25, 'fire'); for (const u of foes(c)) if (Math.hypot(u.pos.x - at.x, u.pos.z - at.z) < 1.8) ultHurt(u, 0.04, c, 'fire', true); kill(B.m); balls.splice(i, 1); } }
+    if (t >= dur + 0.5 && !balls.length) { for (const [, F] of frozen) kill(F.ice); frozen.clear(); c.hoverH = 0; kill(g); return true; }
     return false; });
   return true;
 }
@@ -436,15 +522,17 @@ function tarBomb(c, a, ctx) {
 export function igniteTar(owner) { let n = 0; for (const T of KB.tars.slice()) if (T.owner === owner && T.ignite && T.ignite()) n++; return n; }
 
 // ======================================================================= dispatch
-const CAST = { kbflamewave: flameWave, kblash: lightningLash, kbfrost: frostbind, kbicewall: glacierWall, kbshards: mirrorShards, kblock: mindLock, kbmez: mesmerize, kbdecoy: mirrorImage,
+const CAST = { kbfireform: fireForm, kbiceform: iceForm, kbflamewave: flameWave, kblash: lightningLash, kbfrost: frostbind, kbicewall: glacierWall, kbshards: mirrorShards, kblock: mindLock, kbmez: mesmerize, kbdecoy: mirrorImage,
   kbrend: savageRend, kbpounce: pounce, kbroar: feralRoar, kbhide: primalHide, kbhalo: haloDawn, kbword: wordShielding, kbchains: chainsLight, kbblind: blindingLight, kbtar: tarBomb };
-KB.has = (t) => !!CAST[t];
+KB.has = (t) => !!CAST[t]; KB.eleStorm = eleStorm;
 KB.cast = (c, a, ctx = {}) => { try { return CAST[a.t](c, a, Object.assign({ P: (n) => n || 0 }, ctx)); } catch (e) { console.error('kitsb', a.t, e); return true; } };
 // when a computer fighter uses each move (returns who to use it on, or null)
 KB.want = (b, a, T, dT, hp) => {
   const recent = G.time - (b.hurtT || 0) < 2.5, st = T && stunned(T), me = b.pos;
   switch (a.t) {
     case 'kbflamewave': return T && dT < 12 ? T : null;
+    case 'kbfireform': return T && dT < 16 ? b : null;
+    case 'kbiceform': return hp < 0.4 && recent ? b : null;
     case 'kblash': return T && dT < 8.5 ? T : null;
     case 'kbfrost': return T && dT < 24 && !st && (T.cast || Math.random() < 0.5) ? T : null;
     case 'kbicewall': return T && hp < 0.65 && recent && dT > 3 && dT < 24 ? T : null;
@@ -465,7 +553,9 @@ KB.want = (b, a, T, dT, hp) => {
 G.hooks.kb = KB;
 // the moves themselves (pushed into ABILITIES by arena.js kitRules0; the short texts live in kitinfo.js)
 export const KB_AB = {
-  elementalist: [{ id: 'el_flamewave', name: 'Flame Wave', t: 'kbflamewave', kit: true, level: 1, cd: 9, cost: 0, fx: 'fire', dmg: 1.5, burn: 0.3, desc: '' },
+  elementalist: [{ id: 'el_fireform', name: 'Fire Form', t: 'kbfireform', kit: true, level: 1, cd: 18, cost: 0, fx: 'fire', dur: 6, burn: 0.22, desc: '' },
+    { id: 'el_iceform', name: 'Ice Form', t: 'kbiceform', kit: true, level: 1, cd: 16, cost: 0, fx: 'frost', dur: 5, r: 4.2, dmg: 1.0, stun: 1.2, desc: '' },
+    { id: 'el_flamewave', name: 'Flame Wave', t: 'kbflamewave', kit: true, level: 1, cd: 9, cost: 0, fx: 'fire', dmg: 1.5, burn: 0.3, desc: '' },
     { id: 'el_lash', name: 'Lightning Lash', t: 'kblash', kit: true, level: 1, cd: 7, cost: 0, fx: 'arcane', dmg: 1.3, stun: 0.5, slow: 1.5, desc: '' },
     { id: 'el_frostbind', name: 'Frostbind', t: 'kbfrost', kit: true, level: 1, cd: 13, cost: 0, fx: 'frost', dmg: 0.9, stun: 1.5, spread: 3, freeze: true, desc: '' },
     { id: 'el_icewall', name: 'Glacier Wall', t: 'kbicewall', kit: true, level: 1, cd: 20, cost: 0, fx: 'frost', chip: 0.4, dur: 4, desc: '' }],
@@ -483,5 +573,5 @@ export const KB_AB = {
     { id: 'pr_blind', name: 'Blinding Light', t: 'kbblind', kit: true, level: 1, cd: 14, cost: 0, fx: 'gold', dmg: 0.3, r: 8, blind: 2, desc: '' }],
   bombardier: [{ id: 'bo_tar', name: 'Tar Bomb', t: 'kbtar', kit: true, level: 1, cd: 12, cost: 0, fx: 'fire', dmg: 0.3, desc: '' }],
 };
-export const KB_KITS = { elementalist: ['el_flamewave', 'el_lash', 'el_frostbind'], enchanter: ['en_shards', 'en_mindlock', 'en_mesmer'], beastmaster: ['bm_rend', 'bm_pounce', 'bm_roar'], priest: ['pr_sunhalo', 'pr_word2', 'pr_blind'], bombardier: ['bo_rocket', 'bo_tar', 'bo_stickies'] };
+export const KB_KITS = { elementalist: ['el_fireform', 'el_iceform', 'el_frostbind'], enchanter: ['en_shards', 'en_mindlock', 'en_mesmer'], beastmaster: ['bm_rend', 'bm_pounce', 'bm_roar'], priest: ['pr_sunhalo', 'pr_word2', 'pr_blind'], bombardier: ['bo_rocket', 'bo_tar', 'bo_stickies'] };
 export const KB_RMB = { elementalist: 'el_icewall', enchanter: 'en_decoy', beastmaster: 'bm_hide' };

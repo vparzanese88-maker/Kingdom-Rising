@@ -101,7 +101,7 @@ const REC = {
     moveFor: { cast: 'pCast' }, abMoves: { pr_halo: 'abHalo', ar_mendP: 'abHalo', pr_word: 'abWord', pr_chains: 'abChains', ar_salvation: 'abSalv', pr_sunhalo: 'abChains', pr_word2: 'abWord', pr_chains2: 'abHalo' } },
   elementalist: { clips: { ecast1: A_('ele_cast1'), ecast3: A_('ele_cast3') },
     moves: { eCast: ['ecast3', 0.1, 1.3, 0.9, false, 0, false, 0.67], abLash: ['ecast1', 0.33, 1.6, 0.63, false, 0.7], abFlame: ['ecast3', 0.1, 1.3, 0.9, false, 0.7], abFrost: ['ecast1', 0.33, 1.8, 1.4, false, 0.8], abPure: ['ecast1', 0.33, 2.67, 1.4, true, 1.6] },
-    moveFor: { cast: 'eCast' }, abMoves: { lightninglash: 'abLash', callflame: 'abFlame', frostbind: 'abFrost', iceshell: 'abFlame', pureel: 'abPure', ar_meteors: 'abPure', el_flamewave: 'abFlame', el_lash: 'abLash', el_frostbind: 'abFrost', el_icewall: 'abFlame' } },
+    moveFor: { cast: 'eCast' }, abMoves: { lightninglash: 'abLash', callflame: 'abFlame', frostbind: 'abFrost', iceshell: 'abFlame', pureel: 'abPure', ar_meteors: 'abPure', el_fireform: 'abFlame', el_iceform: 'abFrost', el_flamewave: 'abFlame', el_lash: 'abLash', el_frostbind: 'abFrost', el_icewall: 'abFlame' } },
   enchanter: { clips: { ncast: A_('ench_cast'), nskill: A_('ench_skill2') },
     moves: { nCast: ['ncast', 0.15, 1.2, 0.6, false, 0, false, 0.43], abRot: ['nskill', 0.0, 1.3, 0.2, false, 0.6], abLock: ['ncast', 0.15, 1.2, 0.6, false, 0.6], abMez: ['nskill', 0.0, 1.3, 0.2, false, 0.6], abShatter: ['ncast', 0.15, 1.4, 0.6, true, 1.2] },
     moveFor: { cast: 'nCast' }, abMoves: { mindrot: 'abRot', ar_mindlock: 'abLock', mesmerize: 'abMez', runeshield: 'abLock', mindshatter: 'abShatter', ar_charm: 'abShatter', en_shards: 'abLock', en_mindlock: 'abLock', en_mesmer: 'abMez', en_decoy: 'abRot' } },

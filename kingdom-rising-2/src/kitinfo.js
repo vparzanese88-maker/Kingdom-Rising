@@ -61,7 +61,7 @@ export const KIT = {
   sh_wave: ['wave', 'frost', 'Water bursts up under you and every ally within 12 m. You heal 20%, they heal 28%.'],
   ar_chainbolt: ['bolt', 'frost', 'A bolt of lightning at your target that jumps to two more enemies nearby, slowing them and stunning them for 0.4 s.'],
   ar_spiritwolf: ['wolf', 'nature', 'A spirit wolf bursts out of green smoke and hunts the enemy nearest your crosshair for 6 s.'],
-  sh_leap: ['spear', 'steel', 'Leap 9 m straight ahead spear first, striking everyone where you land.'],
+  sh_leap: ['spear', 'steel', 'Charge ahead with your spear levelled and run it into the first enemy you meet: struck, knocked back and stunned for 0.6 s.'],
   sh_hex: ['frog', 'nature', 'Turn the enemy you aim at into a frog for 2.5 s.'],
   ar_totem: ['totem', 'nature', 'Throw a totem that heals allies within 10 m by 6% a second for 10 s. Two can stand at once.'],
   ar_spirittotem: ['bolt', 'frost', 'A bolt from the sky charges your spear and a storm follows you for 4 s: fast forked lightning strikes the enemies round you and leaps between them, green lightning heals you and your allies, and then the storm breaks on every enemy within 14 m, stunning them.', 1],
@@ -106,6 +106,8 @@ export const KIT = {
   bonearmor: ['ribcage', 'steel', 'A cage of bones absorbs 30% of your health.'],
   ar_demon: ['drain', 'shadow', 'Siphon beams drain every enemy within 12 m for 4 s and heal you; then bone spikes erupt under them and knock them down.', 1],
   // elementalist
+  el_fireform: ['flame', 'fire', 'Become a great ball of fire for 6 s: attack twice as fast, move 25% faster, and leave a trail of blazing ground that burns enemies who stand in it.'],
+  el_iceform: ['crystal', 'frost', 'Freeze yourself into hard permafrost for 5 s: you cannot move or attack, but take no damage. Press again to break out early; either way the ice explodes, knocking down everyone within 4 m.'],
   el_flamewave: ['flame', 'fire', 'A wall of fire rolls 14 m along the ground in front of you, burning everyone it passes and scorching the ground.'],
   el_lash: ['bolt', 'frost', 'Crack a whip of lightning across the whole front of you (9 m): everyone it lashes is jolted for 0.5 s and slowed.'],
   el_frostbind: ['crystal', 'frost', 'Hurl an ice shard: ice crystals burst out of the ground around the enemy it hits, and anyone within 3 m, freezing them for 1.5 s.'],
@@ -114,7 +116,7 @@ export const KIT = {
   ar_flamewave: ['flame', 'fire', 'A rolling wave of fire burns everyone in front of you.'],
   frostbind: ['crystal', 'frost', 'Freeze the enemy you aim at, and anyone within 3 m, for 1.5 s.'],
   ar_iceshell: ['shieldglow', 'frost', 'A shell of ice absorbs 30% of your health for 5 s.'],
-  ar_meteors: ['meteor', 'fire', 'A storm cloud opens where you aim: lightning strikes every enemy under it and ice spears rain, then a meteor crashes through it for 28%.', 1],
+  ar_meteors: ['meteor', 'frost', 'Rise off the ground, arms out wide, for 5 s. A blizzard whirls round you (8 m): every enemy in it is frozen solid while they stay inside. Over a wider ring (14 m) hellfire rains from the sky on your enemies.', 1],
   // enchanter
   en_shards: ['spiraleye', 'arcane', 'Throw a spinning pane of enchanted glass: it shatters on the first enemy it hits and the shards ricochet into up to 2 more nearby.'],
   en_mindlock: ['lock', 'arcane', 'A bolt of binding thought: the enemy it hits, and anyone within 3 m, is silenced for 2 s as a padlock of light snaps shut over their head.'],

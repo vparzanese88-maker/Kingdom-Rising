@@ -302,6 +302,7 @@ function palm(so) { const hb = so.parent; if (so.userData.mid === undefined) { l
   const m = so.userData.mid; if (!m) { const pl = so.userData.palmL === undefined ? (so.userData.palmL = skinPalm(hb)) : so.userData.palmL; if (pl) so.position.copy(pl); return; } m.updateWorldMatrix(true, false); hb.getWorldPosition(_ga); m.getWorldPosition(_gb); _ga.lerp(_gb, 0.85); so.position.copy(hb.worldToLocal(_ga)); }
 // a rig with no finger bones (the Meshy heroes): the middle of the hand is the average of the skin the hand bone moves, in its rest pose,
 // in the hand bone's own frame (worked out once per model and hand)
+export function palmWorld(hb) { const pl = skinPalm(hb); if (!pl) return null; hb.updateWorldMatrix(true, false); return hb.localToWorld(pl.clone()); } // (the middle of a model's hand in the world: its fingers, if curled, included)
 function skinPalm(hb) { let sk = null; for (let r = hb, n = 0; r && !sk && n < 40; r = r.parent, n++) { if (r.isBone) continue; r.traverse(o => { if (!sk && o.isSkinnedMesh && o.skeleton && o.skeleton.bones.includes(hb)) sk = o; }); }
   if (!sk) return null; const g = sk.geometry, C = (g.userData.palm = g.userData.palm || {}); if (C[hb.name] !== undefined) return C[hb.name]; const bi = sk.skeleton.bones.indexOf(hb), P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight; if (!P || !SI || !SW) return (C[hb.name] = null);
   const mt = new THREE.Matrix4().multiplyMatrices(sk.skeleton.boneInverses[bi], sk.bindMatrix), v = new THREE.Vector3(), sum = new THREE.Vector3(); let n = 0;

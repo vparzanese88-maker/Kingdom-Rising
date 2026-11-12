@@ -355,7 +355,7 @@ function bladesForward(ch) { const H = ch.heroModel; if (!H || H === 'loading' |
     const dq = new THREE.Quaternion().setFromUnitVectors(cur, fw), nq = new THREE.Quaternion().slerp(dq, rest).multiply(wq); c.parent.getWorldQuaternion(_rq).invert(); c.quaternion.copy(_rq.multiply(nq)); } }
 // (the owner) resting weapons: whatever the recording does with the hand, at rest a caster's staff stands upright, the Shadowknight's
 // greatsword hangs point-down in front of his feet and the ranger's bow stands up and down; blended out as the arm attacks or aims
-const RUN_DIR = { necromancer: [0.12, 0.3, -1] }; // (haft back and a little up from the fist while he runs)
+const RUN_DIR = { necromancer: [0.15, 0.55, 1] }; // (the owner: running, the scythe is held in front of him, blade forward and up)
 const REST_DIR = { paladin: [0.08, -1, 0.3, 'R'], enchanter: [0, 1, 0.12], druid: [0, 1, 0.12], darkknight: [-0.42, -0.58, 0.7, 'R', [-1, 0.2, 0.3]], ranger: [0.18, 1, 0.02, 'L', [0, 0, -1]], necromancer: [0.06, 1, 0.12, 'R', [1, 0, 0]], cleric: [0.08, 1, 0.3, 'R', [0, 0, 1], 'sock'] }; /* (6th, 'sock': turn the hand socket instead, for a one-handed weapon whose own angle in the socket the built body's animation sets after this runs: the cleric's scepter) */ /* ([x his left, y up, z his front] for the weapon's long axis (its local +y, which runs pommel to tip for the greatsword and limb to limb for the bow, centred on the grip); 4th: the hand that holds it; 5th: where its local +z faces (the sword's flat, the bow's back) */
 const _rz = new THREE.Vector3(), _rz2 = new THREE.Vector3();
 const ATK_DIR = { druid: [0, 0.35, 1], enchanter: [0, 0.35, 1] }; /* (casting: the staff's head ahead of her, a little raised) */

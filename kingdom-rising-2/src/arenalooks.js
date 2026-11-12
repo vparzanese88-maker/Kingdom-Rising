@@ -2,7 +2,7 @@
 // god in Smite). arenaSpec() is the outfit palette fed to buildHumanoid; arenaDecor() adds each class's signature
 // pieces (helmets, hats, hoods, masks, mantles, orbs); arenaWeaponDecor() dresses the weapon (the necromancer's skull staff).
 import * as THREE from 'three';
-import { attachHeroModel, tickHeroModel, heroHeight } from './heromodels.js';
+import { attachHeroModel, tickHeroModel, heroHeight, ikArm } from './heromodels.js';
 import { armReach, classKit, kitize, makeWeapon } from './character.js';
 
 const M = (c, r = 0.8, m = 0, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, o));
@@ -388,7 +388,43 @@ function armsOutPose(ch, dt) { const H = ch.heroModel; if (!H || H === 'loading'
   const B = H.bones, k = ch.armsOutK * ch.armsOutK * (3 - 2 * ch.armsOutK), rq = ch.root.getWorldQuaternion(_rq2);
   for (const [sd, sx] of [['Left', 1], ['Right', -1]]) { const a = B[sd + 'Arm'], f = B[sd + 'ForeArm'], h = B[sd + 'Hand']; if (!a || !f || !h) continue;
     aimBone(a, f, _rv.set(sx, 0.22, 0.12).normalize().applyQuaternion(rq), k); aimBone(f, h, _rw.set(sx, 0.32, 0.18).normalize().applyQuaternion(rq), k); } }
-export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) { tickHeroModel(ch, dt); rollTuck(ch, dt); guardArms(ch, dt); armsOutPose(ch, dt); gripFollow(ch); /* (the owner: a held dagger is locked in the fist and turns exactly as the hand turns; nothing steers the blade after gripFollow sets it in the fist) */ restWeapon(ch); } if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
+// (the owner) the monk's quarterstaff guard: standing, the staff is held across his body in both hands, angled up and forward (right fist at
+// his hip, left fist out in front of his chest), not upright in one fist in front of his face; it eases into his run and his strikes
+const _sA = new THREE.Vector3(), _sB = new THREE.Vector3(), _sC = new THREE.Vector3(), _sD = new THREE.Vector3(), _sQ = new THREE.Quaternion(), _sM = new THREE.Matrix4();
+function staffGuard(ch, dt) { const H = ch.heroModel, w = ch.weapons && ch.weapons.main; if (ch.heroCls !== 'monk' || !H || H === 'loading' || !H.bones || !w || !/^weapon_(quarter)?staff$/.test(w.name || '') || !w.parent) return; const B = H.bones;
+  const rest = 1 - Math.min(1, (H.ikA || 0) + (H.mw || 0)), st = ch._st || {}, want = rest * (st.roll != null || st.dead ? 0 : 1); /* (kept while he runs too: a steady two-handed carry, not a staff swinging upright then flat with every stride) */
+  H.sgK = (H.sgK || 0) + (want - (H.sgK || 0)) * Math.min(1, dt * 8); const k = H.sgK; if (k < 0.01 || !B.RightArm || !B.LeftArm) return;
+  ch.root.updateMatrixWorld(true); const rq = ch.root.getWorldQuaternion(_sQ), F = _sA.set(0, 0, 1).applyQuaternion(rq), L = _sB.set(1, 0, 0).applyQuaternion(rq), U = _sC.set(0, 1, 0);
+  const sh = B.RightArm.getWorldPosition(new THREE.Vector3()), shL = B.LeftArm.getWorldPosition(new THREE.Vector3()), len = sh.distanceTo(B.RightForeArm.getWorldPosition(new THREE.Vector3())) * 2;
+  const d = _sD.copy(F).multiplyScalar(0.62).addScaledVector(U, 0.62).addScaledVector(L, 0.48).normalize(); /* (the staff's line: up, forward and across to his left) */
+  const hR = sh.clone().addScaledVector(U, -0.72 * len).addScaledVector(F, 0.42 * len).addScaledVector(L, 0.12 * len), hL = hR.clone().addScaledVector(d, 0.62 * len);
+  const pole = (s0, sx) => s0.clone().addScaledVector(L, -sx * len).addScaledVector(U, -len);
+  const keep = ['RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand'].map(n => B[n] ? B[n].quaternion.clone() : null);
+  ikArm(null, B.RightArm, B.RightForeArm, B.RightHand, hR, pole(sh, 1)); ikArm(null, B.LeftArm, B.LeftForeArm, B.LeftHand, hL, pole(shL, -1));
+  { const pw = palmWorld(B.LeftHand); if (pw) { const on = hR.clone().addScaledVector(d, pw.clone().sub(hR).dot(d)); hL.add(on.sub(pw)); ikArm(null, B.LeftArm, B.LeftForeArm, B.LeftHand, hL, pole(shL, -1)); } } /* (the left fist itself, not its wrist, closed round the staff) */
+  if (k < 0.999) ['RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand'].forEach((n, i) => { if (B[n] && keep[i]) { const q = B[n].quaternion.clone(); B[n].quaternion.copy(keep[i]).slerp(q, k); } });
+  B.RightArm.updateWorldMatrix(true, true); B.LeftArm.updateWorldMatrix(true, true);
+  // lay the staff along that line, through the right fist (the socket turns so the staff's own +y runs along d)
+  const so = w.parent; so.updateWorldMatrix(true, false); const x = new THREE.Vector3().crossVectors(d, F).normalize(), z = new THREE.Vector3().crossVectors(x, d); _sM.makeBasis(x, d, z); const qW = new THREE.Quaternion().setFromRotationMatrix(_sM).multiply(w.quaternion.clone().invert());
+  const pq = so.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(qW); so.quaternion.slerp(pq, k); }
+// (the owner) the shaman's spear thrust: both hands on the spear, held level and pointed where she faces; a short draw back, a hard drive
+// forward to full reach, a beat held there, then back to the guard. The legs and body play her recording; the arms and the spear follow this
+function spearThrust(ch, dt) { const H = ch.heroModel, w = ch.weapons && ch.weapons.main, st = ch._st || {}; if (ch.heroCls !== 'shaman' || !H || H === 'loading' || !H.bones || !w || !w.parent) return; const B = H.bones;
+  const on = /^thrust/.test(ch._act || st.action || '') && st.actionT != null && !st.dead && st.roll == null, e = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  if (on) H.stLk = Math.max(0, Math.min(1, st.actionT)); const k = on ? H.stLk : 1, hold = !on && ((H.mw || 0) > 0.04 || (H.ikA || 0) > 0.04) && (H.stK || 0) > 0.01 && !st.dead && st.roll == null; /* (after the blow, held in the finished pose until her recording has faded, then eased into the carry: no swing through the recording's last frame) */
+  const want = on ? Math.min(1, k / 0.06) : hold ? 1 : 0; H.stK = (H.stK || 0) + (want - (H.stK || 0)) * Math.min(1, dt * (want > (H.stK || 0) ? 20 : 7)); const wk = H.stK; if (wk < 0.01 || !B.RightArm || !B.LeftArm) return;
+  const p = k < 0.14 ? -0.2 * e(k / 0.14) : k < 0.42 ? -0.2 + 1.2 * e((k - 0.14) / 0.28) : k < 0.66 ? 1 : 1 - e((k - 0.66) / 0.3); /* (draw back, drive, hold, recover) */ const up = e((k - 0.7) / 0.3); /* (recovering, the spear rises toward the upright carry) */
+  ch.root.updateMatrixWorld(true); const rq = ch.root.getWorldQuaternion(_sQ), F = _sA.set(0, 0, 1).applyQuaternion(rq), L = _sB.set(1, 0, 0).applyQuaternion(rq), U = _sC.set(0, 1, 0);
+  const sh = B.RightArm.getWorldPosition(new THREE.Vector3()), shL = B.LeftArm.getWorldPosition(new THREE.Vector3()), len = sh.distanceTo(B.RightForeArm.getWorldPosition(new THREE.Vector3())) * 2;
+  const d = _sD.copy(F).addScaledVector(U, -0.06 + up * 1.2).normalize(); /* (level, a touch down: at a man's chest; then rising as she recovers) */
+  const hR = sh.clone().addScaledVector(U, -0.42 * len).addScaledVector(F, (0.12 + 0.62 * p) * len).addScaledVector(L, 0.1 * len), hL = hR.clone().addScaledVector(d, 0.55 * len).addScaledVector(L, 0.04 * len);
+  const pole = (s0, sx) => s0.clone().addScaledVector(L, -sx * len).addScaledVector(U, -len); const names = ['RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand'], keep = names.map(n => B[n] ? B[n].quaternion.clone() : null);
+  ikArm(null, B.RightArm, B.RightForeArm, B.RightHand, hR, pole(sh, 1)); ikArm(null, B.LeftArm, B.LeftForeArm, B.LeftHand, hL, pole(shL, -1));
+  { const pw = palmWorld(B.LeftHand); if (pw) { const on2 = hR.clone().addScaledVector(d, pw.clone().sub(hR).dot(d)); hL.add(on2.sub(pw)); ikArm(null, B.LeftArm, B.LeftForeArm, B.LeftHand, hL, pole(shL, -1)); } }
+  if (wk < 0.999) names.forEach((n, i) => { if (B[n] && keep[i]) { const q = B[n].quaternion.clone(); B[n].quaternion.copy(keep[i]).slerp(q, wk); } }); B.RightArm.updateWorldMatrix(true, true); B.LeftArm.updateWorldMatrix(true, true);
+  const so = w.parent; so.updateWorldMatrix(true, false); const x = new THREE.Vector3().crossVectors(d, U).normalize(), z = new THREE.Vector3().crossVectors(x, d); _sM.makeBasis(x, d, z); const qW = new THREE.Quaternion().setFromRotationMatrix(_sM).multiply(w.quaternion.clone().invert());
+  so.quaternion.slerp(so.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(qW), wk); }
+export function arenaLookTick(ch, dt) { if (ch && ch.heroModel) { tickHeroModel(ch, dt); rollTuck(ch, dt); guardArms(ch, dt); armsOutPose(ch, dt); gripFollow(ch); /* (the owner: a held dagger is locked in the fist and turns exactly as the hand turns; nothing steers the blade after gripFollow sets it in the fist) */ restWeapon(ch); staffGuard(ch, dt); spearThrust(ch, dt); } if (ch && ch.capes) capeTick(ch, dt); if (ch && ch.arenaSpin) ch.arenaSpin.rotation.y += dt * 1.6; if (ch && ch.dangle) swingDangle(ch.dangle, ch.root, dt);
   if (ch && ch.monkTails) { const p = ch.root.position, lp = (ch.tailState = ch.tailState || { lp: p.clone(), k: 0 }).lp, sp = Math.min(1, p.distanceTo(lp) / Math.max(dt, 1e-3) / 7); lp.copy(p); const t = performance.now() / 1000; const TS = ch.tailState; TS.k += (sp - TS.k) * Math.min(1, dt * 5);
     ch.monkTails.forEach((pv, i) => { pv.rotation.x = 0.15 + TS.k * 1.1 + Math.sin(t * 9 + i * 1.7) * (0.08 + TS.k * 0.18); pv.rotation.z = Math.sin(t * 6 + i) * 0.1 * (1 + TS.k); }); } }
 // the shrunken head: a leathery little head with a stitched mouth and green eyes, hung from a long braided ponytail.

@@ -179,11 +179,11 @@ const fireTex = () => canvasTex('fireglow', 128, 128, (x, w) => { const g = x.cr
 function fireForm(c, a, ctx) {
   const dur = a.dur || 6, R = 0.95; c.fireFormT = G.time + dur;
   const g = new THREE.Group(); G.scene.add(g);
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(R * 0.5, 2), new THREE.MeshBasicMaterial({ color: '#fff4c8' })); g.add(core);
-  const shells = [[R * 0.72, '#ffc040', 0.8], [R * 0.92, '#ff7414', 0.55], [R * 1.18, '#ff3c00', 0.28]].map(([r, col, op]) => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 2), addM(col, op)); g.add(m); return m; });
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); glow.scale.setScalar(R * 4.2); g.add(glow);
-  const tongues = []; for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(new THREE.ConeGeometry(0.15, 1, 6), addM(i % 3 ? '#ff6a14' : '#ffd250', 0.75)); m.userData = { a: i / 16 * Math.PI * 2, e: (Math.random() - 0.5) * 1.4, s: 0.6 + Math.random() * 0.7, ph: Math.random() * 6 }; g.add(m); tongues.push(m); }
-  S.cast && S.cast('fire', c.pos, 1.5); S.explode && S.explode(c.pos, 0.5, 'fire'); V.burst('fire', c.pos.clone().setY(c.pos.y + 1), 90, { speed: 7, size: 1.1 }); V.burst('ember', c.pos.clone().setY(c.pos.y + 1), 50, { speed: 8 }); V.light(c.pos.clone().setY(c.pos.y + 1.2), '#ff8030', 9, 0.4, 14); kick(c, 0.35, 8);
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(R * 0.5, 2), new THREE.MeshBasicMaterial({ color: '#ffb048' })); g.add(core);
+  const shells = [[R * 0.72, '#ff8a20', 0.5], [R * 0.92, '#e84a08', 0.35], [R * 1.12, '#b02800', 0.18]].map(([r, col, op]) => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 2), addM(col, op)); g.add(m); return m; });
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); glow.material.color.set('#ff7a30'); glow.material.opacity = 0.55; glow.scale.setScalar(R * 2.5); /* (a warm glow, not a white-out) */ g.add(glow);
+  const tongues = []; for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(new THREE.ConeGeometry(0.15, 1, 6), addM(i % 3 ? '#ff5a10' : '#ffb030', 0.6)); m.userData = { a: i / 16 * Math.PI * 2, e: (Math.random() - 0.5) * 1.4, s: 0.6 + Math.random() * 0.7, ph: Math.random() * 6 }; g.add(m); tongues.push(m); }
+  S.cast && S.cast('fire', c.pos, 1.5); S.explode && S.explode(c.pos, 0.5, 'fire'); V.burst('fire', c.pos.clone().setY(c.pos.y + 1), 90, { speed: 7, size: 1.1 }); V.burst('ember', c.pos.clone().setY(c.pos.y + 1), 50, { speed: 8 }); V.light(c.pos.clone().setY(c.pos.y + 1.2), '#ff8030', 5, 0.3, 10); kick(c, 0.35, 8);
   const patches = []; let t = 0, last = c.pos.clone(), drop = 0, roll = 0, ended = false;
   tick((dt) => { t += dt; const on = (c.fireFormT || 0) > G.time && !c.dead, hm = heroMesh(c);
     if (on) { if (hm) hm.visible = false; g.position.set(c.pos.x, c.pos.y + R * 1.02 + (c.hoverH && !isP(c) ? c.hoverH : 0), c.pos.z);

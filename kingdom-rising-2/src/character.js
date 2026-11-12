@@ -984,7 +984,7 @@ export function animateHumanoid(ch, dt, st) {
     else if (st.armed && !st.block) { guard('R'); guard('L'); } }
   uprightShield(ch, st);
   // casting with a staff: the arm comes up and the staff points where you are looking
-  const grip = arms.R.grip;
+  const grip = ch.heroModel && ch.heroModel !== 'loading' ? null : arms.R.grip; /* (a 3D hero model holds its weapon from this same grip (see gripFollow): turning it here, after the model's hand has set it, bent your own right-hand weapon off its angle by an amount that changed with the frame rate) */
   if (grip && grip.userData.rx0 == null) grip.userData.rx0 = grip.rotation.x;
   if (st.aimStaff) { const p = st.aimPitch || 0; damp(arms.R.sh, -1.45 - p, 0.12, 0.08, k * 2.2); damp(arms.R.el, -0.12, 0, 0, k * 2.2); if (grip) grip.rotation.x += ((grip.userData.rx0 - 1.45) - grip.rotation.x) * Math.min(1, dt * 14); }
   else if (grip && grip.userData.rx0 != null) grip.rotation.x += (grip.userData.rx0 - grip.rotation.x) * Math.min(1, dt * 10);

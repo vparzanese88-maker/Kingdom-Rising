@@ -4,6 +4,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32, fbm, smooth, clamp, lerp, hash2, distToLine } from './util.js';
 import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLAGE, SPAWN, RIVER, ROADS, BRIDGES, LAVA_POOLS, CAMPS, PLATEAU, LAKE, VOLCANO, SEA, normalAt, PORT, MOUNT } from './terrain.js';
 import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
+import { GI } from './gimap.js';
+import { buildGoblinIsle, giAvoid } from './goblinisle.js';
 import { YARD, ARENA } from './battlemap.js';
 import { buildColosseum } from './arenamap.js';
 import { buildRuins } from './ruinsmap.js';
@@ -247,6 +249,7 @@ function addNode(type, x, z, s, rotY, kind, tint) {
 
 // ---------- placement ----------
 function avoid(x, z, pad = 0) {
+  if (GI && giAvoid(x, z, pad)) return true;
   if (Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < 36 + pad) return true;
   if (!BATTLE && Math.hypot(x - PORT.x, z - PORT.z) < 82 + pad) return true;
   for (const c of CAMPS) if (Math.hypot(x - c.x, z - c.z) < c.r + 6 + pad) return true;
@@ -549,6 +552,11 @@ function buildVillage(scene) {
     for (let i = 0; i < 5; i++) bx(0.55, 0.04, 1.6, i % 2 ? M.clothRed : M.cloth, -1.1 + i * 0.55, 2.6, 0.1, g, 0.18, 0, 0);
     for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), new THREE.MeshStandardMaterial({ color: ['#e04030', '#f0c040', '#60b040'][i % 3] })); c.position.set(-0.8 + i * 0.4, 0.98, 0); g.add(c); }
     placeGroup(g, 7.7, 356, Math.PI, scene); addBox(7.7, 356, 1.35, 0.6, Math.PI); }
+  buildPier(scene);
+  // fish racks, barrels, crates, lamps
+  buildVillageProps(scene);
+}
+function buildPier(scene) {
   // pier from the beach into the sea
   const pierX = -4, pw = 2.0; let z0 = 380; while (z0 < 520 && heightAt(pierX, z0) > 0.9) z0 += 1; z0 -= 10; const z1 = z0 + 52;
   { const g = new THREE.Group(); const len = z1 - z0;
@@ -564,7 +572,8 @@ function buildVillage(scene) {
       placeGroup(b, bxp, bzp, r, scene, 0, 0.35); b.userData.dynamic = true; world.boats = world.boats || []; world.boats.push(b);
     }
   }
-  // fish racks, barrels, crates, lamps
+}
+function buildVillageProps(scene) {
   { const g = new THREE.Group(); for (const sx of [-1, 1]) bx(0.1, 1.8, 0.1, M.beam, sx * 1.2, 0.9, 0, g); bx(2.6, 0.08, 0.08, M.beam, 0, 1.75, 0, g);
     for (let i = 0; i < 6; i++) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.5, 5), new THREE.MeshStandardMaterial({ color: '#a8b0b8', metalness: 0.4, roughness: 0.5 })); f.position.set(-1 + i * 0.4, 1.45, 0); f.rotation.x = Math.PI; g.add(f); }
     placeGroup(g, -16, 396, 0.2, scene); addBox(-16, 396, 1.3, 0.2, 0.2); }
@@ -882,7 +891,8 @@ export function buildWorld(scene) {
   });
   if (YARD) buildYard(scene);
   if (ARENA) buildRuins(scene); // the arena is fought in the Ruins of Aldermere
-  if (!BATTLE && !YARD && !ARENA) { buildVillage(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
+  if (GI) { buildPier(scene); buildGoblinIsle(scene, { M, bx, cy, placeGroup, tent, banner, campfire, barrel, crate, fire, addHouse, lampPost }); } // the campaign: Goblin Island
+  else if (!BATTLE && !YARD && !ARENA) { buildVillage(scene); buildCamps(scene); buildBridges(scene); buildLava(scene); buildGoblinCamps(scene); }
   mergeStatics(scene);
   scatter();
   buildChunks(scene);

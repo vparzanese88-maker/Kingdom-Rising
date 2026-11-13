@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { fbm, ridged, smooth, lerp, clamp, distToLine } from './util.js';
 import { BATTLE, YARD, ARENA, battleHeight, LAYOUT, roadPolylines, WALL_R } from './battlemap.js';
+import { GI, giShape, giCamps, ROADS_GI } from './gimap.js';
 
 export const HALF = 600, SEG = /[?&]mode=arena/.test(location.search) ? 60 : 300, CELL = (HALF * 2) / SEG; // (the arena never shows the ground outside its walls up close)
 export const SEA = 0;
@@ -38,6 +39,9 @@ if (BATTLE && LAYOUT.towns.length) applyBattleTerrain();
 // the Training Yard: a plain field with nothing on it
 if (YARD || ARENA) { ROADS.length = 0; LAVA_POOLS.length = 0; CAMPS.length = 0; RIVER.length = 0; RIVER.push([9000, 9000], [9001, 9001]); VILLAGE.x = VILLAGE.z = 9000; PORT.x = PORT.z = 9000; MOUNT.x = MOUNT.z = 9000; SPAWN.x = 0; SPAWN.z = 30; SPAWN.yaw = Math.PI; }
 
+// the campaign is Goblin Island (gimap.js): its own clearings and trails, no Mount Kelda, no Saltmere, no river
+if (GI) { CAMPS.length = 0; CAMPS.push(...giCamps()); ROADS.length = 0; ROADS.push(...ROADS_GI); RIVER.length = 0; RIVER.push([9000, 9000], [9001, 9001]); PORT.x = PORT.z = 9000; MOUNT.x = MOUNT.z = 9000; }
+const jungle = (x, z) => { let h = 4.5 + fbm(x * 0.0035, z * 0.0035, 4) * 8 + fbm(x * 0.014 + 7, z * 0.014, 3) * 2.2; return Math.max(h, 2.4 + fbm(x * 0.02, z * 0.02, 2) * 0.6); };
 function riverDist(x, z) { return distToLine(x, z, RIVER); }
 function roadDist(x, z) { let best = 1e9; for (const r of ROADS) { const d = distToLine(x, z, r).d; if (d < best) best = d; } return best; }
 export { roadDist };
@@ -60,6 +64,7 @@ export function rawHeight(x, z, noCamps) {
   const dpt = Math.hypot(x - PORT.x, z - PORT.z);
   h = lerp(h, 3.2 + fbm(x * 0.03, z * 0.03, 2) * 0.3, 1 - smooth(55, 85, dpt));
   if (!noCamps) for (const c of CAMPS) { const d = Math.hypot(x - c.x, z - c.z); if (d < c.r * 1.8) { if (c.flat == null) c.flat = rawHeight(c.x, c.z, true); h = lerp(h, c.flat, 1 - smooth(c.r * 0.7, c.r * 1.8, d)); } }
+  if (GI) h = giShape(x, z, h, jungle); // Goblin Island: the gorge, the Crown Ridge and its cuts
   // the coast all the way round: beach, then the sea
   const [r, R] = isleR(x, z);
   const beach = smooth(R - 62, R - 30, r);

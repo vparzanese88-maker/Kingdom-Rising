@@ -1,10 +1,11 @@
+import { GI, TRIBES, LAIRS, CROWN, TUNNEL, BRIDGE1, CAMP_SPOT } from './gimap.js';
 // The island's story, its places of interest, and what ordinary villagers have to say about them.
 // Places show on the map once you have explored them, or once someone has told you where they are.
 import { G } from './state.js';
 import { CAMPS, PORT, VILLAGE, MOUNT } from './terrain.js';
 import { GOBLIN_CAMPS } from './data.js';
 
-export const LORE = {
+const LORE_KELDA = {
   title: 'The Island of Kelda',
   text: [
     'Kelda was a quiet island once: fishing villages on the south shore, the free port of Saltmere in the north, and hunters\' lodges on the green slopes of the mountain that gives the island its name.',
@@ -12,9 +13,27 @@ export const LORE = {
     'Now the goblins own the mountain and the roads around it. The wolves, bears and tigers they drove out of the high forests prowl the lowlands, hungrier than ever. Seabreak Village barely holds the south shore. Saltmere still trades, behind its walls. And between them lies a long, dangerous road.',
   ],
 };
+// Goblin Island's story (the campaign's first island)
+const LORE_GI = {
+  title: 'Goblin Island',
+  text: [
+    'Sailors call it Goblin Island; the old charts name it Grimtusk Isle. For as long as anyone remembers its goblin tribes fought each other more than anyone else: the Bloodfang of the southern jungle, the Mudfoot of the western swamps, the Skullsplitters of the eastern hills.',
+    'Then the High Chief dug something up beneath the goblin city: a black stone idol with too many eyes. Within a season every tribe knelt to him. Now the goblins do not squabble or run. Their eyes are glassy, they fight to the last, and they whisper to the idol in their sleep.',
+    'The trolls in the hills have felt it too and grown savage. Three goblin champions, a musketeer, a bombardier and a blunderbuss gunner, guard the High Chief in his city behind the Crown Ridge, a ring of mountains with only two ways through. Every ship that comes too close is wrecked.',
+  ],
+};
+export const LORE = GI ? LORE_GI : LORE_KELDA;
 
 // every place of interest on the island
 export function pois() {
+  if (GI) return [ // Goblin Island
+    { id: 'village', name: "Sailors' Camp", x: CAMP_SPOT.x, z: CAMP_SPOT.z, icon: '⌂', col: '#fff', town: true },
+    ...Object.entries(TRIBES).map(([id, t]) => ({ id: 'tribe_' + id, name: `${t.name} Tribe`, x: t.x, z: t.z, icon: '⚔', col: t.col })),
+    ...LAIRS.map(l => ({ id: 'lair_' + l.id, name: `Troll lair: ${l.name}`, x: l.x, z: l.z, icon: '☠', col: '#c8a080' })),
+    { id: 'bridge1', name: 'Gorge Drawbridge', x: BRIDGE1.x, z: (BRIDGE1.zS + BRIDGE1.zN) / 2, icon: '⛓', col: '#e8d8a8' },
+    { id: 'tunnel', name: 'Gloomtunnel', x: CROWN.x + TUNNEL.a1, z: CROWN.z, icon: '⛏', col: '#ffb060' },
+    { id: 'city', name: 'The Goblin City', x: CROWN.x, z: CROWN.z, icon: '☠', col: '#ff6060', big: true },
+  ];
   const out = [
     { id: 'village', name: 'Seabreak Village', x: VILLAGE.x, z: VILLAGE.z, icon: '⌂', col: '#fff', town: true },
     { id: 'saltmere', name: 'Saltmere', x: PORT.x, z: PORT.z, icon: '⌂', col: '#fff', town: true, big: true },

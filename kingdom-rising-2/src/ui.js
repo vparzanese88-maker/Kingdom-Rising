@@ -737,7 +737,7 @@ export function openQuestLog() {
     det.innerHTML = `<h3>${esc(q.title)}</h3><p>${esc(q.text)}</p>` + q.obj.map((o, i) => { const pr = Game.objProgress(h, q, i), n = o.n || 1; return `<div class="obj" style="${pr >= n ? 'color:var(--good)' : ''}">${pr >= n ? '✓' : '•'} ${esc(o.label)} ${n > 1 ? `(${pr}/${n})` : ''}</div>`; }).join('') + `<p style="color:var(--dim)">Turn in to: <b>${esc((q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story"))}</b></p><div class="reward">Rewards: ${q.xp} XP · ${q.gold || 0} gold${q.gear ? ' · a piece of gear' : ''}${q.items ? ' · ' + Object.entries(q.items).map(([k, n]) => n + ' ' + ITEMS[k].name).join(', ') : ''}</div>`;
     const ab = el('button', 'btn red', 'Abandon quest'); ab.style.marginTop = '10px'; ab.onclick = () => { delete h.quests.active[q.id]; qSel = null; G.hooks.questsChanged(); openQuestLog(); }; det.appendChild(ab);
   }
-  { const lb = el('button', 'lorebtn', '📖 <b>The Island of Kelda</b><small>How the goblins took the island</small>'); lb.onclick = () => { S.click(); det.innerHTML = `<h3>${LORE.title}</h3>` + LORE.text.map(t => `<p>${esc(t)}</p>`).join(''); }; list.insertBefore(lb, list.firstChild); }
+  { const lb = el('button', 'lorebtn', `📖 <b>${LORE.title}</b><small>How the goblins took the island</small>`); lb.onclick = () => { S.click(); det.innerHTML = `<h3>${LORE.title}</h3>` + LORE.text.map(t => `<p>${esc(t)}</p>`).join(''); }; list.insertBefore(lb, list.firstChild); }
   lay.append(list, det); c.appendChild(lay);
 }
 
@@ -770,7 +770,7 @@ export function questAreas(h) {
 }
 let mapSel = null;
 export function openMap() {
-  const c = openWin('map', G.battleMapDraw ? 'Map of the Realm' : 'Map of Kelda', '', 'mapfull');
+  const c = openWin('map', G.battleMapDraw ? 'Map of the Realm' : document.body.classList.contains('gi') ? 'Map of Goblin Island' : 'Map of Kelda', '', 'mapfull');
   const h = G.player.h, p = G.player, areas = questAreas(h);
   const wrap = el('div', 'maplay'); c.appendChild(wrap);
   const holder = el('div', 'mapcv'); wrap.appendChild(holder);
@@ -1011,7 +1011,7 @@ export function openControls(fromPause) {
   const c = openWin('controls', 'How to Play', '');
   const g = el('div', 'helpgrid');
   const grp = (title, rows) => { const d = el('div'); d.appendChild(el('h4', '', title)); for (const [k, t] of rows) d.appendChild(el('div', 'krow', `<span class="kbd">${k}</span><span>${t}</span>`)); g.appendChild(d); };
-  g.appendChild(el('div', 'helpnote', '<b>Your goal:</b> follow the quests from Seabreak Village. They teach you to gather and craft, then lead you north through Whisperwood, the Frostpeak Highlands and finally the Ashlands. Gold <b style="color:#ffd84a">!</b> means a quest to pick up, gold <b style="color:#ffd84a">?</b> means a quest to hand in.'));
+  g.appendChild(el('div', 'helpnote', document.body.classList.contains('gi') ? '<b>Your goal:</b> free Goblin Island. Beat the tribe chiefs to open the way, get through the Crown Ridge into the goblin city, and defeat its three goblin champions and the High Chief. Your goals are listed on the right of the screen. ' : '<b>Your goal:</b> follow the quests from Seabreak Village. They teach you to gather and craft, then lead you north through Whisperwood, the Frostpeak Highlands and finally the Ashlands. Gold <b style="color:#ffd84a">!</b> means a quest to pick up, gold <b style="color:#ffd84a">?</b> means a quest to hand in.'));
   grp('Moving', [['W A S D', 'Walk. Moving backwards is slower.'], ['Shift (hold)', 'Sprint. Uses endurance.'], ['Shift (tap)', 'Dodge roll: you can\'t be hit mid-roll.'], ['Space', 'Jump'], ['Mouse', 'Look around'], ['Wheel / V', 'Switch between first and third person']]);
   grp('Fighting', [['Left click', 'Attack. Every weapon has its own combo: swords 3 swings, maces a swing then a crushing blow, daggers 5 fast stabs, spears 4 thrusts. Bigger weapons swing slower but harder.'], ...(G.battleFx ? [['F', 'Weapon special attack (Wheel Strike, Skull Crack, Twin Fury, Meteor...), on a cooldown'], ['Right click (hold)', 'Block. Raise it just before a hit for a perfect block: no damage at all.'], ['Q', 'Swap weapon sets'], ['Double-tap W A S D', 'Roll that way'], ['Tab (hold)', 'Every player in the game'], ['J', 'Town jobs'], ['B', 'War Report and orders'], ['K', 'Ability book']] : [['Right click', 'Weapon special attack (Wheel Strike, Skull Crack, Twin Fury, Meteor...), on a cooldown'], ['F (hold)', 'Block. Shields stop the most damage.']]), ['1 2 3', 'Class abilities (choose which three in Class Talents)'], ['4 5 6', 'Potions and food'], ['R', 'Use your best healing item'], ['Q', 'Switch to the bow in your Ranged slot and back']]);
   grp('World', [['E', 'Talk, loot, skin, chop, mine, gather and use crafting stations'], ['Red swords', 'Above a name: this enemy attacks on sight'], ['Ring colour', 'Under an enemy: grey/green easy, blue fair, white even, yellow hard, red dangerous']]);

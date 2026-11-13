@@ -2350,6 +2350,7 @@ export class Player {
       const s = d + ang * 1.6; if (s < bestS) { bestS = s; best = { o, kind, label }; }
     };
     for (const n of G.npcs) { if (n.def) consider(n, n.pos.x, n.pos.z, 0.4, 'npc', 'Talk to ' + n.name); else if (n.talkable) consider(n, n.pos.x, n.pos.z, 0.4, 'villager', 'Talk to ' + n.vname); }
+    for (const u of world.giUse || []) { const l = u.label(); if (l) consider(u, u.x, u.z, 1.0, 'gi', l); } // Goblin Island: winches and levers
     if (world.myBoatHome && !BATTLE) consider(world.myBoat, world.myBoatHome.x, clamp(this.pos.z, world.myBoatHome.z - 6, world.myBoatHome.z + 6), 3.2, 'boat', 'Set sail');
     for (const s of world.stations) consider(s, s.x, s.z, 1.0, 'station', 'Use ' + ({ workbench: 'Workbench', forge: 'Forge', loom: 'Loom', tanning: 'Tanning Rack', campfire: 'Campfire', alchemy: 'Alchemy Table' })[s.type]);
     if (!G.noHarvest) for (const m of G.mobs) if (m.dead && m.root.visible) { if (hasLoot(m)) consider(m, m.pos.x, m.pos.z, m.radius, 'loot', 'Loot ' + m.name); else if (m.def.skin && !m.skinned) consider(m, m.pos.x, m.pos.z, m.radius, 'skin', 'Skin ' + m.name); }
@@ -2362,6 +2363,7 @@ export class Player {
     if (t.kind === 'npc') G.hooks.talk && G.hooks.talk(t.o);
     else if (t.kind === 'station') G.hooks.station && G.hooks.station(t.o.type);
     else if (t.kind === 'boat') G.hooks.boat && G.hooks.boat();
+    else if (t.kind === 'gi') t.o.use();
     else if (t.kind === 'villager') G.hooks.chatter && G.hooks.chatter(t.o);
     else if (t.kind === 'loot') lootCorpse(this.h, t.o);
     else if (t.kind === 'skin') {

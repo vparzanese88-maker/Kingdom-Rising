@@ -12,6 +12,8 @@ import { V } from './vfx.js';
 import { PORT } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
+import { GI } from './gimap.js';
+import { giSpawn, giKill, giApply, giTick } from './goblinisle.js';
 import { summonPets, petCommand, pets, PETS, stopPets, dismissPets } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
 import { addIcons } from './icons2.js';
@@ -97,6 +99,7 @@ function boot() {
   if (BATTLE) { Battle.initBattle(scene); G.myTeam = Battle.B.myTeam; battleLevels(); G.hooks.decorCamps = decorCamps; if (!MP.client) { spawnBattleCamps(); decorCamps(); for (const m of G.mobs) if (m.team == null && !m.statLv) battleMob(m); G.mobs.filter(m => m.team == null).forEach((m, i) => { m.netIdx = i; Sync.mobList.push(m); }); Sync.flushRoster(); } }
   else if (YARD) spawnDummies();
   else if (ARENA) { /* the colosseum: nobody but the fighters */ }
+  else if (GI) giSpawn(); // the campaign: Goblin Island's tribes, trolls and roaming goblins
   else {
   // NPCs and villagers live in the world from the start (visible behind the title screen)
   for (const id in NPCS) G.npcs.push(new NPC(id));
@@ -137,6 +140,7 @@ function boot() {
     spawnGuards(TOWNS); }
   }
   hooks();
+  if (GI) { const k0 = G.hooks.onKill; G.hooks.onKill = (m, src, ...r) => { if (k0) k0(m, src, ...r); giKill(m); }; document.body.classList.add('gi'); }
   initTips(); initMenu();
   Menu.onPlay = startGame;
   addEventListener('resize', onResize); onResize();
@@ -176,11 +180,11 @@ function startGame(save) {
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
   G.tod = h.tod ?? 0.3;
   $('title').hidden = true; $('creator').hidden = true; $('hud').hidden = false; $('death').hidden = true;
-  if (!BATTLE && !YARD && !ARENA) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); buildDefenses(defensesFor(h)); }
+  if (!BATTLE && !YARD && !ARENA) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); if (GI) giApply(h); else buildDefenses(defensesFor(h)); }
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
-  if (!h.introDone) startIntro(); else { if (!BATTLE && !YARD && !ARENA && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${(h.arena && (h.cls === 'musketeer' || h.cls === 'blunderbuss' || h.cls === 'bombardier')) ? 'Goblin' : RACES[h.race].name} ${CLASSES[h.cls].name}`); }
+  if (!h.introDone) startIntro(); else { if (!GI && !BATTLE && !YARD && !ARENA && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${(h.arena && (h.cls === 'musketeer' || h.cls === 'blunderbuss' || h.cls === 'bombardier')) ? 'Goblin' : RACES[h.race].name} ${CLASSES[h.cls].name}`); }
 }
 function saveNow() {
   if (BATTLE || YARD || ARENA) return;
@@ -535,7 +539,7 @@ function hooks() {
     if (name == null) { e.hidden = true; return; } e.hidden = false; e.querySelector('b').textContent = name; e.querySelector('u').style.width = Math.round(Math.min(1, k) * 100) + '%'; };
   H.chatter = (v) => { const P = G.player; v.yaw = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); v.to = null; v.t = 6; S.click(); UI.openChatter(v); };
   H.mapLearned = (p, v) => chatAdd(`<b class="sk">Map updated:</b> ${p.name} <span style="color:#a8987a">(from ${v.vname})</span>`, 'skill');
-  H.boat = () => { S.step('wood'); const q = G.save.quests;
+  H.boat = () => { S.step('wood'); if (GI) { UI.toast(G.save.isle && G.save.isle.freed ? 'The sea chart is coming soon.' : 'Free Goblin Island first: its three goblin champions and the High Chief must fall.', '⛵', 'bad'); return; } const q = G.save.quests;
     UI.toast("You can't set sail yet: the boat needs major repairs.", '⛵', 'bad');
     monologue(q.active.mq_boat ? 'Split plank, torn sail... I need a shipwright before she goes anywhere.' : 'She needs major repairs before she sails again.', 4200); };
   H.station = (type) => { S.click(); UI.openCrafting(type); };
@@ -665,9 +669,14 @@ function endIntro() {
   const P = world.pier, sx = P.x - 0.3, sz = H0.z - 13; p.place(sx, sz, Math.atan2(H0.x - sx, H0.z - sz)); p.ch.root.visible = true; p.pos.y = P.y + 0.02; if (p.vel) p.vel.set(0, 0, 0); p.onGround = true;
   $('intro').hidden = true; $('intro').classList.remove('sail'); canvas.style.filter = ''; $('hud').hidden = false;
   p.pitch = -0.1; G.save.introDone = true;
-  startMainQuest(G.save);
+  if (!GI) startMainQuest(G.save);
   saveNow();
   const fd = $('sailfade'); setTimeout(() => { fd.style.opacity = 0; }, 400);
+  if (GI) { // Goblin Island: the arrival
+    setTimeout(() => monologue('Goblins everywhere... and every one of them has the same mad look in its eyes.'), 1800);
+    setTimeout(() => UI.banner('Goblin Island', 'Free the island: its three goblin champions and the High Chief must fall', 4500), 7000);
+    setTimeout(() => UI.hint('The goblin city sits inside the ring of mountains in the north, past the <b>Great Gorge</b>. Its drawbridge is raised: the <b>Bloodfang Warchief</b> (west of the beach) carries the winch crank. Your goals are listed on the right.', 16000), 12500);
+    lockPointer(); return; }
   setTimeout(() => monologue('I should see if I can find someone who can fix my boat.'), 1800);
   setTimeout(() => UI.banner('Driftwood Coast', 'Main quest: Repairs at Sea\'s End', 3500), 7600);
   setTimeout(() => UI.hint('The village is up the pier. People there may know a shipwright. Look for the gold <b style="color:#ffd84a">!</b> above heads and press <span class="kbd">E</span> to talk. Press <span class="kbd">E</span> at your boat to check on her. Scroll the mouse wheel for third person.', 12000), 11500);
@@ -953,6 +962,7 @@ function loop(now) {
 }
 let portraitCh = null, portraitRot = 0, musicFight = 0;
 function gameUpdate(dt) {
+  if (GI) giTick(dt);
   const p = G.player;
   if (intro) updateIntro(dt);
   else {

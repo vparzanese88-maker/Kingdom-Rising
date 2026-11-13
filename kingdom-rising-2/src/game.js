@@ -36,7 +36,7 @@ export function newHero(o) {
   const starter = { shaman: makeWeapon('spear', 0, 0), musketeer: makeWeapon('musket', 0, 0), berserker: makeWeapon('greataxe', 0, 0), warrior: makeWeapon('sword', 0, 0), ranger: makeWeapon('bow', 0, 0), wizard: makeWeapon('firestaff', 0, 0) }[o.cls];
   const h = {
     id: 'h' + Date.now().toString(36) + Math.floor(Math.random() * 1e4), name: o.name, race: o.race, cls: o.cls, sex: o.sex, app: o.app,
-    raceV2: true, level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Driftwood Coast', introDone: false,
+    raceV2: true, level: 1, xp: 0, gold: 5, timePlayed: 0, created: Date.now(), lastPlayed: Date.now(), zone: 'Goblin Island', introDone: false,
     pos: null, inv: new Array(INV_SIZE).fill(null), equip: Object.assign(emptyEquip(), NC ? { w1: makeWeapon(ncPair ? ncPair[0] : NC.start, 0, 0), w2: ncPair ? makeWeapon(ncPair[1], 0, 0) : null } : { w1: starter, w2: o.cls === 'warrior' ? makeWeapon('shield', 0, 0) : null }), ctree: {}, wm: {}, hotbar: [null, null, null, null, null, null],
     active: 'w1', tools: { hatchet: 1, pickaxe: 1, knife: 1 }, /* every hero starts with basic tools; better ones come from the forge */ quests: { active: {}, done: [] }, dualKills: 0, kills: 0, belt: 'potion_heal',
   };

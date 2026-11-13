@@ -323,7 +323,7 @@ export function arenaHero(slot, name) {
   return h;
 }
 // the owner: the campaign plays the new classes too: each class's own kit, right click, ultimate, look and perks. A campaign hero starts at
-// level 1 and unlocks F at once, C at level 3, Q at 5 and the ultimate at 7, with a perk point every level up to 20 (the arena is max level)
+// level 1 and unlocks F at once, C at level 3, Q at 6 and the ultimate at 9, with a perk point every level up to 20 (the arena is max level)
 export function campHero(h) { kitRules(); h.arena = true; h.camp = true; h.arenaKit = kitOf(h.cls); h.arenaRmb = rmbOf(h.cls); h.arenaUlt = ultOf(h.cls); h.arenaPerks = h.arenaPerks || {}; if (h.ultCharge == null) h.ultCharge = 0;
   recomputePK(h); h.skills = h.skills || {}; for (const id of SKILL_IDS) h.skills[id] = Math.max(h.skills[id] || 0, 999); h.hotbar = null; Game.autoFillHotbar(h); return h; }
 // a computer fighter spends its 20 points: two full trees, leaning on a healing tree when it has team mates

@@ -12,6 +12,9 @@ import { confirmBox, openSettings, openControls, closeWin, comboSteps } from './
 import { G } from './state.js';
 import * as Icons from './icons.js';
 import { crest } from './crests.js';
+import { mountHeroSelect } from './heroselect.js';
+import { RACE as CLASS_RACE } from './portraits.js';
+import { ISLANDS, CORE_CLASSES, LATER, freedIn, lockReason, islandOfClass } from './islands.js';
 import { SETUP_KEY, ARENA_KEY } from './battlemap.js';
 import * as Arena from './arena.js';
 import { BATTLE_RACES, DIFFS, TEAM_COLORS, TEAM_NAMES, TOWN_NAMES } from './battledata.js';
@@ -36,17 +39,17 @@ function renderSaves() {
   $('slotCount').textContent = `${camps.length} of ${MAX_SAVES} campaigns`;
   const last = saves[0];
   $('btnContinue').hidden = !last;
-  if (last) { $('contSub').textContent = `${last.name} · Level ${last.level} ${RACES[last.race].name} ${CLASSES[last.cls].name} · ${last.zone || ''}`; $('btnContinue').onclick = () => { S.click(); goFull(); Menu.onPlay(last); }; }
+  if (last) { $('contSub').textContent = `${last.name} · Level ${last.level} ${CLASSES[last.cls].name} · ${last.zone || ''}`; $('btnContinue').onclick = () => { S.click(); goFull(); Menu.onPlay(last); }; }
   if (!saves.length) { box.appendChild(el('div', 'emptysaves', '<b>No campaigns yet</b>Choose <i>New Campaign</i> to create your first hero. You can keep up to five campaigns, each with up to five characters.')); return; }
   for (const c of camps) {
     const g = el('div', 'camp');
     g.appendChild(el('div', 'camph', `<div><div class="eyebrow">Campaign</div><b>${esc(c.name)}</b></div><span class="dim">${c.chars.length} of ${MAX_CHARS} characters</span>`));
     for (const s of c.chars) {
-      const d = el('div', 'save', `<div class="crest">${Icons.itemSvg(CLS_WPN[s.cls])}</div><div class="info"><b>${esc(s.name)}</b><div class="sub">Level ${s.level} · ${RACES[s.race].name} ${CLASSES[s.cls].name}</div><div class="meta"><span>${esc(s.zone || 'Driftwood Coast')}</span><span>${fmtTime(s.timePlayed)} played</span><span>${s.quests.done.length} quests</span></div></div>`);
+      const d = el('div', 'save', `<div class="crest">${Icons.itemSvg(CLS_WPN[s.cls])}</div><div class="info"><b>${esc(s.name)}</b><div class="sub">Level ${s.level} ${CLASSES[s.cls].name}</div><div class="meta"><span>${esc(s.zone || 'Goblin Island')}</span><span>${fmtTime(s.timePlayed)} played</span><span>${s.quests.done.length} quests</span></div></div>`);
       const acts = el('div', 'acts');
       const play = el('button', 'btn gold', 'Play'); play.onclick = (e) => { e.stopPropagation(); S.click(); goFull(); Menu.onPlay(s); };
       const del = el('button', 'btn ghost', 'Delete'); del.title = 'Delete this character';
-      del.onclick = (e) => { e.stopPropagation(); S.click(); confirmBox(`<div class="eyebrow">Delete character</div><h3 style="margin:6px 0">${esc(s.name)}</h3>Level ${s.level} ${RACES[s.race].name} ${CLASSES[s.cls].name}, ${fmtTime(s.timePlayed)} played.<br><span style="color:var(--mut)">This can't be undone.</span>`, () => { deleteSave(s.id); renderSaves(); }, 'Keep', 'Delete'); };
+      del.onclick = (e) => { e.stopPropagation(); S.click(); confirmBox(`<div class="eyebrow">Delete character</div><h3 style="margin:6px 0">${esc(s.name)}</h3>Level ${s.level} ${CLASSES[s.cls].name}, ${fmtTime(s.timePlayed)} played.<br><span style="color:var(--mut)">This can't be undone.</span>`, () => { deleteSave(s.id); renderSaves(); }, 'Keep', 'Delete'); };
       acts.append(play, del); d.appendChild(acts);
       d.onpointerdown = (e) => { d._down = e.target; };
       d.onclick = (e) => { const t = d._down || e.target; d._down = null; if (t.closest && t.closest('.acts')) return; S.click(); goFull(); Menu.onPlay(s); };
@@ -110,6 +113,7 @@ let tab = 0, C = null;
 const NAMES = { barbarian: { m: ['Bjorn', 'Ragnar', 'Ulfgar', 'Thrain', 'Halvard', 'Eirik'], f: ['Astrid', 'Sigrun', 'Freydis', 'Brynja', 'Hilda', 'Ylva'] }, halfling: { m: ['Milo', 'Pip', 'Tobold', 'Merric', 'Bramble', 'Fosco'], f: ['Rosie', 'Daisy', 'Poppy', 'Lily', 'Marigold', 'Tansy'] }, darkelf: { m: ['Vhaerun', 'Drizzan', 'Malagor', 'Zaknar', 'Ryld', 'Nalfein'], f: ['Viconia', 'Ilivarra', 'Quenthel', 'Shyntra', 'Zesstra', 'Liriel'] }, gnome: { m: ['Fizzwick', 'Bimble', 'Gimlet', 'Nackle', 'Tinker', 'Wobbin'], f: ['Nissa', 'Bree', 'Pipsy', 'Carlin', 'Zanna', 'Lorilla'] }, human: { m: ['Aldric', 'Edmund', 'Roland', 'Gareth', 'Tristan', 'Owen'], f: ['Elena', 'Rowena', 'Isolde', 'Catrin', 'Alys', 'Brienne'] }, highelf: { m: ['Aerendil', 'Thalion', 'Caelith', 'Elrian', 'Ilyon', 'Vaelor'], f: ['Galawen', 'Aerith', 'Isilme', 'Lirael', 'Naeva', 'Sereth'] }, woodelf: { m: ['Faelar', 'Sylvar', 'Rhovan', 'Tamlin', 'Orrin'], f: ['Lyralei', 'Elowen', 'Fenna', 'Sylwen', 'Wren'] }, orc: { m: ['Grommash', 'Thrak', 'Urzog', 'Gorbag', 'Mogra', 'Krull'], f: ['Garona', 'Shakka', 'Urzha', 'Morga', 'Grisha', 'Vorna'] }, dwarf: { m: ['Thorin', 'Borin', 'Durgan', 'Grimli', 'Balgrim'], f: ['Helga', 'Dagna', 'Brunhild', 'Kathra', 'Ingrid'] } };
 function defaults() { return { race: 'highelf', sex: 'm', cls: 'warrior', weapon: 'swordshield', name: '', app: { skin: RACES.highelf.skins[1], hair: RACES.highelf.hairs[0], beardCol: null, hairStyle: 1, beard: 0, height: 1, build: 0 } }; }
 export function showCreator(camp) {
+  if (!(camp && camp.battle)) { showCampCreator(camp); return; }
   C = defaults(); tab = 0; C.camp = camp || null; $('cEyebrow').textContent = camp ? 'New character · ' + camp.name : 'New Campaign';
   if (camp && camp.battle) { C.battle = camp.battle; C.camp = null; C.race = camp.battle.towns[0].race; const r = RACES[C.race]; C.app.skin = r.skins[1]; C.app.hair = r.hairs[0]; C.app.beard = C.race === 'dwarf' ? 3 : 0; $('cEyebrow').textContent = 'Kingdom Battles · your hero'; if (camp.battle.name) C.name = camp.battle.name; }
   const live = !!(camp && camp.battle && camp.battle.live); $('cBack').hidden = false; $('cBack').textContent = live ? '← Leave game' : 'Cancel';
@@ -521,4 +525,41 @@ export function renderStage(renderer, rect, ch, rot, dist = 2.1) {
   renderer.setViewport(rect.left, y, rect.width, rect.height); renderer.setScissor(rect.left, y, rect.width, rect.height); renderer.setScissorTest(true);
   renderer.render(P.scene, P.cam);
   renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight);
+}
+
+// ---------- the campaign creator (the owner: no races, faces or sliders, just pick a class and a name) ----------
+// every campaign starts with the Warrior, Wizard and Rogue; the other classes are freed island by island
+const HERO_NAMES = ['Aldric', 'Brenna', 'Cassian', 'Dagny', 'Edrin', 'Fenna', 'Garrick', 'Isolde', 'Jorund', 'Kaela', 'Leoric', 'Maren', 'Nyla', 'Orrin', 'Perrin', 'Rowan', 'Selka', 'Torvald', 'Vesna', 'Wyn'];
+let CC = null;
+function showCampCreator(camp) {
+  const chars = camp ? (listCampaigns().find(c => c.id === camp.id) || { chars: [] }).chars : [];
+  const freed = freedIn(chars), classes = [...CORE_CLASSES, ...ISLANDS.flatMap(i => i.classes), ...LATER].filter(k => CLASSES[k] && ABILITIES[k] && ABILITIES[k].length);
+  CC = { cls: 'warrior', name: '', camp: camp || null };
+  $('title').hidden = true; $('creator').hidden = true;
+  let ov = $('campCreate'); if (ov) ov.remove(); ov = el('div', ''); ov.id = 'campCreate'; document.body.appendChild(ov);
+  const bar = el('div', ''); bar.style.display = 'contents';
+  const back = el('button', 'btn', '← Back'); back.onclick = () => { S.click(); ov.remove(); showTitle(); };
+  const nm = el('input', 'ccname'); nm.maxLength = 18; nm.placeholder = 'Name your hero'; nm.spellcheck = false; nm.oninput = () => { CC.name = nm.value; nm.classList.remove('bad'); };
+  const dice = el('button', 'btn', '🎲'); dice.title = 'A random name'; dice.onclick = () => { S.click(); nm.value = CC.name = HERO_NAMES[Math.floor(Math.random() * HERO_NAMES.length)]; nm.classList.remove('bad'); };
+  bar.append(back, el('span', 'sp'), el('span', 'alwait', 'Hero name'), nm, dice);
+  const LV = { F: 1, C: 3, Q: 6, R: 9 };
+  const side = () => `<div class="ccside"><div class="eyebrow">${camp ? esc(camp.name) : 'A new campaign'}</div><h3>Your voyage</h3>
+    <p>You sail into <b>Goblin Island</b>, overrun by goblins possessed by a cursed idol. Defeat its three goblin champions and the High Chief to free the island, then set sail for the next port.</p>
+    <div class="ccisl on"><b>Starting classes</b><span>${CORE_CLASSES.map(k => CLASSES[k].name).join(' · ')}</span></div>
+    ${ISLANDS.map(i => `<div class="ccisl${freed.has(i.id) ? ' on' : ''}"><b>${freed.has(i.id) ? '✓' : '🔒'} ${esc(i.name)}</b><span>${i.classes.map(k => CLASSES[k] ? CLASSES[k].name : k).join(' · ')}</span></div>`).join('')}
+    <p class="ccnote">Abilities unlock as you level: F at 1, C at 3, Q at 6 and your ultimate at 9. Every level gives a perk point.</p></div>`;
+  mountHeroSelect(ov, { eyebrow: camp ? 'New character · ' + camp.name : 'New Campaign', title: 'Choose your hero', sub: 'Start as a Warrior, Wizard or Rogue. Free islands to unlock the rest.', bar, initial: 'warrior', classes,
+    groups: [{ id: 'core', name: 'Starting', classes: CORE_CLASSES.slice(), tip: 'Every campaign starts with these three' }, ...ISLANDS.map(i => ({ id: i.id, name: i.name, classes: i.classes.filter(k => classes.includes(k)), tip: i.tip }))],
+    barred: (k) => lockReason(k, freed), abNote: (a) => LV[a.key] ? 'Lv ' + LV[a.key] : '', side, lockText: 'Set sail',
+    state: () => ({ teams: null, myTeam: 0, roster: [], mine: { cls: CC.cls, locked: false }, timer: null }),
+    onPick: (k) => { CC.cls = k; }, onLock: () => finishCamp(ov, nm) });
+  setTimeout(() => nm.focus(), 50);
+}
+function finishCamp(ov, nm) {
+  const name = (CC.name || '').trim().slice(0, 18); if (!name) { S.error(); nm.classList.add('bad'); nm.focus(); return; }
+  const cls = CC.cls, race = CLASS_RACE[cls] || 'human', d = defaults(), r = RACES[race] || RACES.human;
+  const app = Object.assign({}, d.app, { skin: r.skins[1], hair: r.hairs[0] });
+  const h = newHero({ name, race, cls, sex: 'm', weapon: START[cls], app });
+  h.campaign = CC.camp ? CC.camp.id : 'c' + h.id; h.campaignName = CC.camp ? CC.camp.name : `${name}'s Campaign`; h.gi = true; h.freed = []; h.zone = 'Goblin Island';
+  putSave(h); ov.remove(); goFull(); Menu.onPlay(h);
 }

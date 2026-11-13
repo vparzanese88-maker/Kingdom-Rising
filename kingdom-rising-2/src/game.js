@@ -48,8 +48,8 @@ export function newHero(o) {
 // the owner: the old gear system is over. Every hero is fixed: his class's own modelled weapon (and shield or second weapon) and his class's
 // armour, never dropped, crafted, bought or swapped. The kit's strength still climbs with his level by the old material tiers (copper, iron,
 // steel, mithril, starmetal), so the campaign's fights keep their balance without loot; top: the arena's full-strength kit
-// the level a campaign hero needs for an ability: F at 1, C at 3, Q at 5, the ultimate at 7 (everything else, and every arena hero: 1)
-export function kitNeed(h, id) { if (!h || !h.camp) return 1; if (id === h.arenaUlt) return 7; const k = (h.arenaKit || []).indexOf(id); return k >= 0 ? [1, 3, 5][k] : 1; }
+// the level a campaign hero needs for an ability (the owner): F at 1, C at 3, Q at 6, the ultimate at 9 (everything else, and every arena hero: 1)
+export function kitNeed(h, id) { if (!h || !h.camp) return 1; if (id === h.arenaUlt) return 9; const k = (h.arenaKit || []).indexOf(id); return k >= 0 ? [1, 3, 6][k] : 1; }
 // the owner: the new classes carry their own fixed weapons and outfit: no metal tiers or rarities in the names (no 'Starmetal Musket'),
 // just what it is, and no random item procs
 export function plainKit(h) { const e = h.equip || {}; for (const k in e) { const it = e[k]; if (!it || typeof it !== 'object') continue; delete it.proc; it.rarity = 0;

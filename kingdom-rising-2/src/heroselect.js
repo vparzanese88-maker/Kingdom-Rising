@@ -66,9 +66,13 @@ export function mountHeroSelect(root, cfg) {
     <div class="chs-bar"></div><div class="chs-flash" hidden></div>`;
   const q = (s) => W.querySelector(s), grid = q('.chs-grid'), prev = q('.chs-prev'), left = q('.chs-left'), right = q('.chs-right'), tabs = q('.chs-tabs');
   if (cfg.top) q('.chs-tr').appendChild(cfg.top); if (cfg.bar) q('.chs-bar').appendChild(cfg.bar);
-  const all = heroClasses(); let filter = 'All', hover = null, shown = null, st = cfg.state(), alive = true;
+  const all = cfg.classes || heroClasses(); let filter = 'All', hover = null, shown = null, st = cfg.state(), alive = true;
   // role tabs
-  for (const r of ['All', 'Tank', 'Healer', 'Damage', 'Support']) { const n = r === 'All' ? all.length : all.filter(k => r === 'Support' ? SUPPORT.has(k) : roleOf(k) === r).length;
+  const inGroup = (k, f) => { if (f === 'All') return true; const g = cfg.groups && cfg.groups.find(x => x.id === f); return g ? g.classes.includes(k) : f === 'Support' ? SUPPORT.has(k) : roleOf(k) === f; };
+  if (cfg.groups) for (const g of [{ id: 'All', name: 'All' }, ...cfg.groups]) { const n = g.id === 'All' ? all.length : g.classes.length;
+    const b = el('button', 'chs-tab' + (g.id === filter ? ' on' : ''), `<span>${esc(g.name)}</span><small>${n}</small>`); b.title = g.tip || g.name;
+    b.onclick = () => { filter = g.id; S.click(); tabs.querySelectorAll('.chs-tab').forEach(x => x.classList.toggle('on', x === b)); paintGrid(); }; tabs.appendChild(b); }
+  else for (const r of ['All', 'Tank', 'Healer', 'Damage', 'Support']) { const n = r === 'All' ? all.length : all.filter(k => r === 'Support' ? SUPPORT.has(k) : roleOf(k) === r).length;
     const b = el('button', 'chs-tab' + (r === filter ? ' on' : ''), `${r === 'All' ? '<svg class="chs-ri" viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z" fill="currentColor"/></svg>' : roleIcon(r)}<span>${r}</span><small>${n}</small>`); b.style.setProperty('--rc', ROLE_COL[r] || '#e2bd6a');
     b.onclick = () => { filter = r; S.click(); tabs.querySelectorAll('.chs-tab').forEach(x => x.classList.toggle('on', x === b)); paintGrid(); }; tabs.appendChild(b); }
   // the portrait grid
@@ -83,6 +87,7 @@ export function mountHeroSelect(root, cfg) {
   const flash = (msg) => { const f = q('.chs-flash'); f.textContent = msg; f.hidden = false; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); clearTimeout(flash.t); flash.t = setTimeout(() => { f.hidden = true; }, 2600); };
   function pick(k) {
     st = cfg.state(); if (st.mine.locked) { S.error && S.error(); flash('You are locked in'); return; }
+    const why = cfg.barred && cfg.barred(k); if (why) { S.error && S.error(); const t = tiles[k]; t.classList.remove('shake'); void t.offsetWidth; t.classList.add('shake'); flash(why); return; }
     const by = takenBy(st, k); if (by) { S.error && S.error(); const t = tiles[k]; t.classList.remove('shake'); void t.offsetWidth; t.classList.add('shake'); flash(`${by.name} has already picked ${cname(k)}`); return; }
     S.click(); cfg.onPick(k); update();
   }
@@ -95,7 +100,7 @@ export function mountHeroSelect(root, cfg) {
     prev.innerHTML = `<div class="chs-pl"><div class="chs-pimg" style="--rc:${ROLE_COL[r]}"><img src="${classPortrait(k)}" alt=""><i></i></div><button class="chs-lock"></button></div>
       <div class="chs-pinfo"><div class="chs-pname"><h2>${cname(k)}</h2><span class="chs-role" style="--rc:${ROLE_COL[r]}">${roleIcon(r)}${r}</span>${SUPPORT.has(k) ? `<span class="chs-role" style="--rc:${ROLE_COL.Support}">${roleIcon('Support')}Support</span>` : ''}</div>
         <div class="chs-epi"${L.quote ? ` title="“${esc(L.quote)}”"` : ''}>${esc(L.epithet)}<span class="chs-diff" title="How hard to play well">${[1, 2, 3].map(i => `<i class="${i <= L.diff ? 'on' : ''}"></i>`).join('')}</span></div>
-        <div class="chs-abs">${rows.map(a => `<div class="chs-ab${a.ult ? ' ult' : ''}"><div class="chs-abi">${icon(a.id)}<kbd>${a.key}</kbd></div><div class="chs-abt"><b>${esc(a.name)}${a.ult ? ' <small>ULTIMATE</small>' : ''}</b><span>${esc(a.desc)}</span></div></div>`).join('')}</div></div>`;
+        <div class="chs-abs">${rows.map(a => `<div class="chs-ab${a.ult ? ' ult' : ''}"><div class="chs-abi">${icon(a.id)}<kbd>${a.key}</kbd></div><div class="chs-abt"><b>${esc(a.name)}${a.ult ? ' <small>ULTIMATE</small>' : ''}${cfg.abNote && cfg.abNote(a) ? ` <small class="chs-abn">${esc(cfg.abNote(a))}</small>` : ''}</b><span>${esc(a.desc)}</span></div></div>`).join('')}</div></div>`;
     prev.classList.remove('in'); void prev.offsetWidth; prev.classList.add('in');
     prev.querySelector('.chs-lock').onclick = () => { if (shown !== st.mine.cls && !st.mine.locked) pick(shown); lock(); };
     paintLock();
@@ -103,16 +108,17 @@ export function mountHeroSelect(root, cfg) {
   function paintLock() { const b = prev.querySelector('.chs-lock'); if (!b) return; const mine = st.mine, by = takenBy(st, shown), same = shown === mine.cls;
     b.className = 'chs-lock'; let t;
     if (mine.locked) { t = 'Locked in ✓' + (same ? '' : `<small>as ${esc(cname(mine.cls))}</small>`); b.classList.add('done'); b.disabled = true; }
+    else if (cfg.barred && cfg.barred(shown)) { t = '🔒 Locked' + `<small>${esc(cfg.barred(shown))}</small>`; b.classList.add('no'); b.disabled = true; }
     else if (by) { t = 'Taken' + `<small>by ${esc(by.name)}</small>`; b.classList.add('no'); b.disabled = true; }
     else if (st.canLock === false) { t = 'Waiting…'; b.disabled = true; }
     else { t = (cfg.lockText || 'Lock in') + `<small>${esc(cname(shown))}</small>`; b.disabled = false; if (same) b.classList.add('ready'); }
     b.innerHTML = t; }
   function paintGrid() {
     for (const k of all) { const t = tiles[k], by = takenBy(st, k), mate = st.teams && st.roster.find(r => r.team === st.myTeam && r.bot && r.cls === k), on = st.mine.cls === k;
-      const vis = filter === 'All' || (filter === 'Support' ? SUPPORT.has(k) : roleOf(k) === filter);
+      const vis = inGroup(k, filter), why = cfg.barred && cfg.barred(k); t.classList.toggle('barred', !!why); if (why) { t.title = why; }
       t.classList.toggle('hide', !vis); t.classList.toggle('on', on); t.classList.toggle('locked', on && !!st.mine.locked); t.classList.toggle('taken', !!by); t.classList.toggle('mate', !by && !!mate && !on);
       t.querySelector('.chs-tby').textContent = by ? by.name + (by.locked ? '' : '…') : mate ? 'CPU' : '';
-      t.title = by ? `${by.name} on your team ${by.locked ? 'has locked in' : 'is picking'} ${cname(k)}` : mate ? `A computer team mate plays ${cname(k)}: pick it and they switch to another class` : cname(k); }
+      if (!why) t.title = by ? `${by.name} on your team ${by.locked ? 'has locked in' : 'is picking'} ${cname(k)}` : mate ? `A computer team mate plays ${cname(k)}: pick it and they switch to another class` : cname(k); }
   }
   const card = (r) => { const role = r.cls ? roleOf(r.cls) : null, state = r.bot ? '<i class="chs-st cpu">Computer</i>' : r.locked ? '<i class="chs-st lk">Locked</i>' : r.cls ? '<i class="chs-st sel">Picking</i>' : '<i class="chs-st wait">Choosing…</i>';
     return `<div class="chs-pc${r.bot ? ' bot' : ' alp'}${r.me ? ' me' : ''}${r.locked ? ' lk' : ''}"${role ? ` style="--rc:${ROLE_COL[role]}"` : ''}><div class="chs-pci">${r.cls ? `<img src="${classPortrait(r.cls)}" alt="">` : '<span>?</span>'}</div>
@@ -121,6 +127,7 @@ export function mountHeroSelect(root, cfg) {
     const T = st.teams, sortR = (a, b) => (b.me ? 1 : 0) - (a.me ? 1 : 0) || (a.bot ? 1 : 0) - (b.bot ? 1 : 0);
     const block = (t, mine) => { const list = st.roster.filter(r => r.team === t).sort(sortR); const col = cfg.teamCol ? cfg.teamCol(t) : '#e2bd6a';
       return `<div class="chs-team${mine ? ' mine' : ''}" style="--tc:${col}"><h3><i></i>${mine ? 'Your team' : 'Enemy'} <small>${esc(cfg.teamName ? cfg.teamName(t) : '')}</small><span>${list.filter(r => r.locked && !r.bot).length}/${list.filter(r => !r.bot).length} locked</span></h3>${list.map(card).join('')}</div>`; };
+    if (cfg.side) { const sd = cfg.side(); if (sd !== paintCols.sd) { paintCols.sd = sd; left.innerHTML = sd; } right.innerHTML = ''; right.hidden = true; W.classList.add('oneside'); return; }
     const key0 = JSON.stringify([T, st.myTeam, st.roster]); if (key0 === paintCols.k) return; paintCols.k = key0;
     if (!T) { left.innerHTML = `<div class="chs-team mine" style="--tc:#e2bd6a"><h3><i></i>Fighters</h3>${st.roster.map(card).join('')}</div>`; right.innerHTML = ''; right.hidden = true; }
     else { right.hidden = false; const tips = compHint(st);

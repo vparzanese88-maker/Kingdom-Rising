@@ -7,6 +7,9 @@ function read(k, d) { try { const s = localStorage.getItem(k); return s ? JSON.p
 function write(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
 
 function migrate(s) { if (s.race === 'human' && !s.raceV2) s.race = 'highelf'; else if (s.race === 'elf') s.race = 'woodelf'; return s; }
+// the owner: the campaign was remade (class-only heroes, Goblin Island): the old campaign heroes are cleared once
+const RESET = 'kr2_gi_reset';
+try { if (!localStorage.getItem(RESET)) { localStorage.removeItem(KEY); localStorage.setItem(RESET, '1'); } } catch (e) { /* no storage */ }
 export function listSaves() { return read(KEY, []).map(migrate).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)); }
 export function getSave(id) { const s = read(KEY, []).find(s => s.id === id); return s ? migrate(s) : null; }
 export function putSave(save) {

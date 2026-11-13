@@ -336,7 +336,7 @@ function scatter() {
     const zn = zoneAt(x, z);
     const hill = smooth(0.95, 0.8, normalAt(x, z).y) + (fbm(x * 0.02 - 20, z * 0.02 + 5, 2) > 0.25 ? 0.6 : 0);
     if (rng() > (zn === 'meadow' ? 0.08 : 0.1) * (0.4 + hill * 1.4)) continue;
-    let type = oreZone[zn][Math.floor(rng() * oreZone[zn].length)];
+    let type = GI ? 'rock' : oreZone[zn][Math.floor(rng() * oreZone[zn].length)];
     if (zn === 'highlands' && h > 75 && rng() < 0.35) type = 'starmetal'; // the richest veins near Kelda's top
     // copper close to the village so the first quest is easy
     const dv = Math.hypot(x - VILLAGE.x, z - VILLAGE.z);
@@ -345,7 +345,7 @@ function scatter() {
     addNode(type, x, z, type === 'rock' ? R(0.7, 1.3) : R(0.8, 1.05), R(0, 6.28), kind);
   }
   // cotton (meadow), healroot (forest)
-  for (let i = 0; i < 2600; i++) {
+  for (let i = 0; i < (GI ? 0 : 2600); i++) {
     const x = R(-HALF, HALF), z = R(-HALF, HALF), h = heightAt(x, z); if (h < 2) continue;
     const zn = zoneAt(x, z); if (avoid(x, z, -2)) continue;
     const cl = fbm(x * 0.03 + 9, z * 0.03, 2);
@@ -355,8 +355,8 @@ function scatter() {
   }
   // guarantee some nodes near the village for the early quests
   const near = [[60, 260, 'copper'], [-70, 250, 'copper'], [90, 240, 'copper'], [-40, 230, 'rock'], [30, 230, 'rock'], [110, 270, 'rock'], [-110, 270, 'copper'], [130, 230, 'copper']];
-  for (const [x, z, t] of near) if (!avoid(x, z)) addNode(t, x, z, 1, R(0, 6), t === 'rock' ? 'rock0' : t);
-  for (let i = 0; i < 26; i++) { const a = R(0, 6.28), d = R(75, 150); const x = VILLAGE.x + Math.cos(a) * d, z = VILLAGE.z - 20 - Math.abs(Math.sin(a)) * d; if (!avoid(x, z) && heightAt(x, z) > 2) addNode('cotton', x, z, 1, R(0, 6), 'cotton'); }
+  if (!GI) for (const [x, z, t] of near) if (!avoid(x, z)) addNode(t, x, z, 1, R(0, 6), t === 'rock' ? 'rock0' : t);
+  if (!GI) for (let i = 0; i < 26; i++) { const a = R(0, 6.28), d = R(75, 150); const x = VILLAGE.x + Math.cos(a) * d, z = VILLAGE.z - 20 - Math.abs(Math.sin(a)) * d; if (!avoid(x, z) && heightAt(x, z) > 2) addNode('cotton', x, z, 1, R(0, 6), 'cotton'); }
   for (let i = 0; i < 22; i++) { const a = R(0, 6.28), d = R(65, 140); const x = VILLAGE.x + Math.cos(a) * d, z = VILLAGE.z - 20 - Math.abs(Math.sin(a)) * d * 0.9; if (!avoid(x, z) && heightAt(x, z) > 2) addNode(i % 3 ? 'tree_oak' : 'tree_birch', x, z, R(1.6, 2.2), R(0, 6), i % 3 ? 'oakA' : 'birch'); }
 }
 

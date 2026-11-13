@@ -2523,9 +2523,13 @@ export class Player {
     const wasAir = !this.onGround;
     if (this.pos.y <= g2.h && !this.leap) {
       if (wasAir && this.vel.y < -3) { this.landT = Math.min(1, -this.vel.y / 12); }
-      if (wasAir && this.vel.y < -7) { S.land(-this.vel.y / 10); this.landDip = Math.min(0.3, -this.vel.y * 0.018); V.burst('dust', this.pos.clone().setY(g2.h + 0.1), 10, { speed: 2.5, size: 0.5, up: 0.25 }); if (this.vel.y < -17) this.takeDamage((-this.vel.y - 17) * 6 * this.maxHp / 100, null); }
+      if (wasAir && this.vel.y < -7) { S.land(-this.vel.y / 10); this.landDip = Math.min(0.3, -this.vel.y * 0.018); V.burst('dust', this.pos.clone().setY(g2.h + 0.1), 10, { speed: 2.5, size: 0.5, up: 0.25 }); if (!G.campFall && this.vel.y < -17) this.takeDamage((-this.vel.y - 17) * 6 * this.maxHp / 100, null); }
+      // the campaign (the owner): real falls. Under 6 m is free, then it hurts more and more, and 16 m or more kills
+      if (G.campFall && wasAir && this.fallTop != null) { const drop = this.fallTop - g2.h; if (drop > 6) { const k = (drop - 6) / 10; if (k >= 1) { this.hp = 1; this.takeDamage(this.maxHp * 5, null); G.hooks.toast && G.hooks.toast('You fell to your death', '💀', 'bad'); } else { this.hp = Math.max(1, this.hp - this.maxHp * k * 0.85); this.hitFlash = 0.3; } } } /* (armour doesn't soften a fall) */
       this.pos.y = g2.h; this.vel.y = Math.max(0, this.vel.y); this.onGround = true;
     } else if (this.pos.y > g2.h + 0.15) this.onGround = this.swim;
+    // the highest point of this fall (leaps, hovering and swimming don't count)
+    if (this.onGround || this.swim || this.leap || this.hoverH > 0.005 || (this.dodge && this.dodge.noFall)) this.fallTop = null; else this.fallTop = Math.max(this.fallTop ?? this.pos.y, this.pos.y);
     // step down slopes smoothly
     if (this.onGround && !this.swim && this.pos.y - g2.h < 0.5 && this.vel.y <= 0) this.pos.y = g2.h;
     if (this.hoverH > 0.005 && !this.leap) { this.pos.y = Math.max(g2.h, wl) + this.hoverH; this.vel.y = 0; this.onGround = true; this.swim = false; } // (Arcane Ascension: he hovers this high over the ground, or the water)

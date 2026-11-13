@@ -180,7 +180,7 @@ function startGame(save) {
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
   G.tod = h.tod ?? 0.3;
   $('title').hidden = true; $('creator').hidden = true; $('hud').hidden = false; $('death').hidden = true;
-  if (!BATTLE && !YARD && !ARENA) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); if (GI) giApply(h); else buildDefenses(defensesFor(h)); }
+  if (!BATTLE && !YARD && !ARENA) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); if (GI) { giApply(h); G.noHarvest = true; G.campFall = true; } else buildDefenses(defensesFor(h)); } /* (Goblin Island: no skinning, gathering or looting) */
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');

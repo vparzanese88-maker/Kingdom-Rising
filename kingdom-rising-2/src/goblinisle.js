@@ -196,13 +196,18 @@ export function giTick(dt) {
 
 // ---------------- enemies ----------------
 const named = (type, name, extra) => Object.assign({}, MOBS[type], { name }, extra || {});
-function mob(type, lv, x, z, name) { const m = new Mob(type, lv, x, z); if (name) m.def = named(type, name); G.mobs.push(m); return m; }
+// the owner: harder fights, calmer aggro (they notice you closer up), and goblins of every size
+const SIZE = { goblin: [0.72, 1.18], goblin_slinger: [0.66, 0.95], goblin_brute: [1.15, 1.5], troll: [0.92, 1.15], troll_king: [1.0, 1.1] };
+function mob(type, lv, x, z, name) { const m = new Mob(type, lv, x, z); m.def = named(type, name || MOBS[type].name, { aggro: Math.round(MOBS[type].aggro * 0.6) });
+  m.maxHp = Math.round(m.maxHp * 1.8); m.hp = m.maxHp; m.dmg *= 1.4; m.xp = Math.round(m.xp * 1.3);
+  const sz = SIZE[type]; if (sz) { const k = sz[0] + Math.random() * (sz[1] - sz[0]); m.root.scale.multiplyScalar(k); m.radius *= k; if (m.height) m.height *= k; m.maxHp = Math.round(m.maxHp * (0.75 + k * 0.25)); m.hp = m.maxHp; }
+  G.mobs.push(m); return m; }
 export function giSpawn() {
   if (!GI) return;
   const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
   // the tribes: a chief, fighters round the fire, slingers on watch
   for (const [id, t] of Object.entries(TRIBES)) {
-    const c = mob('goblin_brute', t.chiefLv, t.x, t.z - 4, t.chief); c.def = named('goblin_brute', t.chief, { elite: true }); c.giChief = id; c.bossy = true; c.maxHp = Math.round(c.maxHp * 2.6); c.hp = c.maxHp;
+    const c = mob('goblin_brute', t.chiefLv, t.x, t.z - 4, t.chief); c.def = named('goblin_brute', t.chief, { elite: true, aggro: 9 }); c.giChief = id; c.bossy = true; c.maxHp = Math.round(c.maxHp * 2.6); c.hp = c.maxHp;
     const n = id === 'bloodfang' ? 9 : 12;
     for (let i = 0; i < n; i++) { const a = i / n * 6.28, r = R(5, t.r * 0.75), type = i % 4 === 1 ? 'goblin_slinger' : i % 5 === 3 ? 'goblin_brute' : 'goblin'; mob(type, ri(t.lv[0], t.lv[1]), t.x + Math.cos(a) * r, t.z + Math.sin(a) * r, `${t.name} ${MOBS[type].name.replace('Goblin ', '')}`); }
   }

@@ -362,7 +362,7 @@ export class Mob {
         want = away; speed = spd; if (this.timer <= 0) this.state = 'idle';
       } else if (this.state === 'lost') {
         // lost sight of a vanished foe: stand where it was last seen and look around, then settle down right here
-        this.timer -= dt; this.yaw += Math.sin(G.time * 2.2 + this.id) * dt * 2.2; if (this.timer <= 0) { this.state = 'idle'; this.timer = 2; this.idleAct = null; }
+        this.timer -= dt; if (this.searchTo && Math.hypot(this.searchTo.x - this.pos.x, this.searchTo.z - this.pos.z) > 1.2 && this.timer > 1.5) { want = this.searchTo; speed = spd * 0.35; } else { this.searchTo = null; this.yaw += Math.sin(G.time * 2.2 + this.id) * dt * 2.2; } if (this.timer <= 0) { this.state = 'idle'; this.timer = 2; this.idleAct = null; } /* (it wanders off to search, facing where it walks, not where you are) */
       } else if (this.state === 'return') {
         want = this.home; speed = spd * 1.3; this.hp = Math.min(this.maxHp, this.hp + this.maxHp * dt * 0.3);
         if (leash < 3) { this.state = 'idle'; this.hp = this.maxHp; }
@@ -435,7 +435,7 @@ export class Mob {
   // ---- special abilities ----
   say(t) { V.number(this.pos.clone().setY(this.pos.y + this.height + 0.6), t, 'bad'); }
   // a stealthed hero slipped away: in battle the mob searches the spot instead of running home
-  loseTrack() { if (!G.battleFx) { this.state = 'return'; return; } this.state = 'lost'; this.timer = 3 + Math.random() * 2; this.provoked = false; this.action = this.action === 'attack' ? null : this.action; if (this.target) this.target = null; }
+  loseTrack() { if (!G.battleFx) { this.state = 'return'; return; } this.state = 'lost'; this.timer = 4 + Math.random() * 2; { const a = Math.random() * 6.28, r = 4 + Math.random() * 6; this.searchTo = new THREE.Vector3(this.pos.x + Math.cos(a) * r, 0, this.pos.z + Math.sin(a) * r); } this.provoked = false; this.action = this.action === 'attack' ? null : this.action; if (this.target) this.target = null; }
   tryAbility(player, dp) {
     if (player.dead) return false;
     for (const a of this.abil) {

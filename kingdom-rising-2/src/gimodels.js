@@ -106,7 +106,9 @@ function geoOf(g, ref, name, kind) { const geos = [], mats = []; g.scene.updateM
   g.scene.traverse(o => { if (o.isMesh) { const gg = o.geometry.clone(); gg.applyMatrix4(o.matrixWorld); for (const a of Object.keys(gg.attributes)) if (!['position', 'normal', 'uv'].includes(a)) gg.deleteAttribute(a); geos.push(gg); mats.push(o.material); } });
   if (!geos.length) return null; const geo = geos.length > 1 ? mergeGeometries(geos, false) : geos[0]; if (!geo) return null;
   geo.computeBoundingBox(); const ob = ref, nb = geo.boundingBox, k = (ob.max.y - ob.min.y) / Math.max(1e-4, nb.max.y - nb.min.y) * (kind.startsWith('rock') ? 1.1 : 1.15);
-  const c = nb.getCenter(new THREE.Vector3()); geo.translate(-c.x, -nb.min.y, -c.z); geo.scale(k, k, k); geo.translate(0, ob.min.y, 0); geo.computeBoundingSphere();
+  const c = nb.getCenter(new THREE.Vector3());
+  if (name.includes('tree')) { const P = geo.attributes.position, lim = nb.min.y + (nb.max.y - nb.min.y) * 0.06; let sx = 0, sz = 0, n = 0; for (let i = 0; i < P.count; i++) if (P.getY(i) < lim) { sx += P.getX(i); sz += P.getZ(i); n++; } if (n > 3) { c.x = sx / n; c.z = sz / n; } } // (the owner hit invisible walls: a leaning tree centred on its middle put its trunk away from the collider; centre on the trunk's foot)
+  geo.translate(-c.x, -nb.min.y, -c.z); geo.scale(k, k, k); geo.translate(0, ob.min.y, 0); geo.computeBoundingSphere();
   const mat = mats[0].clone(); mat.side = name.includes('tree') ? THREE.DoubleSide : THREE.FrontSide; /* (tree leaves are single cards: both sides) */ if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
   return { geo, mat }; }
 export function swapScenery(kinds) {

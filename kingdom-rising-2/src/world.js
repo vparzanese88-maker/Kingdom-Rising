@@ -243,7 +243,7 @@ function addNode(type, x, z, s, rotY, kind, tint) {
   const N = NODE_TYPES[type];
   const n = { type, x, y, z, s, alive: true, respawn: 0, def: N, kind };
   const isTree = type.startsWith('tree');
-  const r = isTree ? 0.3 * s : type === 'cotton' || type === 'healroot' ? 0 : 0.95 * s;
+  const r = isTree ? 0.3 * s : type === 'cotton' || type === 'healroot' || kind === 'rock_flat' ? 0 : 0.95 * s; // (low flat slabs: walked over, not an invisible wall at knee height)
   if (r > 0) n.col = addCircle(x, z, r, 'node');
   addInstance(kind, x, y - (isTree ? 0.2 : 0.1), z, rotY, s, tint, n, isTree && type !== 'tree_palm' ? s * 0.72 : s);
   world.nodes.push(n); gridAdd(nodeGrid, x, z, 1, n);

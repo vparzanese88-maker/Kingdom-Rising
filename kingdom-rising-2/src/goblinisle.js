@@ -162,7 +162,7 @@ function buildWreck(scene) {
   const Y = BOATYARD, yh = (x, z) => heightAt(x, z), W = live.wreck, at = (x, z) => [Y.x + Math.cos(Y.yaw) * x + Math.sin(Y.yaw) * z, Y.z - Math.sin(Y.yaw) * x + Math.cos(Y.yaw) * z];
   W.yard = [];
   for (const [nm, x0, z0, s2, r, st] of [['lumber_pile', 6, -6, 2.3, 0.4, 2], ['supply_pile', -4, -8, 2.2, -0.3, 3], ['barrel', 7, 5, 1.1, 0, 4], ['crate', 8.5, 4, 1.0, 0.5, 4], ['crate', 8, 6.2, 1.0, 0.1, 4], ['campfire', -10, -6, 1.4, 0, 0], ['sail_tent', -12, 4, 3.2, 1.2, 0]]) {
-    const [x, z] = at(x0, z0); propAt(nm, x, yh(x, z), z, Y.yaw + r, s2).then(o => { if (!o) return; o.userData.st = st; W.yard.push(o); setWreck(isle()); }); addCircle(x, z, nm === 'sail_tent' ? 1.6 : 0.9); }
+    const [x, z] = at(x0, z0), col = addCircle(x, z, nm === 'sail_tent' ? 1.6 : 0.9); col.on = false; propAt(nm, x, yh(x, z), z, Y.yaw + r, s2).then(o => { if (!o) return; o.userData.st = st; o.userData.col = col; W.yard.push(o); setWreck(isle()); }); } // (each prop is solid only while it's there)
   { const g = new THREE.Group(), lm = H.M.wood; for (let i = -2; i <= 2; i++) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 4.2, 8), lm); l.rotation.z = Math.PI / 2; l.position.set(0, 0.28, i * 2.2); g.add(l); }
     const [x, z] = at(0, 0); g.position.set(x, yh(x, z), z); g.rotation.y = Y.yaw; g.userData.st = 0; scene.add(g); W.yard.push(g); addBox(x, z, 2.4, 6, Y.yaw); }
   { const g = new THREE.Group(), lm = H.M.wood; const keel = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.35, 9.5), lm); keel.position.y = 0.75; g.add(keel); // (the bare frame: a keel and curved ribs)
@@ -180,7 +180,7 @@ const STAGE_SAY = [null,
   ['Nailed and tarred', '"Watertight! Now if only we could steer..."'],
   ['The boat is in the water', '"Compass, rudder irons, and a free sea. Meet me at the pier, friend!"']];
 function setWreck(I) { const W = live.wreck; if (!W) return; const st = rebuildStage(); if (W.meshy) W.meshy.visible = true; if (W.fixed) W.fixed.visible = st >= 5; if (W.hull) W.hull.visible = st >= 2 && st < 5;
-  for (const o of W.yard || []) o.visible = st >= o.userData.st && (o.userData.until == null || st < o.userData.until) && !(o.userData.st === 0 && o.userData.until == null && st >= 5 && o.children.length === 5);
+  for (const o of W.yard || []) { o.visible = st >= o.userData.st && (o.userData.until == null || st < o.userData.until) && !(o.userData.st === 0 && o.userData.until == null && st >= 5 && o.children.length === 5); if (o.userData.col) o.userData.col.on = o.visible; }
   if (world.myBoat) world.myBoat.visible = false; W.holes.forEach(h => { h.visible = true; }); W.sail.visible = false; }
 // Snagglefoot: a small friendly goblin village (blue and yellow, never possessed)
 function buildSnagglefoot(scene) {
@@ -219,6 +219,12 @@ function buildGorge(scene) {
   const B = BRIDGE1, yS = heightAt(B.x, B.zS), yN = heightAt(B.x, B.zN), len = B.zS - B.zN;
   for (const [z, y] of [[B.zS, yS], [B.zN, yN]]) for (const sx of [-1, 1]) { const g = new THREE.Group(); cy(0.45, 0.55, 8, M.beam, 0, 4, 0, g, 8); bx(1.2, 0.7, 1.2, M.iron, 0, 8.2, 0, g); g.position.set(B.x + sx * 2.9, y, z); scene.add(g); addCircle(B.x + sx * 2.9, z, 0.4); }
   for (const z of [B.zS - 3, B.zN + 3]) parts.gap1.push(addBox(B.x, z, 2.6, 0.5, 0, 'gap')); // (until it's down, nobody steps off the end)
+  // (the owner: no invisible walls) the barrier you bump into is a rope strung between two posts, with a warning skull
+  live.ropes = []; for (const z of [B.zS - 3, B.zN + 3]) { const g = new THREE.Group(), y0 = heightAt(B.x, z);
+    for (const sx of [-1, 1]) cy(0.1, 0.12, 1.3, M.beam, sx * 2.6, 0.65, 0, g, 6);
+    const rope = new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-2.6, 1.15, 0), new THREE.Vector3(0, 0.75, 0), new THREE.Vector3(2.6, 1.15, 0)), 12, 0.035, 5), new THREE.MeshStandardMaterial({ color: '#8a6a3a', roughness: 1 })); g.add(rope);
+    const sk = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshStandardMaterial({ color: '#e8e0c8', roughness: 0.9 })); sk.position.set(0, 0.62, 0); g.add(sk);
+    g.position.set(B.x, y0, z); scene.add(g); live.ropes.push(g); }
   const deck = new THREE.Group(), pivot = new THREE.Group(); pivot.position.set(B.x, yN + 0.25, B.zN); scene.add(pivot);
   for (let i = 0; i < len / 0.6; i++) bx(4.4, 0.18, 0.55, M.plank, 0, 0, 0.3 + i * 0.6, deck); for (const sx of [-1, 1]) { bx(0.25, 0.3, len, M.beam, sx * 2.1, 0.12, len / 2, deck); bx(0.12, 1.0, len, M.beam, sx * 2.25, 0.7, len / 2, deck); }
   pivot.add(deck); live.bridge1 = { pivot, yS, yN, len, open: 0, want: 0 }; setBridge(live.bridge1, 0);
@@ -244,7 +250,7 @@ function gateAcross(scene, Rp, t, kind) {
   const cols = [addBox(p.x, p.z, w + 0.3, 0.6, dir + Math.PI / 2, 'gate')];
   for (const s of [-1, 1]) { const q = { x: p.x + Math.cos(dir) * s * (w + 1.5), z: p.z - Math.sin(dir) * s * (w + 1.5) }; addBox(q.x, q.z, 1.5, 1.5, dir + Math.PI / 2); }
   for (let tt = Math.max(0, t - 0.06); tt < t + 0.2; tt += 0.012) { const a = rampPoint(Rp, tt), out = Math.hypot(a.x - PEAK.x, a.z - PEAK.z) + Rp.half + 0.8, ang = Math.atan2(a.z - PEAK.z, a.x - PEAK.x), x = PEAK.x + Math.cos(ang) * out, z = PEAK.z + Math.sin(ang) * out;
-    if (Math.round(tt / 0.012) % 3 === 0) propAt('palisade', x, heightAt(x, z), z, -ang - Math.PI / 2, 3.0); addCircle(x, z, 0.75); }
+    propAt('palisade', x, heightAt(x, z), z, -ang - Math.PI / 2, 3.0); addCircle(x, z, 0.75); } // (a palisade section at every collider: no invisible gaps)
   return { gate, y, open: 0, want: 0, cols };
 }
 function buildTribe(scene, id, t) {
@@ -277,7 +283,7 @@ function buildWork(scene, w) {
   if (w.kind === 'lumber') { for (let i = 0; i < 9; i++) { const l = cy(0.32, 0.32, 4.5, M.wood, 0, 0.35 + Math.floor(i / 3) * 0.6, (i % 3) * 0.66 - 0.66, g, 8); l.rotation.z = Math.PI / 2; } for (let i = 0; i < 6; i++) cy(0.45, 0.5, 0.6, M.wood, R(-9, 9), 0.3, R(-9, 9), g, 8); }
   else if (w.kind === 'quarry') { for (let i = 0; i < 8; i++) { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(R(0.6, 1.3), 0), M.stone); r.position.set(R(-4, 4), 0.5, R(-4, 4)); g.add(r); } bx(2, 1, 1.2, M.plank, 5, 0.5, 0, g); }
   else { for (const sx of [-1, 1]) for (const sz of [-1, 1]) cy(0.2, 0.25, 7, M.beam, sx * 2.4, 3.5, sz * 2.4, g, 6); bx(5.4, 0.25, 5.4, M.plank, 0, 3.5, 0, g); for (let i = 0; i < 4; i++) bx(5, 0.15, 0.3, M.plank, 0, 5.5, -2 + i * 1.3, g); }
-  placeGroup(g, w.x, w.z, R(0, 3), scene); addCircle(w.x, w.z, w.kind === 'build' ? 3.4 : 2.6);
+  const gr = R(0, 3); placeGroup(g, w.x, w.z, gr, scene); if (w.kind === 'build') { for (const sx of [-1, 1]) for (const sz of [-1, 1]) addCircle(w.x + Math.cos(gr) * sx * 2.4 + Math.sin(gr) * sz * 2.4, w.z - Math.sin(gr) * sx * 2.4 + Math.cos(gr) * sz * 2.4, 0.35); } else addCircle(w.x, w.z, 2.6); // (the scaffold: you can walk under it; only its posts block)
   { const x = w.x + 7, z = w.z + 4; propAt(w.kind === 'lumber' ? 'lumber_pile' : 'supply_pile', x, heightAt(x, z), z, R(0, 3), 1.8); addCircle(x, z, 1.5); const x2 = w.x - 5, z2 = w.z - 7; propAt('goblin_cart', x2, heightAt(x2, z2), z2, R(0, 3), 2.2); addCircle(x2, z2, 1.6); }
   barrel(scene, w.x + 6, w.z - 5); crate(scene, w.x - 6, w.z + 5, 0.3);
 }
@@ -324,8 +330,13 @@ export function giApply(h) {
   if (h.quests && !h.quests.done.includes('gi_arrive') && !h.quests.active.gi_arrive) h.quests.active.gi_arrive = { p: [0], t: Date.now() }; // (the first quest starts on arrival)
 }
 function syncColliders() {
-  for (const c of parts.gap1) c.on = !(live.bridge1.open > 0.95); for (const c of parts.gate1) c.on = !(live.gatehouse.open > 0.9); for (const c of parts.gate2) c.on = !(live.stairgate.open > 0.9);
-  if (live.bridge1.open > 0.95 && !live.bridge1.surf) { live.bridge1.surf = true; const B = BRIDGE1; addSurface(B.x, (B.zS + B.zN) / 2, 2.2, (B.zS - B.zN) / 2, 0, live.bridge1.yN + 0.35, 0, live.bridge1.yS + 0.35); for (const s of [-1, 1]) for (let z = B.zN + 2; z < B.zS - 1; z += 4) parts.rail1.push(addBox(B.x + s * 2.5, z, 0.2, 2.1, 0, 'rail')); }
+  for (const c of parts.gap1) c.on = !(live.bridge1.open > 0.95); for (const g of live.ropes || []) g.visible = !(live.bridge1.open > 0.95); for (const c of parts.gate1) c.on = !(live.gatehouse.open > 0.9); for (const c of parts.gate2) c.on = !(live.stairgate.open > 0.9);
+  if (live.bridge1.open > 0.95 && !live.bridge1.surf) { live.bridge1.surf = true; const B = BRIDGE1; addSurface(B.x, (B.zS + B.zN) / 2, 2.2, (B.zS - B.zN) / 2, 0, live.bridge1.yN + 0.35, 0, live.bridge1.yS + 0.35); for (const s of [-1, 1]) for (let z = B.zN + 2; z < B.zS - 1; z += 4) parts.rail1.push(addBox(B.x + s * 2.5, z, 0.2, 2.1, 0, 'rail'));
+    // (the owner: no invisible walls) the rails you lean on are rope railings on posts, the whole length of the bridge
+    { const yAt = (z) => live.bridge1.yN + 0.35 + (live.bridge1.yS - live.bridge1.yN) * (z - B.zN) / (B.zS - B.zN), wood = new THREE.MeshStandardMaterial({ color: '#6a4a2a', roughness: 1 }), ropeM = new THREE.MeshStandardMaterial({ color: '#9a7a4a', roughness: 1 }), g = new THREE.Group();
+      for (const sd of [-1, 1]) { const pts = []; for (let z = B.zN + 0.5; z <= B.zS - 0.5; z += 2) { const y = yAt(z); const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.15, 6), wood); post.position.set(B.x + sd * 2.5, y + 0.55, z); g.add(post); pts.push(new THREE.Vector3(B.x + sd * 2.5, y + 1.05, z)); }
+        if (pts.length > 1) g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 4, 0.03, 5), ropeM)); }
+      G.scene.add(g); } }
 }
 // chiefs and named trolls: what their deaths open
 export function giKill(m) {

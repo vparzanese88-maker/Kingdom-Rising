@@ -8,9 +8,14 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { G } from './state.js';
 
 const L = new GLTFLoader(), cache = {};
+// (the owner saw flashes of light on every new model: Meshy meshes carry a few normals of zero length. The lighting turns those into
+// NaN, and the bloom glow spreads each NaN pixel into a white flash that comes and goes as the view turns. Point them straight up instead.)
+export function fixNormals(geo) { const n = geo && geo.attributes.normal; if (!n) return 0; let bad = 0;
+  for (let i = 0; i < n.count; i++) { const x = n.getX(i), y = n.getY(i), z = n.getZ(i), l = Math.hypot(x, y, z); if (!(l > 1e-4) || !isFinite(l)) { n.setXYZ(i, 0, 1, 0); bad++; } else if (Math.abs(l - 1) > 0.01) n.setXYZ(i, x / l, y / l, z / l); }
+  if (bad) n.needsUpdate = true; return bad; }
 export function loadGI(name) {
   return cache[name] || (cache[name] = L.loadAsync(`models/gi/${name}.glb`).then(g => {
-    g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = !o.isSkinnedMesh;
+    g.scene.traverse(o => { if (o.isMesh) { fixNormals(o.geometry); o.castShadow = true; o.receiveShadow = true; o.frustumCulled = !o.isSkinnedMesh;
       // (the owner saw strobing flashes: Meshy's materials come out as polished metal; matte them so nothing sparkles in the sun or the glow)
       for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (m) { m.metalness = 0; m.roughness = Math.max(0.85, m.roughness ?? 1); m.metalnessMap = null; m.roughnessMap = null; m.envMapIntensity = 0.35; if (m.emissive) m.emissive.setHex(0); m.emissiveMap = null; m.side = THREE.FrontSide; m.shadowSide = null; m.needsUpdate = true; } } }); // (single-sided: double-sided closed models shimmer with shadow speckles)
     g.scene.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(g.scene, true); g.h = b.max.y - b.min.y || 1; g.minY = b.min.y; g.box = b; cache[name].done = g; return g;

@@ -117,7 +117,9 @@ function resize() { const w = innerWidth, h = innerHeight; R.setSize(w, h); cam.
 
 const loader = new GLTFLoader(), cache = {};
 const load = (f) => cache[f] || (cache[f] = new Promise(res => loader.load('models/gear/' + f + '.glb', g => res(g), undefined, () => res(null))));
-const matte = (o) => o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; for (const mt of [].concat(m.material)) { mt.metalness = 0; mt.roughness = Math.max(0.6, mt.roughness ?? 1); if (mt.map) mt.map.colorSpace = THREE.SRGBColorSpace; } } });
+// (Meshy meshes carry a few zero-length normals: they light up as NaN and flash; point them straight up)
+const fixNormals = (geo) => { const n = geo && geo.attributes.normal; if (!n) return; let bad = 0; for (let i = 0; i < n.count; i++) { const x = n.getX(i), y = n.getY(i), z = n.getZ(i), l = Math.hypot(x, y, z); if (!(l > 1e-4) || !isFinite(l)) { n.setXYZ(i, 0, 1, 0); bad++; } } if (bad) n.needsUpdate = true; };
+const matte = (o) => o.traverse(m => { if (m.isMesh) { fixNormals(m.geometry); m.castShadow = true; m.receiveShadow = true; for (const mt of [].concat(m.material)) { mt.metalness = 0; mt.roughness = Math.max(0.6, mt.roughness ?? 1); if (mt.map) mt.map.colorSpace = THREE.SRGBColorSpace; } } });
 
 // ---- the body ----
 let body = null, mixer = null, acts = {}, curAct = 'idle', race = 'human', worn = {}, spinning = false, holder = null;

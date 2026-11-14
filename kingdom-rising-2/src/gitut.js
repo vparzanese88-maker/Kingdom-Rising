@@ -40,6 +40,7 @@ export function startTutorial(hero) {
 }
 export function tutTick() {
   if (!h || h.tut !== 'on' || !h.quests) return; const I = h.isle || {};
+  if (h.quests.done.includes('gi_first')) { finish(); return; } // (the First Steps quest handed in: the village opens up, whatever tips are left)
   if (h.quests.done.includes('gi_arrive')) mark('talk'); if (I.tut_dummy) mark('dummy'); if (I.tut_cook) mark('cook');
 }
 addEventListener('keydown', (e) => { if (!h || h.tut !== 'on' || !G.player) return; const c = e.code;

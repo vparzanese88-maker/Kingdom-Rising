@@ -244,7 +244,7 @@ export function buildWater(scene) {
   const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
     time: { value: 0 }, hmap: { value: null }, level: { value: 0 }, halfW: { value: HALF },
     deep: { value: new THREE.Color('#0d3d5c') }, shallow: { value: new THREE.Color('#2f9fae') }, sky: { value: new THREE.Color('#9cc8ea') },
-    sunDir: { value: new THREE.Vector3(0.3, 0.8, 0.2) }, sunCol: { value: new THREE.Color('#fff2d0') }, flow: { value: 0 }, light: { value: 1 },
+    sunDir: { value: new THREE.Vector3(0.3, 0.8, 0.2) }, sunCol: { value: new THREE.Color('#fff2d0') }, flow: { value: 0 }, light: { value: 1 }, trop: { value: GI ? 1 : 0 },
   }]);
   const vert = `
     uniform float time; varying vec3 vW; varying float vWave;
@@ -255,7 +255,7 @@ export function buildWater(scene) {
       #include <fog_vertex>
     }`;
   const frag = `
-    uniform float time, level, halfW, flow, light; uniform sampler2D hmap; uniform vec3 deep, shallow, sky, sunDir, sunCol; varying vec3 vW; varying float vWave;
+    uniform float time, level, halfW, flow, light, trop; uniform sampler2D hmap; uniform vec3 deep, shallow, sky, sunDir, sunCol; varying vec3 vW; varying float vWave;
     #include <fog_pars_fragment>
     float hsh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
     float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hsh(i),hsh(i+vec2(1,0)),f.x), mix(hsh(i+vec2(0,1)),hsh(i+vec2(1,1)),f.x), f.y); }
@@ -269,11 +269,14 @@ export function buildWater(scene) {
       vec3 V = normalize(cameraPosition - vW);
       float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
       vec3 col = mix(shallow, deep, smoothstep(0.2, 7.0, depth));
+      col = mix(col, vec3(0.2, 0.78, 0.74), smoothstep(4.5, 0.3, depth) * 0.75 * trop); // (Goblos: clear turquoise shallows)
+      col += vec3(0.9, 1.0, 0.95) * pow(vn(vW.xz * 0.9 + time * 0.35) * vn(vW.xz * 1.3 - time * 0.27), 3.0) * 1.6 * smoothstep(3.0, 0.4, depth) * trop; // (sun glitter on the sandy bottom)
       col = mix(col, sky * 0.95, fres * 0.65);
       vec3 H = normalize(sunDir + V); float spec = pow(max(dot(N, H), 0.0), 140.0) * 1.6;
       col += sunCol * spec;
       float foam = smoothstep(1.3, 0.0, depth) * (0.55 + 0.45*sin(time*2.0 + vW.x*0.4 + vW.z*0.3 + n1*6.0));
       foam += smoothstep(0.35, 0.0, depth) * 0.6;
+      foam += smoothstep(0.82, 1.0, sin(depth * 4.2 - time * 1.5 + n3 * 5.0)) * smoothstep(2.6, 0.4, depth) * 0.6 * trop; // (little waves rolling in to the beach)
       foam *= smoothstep(-0.3, 0.2, depth);
       col = mix(col, vec3(0.95,0.97,1.0), clamp(foam, 0.0, 1.0) * 0.8);
       col *= light;
@@ -331,9 +334,12 @@ export function buildSky(scene) {
         float sd = max(dot(d, normalize(sunDir)), 0.0);
         c += sunCol * (pow(sd, 900.0)*3.0 + pow(sd, 12.0)*0.25 + pow(sd,3.0)*0.08);
         // clouds
-        if (d.y > 0.02) { vec2 cp = d.xz / (d.y + 0.15) * 2.2 + vec2(time*0.004, time*0.002);
-          float cl = n(cp)*0.55 + n(cp*2.1)*0.3 + n(cp*4.3)*0.15; cl = smoothstep(0.52, 0.78, cl) * smoothstep(0.02, 0.25, d.y);
-          vec3 cc = mix(vec3(1.0), sunCol, 0.3) * mix(1.0, 0.35, night); c = mix(c, cc, cl*0.8); }
+        if (d.y > 0.02) { vec2 cp = d.xz / (d.y + 0.12) * 1.7 + vec2(time*0.006, time*0.003); // (puffy painted clouds: sunlit tops, soft grey undersides, a bright rim near the sun)
+          float cl = n(cp)*0.5 + n(cp*2.03)*0.25 + n(cp*4.01)*0.15 + n(cp*8.1)*0.1, cov = smoothstep(0.5, 0.74, cl) * smoothstep(0.02, 0.24, d.y);
+          vec2 sdir = normalize(sunDir.xz + vec2(1e-4)); vec2 cs = cp + sdir * 0.22; float sh = n(cs)*0.5 + n(cs*2.03)*0.25 + n(cs*4.01)*0.15 + n(cs*8.1)*0.1;
+          float lit = clamp(1.0 - (sh - cl) * 3.2, 0.5, 1.15);
+          vec3 cc = mix(vec3(0.6, 0.66, 0.78), mix(vec3(1.0), sunCol, 0.25), lit) + sunCol * pow(sd, 6.0) * (1.0 - cov) * 0.6;
+          c = mix(c, cc * mix(1.0, 0.33, night), cov * 0.92); }
         // stars
         if (night > 0.0) { vec3 sp = floor(d*220.0); float s = step(0.9975, h(sp)); c += vec3(s) * night * smoothstep(0.0,0.3,d.y); }
         // moon

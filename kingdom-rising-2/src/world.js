@@ -7,6 +7,7 @@ import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
 import { GI } from './gimap.js';
 import { buildGoblinIsle, giAvoid } from './goblinisle.js';
 import { swapScenery } from './gimodels.js';
+import { buildBirdsGI, updateBirdsGI } from './gilife.js';
 import { YARD, ARENA } from './battlemap.js';
 import { buildColosseum } from './arenamap.js';
 import { buildRuins } from './ruinsmap.js';
@@ -827,6 +828,7 @@ function buildBirds(scene) {
   }
 }
 export function updateBirds(t, dt) {
+  if (GI) { updateBirdsGI(dt); return; }
   for (const b of world.birds) {
     b.a += b.sp * dt * b.dir;
     const x = b.f.x + Math.cos(b.a) * b.r, z = b.f.z + Math.sin(b.a) * b.r * 0.8;
@@ -900,7 +902,7 @@ export function buildWorld(scene) {
   buildChunks(scene);
   if (GI) swapScenery(kinds); // (Goblin Island: Meshy trees, rocks and bushes)
   if (!ARENA) buildGrass(scene); // (the arena floor is sand)
-  buildBirds(scene);
+  if (GI) buildBirdsGI(scene, kinds); else buildBirds(scene); // (Goblin Island: a few birds that perch in the trees)
   buildAmbient(scene);
   return world;
 }

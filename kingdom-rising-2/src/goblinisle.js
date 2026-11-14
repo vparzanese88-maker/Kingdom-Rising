@@ -271,6 +271,7 @@ export function giTick(dt) {
   { const b = live.bridge1; if (b.open !== b.want) { b.open = Math.max(0, Math.min(1, b.open + Math.sign(b.want - b.open) * dt / 4)); setBridge(b, b.open < 1 ? Math.pow(b.open, 1.6) : 1); if (b.open === b.want) syncColliders(); } }
   for (const gt of [live.gatehouse, live.stairgate]) { if (gt.open < gt.want) { gt.open = Math.min(1, gt.open + dt / 5); if (gt.open >= 1) syncColliders(); } gt.gate.position.y = gt.y + gt.open * 7.4; }
   for (const id in live.totems) { const T = live.totems[id]; if (T.k < T.want) { T.k = Math.min(1, T.k + dt * 0.7); T.g.rotation.z = Math.pow(T.k, 2) * 1.45; } }
+  tickCarts();
   if ((giTick.t = (giTick.t || 0) + dt) < 0.5) return; giTick.t = 0; tickDress();
   const P = G.player; if (!P || !G.save || !G.save.quests) return;
   const r = Math.hypot(P.pos.x - PEAK.x, P.pos.z - PEAK.z);
@@ -287,6 +288,13 @@ export function giPeople() {
   const OUT = ['worker', 'weaver', 'hunter', 'smith'];
   for (let i = 0; i < 9; i++) { const a = i / 9 * 6.28, r = 6 + (i % 3) * 5, v = new Villager(V.x + Math.cos(a) * r, V.z + Math.sin(a) * r, { race: 'goblin', sex: i % 2 ? 'f' : 'm', outfit: OUT[i % 4], skin: GSKIN[i % 4], hair: '#2a2010', hairStyle: i % 3, beard: 0, height: 0.85 + (i % 4) * 0.08 });
     v.talkable = true; v.vname = ['Pogg', 'Nib', 'Grizzle', 'Tumble', 'Wort', 'Fizzle', 'Squik', 'Moss', 'Bimble'][i]; G.npcs.push(v); dressPerson(v, 'goblin_villager', 1.2 + (i % 4) * 0.08); }
+  // chores: two chop wood at the village edge, two mend a hut, two chat by the fire; the rest stroll about
+  { const vs = G.npcs.filter(n => n.vname && ['Pogg', 'Nib', 'Grizzle', 'Tumble', 'Wort', 'Fizzle'].includes(n.vname)), T = world.nodes.filter(n => n.type && n.type.startsWith('tree') && Math.hypot(n.x - V.x, n.z - V.z) > V.r && Math.hypot(n.x - V.x, n.z - V.z) < V.r + 25);
+    vs.forEach((v, i) => { let spot, face, job;
+      if (i < 2 && T[i]) { const n = T[i], a = Math.atan2(V.z - n.z, V.x - n.x); spot = { x: n.x + Math.cos(a) * 1.3, z: n.z + Math.sin(a) * 1.3 }; face = Math.atan2(n.x - spot.x, n.z - spot.z); job = 'chop'; }
+      else if (i < 4) { const a = 0.3 + 0.3 * (i - 2), x = V.x + Math.cos(a) * 15.5, z = V.z + Math.sin(a) * 15.5; spot = { x, z }; face = Math.atan2(V.x + Math.cos(a) * 18 - x, V.z + Math.sin(a) * 18 - z); job = 'hammer'; }
+      else { const a = i * 1.7; spot = { x: V.x + Math.cos(a) * 3.2, z: V.z + 2 + Math.sin(a) * 3.2 }; face = Math.atan2(V.x - spot.x, V.z + 2 - spot.z); job = 'talk'; }
+      v.jobSpot = new THREE.Vector3(spot.x, 0, spot.z); v.jobFace = face; v.job = job; }); }
   for (const n of G.npcs) if (n.def && n.def.race === 'goblin') dressPerson(n, n.id === 'grubnose' ? 'goblin_elder' : 'goblin_villager', n.id === 'grubnose' ? 1.3 : 1.35);
   for (let i = 0; i < 3; i++) { const v = new Villager(CAMP_SPOT.x + R(-8, 8), CAMP_SPOT.z + R(-8, 8), { race: 'human', sex: i === 1 ? 'f' : 'm', outfit: 'fisher', skin: ['#e0ac85', '#c08e68', '#f1c7a5'][i], hair: '#4a3020', hairStyle: i, beard: i === 0 ? 2 : 0, height: 0.95 }); v.talkable = true; v.vname = ['Bosun Crabb', 'Tess', 'Old Rope'][i]; G.npcs.push(v); }
 }
@@ -294,10 +302,10 @@ export function giPeople() {
 // ---------------- enemies ----------------
 const named = (type, name, extra) => Object.assign({}, MOBS[type], { name }, extra || {});
 const SIZE = { goblin: [0.72, 1.18], goblin_slinger: [0.66, 0.95], goblin_brute: [1.15, 1.5], troll: [0.92, 1.15], troll_king: [1.0, 1.1] };
-function mob(type, lv, x, z, name) { const m = new Mob(type, lv, x, z); m.def = named(type, name || MOBS[type].name, { aggro: Math.round(MOBS[type].aggro * 0.6) });
+function mob(type, lv, x, z, name, model) { const m = new Mob(type, lv, x, z); m.noWander = true; m.def = named(type, name || MOBS[type].name, { aggro: Math.round(MOBS[type].aggro * 0.6) });
   m.maxHp = Math.round(m.maxHp * 1.8); m.hp = m.maxHp; m.dmg *= 1.4; m.xp = Math.round(m.xp * 1.3);
   const sz = SIZE[type]; if (sz) { const k = sz[0] + Math.random() * (sz[1] - sz[0]); m.root.scale.multiplyScalar(k); m.radius *= k; if (m.height) m.height *= k; m.maxHp = Math.round(m.maxHp * (0.75 + k * 0.25)); m.hp = m.maxHp; }
-  dressMob(m); if (type === 'boar') dressBeast(m, 'boar', 1.6); else if (type === 'crab') dressBeast(m, 'crab', 0.9); // (the Meshy bodies)
+  dressMob(m, model); if (type === 'boar') dressBeast(m, 'boar', 1.6); else if (type === 'crab') dressBeast(m, 'crab', 0.9); // (the Meshy bodies)
   G.mobs.push(m); return m; }
 export function giSpawn() {
   if (!GI) return;
@@ -305,8 +313,24 @@ export function giSpawn() {
   for (const [id, t] of Object.entries(TRIBES)) {
     const c = mob('goblin_brute', t.chiefLv, t.x, t.z - 4); c.def = named('goblin_brute', t.chief, { elite: true, aggro: 9 }); c.giChief = id; c.bossy = true; c.maxHp = Math.round(c.maxHp * 2.6); c.hp = c.maxHp;
     const n = id === 'bloodfang' ? 9 : 12;
-    for (let i = 0; i < n; i++) { const a = i / n * 6.28, r = R(5, t.r * 0.75), type = i % 4 === 1 ? 'goblin_slinger' : i % 5 === 3 ? 'goblin_brute' : 'goblin'; mob(type, ri(t.lv[0], t.lv[1]), t.x + Math.cos(a) * r, t.z + Math.sin(a) * r, `${t.name} ${MOBS[type].name.replace('Goblin ', '')}`); }
+    const fire = new THREE.Vector3(t.x, heightAt(t.x, t.z), t.z);
+    for (let i = 0; i < n; i++) { const a = i / n * 6.28, type = i % 4 === 1 ? 'goblin_slinger' : i % 5 === 3 ? 'goblin_brute' : 'goblin', role = i % 3, r = role === 0 ? 3.2 : R(8, t.r * 0.75);
+      const m = mob(type, ri(t.lv[0], t.lv[1]), t.x + Math.cos(a) * r, t.z + Math.sin(a) * r, `${t.name} ${MOBS[type].name.replace('Goblin ', '')}`);
+      if (role === 0) m.sitAt = fire; // (round the fire)
+      else if (role === 1) { const pts = []; for (let j = 0; j < 8; j++) { const b = a + j / 8 * 6.28 * (i % 2 ? 1 : -1); pts.push(new THREE.Vector3(t.x + Math.cos(b) * (t.r - 4), 0, t.z + Math.sin(b) * (t.r - 4))); } m.patrol = { pts, i: 1 }; m.noWander = false; } } // (walking the stakes)
   }
+  // the work camps (the owner: goblins cutting trees, building and hauling, a living world)
+  for (const w of WORKS) { const t = TRIBES[w.tribe], lv = ri(t.lv[0], t.lv[1]), V3 = (x, z) => new THREE.Vector3(x, 0, z);
+    const worker = (kind, x, z, fx, fz, nm) => { const m = mob('goblin', lv, x, z, `${t.name} ${nm}`, 'goblin_villager'); m.job = { kind, spot: V3(x, z), face: V3(fx, fz) }; return m; };
+    if (w.kind === 'lumber') { const T = world.nodes.filter(n => n.type && n.type.startsWith('tree') && Math.hypot(n.x - w.x, n.z - w.z) < 30).slice(0, 3);
+      T.forEach((n, i) => { const a = Math.atan2(w.z - n.z, w.x - n.x); worker('chop', n.x + Math.cos(a) * 1.3, n.z + Math.sin(a) * 1.3, n.x, n.z, 'Woodcutter'); });
+      if (!T.length) for (let i = 0; i < 2; i++) worker('chop', w.x + 6 + i * 3, w.z - 6, w.x + 9 + i * 3, w.z - 9, 'Woodcutter'); }
+    else for (let i = 0; i < 3; i++) { const a = i / 3 * 6.28; worker('hammer', w.x + Math.cos(a) * 3.4, w.z + Math.sin(a) * 3.4, w.x, w.z, w.kind === 'quarry' ? 'Stonebreaker' : 'Builder'); }
+    // a hauler carries loads from the work camp to the tribe's village and back
+    for (let i = 0; i < 2; i++) { const m = mob('goblin', lv, w.x + 3, w.z + 3 + i * 2, `${t.name} Hauler`, 'goblin_villager'); const pts = []; for (let k = 0; k <= 8; k++) { const f = k / 8; pts.push(V3(w.x + (t.x - w.x) * f + Math.sin(f * 3) * 4, w.z + (t.z - w.z) * f)); } m.job = { kind: 'haul', pts, i: 1 + i * 3, dir: 1, wait: 0, loaded: i === 0 }; } }
+  // supply carts pulled along the roads
+  for (const [a, b, tr] of [[WORKS[0], TRIBES.bloodfang, 'bloodfang'], [WORKS[2], WORKS[3], 'skull']]) { const t = TRIBES[tr], pts = []; for (let k = 0; k <= 12; k++) { const f = k / 12; pts.push(new THREE.Vector3(a.x + (b.x - a.x) * f, 0, a.z + (b.z - a.z) * f)); }
+    const m = mob('goblin', ri(t.lv[0], t.lv[1]), a.x, a.z, `${t.name} Carter`, 'goblin_villager'); m.job = { kind: 'cart', pts, i: 1, dir: 1, wait: 0 }; carts.push({ m, o: null }); propAt('goblin_cart', a.x, heightAt(a.x, a.z), a.z, 0, 2.2).then(o => { carts.find(c => c.m === m).o = o; }); }
   for (const l of LAIRS) { const b = mob('troll_king', l.lv, l.x, l.z, l.name); b.giLair = l.id; b.bossy = true; for (let i = 0; i < l.adds; i++) mob('troll', l.lv - 1, l.x + R(-6, 6), l.z + R(-6, 6)); }
   for (const [Rp, lv] of [[RAMP1, 6], [RAMP2, 8]]) for (let i = 0; i < 4; i++) { const p = rampPoint(Rp, 0), a = Math.atan2(p.z - PEAK.z, p.x - PEAK.x); mob(i === 0 ? 'goblin_brute' : i === 3 ? 'goblin_slinger' : 'goblin', lv, p.x + Math.cos(a) * (6 + i * 2), p.z + Math.sin(a) * (6 + i * 2), 'Gate Guard'); }
   for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28, r = R(10, PEAK.rSum - 12); mob(i % 3 === 2 ? 'goblin_brute' : i % 3 === 1 ? 'goblin_slinger' : 'goblin', ri(9, 10), PEAK.x + Math.cos(a) * r, PEAK.z + Math.sin(a) * r, 'Idol Guard'); }
@@ -316,12 +340,19 @@ export function giSpawn() {
     if (Math.hypot(x - PEAK.x, z - PEAK.z) < PEAK.rLow + 20) continue; if (Math.hypot(x - CAMP_SPOT.x, z - CAMP_SPOT.z) < 80 || Math.hypot(x - V.x, z - V.z) < 85) continue;
     if ([...Object.values(TRIBES), ...WORKS].some(t => Math.hypot(t.x - x, t.z - z) < t.r + 25)) continue;
     if (FANGS.some(F => Math.hypot(F.x - x, F.z - z) < F.r * 0.45)) continue;
-    const south = z > 160, roll = Math.random();
+    const south = z > 160, roll = Math.random(), first = G.mobs.length;
     if (south) { if (roll < 0.5) for (let i = 0; i < ri(2, 3); i++) mob(i === 2 ? 'goblin_slinger' : 'goblin', ri(1, 3), x + R(-6, 6), z + R(-6, 6), 'Idol-mad Goblin'); else if (roll < 0.85) for (let i = 0; i < 2; i++) mob('boar', ri(1, 2), x + R(-6, 6), z + R(-6, 6)); }
     else { if (roll < 0.6) for (let i = 0; i < ri(3, 4); i++) mob(i === 3 ? 'goblin_brute' : i === 2 ? 'goblin_slinger' : 'goblin', ri(4, 6), x + R(-7, 7), z + R(-7, 7), 'Idol-mad Goblin'); else if (roll < 0.8) for (let i = 0; i < 2; i++) mob('wolf', ri(4, 5), x + R(-6, 6), z + R(-6, 6)); }
   }
   for (let i = 0; i < 12; i++) { const x = -120 + i * 22, z = 455 + Math.sin(i) * 12; if (heightAt(x, z) > 0.2 && heightAt(x, z) < 2) mob('crab', 1, x, z); }
+  // goblin packs out in the wilds walk a route together (out to a lookout and back), beasts graze where they are
+  for (const m of G.mobs) if (!m.job && !m.patrol && !m.sitAt && !m.giChief && !m.giLair && m.def.variant === 'goblin' && !/Gate Guard|Idol Guard/.test(m.def.name)) {
+    if (m.def.name !== 'Idol-mad Goblin') continue; const a = Math.random() * 6.28, d = R(30, 60), h = m.home; const pts = [new THREE.Vector3(h.x, 0, h.z), new THREE.Vector3(h.x + Math.cos(a) * d, 0, h.z + Math.sin(a) * d)];
+    if (heightAt(pts[1].x, pts[1].z) < 1.5) continue; m.patrol = { pts, i: 1 }; m.noWander = false; }
+  for (const m of G.mobs) if (m.type === 'boar' || m.type === 'crab' || m.type === 'wolf') m.noWander = false; // (animals still roam and graze)
 }
+const carts = [];
+export function tickCarts() { for (const c of carts) { if (!c.o) continue; const m = c.m; c.o.visible = !m.dead; if (m.dead) continue; const fx = Math.sin(m.yaw), fz = Math.cos(m.yaw), x = m.pos.x - fx * 2.4, z = m.pos.z - fz * 2.4; c.o.position.set(x, heightAt(x, z), z); c.o.rotation.y = m.yaw; } }
 export function objectives() {}
 // where you wake after dying: the nearest safe place you have reached (never an enemy camp)
 export function giRespawns() {

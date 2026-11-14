@@ -369,11 +369,20 @@ export class Mob {
         if (leash < 3) { this.state = 'idle'; this.hp = this.maxHp; }
       } else {
         this.timer -= dt;
-        if (this.patrol && this.state !== 'wander') { const P = this.patrol; const tgt = P.pts[P.i]; want = tgt; speed = spd * 0.4; if (Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z) < 1.2) P.i = (P.i + 1) % P.pts.length; this.faceTo(tgt, dt, 4); }
+        this.jobAnim = null;
+        if (this.job && this.state !== 'wander') { const J = this.job; // (Goblin Island: goblins with work to do)
+          if (J.kind === 'haul' || J.kind === 'cart') { const tgt = J.pts[J.i];
+            if (J.wait > 0) J.wait -= dt;
+            else { want = tgt; speed = spd * (J.kind === 'cart' ? 0.26 : 0.3); this.jobAnim = J.kind === 'haul' && J.loaded ? 'carry' : null; this.faceTo(tgt, dt, 4);
+              if (Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z) < 1.4) { J.i += J.dir; if (J.i >= J.pts.length || J.i < 0) { J.dir *= -1; J.i += J.dir * 2; J.wait = rand(3, 7); J.loaded = !J.loaded; } } } }
+          else if (Math.hypot(J.spot.x - this.pos.x, J.spot.z - this.pos.z) > 0.9) { want = J.spot; speed = spd * 0.35; }
+          else { this.faceTo(J.face, dt, 4); this.jobAnim = J.kind; } }
+        else if (this.patrol && this.state !== 'wander') { const P = this.patrol; const tgt = P.pts[P.i]; want = tgt; speed = spd * 0.4; if (Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z) < 1.2) P.i = (P.i + 1) % P.pts.length; this.faceTo(tgt, dt, 4); }
         else if (this.sitAt) { if (this.pos.distanceTo(this.home) > 0.6) { want = this.home; speed = spd * 0.4; } else { this.faceTo(this.sitAt, dt, 4); this.sitting = true; } }
         else if (this.state === 'wander') { want = this.wanderTo; speed = spd * (this.def.flee ? 0.3 : 0.32); this.idleAct = null; if (!want || Math.hypot(want.x - this.pos.x, want.z - this.pos.z) < 1.2 || (this.stuckT || 0) > 1.2) { this.stuckT = 0; this.state = 'idle'; this.pickIdle(); } }
         else if (this.idleAct && this.timer > 0) { if (this.idleAct === 'look') this.yaw += Math.sin(G.time * 0.8 + this.id) * dt * 0.6; }
         else if (this.timer <= 0 && this.idleAct && Math.random() < 0.35) { this.pickIdle(); }
+        else if (this.timer <= 0 && this.noWander) { this.idleAct = 'look'; this.timer = rand(3, 8); } // (no aimless wandering: it stands its ground and looks about)
         else if (this.timer <= 0) { this.idleAct = null; const a = Math.random() * 6.28, r = 8 + Math.random() * (this.sitAt ? 0 : 30); const base = Math.random() < 0.6 ? this.pos : this.home; this.wanderTo = new THREE.Vector3(base.x + Math.cos(a) * r, 0, base.z + Math.sin(a) * r); if (this.wanderTo.distanceTo(this.home) > 45) this.wanderTo.copy(this.home); if (!isWater(this.wanderTo.x, this.wanderTo.z)) this.state = 'wander'; else this.timer = 2; }
       }
       if (want && speed !== 0) {
@@ -573,6 +582,7 @@ export class Villager {
   update(dt, player) {
     this.t -= dt; let sp = 0;
     if (this.to) { const dx = this.to.x - this.pos.x, dz = this.to.z - this.pos.z, l = Math.hypot(dx, dz); if (l < 0.5) { this.to = null; this.t = rand(3, 9); } else { sp = 1.3; this.pos.x += dx / l * sp * dt; this.pos.z += dz / l * sp * dt; this.yaw += angDiff(this.yaw, Math.atan2(dx, dz)) * Math.min(1, dt * 5); } }
+    else if (this.jobSpot) { if (Math.hypot(this.pos.x - this.jobSpot.x, this.pos.z - this.jobSpot.z) > 0.7) this.to = this.jobSpot.clone(); else this.yaw += angDiff(this.yaw, this.jobFace || 0) * Math.min(1, dt * 4); }
     else if (this.t <= 0) { const a = Math.random() * 6.28, r = Math.random() * 16; this.to = new THREE.Vector3(this.home.x + Math.cos(a) * r, 0, this.home.z + Math.sin(a) * r); }
     collide(this.pos, 0.35);
     const dpl = this.pos.distanceTo(player.pos); setDetail(this.ch, dpl < 30); this.root.visible = dpl < 120;

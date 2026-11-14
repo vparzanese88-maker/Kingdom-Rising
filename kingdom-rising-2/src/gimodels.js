@@ -38,7 +38,7 @@ function play(Z, key, once, fade = 0.18, pickAttack) {
 const MOB_MODEL = { goblin: 'goblin_raider', goblin_slinger: 'goblin_slinger', goblin_brute: 'goblin_brute', troll: 'troll', troll_king: 'troll', goblin_chief: 'goblin_warlord' };
 // (bodies are put on only near you and taken off far away, so a few dozen are animated at a time, not hundreds)
 const wanting = [];
-export function dressMob(m) { const name = MOB_MODEL[m.type]; if (!name) return; m.mzName = name; wanting.push(m); loadGI(name); }
+export function dressMob(m, model) { const name = model || MOB_MODEL[m.type]; if (!name) return; m.mzName = name; wanting.push(m); loadGI(name); }
 function putOn(m) { const g = cache[m.mzName] && cache[m.mzName].done; if (!g || !m.root) return false; const sc = m.root.scale.y || 1, Z = rigOf(g, (m.height || 1.5) / sc);
   for (const c of m.root.children) c.visible = false; m.root.add(Z.o); m.mz = Z; play(Z, m.dead ? 'die' : 'idle'); if (m.dead && Z.cura) Z.cura.time = Z.cura.getClip().duration; if (m.type === 'troll_king') Z.o.scale.multiplyScalar(1.12); return true; }
 function takeOff(m) { const Z = m.mz; if (!Z) return; Z.mixer.stopAllAction(); Z.mixer.uncacheRoot(Z.o); m.root.remove(Z.o); for (const c of m.root.children) c.visible = true; m.mz = null; }
@@ -54,6 +54,8 @@ export function animMob(m, dt, st) {
   else if (st.action && st.action !== 'charge') { const fresh = Z.cur !== 'attack' || Z.prevAct !== st.action || (st.actionT || 0) < (Z.prevT || 0) - 0.05; Z.prevAct = st.action; Z.prevT = st.actionT || 0; if (fresh) { const a = play(Z, 'attack', true, 0.1, true); if (a) a.timeScale = Math.max(0.8, Math.min(3, a.getClip().duration / Math.max(0.4, m.actionDur || 0.9))); } }
   else if (m.hitFlash > 0.15 && Z.cur !== 'hit' && Z.acts.hit && (Z.hitCd || 0) <= 0) { Z.hitCd = 1.2; const a = play(Z, 'hit', true, 0.08); if (a) a.timeScale = 2; }
   else if (Z.cur === 'hit' && Z.cura && Z.cura.isRunning()) { /* finishing the flinch */ }
+  else if (m.jobAnim && (st.speed || 0) < 0.3 && m.jobAnim !== 'carry') play(Z, m.jobAnim === 'chop' ? 'chop' : m.jobAnim === 'hammer' ? 'hammer' : 'idle');
+  else if (m.jobAnim === 'carry' && Z.acts.carry) play(Z, 'carry');
   else { const sp = st.speed || 0; if (sp > 3.4) { const a = play(Z, 'run'); if (a) a.timeScale = Math.min(1.6, sp / 5); } else if (sp > 0.3) { const a = play(Z, 'walk'); if (a) a.timeScale = Math.min(2.2, sp / 1.1); } else play(Z, 'idle'); }
   Z.hitCd = (Z.hitCd || 0) - dt; Z.mixer.update(dt);
 }

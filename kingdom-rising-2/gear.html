@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Gear · Kingdom Rising II</title>
+<style>
+:root { --bg:#14110d; --panel:rgba(24,20,15,.92); --line:#4a3c28; --gold:#e8c46a; --ink:#f1e6cc; --dim:#a8987a; }
+* { box-sizing:border-box; }
+html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:Georgia,'Times New Roman',serif; overflow:hidden; }
+#view { position:fixed; inset:0; }
+.panel { position:fixed; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 8px 30px rgba(0,0,0,.5); }
+#left { left:16px; top:16px; width:230px; }
+#right { right:16px; top:16px; bottom:16px; width:380px; display:flex; flex-direction:column; gap:12px; overflow:auto; }
+h1 { font-size:20px; margin:0 0 2px; color:var(--gold); letter-spacing:.5px; }
+h2 { font-size:12px; text-transform:uppercase; letter-spacing:2px; color:var(--dim); margin:12px 0 6px; font-weight:normal; }
+.eyebrow { font-size:11px; color:var(--dim); letter-spacing:2px; text-transform:uppercase; }
+button { font-family:inherit; cursor:pointer; }
+.race { display:block; width:100%; text-align:left; margin:5px 0; padding:9px 12px; background:#221c14; color:var(--ink); border:1px solid var(--line); border-radius:8px; font-size:15px; }
+.race small { display:block; color:var(--dim); font-size:11px; }
+.race.on, .tog.on { border-color:var(--gold); background:#3a2e1a; box-shadow:0 0 0 1px var(--gold) inset; }
+.row { display:flex; gap:6px; flex-wrap:wrap; }
+.tog { flex:1; padding:7px 6px; background:#221c14; color:var(--ink); border:1px solid var(--line); border-radius:8px; font-size:13px; }
+#slots { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.slot { position:relative; aspect-ratio:1; background:#0e0c09; border:1px dashed #5a4a30; border-radius:10px; display:flex; align-items:center; justify-content:center; text-align:center; font-size:11px; color:var(--dim); overflow:hidden; cursor:pointer; }
+.slot img, .item img { width:100%; height:100%; object-fit:cover; }
+.slot.full { border-style:solid; border-color:var(--gold); }
+.slot .lbl { position:absolute; left:0; right:0; bottom:0; background:rgba(0,0,0,.65); padding:3px 2px; font-size:10px; color:var(--ink); letter-spacing:1px; text-transform:uppercase; }
+#inv { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
+.item { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:2px solid #3a3020; cursor:pointer; background:#000; }
+.item:hover { border-color:var(--gold); }
+.item.worn { border-color:#7ac46a; }
+.item.worn::after { content:'✔'; position:absolute; right:3px; top:1px; color:#9ee08a; font-size:13px; text-shadow:0 0 3px #000; }
+.item[data-t=plate] { box-shadow:inset 0 -4px 0 #9aa8c0; } .item[data-t=leather] { box-shadow:inset 0 -4px 0 #a8683a; } .item[data-t=cloth] { box-shadow:inset 0 -4px 0 #4a7ad8; }
+#tip { position:fixed; pointer-events:none; background:#0c0a07; border:1px solid var(--gold); border-radius:8px; padding:7px 10px; font-size:13px; display:none; z-index:9; max-width:220px; }
+#tip b { color:var(--gold); } #tip small { display:block; color:var(--dim); }
+.note { font-size:12px; color:var(--dim); line-height:1.45; }
+#load { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); color:var(--gold); font-size:18px; }
+a.back { color:var(--dim); font-size:12px; text-decoration:none; } a.back:hover { color:var(--gold); }
+@media (max-width:820px) { #left { width:auto; right:16px; } #right { top:auto; left:16px; right:16px; width:auto; height:45%; } }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three/build/three.module.min.js", "three/addons/": "./vendor/three/examples/jsm/" } }</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="load">Loading…</div>
+<div class="panel" id="left">
+  <div class="eyebrow">Kingdom Rising II</div>
+  <h1>Test Gear</h1>
+  <a class="back" href="./">← back to the title screen</a>
+  <h2>Race</h2>
+  <button class="race on" data-r="human">Human<small>Plain base body</small></button>
+  <button class="race" data-r="elf">High Elf<small>Taller, slender</small></button>
+  <button class="race" data-r="goblin">Goblin<small>Small, big head</small></button>
+  <h2>Pose</h2>
+  <div class="row"><button class="tog on" data-a="idle">Stand</button><button class="tog" data-a="walk">Walk</button><button class="tog" id="spin">Turn</button></div>
+  <h2>Quick sets</h2>
+  <div class="row"><button class="tog" data-set="plate">Plate</button><button class="tog" data-set="leather">Leather</button><button class="tog" data-set="cloth">Cloth</button><button class="tog" data-set="mix">Mix</button><button class="tog" data-set="none">None</button></div>
+  <p class="note">Drag to turn the camera, scroll to zoom. Every piece is its own model fixed to the body's bones and sized to each race automatically, so any piece mixes with any other.</p>
+</div>
+<div class="panel" id="right">
+  <div><h2 style="margin-top:0">Equipped <span style="text-transform:none;letter-spacing:0">(click to take off)</span></h2><div id="slots"></div></div>
+  <div><h2>Inventory <span style="text-transform:none;letter-spacing:0">(click to wear)</span></h2><div id="inv"></div></div>
+</div>
+<div id="tip"></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ---- the gear: six slots, three kinds of armour (paired slots are worn on both sides) ----
+const SLOTS = [['head', 'Head'], ['shoulder', 'Shoulders'], ['chest', 'Chest'], ['hands', 'Hands'], ['waist', 'Waist'], ['feet', 'Feet']];
+const T = { plate: 'Plate', leather: 'Leather', cloth: 'Cloth' };
+const ITEMS = [
+  { id: 'plate_helm', slot: 'head', t: 'plate', name: 'Steel Great Helm', fit: 'cover' },
+  { id: 'leather_helm', slot: 'head', t: 'leather', name: 'Leather Hood', fit: 'cover' },
+  { id: 'cloth_helm', slot: 'head', t: 'cloth', name: 'Mage Hat', fit: 'hat' },
+  { id: 'plate_shoulder3', slot: 'shoulder', t: 'plate', name: 'Steel Pauldrons' },
+  { id: 'leather_shoulder2', slot: 'shoulder', t: 'leather', name: 'Leather Shoulder Harness', whole: true },
+  { id: 'cloth_shoulder2', slot: 'shoulder', t: 'cloth', name: 'Mage Mantle Pads' },
+  { id: 'plate_chest', slot: 'chest', t: 'plate', name: 'Steel Cuirass' },
+  { id: 'leather_chest', slot: 'chest', t: 'leather', name: 'Leather Jerkin' },
+  { id: 'cloth_chest', slot: 'chest', t: 'cloth', name: 'Mage Robe Top' },
+  { id: 'plate_glove2', slot: 'hands', t: 'plate', name: 'Steel Gauntlets' },
+  { id: 'leather_glove', slot: 'hands', t: 'leather', name: 'Leather Gloves' },
+  { id: 'cloth_glove2', slot: 'hands', t: 'cloth', name: 'Mage Gloves' },
+  { id: 'plate_legs', slot: 'waist', t: 'plate', name: 'Steel Tassets', reach: 'thigh' },
+  { id: 'leather_legs', slot: 'waist', t: 'leather', name: 'Leather War Belt', reach: 'thigh' },
+  { id: 'cloth_legs2', slot: 'chest', t: 'cloth', name: 'Long Mage Robe', robe: true, hides: 'waist' },
+  { id: 'plate_boot3', slot: 'feet', t: 'plate', name: 'Steel Boots' },
+  { id: 'leather_boot', slot: 'feet', t: 'leather', name: 'Leather Boots' },
+  { id: 'cloth_boot2', slot: 'feet', t: 'cloth', name: 'Mage Boots' },
+];
+const TUNE = Object.assign({}, window.GEAR_TUNE || {}); // (per-item turn fixes found by looking: { id: { yaw, flip } })
+const RACES = { human: { file: 'human', h: 1.8 }, elf: { file: 'elf', h: 1.86 }, goblin: { file: 'goblin', h: 1.15 } };
+
+// ---- scene ----
+const view = document.getElementById('view');
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); R.setPixelRatio(Math.min(2, devicePixelRatio)); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.shadowMap.enabled = true; view.appendChild(R.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#1c1812'); scene.fog = new THREE.Fog('#1c1812', 8, 20);
+const cam = new THREE.PerspectiveCamera(32, 1, 0.05, 100);
+// a small orbit camera: drag to turn round the hero, scroll (or pinch) to zoom
+const ctl = { target: new THREE.Vector3(0, 1, 0), yaw: 0.4, pitch: 0.15, dist: 4,
+  update() { if (this._sync) { const d = cam.position.clone().sub(this.target); this.dist = d.length(); this.yaw = Math.atan2(d.x, d.z); this.pitch = Math.asin(THREE.MathUtils.clamp(d.y / this.dist, -1, 1)); this._sync = false; }
+    this.pitch = THREE.MathUtils.clamp(this.pitch, -0.3, 1.2); this.dist = THREE.MathUtils.clamp(this.dist, 0.8, 9);
+    cam.position.set(this.target.x + Math.sin(this.yaw) * Math.cos(this.pitch) * this.dist, this.target.y + Math.sin(this.pitch) * this.dist, this.target.z + Math.cos(this.yaw) * Math.cos(this.pitch) * this.dist); cam.lookAt(this.target); } };
+{ let drag = null; const el = R.domElement; el.style.touchAction = 'none';
+  el.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e => { if (!drag) return; ctl.yaw -= (e.clientX - drag.x) * 0.008; ctl.pitch += (e.clientY - drag.y) * 0.006; drag = { x: e.clientX, y: e.clientY }; });
+  el.addEventListener('pointerup', () => drag = null);
+  el.addEventListener('wheel', e => { e.preventDefault(); ctl.dist *= Math.exp(e.deltaY * 0.001); }, { passive: false }); }
+scene.add(new THREE.HemisphereLight('#fff4e0', '#3a3020', 1.3));
+const sun = new THREE.DirectionalLight('#ffe8c8', 2.4); sun.position.set(2.5, 5, 3.5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 3, bottom: -1 }); scene.add(sun);
+const rim = new THREE.DirectionalLight('#9ab8ff', 1.1); rim.position.set(-3, 3, -4); scene.add(rim);
+const floor = new THREE.Mesh(new THREE.CircleGeometry(2.2, 64), new THREE.MeshStandardMaterial({ color: '#3a3022', roughness: 0.95 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const ring = new THREE.Mesh(new THREE.RingGeometry(2.15, 2.22, 64), new THREE.MeshBasicMaterial({ color: '#8a6a30' })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.002; scene.add(ring);
+function resize() { const w = innerWidth, h = innerHeight; R.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); } addEventListener('resize', resize); resize();
+
+const loader = new GLTFLoader(), cache = {};
+const load = (f) => cache[f] || (cache[f] = new Promise(res => loader.load('models/gear/' + f + '.glb', g => res(g), undefined, () => res(null))));
+const matte = (o) => o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; for (const mt of [].concat(m.material)) { mt.metalness = 0; mt.roughness = Math.max(0.6, mt.roughness ?? 1); if (mt.map) mt.map.colorSpace = THREE.SRGBColorSpace; } } });
+
+// ---- the body ----
+let body = null, mixer = null, acts = {}, curAct = 'idle', race = 'human', worn = {}, spinning = false, holder = null;
+const box3 = () => new THREE.Box3(new THREE.Vector3(1e9, 1e9, 1e9), new THREE.Vector3(-1e9, -1e9, -1e9));
+// the body's own vertices, grouped by the bone that moves them most (world space, standing pose): each piece is sized to these
+let regions = {}, bones = {};
+function measure(root) {
+  regions = {}; bones = {}; root.updateMatrixWorld(true); const v = new THREE.Vector3();
+  root.traverse(o => { if (o.isBone) bones[o.name] = o; });
+  root.traverse(m => { if (!m.isSkinnedMesh) return; const P = m.geometry.attributes.position, SI = m.geometry.attributes.skinIndex, SW = m.geometry.attributes.skinWeight, B = m.skeleton.bones;
+    for (let i = 0; i < P.count; i++) { let best = 0, bi = 0; for (let k = 0; k < 4; k++) { const w = SW.getComponent(i, k); if (w > best) { best = w; bi = SI.getComponent(i, k); } }
+      const name = B[bi].name; v.fromBufferAttribute(P, i); m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld); (regions[name] || (regions[name] = [])).push(v.clone()); } });
+}
+// every point of the body, for slicing by height between the joints (some rigs give the torso to odd bones)
+const slice = (filter) => { const b = box3(); for (const k in regions) for (const p of regions[k]) if (filter(p)) b.expandByPoint(p); return b; };
+const regionBox = (names, filter) => { const b = box3(); for (const n of names) for (const p of regions[n] || []) if (!filter || filter(p)) b.expandByPoint(p); return b; };
+const bpos = (n) => bones[n].getWorldPosition(new THREE.Vector3());
+
+async function setRace(r) {
+  race = r; document.querySelectorAll('.race').forEach(b => b.classList.toggle('on', b.dataset.r === r));
+  const g = await load(RACES[r].file); if (!g || race !== r) return;
+  if (holder) scene.remove(holder);
+  holder = new THREE.Group(); scene.add(holder);
+  const o = g.scene; o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.setScalar(1); holder.add(o); matte(o);
+  o.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(o), k = RACES[r].h / (bb.max.y - bb.min.y); o.scale.setScalar(k); o.position.y = -bb.min.y * k;
+  for (const p of Object.values(worn)) for (const m of p.meshes) m.parent && m.parent.remove(m);
+  body = o; mixer = new THREE.AnimationMixer(o); acts = {};
+  for (const c of g.animations) acts[/walk/i.test(c.name) ? 'walk' : 'idle'] = mixer.clipAction(c);
+  mixer.stopAllAction(); body.updateMatrixWorld(true); keepRest(); measure(body); // (measured in the standing pose, before any clip plays)
+  const keep = worn; worn = {}; for (const s in keep) await wear(keep[s].item, true);
+  play(curAct);
+  const H = RACES[r].h; ctl.target.set(0, H * 0.55, 0); cam.position.set(H * 0.9, H * 0.75, H * 2.0); ctl._sync = true; ctl.update();
+  document.getElementById('load').style.display = 'none'; refresh();
+}
+let restT = [];
+function keepRest() { restT = []; body.traverse(b => { if (b.isBone) restT.push([b, b.position.clone(), b.quaternion.clone(), b.scale.clone()]); }); }
+function restPose() { if (mixer) mixer.stopAllAction(); for (const [b, p, q, s] of restT) { b.position.copy(p); b.quaternion.copy(q); b.scale.copy(s); } body.updateMatrixWorld(true); }
+function play(a) { curAct = a; document.querySelectorAll('[data-a]').forEach(b => b.classList.toggle('on', b.dataset.a === a));
+  for (const k in acts) acts[k].stop(); const A = acts[a] || acts.idle; if (A) A.reset().play(); }
+
+// ---- fitting one piece: sized to the body part in the standing pose, then fixed to the bone that moves that part ----
+function placeIn(o, b, pad, mode, lim = 1.45) {
+  // o: the piece (a group whose child is the model, centred); b: the body part's box; scales per axis within limits so it stays in proportion
+  const pb = new THREE.Box3().setFromObject(o), ps = pb.getSize(new THREE.Vector3()), bs = b.getSize(new THREE.Vector3());
+  let sx = bs.x * pad[0] / ps.x, sy = bs.y * pad[1] / ps.y, sz = bs.z * pad[2] / ps.z;
+  if (mode === 'uniform') { const s = Math.max(sx, sz); sx = sy = sz = s; }
+  else { const g = Math.cbrt(sx * sy * sz); sx = THREE.MathUtils.clamp(sx, g / lim, g * lim); sy = THREE.MathUtils.clamp(sy, g / lim, g * lim); sz = THREE.MathUtils.clamp(sz, g / lim, g * lim); }
+  o.scale.set(o.scale.x * sx, o.scale.y * sy, o.scale.z * sz); o.updateMatrixWorld(true);
+  const nb = new THREE.Box3().setFromObject(o), c = b.getCenter(new THREE.Vector3()), nc = nb.getCenter(new THREE.Vector3());
+  o.position.add(c.sub(nc)); o.updateMatrixWorld(true); return o;
+}
+function prep(g, item, side) {
+  const m = g.scene.clone(true); matte(m); const t = TUNE[item.id] || {};
+  const inner = new THREE.Group(); inner.add(m); m.rotation.y = t.yaw || 0; if (t.rx) m.rotation.x = t.rx; if (t.rz) m.rotation.z = t.rz;
+  inner.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(inner), c = bb.getCenter(new THREE.Vector3()); m.position.sub(c);
+  const o = new THREE.Group(); o.add(inner); if (side === 'L') o.scale.x = -1; scene.add(o); o.updateMatrixWorld(true); return o;
+}
+const S = (n) => n; // (left/right bone names)
+async function wear(item, quiet) {
+  const g = await load(item.id); if (!g || !body) return;
+  if (worn[item.slot]) takeOff(item.slot, true);
+  restPose(); // (fit against the standing pose the body was measured in, then let it move again)
+  const meshes = [], hold = (o, bone) => { bones[bone].attach(o); meshes.push(o); };
+  const sides = ['R', 'L'], side = (s, n) => (s === 'L' ? 'Left' : 'Right') + n;
+  if (item.slot === 'head') {
+    const hp = bpos('Head'), ny = bpos('neck').y, above = p => p.y > ny + (hp.y - ny) * 0.5, full = slice(above), dep = full.max.z - full.min.z, hb = slice(p => above(p) && Math.abs(p.x - hp.x) < dep * 0.55 && p.y < hp.y + dep * 1.15), o = prep(g, item); /* (skull only: ears that stick out sideways are left out) */
+    if (item.fit === 'hat') { const s = hb.getSize(new THREE.Vector3()), top = new THREE.Box3(new THREE.Vector3(hb.min.x, hb.max.y - s.y * 0.3, hb.min.z), new THREE.Vector3(hb.max.x, hb.max.y + s.y * 0.5, hb.max.z)); placeIn(o, top, [1.6, 1, 1.6], 'uniform'); { const nb = new THREE.Box3().setFromObject(o); o.position.y += hb.max.y - s.y * 0.45 - nb.min.y; o.updateMatrixWorld(true); } }
+    else { placeIn(o, hb, [1.22, 1.12, 1.25], null, 1.35); const nb = new THREE.Box3().setFromObject(o), hh = hb.max.y - hb.min.y; o.position.y += hb.max.y + hh * 0.06 - nb.max.y; o.updateMatrixWorld(true); }
+    hold(o, 'Head');
+  } else if (item.slot === 'chest') {
+    const sx = Math.abs(bpos('LeftArm').x) * 1.12, ny = bpos('neck').y, wy = bpos('Hips').y + (ny - bpos('Hips').y) * 0.06, tb = slice(p => p.y > wy && p.y < ny && Math.abs(p.x) < sx), o = prep(g, item);
+    if (item.robe) { tb.min.y = bpos('LeftFoot').y + 0.02; tb.max.y = bpos('neck').y; const lg = slice(p => p.y < bpos('Spine02').y && p.y > bpos('LeftFoot').y && Math.abs(p.x) < Math.abs(bpos('LeftUpLeg').x) * 3.2); tb.min.x = Math.min(tb.min.x, lg.min.x); tb.max.x = Math.max(tb.max.x, lg.max.x); tb.min.z = Math.min(tb.min.z, lg.min.z); tb.max.z = Math.max(tb.max.z, lg.max.z); placeIn(o, tb, [1.15, 1.0, 1.5], null, 3); hold(o, 'Spine02'); }
+    else { placeIn(o, tb, [1.2, 1.06, 1.32], null, 2.4); hold(o, 'Spine01'); }
+  } else if (item.slot === 'waist') {
+    const hy = bpos('Hips').y, hx = Math.abs(bpos('LeftUpLeg').x) * 2.4, sy2 = bpos('Spine02').y, hips = slice(p => p.y > hy - (sy2 - hy) * 1.2 && p.y < sy2 + (sy2 - hy) * 0.3 && Math.abs(p.x) < hx), knee = bpos('LeftLeg').y, ankle = bpos('LeftFoot').y, hs = hips.getSize(new THREE.Vector3());
+    const bottom = item.reach === 'ankle' ? ankle + 0.03 : (hips.min.y + knee) / 2, b = new THREE.Box3(new THREE.Vector3(hips.min.x, bottom, hips.min.z), new THREE.Vector3(hips.max.x, hips.max.y - hs.y * 0.15, hips.max.z));
+    const o = prep(g, item); placeIn(o, b, [1.18, 1, 1.3]); hold(o, 'Hips');
+  } else if (item.slot === 'shoulder' && item.whole) {
+    const ny = bpos('neck').y, ax = Math.abs(bpos('LeftArm').x), tb = slice(p => p.y > ny - (ny - bpos('Spine02').y) * 0.45 && p.y < ny + 0.02 && Math.abs(p.x) < ax * 1.35), o = prep(g, item); placeIn(o, tb, [1.15, 1.25, 1.4], 'uniform'); hold(o, 'Spine01');
+  } else for (const s of sides) {
+    const o = prep(g, item, s);
+    if (item.slot === 'shoulder') {
+      const sh = bpos(side(s, 'Arm')), el = bpos(side(s, 'ForeArm')), arm = regionBox([side(s, 'Arm')], p => p.distanceTo(sh) < sh.distanceTo(el) * 0.38);
+      const as = arm.getSize(new THREE.Vector3()), up = Math.max(as.x, as.z) * 0.45; arm.max.y += up; arm.min.y += up * 0.4;
+      o.rotation.z = (s === 'L' ? 1 : -1) * 0.35; placeIn(o, arm, [1.35, 1.1, 1.35], 'uniform'); hold(o, side(s, 'Arm'));
+    } else if (item.slot === 'hands') {
+      const wr = bpos(side(s, 'Hand')), fa = bpos(side(s, 'ForeArm')), dir = wr.clone().sub(fa).normalize();
+      const reg = item.cuff ? regionBox([side(s, 'ForeArm')], p => p.distanceTo(wr) < fa.distanceTo(wr) * 0.65) : regionBox([side(s, 'Hand')]).union(regionBox([side(s, 'ForeArm')], p => p.distanceTo(wr) < fa.distanceTo(wr) * 0.3));
+      // turn the glove so its fingers point down the arm, then size it to the hand along that line
+      o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); o.updateMatrixWorld(true);
+      const ds = (regions[side(s, 'Hand')] || []).map(p => p.distanceTo(wr)).sort((a, b) => a - b), tip = ds.length ? ds[Math.floor(ds.length * 0.9)] : 0.15; /* (90th percentile: a few stray points weighted to the hand are ignored) */ const len = item.cuff ? fa.distanceTo(wr) * 0.6 : tip + fa.distanceTo(wr) * 0.28, pb = new THREE.Box3().setFromObject(o.children[0]), pl = pb.getSize(new THREE.Vector3()).y || 1;
+      const k = len / pl * 1.05; o.scale.multiplyScalar(k); o.updateMatrixWorld(true);
+      { const tipP = wr.clone().addScaledVector(dir, item.cuff ? -fa.distanceTo(wr) * 0.05 : tip * 1.02), nb = new THREE.Box3().setFromObject(o), c = nb.getCenter(new THREE.Vector3()), want = tipP.clone().addScaledVector(dir, -len / 2); o.position.add(want.sub(c)); o.updateMatrixWorld(true); }
+      hold(o, side(s, item.cuff ? 'ForeArm' : 'Hand'));
+    } else if (item.slot === 'feet') {
+      const kn = bpos(side(s, 'Leg')), an = bpos(side(s, 'Foot'));
+      const shin = kn.distanceTo(an), near = p => p.distanceTo(an) < shin * 0.7, reg = regionBox([side(s, 'Foot'), side(s, 'ToeBase')], near).union(regionBox([side(s, 'Leg')], p => near(p) && p.y < an.y + (kn.y - an.y) * 0.62)); /* (only points near this ankle) */
+      placeIn(o, reg, [1.25, 1.03, 1.12]); const nb = new THREE.Box3().setFromObject(o); o.position.y += -0.005 - nb.min.y + 0; o.updateMatrixWorld(true);
+      hold(o, side(s, 'Leg'));
+    }
+  }
+  worn[item.slot] = { item, meshes }; hideRules(); play(curAct); if (!quiet) refresh();
+}
+function takeOff(slot, quiet) { const w = worn[slot]; if (!w) return; for (const m of w.meshes) m.parent && m.parent.remove(m); delete worn[slot]; hideRules(); if (!quiet) refresh(); }
+// a piece can hide another slot (a long robe hides the belt under it)
+function hideRules() { const hidden = new Set(Object.values(worn).map(w => w.item.hides).filter(Boolean)); for (const [s, w] of Object.entries(worn)) for (const m of w.meshes) m.visible = !hidden.has(s); }
+
+// ---- the panels ----
+const slotsEl = document.getElementById('slots'), invEl = document.getElementById('inv'), tip = document.getElementById('tip');
+function tipFor(el, it) { el.onmouseenter = () => { tip.innerHTML = `<b>${it.name}</b><small>${T[it.t]} · ${SLOTS.find(s => s[0] === it.slot)[1]}</small>`; tip.style.display = 'block'; }; el.onmousemove = (e) => { tip.style.left = e.clientX + 14 + 'px'; tip.style.top = e.clientY + 10 + 'px'; }; el.onmouseleave = () => tip.style.display = 'none'; }
+function refresh() {
+  slotsEl.innerHTML = ''; for (const [s, label] of SLOTS) { const w = worn[s], d = document.createElement('div'); d.className = 'slot' + (w ? ' full' : '');
+    d.innerHTML = (w ? `<img src="models/gear/icons/${w.item.id}.jpg" alt="">` : '') + `<span class="lbl">${label}</span>`; if (w) { tipFor(d, w.item); d.onclick = () => { tip.style.display = 'none'; takeOff(s); }; } slotsEl.appendChild(d); }
+  invEl.innerHTML = ''; for (const it of ITEMS) { const d = document.createElement('div'), on = worn[it.slot] && worn[it.slot].item === it; d.className = 'item' + (on ? ' worn' : ''); d.dataset.t = it.t;
+    d.innerHTML = `<img src="models/gear/icons/${it.id}.jpg" alt="${it.name}">`; tipFor(d, it); d.onclick = () => on ? takeOff(it.slot) : wear(it); invEl.appendChild(d); }
+}
+document.querySelectorAll('.race').forEach(b => b.onclick = () => setRace(b.dataset.r));
+document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => play(b.dataset.a));
+document.getElementById('spin').onclick = (e) => { spinning = !spinning; e.target.classList.toggle('on', spinning); };
+document.querySelectorAll('[data-set]').forEach(b => b.onclick = async () => { const t = b.dataset.set; for (const [s] of SLOTS) takeOff(s, true);
+  if (t === 'mix') for (const id of ['plate_helm', 'cloth_chest', 'plate_glove2', 'leather_boot', 'plate_shoulder3', 'leather_legs']) await wear(ITEMS.find(i => i.id === id), true);
+  else if (t !== 'none') for (const it of ITEMS.filter(i => i.t === t)) await wear(it, true);
+  refresh(); });
+
+const clock = new THREE.Clock();
+R.setAnimationLoop(() => { const dt = Math.min(0.05, clock.getDelta()); if (mixer) mixer.update(dt); if (spinning && holder) holder.rotation.y += dt * 0.6; ctl.update(); R.render(scene, cam); });
+window.GEAR = { wear: (id) => wear(ITEMS.find(i => i.id === id)), takeOff, setRace, play, ITEMS, get worn() { return worn; }, cam, ctl, R, scene };
+setRace('human');
+</script>
+</body>
+</html>

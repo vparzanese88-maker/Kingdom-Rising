@@ -123,7 +123,7 @@ export function buildGoblinIsle(scene, helpers) {
   for (const [id, t] of Object.entries(TRIBES)) buildTribe(scene, id, t);
   for (const l of LAIRS) buildLair(scene, l);
   for (const w of WORKS) buildWork(scene, w);
-  buildClimbs(scene); buildShipParts(scene);
+  buildClimbs(scene); buildShipParts(scene); buildFort(scene);
   // jungle floor: ferns, mossy logs, mushrooms and bushes (Meshy props), clear of towns, camps and paths
   for (let i = 0, n = 0; i < 4000 && n < 260; i++) { const x = R(-440, 440), z = R(-420, 440), h = heightAt(x, z); if (h < 2.5 || giAvoid(x, z, 4) || Math.hypot(x - PEAK.x, z - PEAK.z) < PEAK.rLow + 10) continue;
     if ([CAMP_SPOT, V, ...Object.values(TRIBES), ...WORKS].some(c => Math.hypot(c.x - x, c.z - z) < c.r + 10)) continue; const k = n % 7, name = ['fern_lo', 'fern_lo', 'bush_lo', 'mossy_log', 'mushrooms', 'fern_lo', 'bush_lo'][k];
@@ -149,7 +149,7 @@ function buildWreck(scene) {
   propAt('shipwreck', WRECK.x, heightAt(WRECK.x, WRECK.z) - 0.6, WRECK.z, WRECK.yaw, 9).then(o => { if (!o) return; live.wreck.meshy = o; g.visible = false; setWreck(isle()); });
   { const P = world.pier, dx = P ? P.x + P.w + 10 : WRECK.x, dz = P ? (P.z0 + P.z1) / 2 + 8 : WRECK.z; // (the finished boat, moored at the pier for the voyage to Gob)
     propAt('rowboat', dx, -0.8, dz, 0.04, 9).then(o => { if (!o) return; live.wreck.fixed = o; o.visible = false; setWreck(isle()); });
-    use(dx - 4, dz - 6, () => isle().freed && !isle().sailed ? 'Set sail for Gob with Templeton' : null, () => { const I = isle(); I.sailed = true; G.hooks.banner && G.hooks.banner('Setting sail', 'Templeton at the tiller, Gob ninety miles to the west...', 7000); G.hooks.questsChanged && G.hooks.questsChanged(); }); }
+    use(dx - 4, dz - 6, () => isle().freed && !isle().sailed ? 'Set sail for Gob with Templeton' : null, () => { const I = isle(); I.sailed = true; G.hooks.questsChanged && G.hooks.questsChanged(); setSail(); }); }
   // where you washed up: barrels, a smashed crate and a tangle of fishnets on the sand
   { const yw = (x, z) => Math.max(0.15, heightAt(x, z));
     for (const [nm, dx, dz, s2, r] of [['barrel', -1.5, 0.6, 1.0, 0.3], ['barrel', 1.8, -0.8, 0.95, 1.2], ['crate', 0.6, 2.2, 0.8, 0.7]]) { const x = WASH.x + dx, z = WASH.z + dz; propAt(nm, x, yw(x, z), z, r, s2).then(o => { if (o && nm === 'barrel' && dx > 0) { o.rotation.z = Math.PI / 2; o.position.y = yw(x, z) + 0.35; } }); }
@@ -170,6 +170,18 @@ function buildWreck(scene) {
     const [x, z] = at(0, 0); g.position.set(x, yh(x, z) + 0.2, z); g.rotation.y = Y.yaw; g.userData.st = 0; g.userData.until = 2; scene.add(g); W.yard.push(g); }
   { const [x, z] = at(0, 0); propAt('rowboat', x, yh(x, z) + 0.45, z, Y.yaw, 9).then(o => { if (!o) return; W.hull = o; setWreck(isle()); }); }
 }
+// the end of the first chapter: you and Templeton sail for Gob (black, captions, then back at the pier)
+function setSail() {
+  const fd = document.getElementById('sailfade'); let c = document.getElementById('gicap'); if (!c) { c = document.createElement('div'); c.id = 'gicap'; document.body.appendChild(c); }
+  const say = (who, t) => { c.innerHTML = (who ? `<small>${who}</small>` : '') + t; c.classList.add('on'); };
+  if (fd) fd.style.opacity = 1; G.uiOpen = true;
+  const lines = [[1.5, '', 'The little boat slips away from the pier. Behind you, the fires of Snagglefoot burn bright for the free goblins of Goblos.'],
+    [7.5, 'Templeton', '"Ninety miles west, friend. A big port city, they say, with more people than goblins and more stories than both."'],
+    [13.5, 'Templeton', '"Whoever you were before the sea took you... I\'m glad you\'re the one I found on that beach."'],
+    [19.5, '', 'Chapter One complete. Goblos is free.<br>Next: <b>Gob</b>, the great port city (coming soon).']];
+  for (const [t, who, txt] of lines) setTimeout(() => say(who, txt), t * 1000);
+  setTimeout(() => { c.classList.remove('on'); if (fd) fd.style.opacity = 0; G.uiOpen = false; G.hooks.relock && G.hooks.relock(); G.hooks.banner && G.hooks.banner('Chapter One complete', 'Goblos is free · the goblin classes are unlocked for new heroes', 6000); }, 26000);
+}
 // how far Templeton's boat has got: a step for each victory that brings him materials (the owner's storyline)
 const MAIN = ['gi_boat', 'gi_ship1', 'gi_ship2', 'gi_ship3', 'gi_warchief'];
 export function rebuildStage() { const Q = G.save && G.save.quests; if (!Q) return 0; return MAIN.filter(id => Q.done.includes(id)).length; }
@@ -182,6 +194,21 @@ const STAGE_SAY = [null,
 function setWreck(I) { const W = live.wreck; if (!W) return; const st = rebuildStage(); if (W.meshy) W.meshy.visible = true; if (W.fixed) W.fixed.visible = st >= 5; if (W.hull) W.hull.visible = st >= 2 && st < 5;
   for (const o of W.yard || []) { o.visible = st >= o.userData.st && (o.userData.until == null || st < o.userData.until) && !(o.userData.st === 0 && o.userData.until == null && st >= 5 && o.children.length === 5); if (o.userData.col) o.userData.col.on = o.visible; }
   if (world.myBoat) world.myBoat.visible = false; W.holes.forEach(h => { h.visible = true; }); W.sail.visible = false; }
+// the regime's fort on the summit of Grimtusk Peak: a palisade ring with its gate where the Skull Stair arrives, watchtowers,
+// war totems, bonfires and the Warchief's great hall in the middle (the owner's storyline: storm the fort, defeat its ruler)
+function buildFort(scene) {
+  const P = PEAK, y0 = P.sumH, ring = P.rSum - 14, gateA = Math.atan2(rampPoint(RAMP2, 1).z - P.z, rampPoint(RAMP2, 1).x - P.x);
+  for (let a = 0; a < 6.283; a += 0.055) { let d = Math.abs(Math.atan2(Math.sin(a - gateA), Math.cos(a - gateA))); if (d < 0.11) continue; // (the gateway)
+    const x = P.x + Math.cos(a) * ring, z = P.z + Math.sin(a) * ring; propAt('palisade', x, heightAt(x, z), z, -a - Math.PI / 2, 3.4); addCircle(x, z, 0.8); }
+  for (const sd of [-1, 1]) { const a = gateA + sd * 0.16, x = P.x + Math.cos(a) * ring, z = P.z + Math.sin(a) * ring; propAt('watchtower', x, heightAt(x, z), z, -a, 9); addCircle(x, z, 2.2); }
+  for (let i = 0; i < 4; i++) { const a = gateA + Math.PI / 2 + i * Math.PI / 2 + 0.3, x = P.x + Math.cos(a) * (ring - 5), z = P.z + Math.sin(a) * (ring - 5); propAt('watchtower', x, heightAt(x, z), z, -a, 8); addCircle(x, z, 2.2); }
+  { const x = P.x - Math.cos(gateA) * 10, z = P.z - Math.sin(gateA) * 10; propAt('goblin_hut', x, heightAt(x, z), z, -gateA + Math.PI / 2, 17); addCircle(x, z, 9.5); live.hall = { x, z }; } // (the great hall)
+  for (let i = 0; i < 8; i++) { const a = gateA + 0.55 + i * 0.6, r = ring * (0.35 + (i % 3) * 0.12), x = P.x + Math.cos(a) * r, z = P.z + Math.sin(a) * r; propAt(i % 2 ? 'supply_pile' : 'lumber_pile', x, heightAt(x, z), z, a, 2); addCircle(x, z, 1.4); } // (the regime's hoard: the island's timber and stores)
+  for (const sd of [-1, 1]) for (const k of [0.45, 0.8]) { const a = gateA + sd * 0.35, r = ring * k, x = P.x + Math.cos(a) * r, z = P.z + Math.sin(a) * r; propAt('war_totem', x, heightAt(x, z), z, -a, 5); addCircle(x, z, 0.8); }
+  for (const sd of [-1, 1]) { const a = gateA + sd * 0.8, x = P.x + Math.cos(a) * ring * 0.55, z = P.z + Math.sin(a) * ring * 0.55; propAt('bonfire', x, heightAt(x, z), z, 0, 1.8); addCircle(x, z, 1.1); H.fire(scene, x, heightAt(x, z) + 0.8, z, 1.3); }
+  for (let i = 0; i < 6; i++) { const a = gateA + 1.2 + i * 0.65, x = P.x + Math.cos(a) * ring * 0.7, z = P.z + Math.sin(a) * ring * 0.7; propAt('goblin_tent', x, heightAt(x, z), z, -a, 3.4); addCircle(x, z, 1.7); }
+  live.fortGate = gateA;
+}
 // Snagglefoot: a small friendly goblin village (blue and yellow, never possessed)
 function buildSnagglefoot(scene) {
   const { M, tent, campfire, placeGroup, barrel, crate, bx, cy, addHouse } = H;
@@ -326,7 +353,8 @@ export function giApply(h) {
   live.gatehouse.want = live.gatehouse.open = I.mudfoot && I.skull ? 1 : 0; live.stairgate.want = live.stairgate.open = I.lair_gate ? 1 : 0;
   for (const id in live.totems) { const T = live.totems[id]; T.want = T.k = I[id] ? 1 : 0; T.g.rotation.z = T.k * 1.45; }
   syncColliders(); setWreck(I);
-  for (const m of G.mobs) if ((m.giChief && I[m.giChief]) || (m.giLair && I['lair_' + m.giLair])) { m.dead = true; m.hp = 0; m.root.visible = false; m.respawnT = 1e12; }
+  h.freed = h.freed || [];
+  for (const m of G.mobs) if ((m.giChief && I[m.giChief]) || (m.giLair && I['lair_' + m.giLair]) || (m.giWarchief && I.freed)) { m.dead = true; m.hp = 0; m.root.visible = false; m.respawnT = 1e12; }
   if (h.quests && !h.quests.done.includes('gi_arrive') && !h.quests.active.gi_arrive) h.quests.active.gi_arrive = { p: [0], t: Date.now() }; // (the first quest starts on arrival)
 }
 function syncColliders() {
@@ -344,6 +372,8 @@ export function giKill(m) {
   if (m.giChief && !I[m.giChief]) { I[m.giChief] = true; m.respawnT = 1e12; const T = live.totems[m.giChief]; if (T) T.want = 1; const t = TRIBES[m.giChief];
     if (m.giChief === 'bloodfang') { I.crank = true; say('The Bloodfang Chieftain is dead', 'You took his iron crank: the drawbridge winch at the Great Gorge'); }
     else { const both = I.mudfoot && I.skull; say(`The ${t.name} chief is dead`, both ? 'Both war totems have fallen: the gatehouse on the Switchback Road opens' : 'Their war totem falls. One more tribe holds the gatehouse shut'); if (both) live.gatehouse.want = 1; } }
+  if (m.giWarchief && !I.freed) { I.freed = true; m.respawnT = 1e12; const h = G.save; h.freed = h.freed || []; addItem(h, 'ship_compass', 1); addItem(h, 'rudder_irons', 1); addItem(h, 'warchief_crown', 1); h.gold = (h.gold || 0) + 250;
+    if (!h.freed.includes('goblin')) h.freed.push('goblin'); say('The Warchief has fallen!', 'Goblos is free. You take his crown, a ship\'s compass and the rudder irons Templeton needs'); }
   if (m.giLair && !I['lair_' + m.giLair]) { I['lair_' + m.giLair] = true; m.respawnT = 1e12; if (m.giLair === 'gate') { say('Grumbak is dead', 'His great iron key opens the Skull Stair'); live.stairgate.want = 1; } else G.hooks.toast && G.hooks.toast(`${m.name} is slain`, '🏆', 'gold'); }
   G.hooks.questsChanged && G.hooks.questsChanged();
 }
@@ -429,7 +459,11 @@ export function giSpawn() {
     const m = mob('goblin', ri(t.lv[0], t.lv[1]), a.x, a.z, `${t.name} Carter`, 'goblin_villager'); m.job = { kind: 'cart', pts, i: 1, dir: 1, wait: 0 }; carts.push({ m, o: null }); propAt('goblin_cart', a.x, heightAt(a.x, a.z), a.z, 0, 2.2).then(o => { carts.find(c => c.m === m).o = o; }); }
   for (const l of LAIRS) { const b = mob('troll_king', l.lv, l.x, l.z, l.name); b.giLair = l.id; b.bossy = true; for (let i = 0; i < l.adds; i++) mob('troll', l.lv - 1, l.x + R(-6, 6), l.z + R(-6, 6)); }
   for (const [Rp, lv] of [[RAMP1, 6], [RAMP2, 8]]) for (let i = 0; i < 4; i++) { const p = rampPoint(Rp, 0), a = Math.atan2(p.z - PEAK.z, p.x - PEAK.x); mob(i === 0 ? 'goblin_brute' : i === 3 ? 'goblin_slinger' : 'goblin', lv, p.x + Math.cos(a) * (6 + i * 2), p.z + Math.sin(a) * (6 + i * 2), 'Gate Guard'); }
-  for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28, r = R(10, PEAK.rSum - 12); mob(i % 3 === 2 ? 'goblin_brute' : i % 3 === 1 ? 'goblin_slinger' : 'goblin', ri(9, 10), PEAK.x + Math.cos(a) * r, PEAK.z + Math.sin(a) * r, 'Idol Guard'); }
+  for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28, r = R(18, PEAK.rSum - 20); mob(i % 3 === 2 ? 'goblin_brute' : i % 3 === 1 ? 'goblin_slinger' : 'goblin', ri(9, 10), PEAK.x + Math.cos(a) * r, PEAK.z + Math.sin(a) * r, 'Fort Guard'); }
+  // the Warchief before his hall, his three champions around him
+  { const ga = Math.atan2(rampPoint(RAMP2, 1).z - PEAK.z, rampPoint(RAMP2, 1).x - PEAK.x), hx = PEAK.x - Math.cos(ga) * 2, hz = PEAK.z - Math.sin(ga) * 2;
+    const w = mob('goblin_chief', 11, hx, hz, 'The Warchief', 'goblin_warlord'); w.def = named('goblin_chief', 'The Warchief', { elite: true, boss: true, aggro: 16 }); w.giWarchief = true; w.bossy = true; w.maxHp = Math.round(w.maxHp * 1.6); w.hp = w.maxHp; w.height = 2.8;
+    for (const [i, nm, ty] of [[0, 'Krag the Musketeer', 'goblin_slinger'], [1, 'Boomtusk the Bombardier', 'goblin_slinger'], [2, 'Old Thunder the Blunderbuss', 'goblin_brute']]) { const a = ga + (i - 1) * 0.9, c = mob(ty, 10, hx + Math.cos(a) * 9, hz + Math.sin(a) * 9, nm); c.def = named(ty, nm, { elite: true, aggro: 14 }); c.maxHp = Math.round(c.maxHp * 2.2); c.hp = c.maxHp; c.dmg *= 1.3; c.giChampion = true; } }
   for (let i = 0; i < 9; i++) { const a = i / 9 * 6.28 + 0.3, r = R(PEAK.rUp + 15, PEAK.rShelf - 12), x = PEAK.x + Math.cos(a) * r, z = PEAK.z + Math.sin(a) * r; if (LAIRS.some(l => Math.hypot(l.x - x, l.z - z) < 30)) continue; for (let k = 0; k < 3; k++) mob(k === 2 ? 'goblin_slinger' : 'goblin', ri(7, 8), x + R(-5, 5), z + R(-5, 5), 'Idol-mad Goblin'); }
   for (let gx = -460; gx <= 460; gx += 70) for (let gz = -440; gz <= 440; gz += 70) {
     const x = gx + R(-25, 25), z = gz + R(-25, 25); if (heightAt(x, z) < 1.4 || giAvoid(x, z, 6)) continue;

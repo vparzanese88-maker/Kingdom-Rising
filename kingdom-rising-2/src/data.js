@@ -473,6 +473,9 @@ export const ITEMS = {
   goblin_sling: { name: 'Goblin Sling', icon: '🪢', desc: 'A greasy leather sling. Goblin slingers carry them.', value: 2 },
   brute_tooth: { name: 'Brute Tooth', icon: '🦷', desc: 'A tusk-like tooth from a goblin brute.', value: 5 },
   goblin_ear: { name: 'Goblin Ear', icon: '👂', desc: 'Pointy, green and smelly. Proof of a goblin slain.', value: 3 },
+  ship_compass: { name: 'Ship\'s Compass', icon: '🧭', desc: 'A brass compass from the Warchief\'s hall. Templeton needs it to find Gob.', value: 0 },
+  rudder_irons: { name: 'Rudder Irons', icon: '⚓', desc: 'Heavy iron rudder fittings, taken from the regime\'s fort. For Templeton\'s boat.', value: 0 },
+  warchief_crown: { name: 'The Warchief\'s Crown', icon: '👑', desc: 'A crude iron crown set with green glass. Proof the regime has fallen.', value: 120 },
   bandit_badge: { name: 'Bandit Badge', icon: '⛉', desc: 'Proof of a bandit slain.', value: 3 },
   // consumables
   potion_heal: { name: 'Healing Potion', icon: '🧪', col: '#ff5050', desc: 'Restores 40% health. Press R.', value: 8, use: { heal: 0.4 } },

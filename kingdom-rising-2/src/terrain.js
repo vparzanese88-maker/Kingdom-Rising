@@ -157,11 +157,15 @@ export function buildTerrain(scene) {
   geo.computeVertexNormals();
   const nrm = geo.attributes.normal.array;
   const tmp = new THREE.Color();
+  // Goblos: painted ground (the owner's Meshy textures): how much grass, jungle floor, sand, dirt and rock at each point
+  const SPL = GI ? new Float32Array(N * N * 4) : null, SPR = GI ? new Float32Array(N * N) : null, W = [0, 0, 0, 0, 0];
+  const wl = (k, t) => { if (!(t > 0)) return; for (let q = 0; q < 5; q++) W[q] *= 1 - t; W[k] += t; }; // (lerp toward one layer, like the colours)
   for (let i = 0; i < N * N; i++) {
     const x = pos[i * 3], h = pos[i * 3 + 1], z = pos[i * 3 + 2], ny = nrm[i * 3 + 1];
     const m = biomeMasks(x, z);
     const n = fbm(x * 0.05, z * 0.05, 2) * 0.5 + 0.5, n2 = fbm(x * 0.012 + 9, z * 0.012, 2) * 0.5 + 0.5;
     // base grass
+    if (GI) { W[0] = 1; W[1] = W[2] = W[3] = W[4] = 0; wl(1, clamp(m.forest, 0, 1) * 0.9 + (n2 > 0.62 ? (n2 - 0.62) * 1.5 : 0)); }
     tmp.copy(COL.grass).lerp(COL.grass2, n);
     tmp.lerp(COL.forest, clamp(m.forest, 0, 1) * 0.85); tmp.lerp(COL.forest2, m.forest * n2 * 0.5);
     tmp.lerp(COL.hlGrass, clamp(m.hl * 1.3, 0, 1));
@@ -174,33 +178,58 @@ export function buildTerrain(scene) {
     if (Math.hypot(x - PLATEAU.x, z - PLATEAU.z) < PLATEAU.r) tmp.lerp(COL.plateau, 0.6);
     // slope rock
     const steep = smooth(0.86, 0.68, ny);
-    tmp.lerp(m.ash > 0.4 ? COL.basalt : n > 0.5 ? COL.rock : COL.rock2, steep);
+    tmp.lerp(m.ash > 0.4 ? COL.basalt : n > 0.5 ? COL.rock : COL.rock2, steep); if (GI) wl(4, steep + smooth(60, 130, h) * 0.35);
     // snow
     const snowLine = 52 + n2 * 14;
     if (BATTLE && m.ash < 0.3) tmp.lerp(COL.snow, smooth(snowLine, snowLine + 10, h) * smooth(0.5, 0.75, ny) * clamp(m.hl * 2 + (h > 90 ? 1 : 0), 0, 1));
     // beach & underwater
     const bm = beachMask(x, z);
-    if (h < 2.6 && m.ash < 0.3) tmp.lerp(COL.sand, smooth(2.6, 1.5, h) * Math.max(bm, h < 0.8 ? 1 : 0));
+    if (h < 2.6 && m.ash < 0.3) { tmp.lerp(COL.sand, smooth(2.6, 1.5, h) * Math.max(bm, h < 0.8 ? 1 : 0)); if (GI) wl(2, smooth(2.6, 1.5, h) * Math.max(bm, h < 0.8 ? 1 : 0)); }
     if (h < 0.2) tmp.lerp(COL.wetSand, smooth(0.2, -1.5, h));
     // river bed
     const rd = riverDist(x, z).d;
     if (rd < 14 && h < 4) tmp.lerp(COL.mud, smooth(14, 6, rd) * 0.7);
     // roads
     const roadD = roadDist(x, z);
+    if (GI && roadD < 4.5 && h > 0.4) wl(3, smooth(4.5, 1.8, roadD) * 0.95);
     if (roadD < 4.5 && h > 0.4) tmp.lerp(BATTLE && m.hl > 0.6 && h > snowLine ? COL.snow : COL.road, smooth(4.5, 1.8, roadD) * 0.9);
     // village dirt
     const dvl = Math.hypot(x - VILLAGE.x, z - VILLAGE.z);
     if (dvl < 26) tmp.lerp(COL.road, (1 - dvl / 26) * 0.45 * (0.5 + n * 0.5));
     if (BATTLE) for (const t of LAYOUT.towns) { const d = Math.hypot(x - t.x, z - t.z); if (d < WALL_R + 6) tmp.lerp(COL.road, (0.35 + (1 - d / (WALL_R + 6)) * 0.25) * (0.6 + n * 0.4)); }
-    for (const c of CAMPS) { const d = Math.hypot(x - c.x, z - c.z); if (d < c.r) tmp.lerp(m.hl > 0.5 ? COL.rock2 : COL.road, (1 - d / c.r) * 0.5); }
+    for (const c of CAMPS) { const d = Math.hypot(x - c.x, z - c.z); if (d < c.r) { tmp.lerp(m.hl > 0.5 ? COL.rock2 : COL.road, (1 - d / c.r) * 0.5); if (GI) wl(3, (1 - d / c.r) * 0.75 * (0.6 + n * 0.4)); } }
+    if (GI) { SPL[i * 4] = W[0]; SPL[i * 4 + 1] = W[1]; SPL[i * 4 + 2] = W[2]; SPL[i * 4 + 3] = W[3]; SPR[i] = W[4]; }
     for (const p of LAVA_POOLS) { const d = Math.hypot(x - p[0], z - p[1]); if (d < p[2] + 6) tmp.lerp(COL.basalt, smooth(p[2] + 6, p[2], d)); }
     col[i * 3] = tmp.r; col[i * 3 + 1] = tmp.g; col[i * 3 + 2] = tmp.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0, map: detailTexture() });
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0, map: GI ? null : detailTexture() });
+  if (GI) { geo.setAttribute('splat', new THREE.BufferAttribute(SPL, 4)); geo.setAttribute('splatR', new THREE.BufferAttribute(SPR, 1)); paintedGround(mat); }
   const mesh = new THREE.Mesh(geo, mat); mesh.receiveShadow = true; mesh.name = 'terrain';
   scene.add(mesh);
   return mesh;
+}
+
+// Goblos: the painted ground shader (grass, jungle floor, sand, dirt, rock), each sampled at two sizes so the repeats
+// don't show, cliffs mapped from the side; the old vertex colours only shade it lightly. Until the pictures load it is plain.
+function paintedGround(mat) {
+  const L = new THREE.TextureLoader(), tex = {};
+  for (const n of ['grass', 'jungle', 'sand', 'dirt', 'rock']) { const t = L.load(`models/gi/tex/${n}.jpg`); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; tex[n] = t; }
+  mat.onBeforeCompile = (sh) => {
+    for (const n in tex) sh.uniforms['t_' + n] = { value: tex[n] };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 splat; attribute float splatR; varying vec4 vSplat; varying float vRockW; varying vec3 vWP; varying vec3 vWN;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSplat = splat; vRockW = splatR; vWP = (modelMatrix * vec4(position, 1.0)).xyz; vWN = normal;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D t_grass, t_jungle, t_sand, t_dirt, t_rock; varying vec4 vSplat; varying float vRockW; varying vec3 vWP; varying vec3 vWN;\nvec3 two(sampler2D t, vec2 p, float s) { return mix(texture2D(t, p / s).rgb, texture2D(t, p / (s * 3.3) + 0.37).rgb, 0.45); }')
+      .replace('#include <map_fragment>', `
+        vec2 P = vWP.xz; vec3 an = abs(normalize(vWN)); vec3 bw = an / (an.x + an.y + an.z);
+        vec3 rk = two(t_rock, vWP.zy, 16.0) * bw.x + two(t_rock, P, 16.0) * bw.y + two(t_rock, vWP.xy, 16.0) * bw.z;
+        float sum = vSplat.x + vSplat.y + vSplat.z + vSplat.w + vRockW + 1e-4;
+        vec3 gr = two(t_grass, P, 9.0); gr = mix(gr, vec3(dot(gr, vec3(0.3, 0.59, 0.11))) * vec3(0.8, 1.0, 0.7), 0.18); // (the grass a touch calmer)
+        vec3 ground = (gr * vSplat.x + two(t_jungle, P, 8.0) * vSplat.y + two(t_sand, P, 9.0) * vSplat.z + two(t_dirt, P, 7.0) * vSplat.w + rk * vRockW) / sum;
+        diffuseColor.rgb *= ground;`)
+      .replace('#include <color_fragment>', '#if defined( USE_COLOR )\n diffuseColor.rgb *= 0.82 + 0.4 * clamp(dot(vColor, vec3(0.3, 0.59, 0.11)) * 1.6, 0.0, 1.0);\n#endif'); // (the old colours only lighten or darken it a little)
+  };
+  mat.customProgramCacheKey = () => 'paintedGround';
 }
 
 // ---------- water ----------

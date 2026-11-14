@@ -37,6 +37,7 @@ export function practise(h, id) {
   if (!id || h.yard) return; h.skills = h.skills || {}; const cap = skillCapOf(h, id); if (cap <= 0) return;
   const cur = skill(h, id); if (cur >= cap) return;
   const p = 0.04 + 0.22 * (1 - cur / cap);
+  if (G.noSkills) return; // (the campaign: no skills going up)
   if (Math.random() < p) { h.skills[id] = cur + 1; G.hooks.skillUp && G.hooks.skillUp(SKILLS[id], cur + 1); }
 }
 // each skill point: +0.2% damage with that kind of weapon (100 skill = +20%)

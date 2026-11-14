@@ -531,7 +531,7 @@ export class Mob {
 export class NPC {
   constructor(id) {
     const d = NPCS[id]; this.id = id; this.def = d;
-    const app = { race: d.race, sex: d.sex, outfit: d.outfit, skin: ['#f1c7a5', '#e0ac85', '#c68863'][id.length % 3], hair: ['#5a3a1e', '#9a9a9a', '#2b1d12', '#d9b26a', '#a0662c'][id.charCodeAt(0) % 5], hairStyle: d.sex === 'f' ? (id.length % 2 ? 1 : 2) : (id === 'maren' ? 1 : 0), beard: d.sex === 'm' ? (id === 'pell' || id === 'torvin' || id === 'dorn' ? 3 : id.length % 3) : 0, build: id === 'torvin' ? 0.8 : 0 };
+    const app = { race: d.race, sex: d.sex, outfit: d.outfit, skin: d.skin || ['#f1c7a5', '#e0ac85', '#c68863'][id.length % 3], hair: ['#5a3a1e', '#9a9a9a', '#2b1d12', '#d9b26a', '#a0662c'][id.charCodeAt(0) % 5], hairStyle: d.sex === 'f' ? (id.length % 2 ? 1 : 2) : (id === 'maren' ? 1 : 0), beard: d.sex === 'm' ? (id === 'pell' || id === 'torvin' || id === 'dorn' ? 3 : id.length % 3) : 0, build: id === 'torvin' ? 0.8 : 0 };
     if (id === 'maren') app.hair = '#d8d8d8';
     if (id === 'pell') { app.hair = '#c8c8c8'; app.beardCol = '#d8d8d8'; }
     this.ch = buildHumanoid(app);

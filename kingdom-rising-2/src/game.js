@@ -553,6 +553,7 @@ export function objProgress(h, q, i) {
   if (o.t === 'collect') return Math.min(o.n, count(h, o.item));
   if (o.t === 'equip') return ARMOR_SLOT_LIST.some(s => h.equip[s]) ? 1 : 0;
   if (o.t === 'talk') return a && a.p[i] ? 1 : 0;
+  if (o.t === 'flag') return h.isle && h.isle[o.flag] ? 1 : 0; // (Goblin Island: something done in the world)
   if (o.t === 'gold') return Math.min(o.n, h.gold);
   if (o.t === 'sideq') return Math.min(o.n, h.quests.done.filter(id => { const x = QUESTS.find(q => q.id === id); return x && !x.main && SEABREAK.includes(x.giver); }).length);
   return a ? Math.min(o.n, a.p[i]) : 0;

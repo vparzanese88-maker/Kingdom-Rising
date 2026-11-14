@@ -759,6 +759,7 @@ export function questAreas(h) {
       const pr = Game.objProgress(h, q, k) || 0, n = o.n || 1; if (pr >= n) return;
       let a = null;
       if (o.t === 'talk') { const np = G.npcs.find(x => x.id === o.npc); if (np) a = { x: np.pos.x, z: np.pos.z, r: 0 }; }
+      else if (o.at) a = { x: o.at[0], z: o.at[1], r: o.r || 12 };
       else if (o.t === 'kill') a = area(near(G.mobs.filter(m => m.type === o.mob && m.hp > 0).map(m => ({ x: m.pos.x, z: m.pos.z })), 5));
       else if (o.t === 'collect') { const nodes = world.nodes.filter(nd => nd.alive && nd.def && nd.def.item === o.item); a = nodes.length ? area(near(nodes, 6)) : area(near(G.mobs.filter(m => m.hp > 0 && m.def.loot && m.def.loot[o.item]).map(m => ({ x: m.pos.x, z: m.pos.z })), 5)); }
       else if (o.t === 'craft') { const R = RECIPES.find(r => r.out === o.item); const st = R && world.stations.filter(s => s.type === R.station); if (st && st.length) { const s0 = near(st, 1)[0]; a = { x: s0.x, z: s0.z, r: 0 }; } }

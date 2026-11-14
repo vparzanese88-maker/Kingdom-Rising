@@ -13,7 +13,7 @@ import { PORT } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { GI } from './gimap.js';
-import { giSpawn, giKill, giApply, giTick } from './goblinisle.js';
+import { giSpawn, giKill, giApply, giTick, giPeople, giRespawns } from './goblinisle.js';
 import { summonPets, petCommand, pets, PETS, stopPets, dismissPets } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
 import { addIcons } from './icons2.js';
@@ -99,7 +99,7 @@ function boot() {
   if (BATTLE) { Battle.initBattle(scene); G.myTeam = Battle.B.myTeam; battleLevels(); G.hooks.decorCamps = decorCamps; if (!MP.client) { spawnBattleCamps(); decorCamps(); for (const m of G.mobs) if (m.team == null && !m.statLv) battleMob(m); G.mobs.filter(m => m.team == null).forEach((m, i) => { m.netIdx = i; Sync.mobList.push(m); }); Sync.flushRoster(); } }
   else if (YARD) spawnDummies();
   else if (ARENA) { /* the colosseum: nobody but the fighters */ }
-  else if (GI) giSpawn(); // the campaign: Goblin Island's tribes, trolls and roaming goblins
+  else if (GI) { giSpawn(); for (const id in NPCS) G.npcs.push(new NPC(id)); giPeople(); } // the campaign: Goblin Island's tribes, trolls and goblins, Snagglefoot's folk and the quest givers
   else {
   // NPCs and villagers live in the world from the start (visible behind the title screen)
   for (const id in NPCS) G.npcs.push(new NPC(id));
@@ -180,7 +180,7 @@ function startGame(save) {
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
   G.tod = h.tod ?? 0.3;
   $('title').hidden = true; $('creator').hidden = true; $('hud').hidden = false; $('death').hidden = true;
-  if (!BATTLE && !YARD && !ARENA) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); if (GI) { giApply(h); G.noHarvest = true; G.campFall = true; } else buildDefenses(defensesFor(h)); } /* (Goblin Island: no skinning, gathering or looting) */
+  if (!BATTLE && !YARD && !ARENA) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); if (GI) { giApply(h); G.noHarvest = true; G.campFall = true; G.noSkills = true; } else buildDefenses(defensesFor(h)); } /* (Goblin Island: no skinning, gathering or looting) */
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
@@ -512,6 +512,7 @@ function hooks() {
   H.masteryTick = () => {}; // (skill progress is not reported, only each new point)
   H.newWeapon = (wt) => {}; // no weapon levels in the campaign: nothing to announce
   H.questsChanged = () => UI.updateTracker();
+  H.autoTurnIn = (q) => { if (Game.turnIn(G.save, q)) UI.banner('Quest complete', q.title, 3500); }; // (quests with nobody to hand in to)
   H.hotbarAdded = (list) => { UI.refreshAbilityBar(); };
   H.objective = (q, o, n) => { S.objective(); UI.toast(`${o.label}: ${n}/${o.n}`, '📜', 'gold'); if (Game.questComplete(G.save, q)) UI.banner('Objective complete', `${q.title}: return to ${(q.turnin && NPCS[q.turnin] ? NPCS[q.turnin].name : "the story")}`, 2600); };
   H.questDone = (q) => { UI.banner('Quest Complete!', q.title); };
@@ -557,8 +558,8 @@ function respawn() {
   const p = G.player; if (!p) return;
   if (BATTLE) { const t = Battle.myTown(); p.dead = false; p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd; p.place(t.x + t.dir[0] * 12, t.z + t.dir[1] * 12, t.yaw); $('death').hidden = true; lockPointer(); S.heal(); V.burst('heal', p.pos.clone().setY(p.pos.y + 1), 40, { speed: 3, vy: 3 }); return; }
   if (YARD) { p.dead = false; p.deadT = 0; p.hp = p.maxHp; p.mana = p.maxMana; p.end = p.maxEnd; p.place(p.pos.x, p.pos.z, p.yaw); if (p.ch) p.ch.root.visible = true; $('death').hidden = true; lockPointer(); S.heal(); V.burst('heal', p.pos.clone().setY(p.pos.y + 1), 40, { speed: 3, vy: 3 }); return; } // (the yard: right where you fell)
-  // nearest settlement
-  const spots = [{ x: VILLAGE.x + 4, z: VILLAGE.z + 10 }, ...CAMPS.slice(0, 3).map(c => ({ x: c.x + 5, z: c.z + 5 }))];
+  // nearest settlement (Goblin Island: the nearest safe place you have reached, never an enemy camp)
+  const spots = GI ? giRespawns() : [{ x: VILLAGE.x + 4, z: VILLAGE.z + 10 }, ...CAMPS.slice(0, 3).map(c => ({ x: c.x + 5, z: c.z + 5 }))];
   let best = spots[0]; for (const s of spots) if (Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < Math.hypot(best.x - p.pos.x, best.z - p.pos.z)) best = s;
   p.dead = false; p.hp = p.maxHp * 0.6; p.mana = p.maxMana; p.end = p.maxEnd; p.place(best.x, best.z, p.yaw);
   for (const m of G.mobs) if (m.state === 'chase') m.state = 'return';

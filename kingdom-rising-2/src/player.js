@@ -25,6 +25,7 @@ import * as Skills from './skills.js';
 import * as Game from './game.js';
 import { aimRay, groundPoint, mobsInCone, mobsInRadius, areaDamage, spawnProjectile, lightning, foe, poisonBubbles, missileTarget } from './combat.js';
 import { angDiff, rand, clamp } from './util.js';
+import { CLIMBS } from './gimap.js';
 // the two knights' own three-blow combos (they shared one): [action, length and damage (the slower the blow, the harder it lands), when the hit
 // lands as a share of the blow (empty: the usual share for that action, and the built swing's weapon reaches the target then)]. The paladin
 // crushes: his recorded two-handed overhead smash, a wide sweep, a heavy overhead finisher; the shadow knight slashes: a backhand cut, his
@@ -2315,8 +2316,11 @@ export class Player {
     const g0 = groundAt(x0, z0, this.pos.y + 1).h, rise = (x, z) => groundAt(x, z, this.pos.y + 1).h - g0;
     const bad = (x, z) => { const r = rise(x, z), dd = Math.hypot(x - x0, z - z0); return r > 0.18 && r / Math.max(dd, 1e-4) > 1.25 && groundAt(x, z, this.pos.y + 1).h > this.pos.y + 0.15; };
     if (!bad(x1, z1)) return;
-    if (!bad(x1, z0)) { this.pos.z = z0; return; } if (!bad(x0, z1)) { this.pos.x = x0; return; }
-    this.pos.x = x0; this.pos.z = z0; this.vel.x *= 0.3; this.vel.z *= 0.3;
+    // slide along the rock's contour (never along an axis, which would let you zig-zag up a cliff)
+    const e = 0.8, gx = groundAt(x0 + e, z0, this.pos.y + 1).h - groundAt(x0 - e, z0, this.pos.y + 1).h, gz = groundAt(x0, z0 + e, this.pos.y + 1).h - groundAt(x0, z0 - e, this.pos.y + 1).h, gl = Math.hypot(gx, gz);
+    this.pos.x = x0; this.pos.z = z0;
+    if (gl > 1e-4) { const tx = -gz / gl, tz = gx / gl, s = (x1 - x0) * tx + (z1 - z0) * tz, nx = x0 + tx * s, nz = z0 + tz * s; if (!bad(nx, nz) && groundAt(nx, nz, this.pos.y + 1).h - g0 < 0.15) { this.pos.x = nx; this.pos.z = nz; return; } }
+    this.vel.x *= 0.3; this.vel.z *= 0.3;
   }
   jump() { if (this.swim) { this.climbOut(); return; } if (this.transcendT > 0 || this.hoverH > 0.05 || (this.iceFormOn && this.buffs.iceblock > 0)) return; /* (hovering (Arcane Ascension, the bard's note): no jumping) */ if (this.onGround && !this.dodge && !this.gathering && !this.dead && !this.swim) { this.vel.y = 9.2; /* (you can jump mid-swing, and swing mid-jump) */ this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
   tryDodge(dirOverride) {
@@ -2513,12 +2517,21 @@ export class Player {
       this.vel.x += (md.x * spd - this.vel.x) * k; this.vel.z += (md.z * spd - this.vel.z) * k;
       if (this.lungeT > 0) { this.lungeT -= dt; const ls = 7.5 * Math.max(0, this.lungeT / 0.16); this.vel.x += this.lungeDir.x * ls * Math.min(1, dt * 30); this.vel.z += this.lungeDir.z * ls * Math.min(1, dt * 30); } // a heavy swing carries you a step forward
     }
+    // climbing (the campaign): walk into vines on a cliff and keep W held to go up; Space lets go
+    if (G.campFall && !this.climb && G.keys.KeyW && !this.leap && !this.dead) for (const c of CLIMBS) { const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), dx = c.x - this.pos.x, dz = c.z - this.pos.z, depth = dx * fx + dz * fz, lat = Math.abs(dx * fz - dz * fx);
+      if (lat < c.w && depth > -0.8 && depth < 1.6 && Math.abs(angDiff(this.yaw, c.yaw)) < 1.0) { this.climb = { c }; this.vel.set(0, 0, 0); break; } }
+    if (this.climb) { const c = this.climb.c, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
+      if (G.keys.Space || this.dead) { this.climb = null; this.vel.set(-fx * 2, 2, -fz * 2); }
+      else { if (G.keys.KeyW) this.pos.y += 3.2 * dt; else if (G.keys.KeyS) this.pos.y -= 2.4 * dt; this.vel.set(0, 0, 0); this.fallTop = null;
+        const ax = this.pos.x + fx * 1.4, az = this.pos.z + fz * 1.4, bx2 = this.pos.x + fx * 3.2, bz2 = this.pos.z + fz * 3.2, top = Math.max(groundAt(ax, az, this.pos.y + 2).h, groundAt(bx2, bz2, this.pos.y + 2).h);
+        if (top <= this.pos.y + 0.3) { this.climb = null; this.pos.x = bx2; this.pos.z = bz2; this.pos.y = groundAt(bx2, bz2, this.pos.y + 2).h; this.onGround = true; } /* (step off only where the ground beyond the edge is flat enough to stand on) */
+        else if (this.pos.y < groundAt(this.pos.x, this.pos.z).h - 0.05) { this.climb = null; } } }
     // gravity / swim
     const wl = waterLevelAt(this.pos.x, this.pos.z), gh = groundAt(this.pos.x, this.pos.z, this.pos.y);
     const depth = wl - gh.h;
-    this.swim = depth > 1.35 && this.pos.y < wl - 0.9 && !gh.surf;
-    if (!this.leap) {
-      if (this.swim && md.lengthSq() > 0.1) { this.swimT = (this.swimT || 0) + dt; if (this.swimT > 1) { this.swimT = 0; const sk = this.h.swimSkill || 1; if (sk < 50 && Math.random() < 1 / (6 + sk * 1.3)) { this.h.swimSkill = sk + 1; G.hooks.skillUp && G.hooks.skillUp('Swimming', sk + 1); } } }
+    this.swim = !this.climb && depth > 1.35 && this.pos.y < wl - 0.9 && !gh.surf;
+    if (!this.leap && !this.climb) {
+      if (this.swim && md.lengthSq() > 0.1 && !G.noSkills) { this.swimT = (this.swimT || 0) + dt; if (this.swimT > 1) { this.swimT = 0; const sk = this.h.swimSkill || 1; if (sk < 50 && Math.random() < 1 / (6 + sk * 1.3)) { this.h.swimSkill = sk + 1; G.hooks.skillUp && G.hooks.skillUp('Swimming', sk + 1); } } }
       if (this.swim) { this.vel.y += ((wl - 1.25) - this.pos.y) * dt * 6 - this.vel.y * dt * 3; if (Math.random() < dt * 4 && md.lengthSq() > 0.1) S.splash(this.pos, 0.3); }
       else this.vel.y -= (this.vel.y > 0 ? 21 : 26) * dt;
       this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; this.pos.y += this.vel.y * dt;
@@ -2532,7 +2545,7 @@ export class Player {
     this.pos.x = clamp(this.pos.x, -590, 590); this.pos.z = clamp(this.pos.z, -590, 590);
     const g2 = groundAt(this.pos.x, this.pos.z, this.pos.y);
     const wasAir = !this.onGround;
-    if (this.pos.y <= g2.h && !this.leap) {
+    if (this.pos.y <= g2.h && !this.leap && !this.climb) {
       if (wasAir && this.vel.y < -3) { this.landT = Math.min(1, -this.vel.y / 12); }
       if (wasAir && this.vel.y < -7) { S.land(-this.vel.y / 10); this.landDip = Math.min(0.3, -this.vel.y * 0.018); V.burst('dust', this.pos.clone().setY(g2.h + 0.1), 10, { speed: 2.5, size: 0.5, up: 0.25 }); if (!G.campFall && this.vel.y < -17) this.takeDamage((-this.vel.y - 17) * 6 * this.maxHp / 100, null); }
       // the campaign (the owner): real falls. Under 6 m is free, then it hurts more and more, and 16 m or more kills
@@ -2542,7 +2555,7 @@ export class Player {
     // the highest point of this fall (leaps, hovering and swimming don't count)
     if (this.onGround || this.swim || this.leap || this.hoverH > 0.005 || (this.dodge && this.dodge.noFall)) this.fallTop = null; else this.fallTop = Math.max(this.fallTop ?? this.pos.y, this.pos.y);
     // step down slopes smoothly
-    if (this.onGround && !this.swim && this.pos.y - g2.h < 0.5 && this.vel.y <= 0) this.pos.y = g2.h;
+    if (this.onGround && !this.swim && !this.climb && this.pos.y - g2.h < 0.5 && this.vel.y <= 0) this.pos.y = g2.h;
     if (this.hoverH > 0.005 && !this.leap) { this.pos.y = Math.max(g2.h, wl) + this.hoverH; this.vel.y = 0; this.onGround = true; this.swim = false; } // (Arcane Ascension: he hovers this high over the ground, or the water)
     this.onSurf = g2.surf; this._lx = this.pos.x; this._lz = this.pos.z;
     // lava

@@ -1,4 +1,4 @@
-import { GI, TRIBES, LAIRS, CROWN, TUNNEL, BRIDGE1, CAMP_SPOT } from './gimap.js';
+import { GI, TRIBES, LAIRS, PEAK, BRIDGE1, CAMP_SPOT, VILLAGE_GI, GATEHOUSE, WRECK } from './gimap.js';
 // The island's story, its places of interest, and what ordinary villagers have to say about them.
 // Places show on the map once you have explored them, or once someone has told you where they are.
 import { G } from './state.js';
@@ -27,13 +27,16 @@ export const LORE = GI ? LORE_GI : LORE_KELDA;
 // every place of interest on the island
 export function pois() {
   if (GI) return [ // Goblin Island
-    { id: 'village', name: "Sailors' Camp", x: CAMP_SPOT.x, z: CAMP_SPOT.z, icon: '⌂', col: '#fff', town: true },
+    { id: 'village', name: 'Snagglefoot (friendly goblins)', x: VILLAGE_GI.x, z: VILLAGE_GI.z, icon: '⌂', col: '#ffe080', town: true },
+    { id: 'camp', name: "Sailors' Camp", x: CAMP_SPOT.x, z: CAMP_SPOT.z, icon: '⌂', col: '#fff', town: true },
+    { id: 'wreck', name: 'The Wrecked Ship', x: WRECK.x, z: WRECK.z, icon: '⛵', col: '#e8d8a8' },
     ...Object.entries(TRIBES).map(([id, t]) => ({ id: 'tribe_' + id, name: `${t.name} Tribe`, x: t.x, z: t.z, icon: '⚔', col: t.col })),
     ...LAIRS.map(l => ({ id: 'lair_' + l.id, name: `Troll lair: ${l.name}`, x: l.x, z: l.z, icon: '☠', col: '#c8a080' })),
     { id: 'bridge1', name: 'Gorge Drawbridge', x: BRIDGE1.x, z: (BRIDGE1.zS + BRIDGE1.zN) / 2, icon: '⛓', col: '#e8d8a8' },
-    { id: 'tunnel', name: 'Gloomtunnel', x: CROWN.x + TUNNEL.a1, z: CROWN.z, icon: '⛏', col: '#ffb060' },
-    { id: 'city', name: 'The Goblin City', x: CROWN.x, z: CROWN.z, icon: '☠', col: '#ff6060', big: true },
+    { id: 'gatehouse', name: 'The Goblin Gatehouse', x: GATEHOUSE.x, z: GATEHOUSE.z, icon: '⛫', col: '#ffb060' },
+    { id: 'city', name: 'The Goblin City (summit)', x: PEAK.x, z: PEAK.z, icon: '☠', col: '#ff6060', big: true },
   ];
+
   const out = [
     { id: 'village', name: 'Seabreak Village', x: VILLAGE.x, z: VILLAGE.z, icon: '⌂', col: '#fff', town: true },
     { id: 'saltmere', name: 'Saltmere', x: PORT.x, z: PORT.z, icon: '⌂', col: '#fff', town: true, big: true },

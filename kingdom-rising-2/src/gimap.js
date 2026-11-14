@@ -12,7 +12,7 @@ import { BATTLE, YARD, ARENA } from './battlemap.js';
 import { distToLine, smooth } from './util.js';
 
 export const GI = !BATTLE && !YARD && !ARENA;
-export const PEAK = { x: 30, z: -210, rSum: 72, sumH: 150, rUp: 92, shelfH: 64, rShelf: 168, shelfH2: 52, rLow: 190, lowH: 16 };
+export const PEAK = { x: 30, z: -210, rSum: 72, sumH: 150, rUp: 92, shelfH: 64, rShelf: 168, shelfH2: 52, rLow: 183, lowH: 16 };
 export const FANGS = [{ x: -320, z: 60, r: 150, h: 125 }, { x: 330, z: 80, r: 150, h: 110 }];
 // the gorge, from sea to sea
 export const GORGE = [[-660, 190], [-470, 152], [-300, 186], [-150, 150], [-40, 160], [40, 162], [150, 148], [300, 186], [460, 150], [660, 182]];
@@ -70,9 +70,9 @@ export function rampNear(R, x, z) {
 const peakProfile = (r) => {
   const P = PEAK;
   if (r < P.rSum) return P.sumH;
-  if (r < P.rUp) return P.shelfH + (P.sumH - P.shelfH) * Math.pow(1 - (r - P.rSum) / (P.rUp - P.rSum), 0.6); // the upper cliff
+  if (r < P.rUp) { const u = (r - P.rSum) / (P.rUp - P.rSum); return P.shelfH + (P.sumH - P.shelfH) * (1 - u); } // the upper cliff
   if (r < P.rShelf) return P.shelfH + (P.shelfH2 - P.shelfH) * (r - P.rUp) / (P.rShelf - P.rUp);           // the High Shelf
-  if (r < P.rLow) return P.lowH + (P.shelfH2 - P.lowH) * Math.pow(1 - (r - P.rShelf) / (P.rLow - P.rShelf), 0.55); // the lower cliff
+  if (r < P.rLow) { const u = (r - P.rShelf) / (P.rLow - P.rShelf); return P.lowH + (P.shelfH2 - P.lowH) * (1 - u); } // the lower cliff: evenly steep, too steep to walk
   return null;
 };
 // the island's shape on top of the rolling jungle (h)

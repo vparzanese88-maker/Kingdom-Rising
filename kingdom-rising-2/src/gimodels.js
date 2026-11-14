@@ -45,6 +45,9 @@ function arm(Z, wname, len) {
     const off = new THREE.Vector3(); off[axis] = (sz[axis] * 0.3) * k; w.position.add(off); if (axis === 'x') w.rotation.z = Math.PI / 2; else if (axis === 'z') w.rotation.x = Math.PI / 2;
     piv.add(w); piv.rotation.set(WPN_ROT.x, WPN_ROT.y, WPN_ROT.z); const ws = hand.getWorldScale(new THREE.Vector3()), os = Z.o.getWorldScale(new THREE.Vector3()); piv.scale.setScalar(os.y / ws.y); hand.add(piv); Z.weapon = piv; });
 }
+// a free-standing animated character (cutscenes): the model, its mixer and named clips
+export function actor(name, h) { return loadGI(name).then(g => g ? rigOf(g, h) : null); }
+export function playClip(Z, key, once) { return play(Z, key, once); }
 function play(Z, key, once, fade = 0.18, pickAttack) {
   let a = pickAttack ? Z.attacks[Math.floor(Math.random() * Z.attacks.length)] : Z.acts[key]; if (!a) a = Z.acts.idle; if (!a) return null;
   if (Z.cura === a && !once) return a;

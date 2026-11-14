@@ -10,7 +10,8 @@ import { Mob, Villager } from './mobs.js';
 import { MOBS, ZONES, NPCS, QUESTS } from './data.js';
 import { dressMob, dressBeast, dressPerson, propAt, tickDress, loadGI } from './gimodels.js';
 import { M } from './audio.js';
-import { GI, PEAK, GORGE, GORGE_W, GORGE_RIM, BRIDGE1, TRIBES, LAIRS, CAMP_SPOT, VILLAGE_GI, RAMP1, RAMP2, rampPoint, rampNear, WORKS, WRECK, BOATYARD, CLIMBS, FANGS } from './gimap.js';
+import { count as itemCount, addItem } from './game.js';
+import { GI, PEAK, GORGE, GORGE_W, GORGE_RIM, BRIDGE1, TRIBES, LAIRS, CAMP_SPOT, VILLAGE_GI, RAMP1, RAMP2, rampPoint, rampNear, WORKS, WRECK, BOATYARD, WASH, CLIMBS, FANGS } from './gimap.js';
 
 const R = (a, b) => a + Math.random() * (b - a);
 // the zone names shown under the minimap
@@ -19,55 +20,69 @@ if (GI) { const N = { coast: ['Wreck Shore', '1-3'], meadow: ['The South Valley'
 
 // ---------------- the people and their quests ----------------
 const V = VILLAGE_GI, GSKIN = ['#6f9a3c', '#7fa848', '#5f8a34', '#86ac52'];
+export const TUT_DUMMY = { x: V.x - 14, z: V.z + 12 }; // the village's old training dummy (the first steps)
 if (GI) {
   for (const k of Object.keys(NPCS)) delete NPCS[k];
   Object.assign(NPCS, {
-    templeton: { name: 'Templeton', title: 'Goblin Shipwright', race: 'goblin', sex: 'm', outfit: 'worker', skin: GSKIN[1], job: 'hammer', x: BOATYARD.x + 2, z: BOATYARD.z - 5, hello: 'Oh! A tall one! Don\'t worry, I\'m not one of the mad ones. Templeton, shipwright, at your service. Not much with a sword, mind you, but give me a hammer and a pile of junk and I\'ll build you anything.' },
-    grubnose: { name: 'Elder Grubnose', title: 'Snagglefoot Elder', race: 'goblin', sex: 'm', outfit: 'elder', skin: GSKIN[2], x: V.x, z: V.z - 6, hello: 'Peace, tall one. We Snagglefoots never knelt to the idol. Sit, sit. We have much to tell.' },
-    mags: { name: 'Old Mags', title: 'Snagglefoot Cook', race: 'goblin', sex: 'f', outfit: 'worker', skin: GSKIN[3], x: V.x + 12, z: V.z + 7, hello: 'Hungry? Everyone is hungry. The boars eat our gardens and we eat nothing!' },
-    snik: { name: 'Snik', title: 'Snagglefoot Scout', race: 'goblin', sex: 'm', outfit: 'hunter', skin: GSKIN[1], x: V.x + 26, z: V.z - 18, hello: 'Shh! The mad ones walk the road. Snik counts them. Too many, too many.' },
+    templeton: { name: 'Templeton', title: 'Goblin Shipwright', race: 'goblin', sex: 'm', outfit: 'worker', skin: GSKIN[1], job: 'hammer', x: BOATYARD.x + 2, z: BOATYARD.z - 5, hello: 'You\'re up! Easy, easy, don\'t fall over again. I found you on the beach, all wrapped up in fishnets like the catch of the day.' },
+    grubnose: { name: 'Elder Grubnose', title: 'Snagglefoot Elder', race: 'goblin', sex: 'm', outfit: 'elder', skin: GSKIN[2], x: V.x, z: V.z - 6, hello: 'Welcome to Snagglefoot, tall one. We are only a few families, but what we have, we share.' },
+    mags: { name: 'Old Mags', title: 'Snagglefoot Cook', race: 'goblin', sex: 'f', outfit: 'worker', skin: GSKIN[3], x: V.x + 12, z: V.z + 7, hello: 'The Warchief\'s collectors took half our grain again. Still, nobody goes hungry at my pot.' },
+    snik: { name: 'Snik', title: 'Snagglefoot Scout', race: 'goblin', sex: 'm', outfit: 'hunter', skin: GSKIN[1], x: V.x + 26, z: V.z - 18, hello: 'Shh! The regime\'s goblins walk the road. Snik counts them. Too many, too many.' },
   });
   const Q = (o) => Object.assign({ done: '', gold: 0, lvl: 1 }, o);
   QUESTS.length = 0;
   QUESTS.push(
-    Q({ id: 'gi_arrive', main: true, giver: null, turnin: 'templeton', title: 'Washed Ashore', xp: 60,
-      text: 'Your ship was attacked at sea and you barely got away in a rowboat. You need supplies and a bigger boat, and this island is crawling with goblins. There is a wrecked ship on the beach, and someone small is tinkering beside it.',
-      done: 'Attacked at sea? Same storm-cursed luck as me! My ship never made the dock. But your rowboat... good planks, sound oars. Put them with what\'s left of my old girl and I can build us a proper sailboat. You keep the mad goblins busy, I\'ll keep hammering.',
-      obj: [{ t: 'talk', npc: 'templeton', label: 'Talk to the little goblin by the shipwreck' }] }),
-    Q({ id: 'gi_village', main: true, giver: 'templeton', turnin: 'grubnose', req: ['gi_arrive'], title: 'The Friendly Goblins', xp: 80,
-      text: 'Templeton has watched the island from his wreck: not every goblin went mad. A little village, Snagglefoot, never knelt to the idol, and its elder knows the island. Templeton starts on the boat while you go.',
-      obj: [{ t: 'talk', npc: 'grubnose', label: 'Find Elder Grubnose in Snagglefoot' }] }),
+    Q({ id: 'gi_arrive', main: true, giver: null, turnin: 'templeton', title: 'Back on Your Feet', xp: 40,
+      text: 'You wake on a straw mat in a goblin village. You remember nothing: not your name, not how you got here. A small goblin is hammering at a half-built boat nearby.',
+      done: 'Name\'s Templeton. I hauled you up from the beach last night, half drowned, all tangled in barrels and nets. This is Snagglefoot, my tribe\'s village. Get your legs back first, then we\'ll talk.',
+      obj: [{ t: 'talk', npc: 'templeton', label: 'Talk to the goblin who found you' }] }),
+    Q({ id: 'gi_first', main: true, giver: 'templeton', turnin: 'templeton', req: ['gi_arrive'], title: 'First Steps', xp: 80,
+      text: 'You are still weak. Templeton wants you to get your strength back before you wander off: hit the old training dummy, and eat something hot from Mags\' cook pot.',
+      done: 'Look at you, swinging and eating like a proper goblin! You\'ll do.',
+      obj: [{ t: 'flag', flag: 'tut_dummy', label: 'Hit the training dummy 5 times', at: [TUT_DUMMY.x, TUT_DUMMY.z], r: 6 }, { t: 'flag', flag: 'tut_cook', label: 'Cook a meal at Mags\' cook pot', at: [V.x + 15, V.z + 9], r: 5 }] }),
+    Q({ id: 'gi_village', main: true, giver: 'templeton', turnin: 'grubnose', req: ['gi_first'], title: 'The Tribe', xp: 80,
+      text: 'Elder Grubnose leads Snagglefoot. Templeton says you should hear from him how things stand on Goblos.',
+      done: 'We are a few families who would not bow to the Warchief. His regime rules Goblos from its fort on Grimtusk Peak. They tax us until we starve, and take anyone who argues. So we live out here, quietly, and barely get by.',
+      obj: [{ t: 'talk', npc: 'grubnose', label: 'Talk to Elder Grubnose' }] }),
+    Q({ id: 'gi_boat', main: true, giver: 'grubnose', turnin: 'templeton', req: ['gi_village'], title: 'The Boat', xp: 120,
+      text: 'Templeton has dreamed of leaving Goblos all his life. Grubnose says to ask him about the boat.',
+      done: 'She\'s a beauty, isn\'t she? Well... she will be. I\'ve got scraps and a bent hammer. The regime keeps all the good timber, cloth, iron and tar. Bring me those, and we sail off this rock together. Gob is only ninety miles west!',
+      obj: [{ t: 'talk', npc: 'templeton', label: 'Ask Templeton about his boat' }] }),
+    Q({ id: 'gi_ship1', main: true, giver: 'templeton', turnin: 'templeton', req: ['gi_boat'], title: 'Seasoned Timber', xp: 200, lvl: 2,
+      text: 'The regime\'s Bloodfang goblins cut and stack the island\'s best timber at their lumber camp in the south valley. Templeton needs it for the hull.',
+      done: 'Now that\'s timber! The keel will be strong.', obj: [{ t: 'flag', flag: 'timber', label: 'Take seasoned timber from the Bloodfang lumber camp', at: [WORKS[0].x, WORKS[0].z], r: 14 }] }),
     Q({ id: 'gi_crank', main: true, giver: 'grubnose', turnin: 'grubnose', req: ['gi_village'], title: 'The Bloodfang Crank', xp: 300, lvl: 2,
-      text: 'The idol sits on top of Grimtusk Peak, in the goblin city. The only way north is the drawbridge over the Great Gorge, and it is raised. The Bloodfang Warchief carries the winch crank.',
+      text: 'The regime\'s fort sits on top of Grimtusk Peak. The only way north is the drawbridge over the Great Gorge, and it is raised. The Bloodfang Chieftain carries the winch crank.',
       done: 'The bridge is down! Now the road north is open to you. Be careful, tall one.',
-      obj: [{ t: 'flag', flag: 'bloodfang', label: 'Kill the Bloodfang Warchief', at: [TRIBES.bloodfang.x, TRIBES.bloodfang.z], r: 30 }, { t: 'flag', flag: 'bridge1', label: 'Lower the drawbridge (the winch at the gorge)', at: [BRIDGE1.x + 4, BRIDGE1.zS + 2], r: 8 }] }),
+      obj: [{ t: 'flag', flag: 'bloodfang', label: 'Kill the Bloodfang Chieftain', at: [TRIBES.bloodfang.x, TRIBES.bloodfang.z], r: 30 }, { t: 'flag', flag: 'bridge1', label: 'Lower the drawbridge (the winch at the gorge)', at: [BRIDGE1.x + 4, BRIDGE1.zS + 2], r: 8 }] }),
     Q({ id: 'gi_totems', main: true, giver: 'grubnose', turnin: null, req: ['gi_crank'], title: 'Two War Totems', xp: 600, lvl: 4,
       text: 'The goblin gatehouse at the foot of the Switchback Road only opens for the tribes. Topple the Mudfoot and Skullsplitter war totems by killing their chiefs, and the gate will rise.',
       obj: [{ t: 'flag', flag: 'mudfoot', label: 'Kill the Mudfoot Bog-Chief (west valley)', at: [TRIBES.mudfoot.x, TRIBES.mudfoot.z], r: 30 }, { t: 'flag', flag: 'skull', label: 'Kill the Skullsplitter Headtaker (east valley)', at: [TRIBES.skull.x, TRIBES.skull.z], r: 30 }] }),
     Q({ id: 'gi_shelf', main: true, giver: null, turnin: null, req: ['gi_totems'], title: 'The Switchback Road', xp: 800, lvl: 6,
       text: 'Climb the Switchback Road to the High Shelf halfway up Grimtusk Peak. Grumbak the Gate-Troll holds the key to the Skull Stair, the last way up.',
       obj: [{ t: 'flag', flag: 'shelf', label: 'Reach the High Shelf', at: [rampPoint(RAMP1, 1).x, rampPoint(RAMP1, 1).z], r: 14 }, { t: 'flag', flag: 'lair_gate', label: 'Kill Grumbak the Gate-Troll', at: [LAIRS[2].x, LAIRS[2].z], r: 18 }] }),
-    Q({ id: 'gi_summit', main: true, giver: null, turnin: null, req: ['gi_shelf'], title: 'The Summit', xp: 1000, lvl: 8,
-      text: 'Climb the Skull Stair to the goblin city on the summit of Grimtusk Peak. The High Chief and his three champions wait there with the idol.',
-      obj: [{ t: 'flag', flag: 'summit', label: 'Reach the summit of Grimtusk Peak', at: [PEAK.x, PEAK.z], r: 30 }] }),
-    Q({ id: 'gi_ship1', giver: 'templeton', turnin: 'templeton', req: ['gi_arrive'], title: 'Seasoned Timber', xp: 200, lvl: 2,
-      text: 'Templeton needs good seasoned timber for the hull. The Bloodfang goblins stack it at their lumber camp in the south valley.',
-      done: 'Now that\'s timber! The keel will be strong.', obj: [{ t: 'flag', flag: 'timber', label: 'Take seasoned timber from the Bloodfang lumber camp', at: [WORKS[0].x, WORKS[0].z], r: 14 }] }),
-    Q({ id: 'gi_ship2', giver: 'templeton', turnin: 'templeton', req: ['gi_ship1', 'gi_crank'], title: 'Sailcloth', xp: 350, lvl: 4,
-      text: 'Our sails are rags. The Mudfoot goblins weave hide-cloth on drying racks in their swamp village.',
+    Q({ id: 'gi_summit', main: true, giver: null, turnin: null, req: ['gi_shelf'], title: 'Storm the Fort', xp: 1000, lvl: 8,
+      text: 'Climb the Skull Stair to the regime\'s fort on the summit of Grimtusk Peak. The Warchief and his three champions wait there.',
+      obj: [{ t: 'flag', flag: 'summit', label: 'Reach the Warchief\'s fort on the summit', at: [PEAK.x, PEAK.z], r: 30 }] }),
+    Q({ id: 'gi_ship2', main: true, giver: 'templeton', turnin: 'templeton', req: ['gi_ship1', 'gi_crank'], title: 'Sailcloth', xp: 350, lvl: 4,
+      text: 'Templeton\'s sails are rags. The Mudfoot goblins weave hide-cloth for the regime on drying racks in their swamp village.',
       done: 'Smells like a bog, but it\'ll catch the wind.', obj: [{ t: 'flag', flag: 'cloth', label: 'Take sailcloth from the Mudfoot drying racks', at: [TRIBES.mudfoot.x + 10, TRIBES.mudfoot.z + 10], r: 14 }] }),
-    Q({ id: 'gi_ship3', giver: 'templeton', turnin: 'templeton', req: ['gi_ship2'], title: 'Iron and Tar', xp: 500, lvl: 5,
-      text: 'Last of the supplies: iron nails from the Skullsplitter forge, and tar from the troll Old Gnash\'s cauldron on the High Shelf.',
+    Q({ id: 'gi_ship3', main: true, giver: 'templeton', turnin: 'templeton', req: ['gi_ship2'], title: 'Iron and Tar', xp: 500, lvl: 5,
+      text: 'Iron nails from the regime\'s Skullsplitter forge, and tar from the troll Old Gnash\'s cauldron on the High Shelf.',
       done: 'Nails and tar! She\'ll be watertight now.', obj: [{ t: 'flag', flag: 'nails', label: 'Take iron nails from the Skullsplitter forge', at: [TRIBES.skull.x - 10, TRIBES.skull.z + 10], r: 14 }, { t: 'flag', flag: 'tar', label: 'Take tar from Old Gnash\'s cauldron (High Shelf)', at: [LAIRS[0].x, LAIRS[0].z], r: 16 }] }),
-    Q({ id: 'gi_sail', main: true, giver: 'templeton', turnin: 'templeton', req: ['gi_summit'], title: 'Set Sail', xp: 400, lvl: 8,
-      text: 'The boat is in the water, but the idol\'s storms wreck every ship that tries to leave. Free the island: the High Chief and his champions on the summit must fall. Then we sail.',
-      obj: [{ t: 'flag', flag: 'freed', label: 'Free Goblin Island (the summit)' }] }),
+    Q({ id: 'gi_warchief', main: true, giver: 'templeton', turnin: 'templeton', req: ['gi_summit'], title: 'The Warchief', xp: 600, lvl: 8,
+      text: 'Storm the regime\'s fort on the summit and defeat the Warchief. His fort holds the last things Templeton needs: a ship\'s compass and rudder irons. And whatever else you find there.',
+      done: 'The Warchief is gone? Then Goblos is free! And a real compass... we can actually find Gob now!',
+      obj: [{ t: 'flag', flag: 'freed', label: 'Defeat the Warchief in his fort' }] }),
+    Q({ id: 'gi_sail', main: true, giver: 'templeton', turnin: null, req: ['gi_warchief'], title: 'Setting Sail', xp: 400, lvl: 8,
+      text: 'The boat is finished and waiting at the pier. Gob, a busy port city, lies ninety miles to the west. Templeton is coming with you.',
+      obj: [{ t: 'flag', flag: 'sailed', label: 'Board the boat at the pier with Templeton' }] }),
     Q({ id: 'gi_boars', giver: 'mags', turnin: 'mags', req: ['gi_village'], title: 'Garden Raiders', xp: 180, lvl: 1,
       text: 'Wild boars dig up Snagglefoot\'s gardens every night. Mags wants five of them gone (and in her pot).', done: 'Boar stew tonight! You are welcome at our fire, tall one.',
       obj: [{ t: 'kill', mob: 'boar', n: 5, label: 'Kill wild boars' }] }),
     Q({ id: 'gi_madgobs', giver: 'snik', turnin: 'snik', req: ['gi_village'], title: 'Too Many Mad Ones', xp: 260, lvl: 2,
-      text: 'Idol-mad goblins prowl the roads of the south valley. Snik wants the road to Snagglefoot safe again.', done: 'Snik counts... fewer! Much fewer!',
-      obj: [{ t: 'kill', mob: 'goblin', n: 8, label: 'Kill idol-mad goblins' }] }),
+      text: 'The regime\'s goblins prowl the roads of the south valley. Snik wants the road to Snagglefoot safe again.', done: 'Snik counts... fewer! Much fewer!',
+      obj: [{ t: 'kill', mob: 'goblin', n: 8, label: 'Kill regime goblins' }] }),
     Q({ id: 'gi_trolls', giver: 'snik', turnin: 'snik', req: ['gi_totems'], title: 'Troll Trouble', xp: 500, lvl: 6,
       text: 'Two old trolls lair on the High Shelf: Old Gnash and Mossback. While they live, no Snagglefoot dares climb the mountain.', done: 'Trolls gone? Snik will tell the whole village!',
       obj: [{ t: 'flag', flag: 'lair_gnash', label: 'Kill Old Gnash', at: [LAIRS[0].x, LAIRS[0].z], r: 16 }, { t: 'flag', flag: 'lair_mossback', label: 'Kill Mossback', at: [LAIRS[1].x, LAIRS[1].z], r: 16 }] }),
@@ -132,35 +147,58 @@ function buildWreck(scene) {
   addBox(WRECK.x, WRECK.z, 4.2, 12, WRECK.yaw);
   live.wreck = { g, holes, sail };
   propAt('shipwreck', WRECK.x, heightAt(WRECK.x, WRECK.z) - 0.6, WRECK.z, WRECK.yaw, 9).then(o => { if (!o) return; live.wreck.meshy = o; g.visible = false; setWreck(isle()); });
-  { const P = world.pier, dx = P ? P.x + P.w + 10 : WRECK.x, dz = P ? (P.z0 + P.z1) / 2 + 8 : WRECK.z; // (the owner: Rivet builds you a bigger ship; it moors at the pier beside your rowboat)
-    propAt('rowboat', dx, -0.8, dz, 0.04, 9).then(o => { if (!o) return; live.wreck.fixed = o; o.visible = false; setWreck(isle()); }); } // (your next boat: the sailboat; a small ship and a large ship come with later islands)
-  // the boatyard beside the wreck: your rowboat dragged up the sand, timber, then the new hull on log rollers
-  const Y = BOATYARD, yh = (x, z) => Math.max(0.2, heightAt(x, z)), W = live.wreck, at = (x, z) => [Y.x + Math.cos(Y.yaw) * x + Math.sin(Y.yaw) * z, Y.z - Math.sin(Y.yaw) * x + Math.cos(Y.yaw) * z];
+  { const P = world.pier, dx = P ? P.x + P.w + 10 : WRECK.x, dz = P ? (P.z0 + P.z1) / 2 + 8 : WRECK.z; // (the finished boat, moored at the pier for the voyage to Gob)
+    propAt('rowboat', dx, -0.8, dz, 0.04, 9).then(o => { if (!o) return; live.wreck.fixed = o; o.visible = false; setWreck(isle()); });
+    use(dx - 4, dz - 6, () => isle().freed && !isle().sailed ? 'Set sail for Gob with Templeton' : null, () => { const I = isle(); I.sailed = true; G.hooks.banner && G.hooks.banner('Setting sail', 'Templeton at the tiller, Gob ninety miles to the west...', 7000); G.hooks.questsChanged && G.hooks.questsChanged(); }); }
+  // where you washed up: barrels, a smashed crate and a tangle of fishnets on the sand
+  { const yw = (x, z) => Math.max(0.15, heightAt(x, z));
+    for (const [nm, dx, dz, s2, r] of [['barrel', -1.5, 0.6, 1.0, 0.3], ['barrel', 1.8, -0.8, 0.95, 1.2], ['crate', 0.6, 2.2, 0.8, 0.7]]) { const x = WASH.x + dx, z = WASH.z + dz; propAt(nm, x, yw(x, z), z, r, s2).then(o => { if (o && nm === 'barrel' && dx > 0) { o.rotation.z = Math.PI / 2; o.position.y = yw(x, z) + 0.35; } }); }
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c2 = cv.getContext('2d'); c2.strokeStyle = '#4a3a24'; c2.lineWidth = 3; for (let k = 0; k <= 128; k += 16) { c2.beginPath(); c2.moveTo(k, 0); c2.lineTo(k + 8, 128); c2.stroke(); c2.beginPath(); c2.moveTo(0, k); c2.lineTo(128, k + 6); c2.stroke(); }
+    const tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(3, 3); tx.colorSpace = THREE.SRGBColorSpace;
+    const net = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 3.5, 12, 10), new THREE.MeshStandardMaterial({ map: tx, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide, roughness: 1 }));
+    { const p = net.geometry.attributes.position; for (let k = 0; k < p.count; k++) p.setZ(k, Math.sin(p.getX(k) * 2.1) * 0.12 + Math.cos(p.getY(k) * 2.7) * 0.1 + 0.08); net.geometry.computeVertexNormals(); }
+    net.rotation.x = -Math.PI / 2; net.rotation.z = 0.4; net.position.set(WASH.x, yw(WASH.x, WASH.z) + 0.02, WASH.z); scene.add(net); live.net = net; }
+  // Templeton's boatyard at the edge of Snagglefoot: a bare keel and ribs at first; the hull, timber and stores come with the materials you win back
+  const Y = BOATYARD, yh = (x, z) => heightAt(x, z), W = live.wreck, at = (x, z) => [Y.x + Math.cos(Y.yaw) * x + Math.sin(Y.yaw) * z, Y.z - Math.sin(Y.yaw) * x + Math.cos(Y.yaw) * z];
   W.yard = [];
-  { const [x, z] = at(-7, 2); loadGI('boat_row').then(gl => { if (!gl) return; const o = gl.scene.clone(), k = 7 / Math.max(gl.box.getSize(new THREE.Vector3()).x, gl.box.getSize(new THREE.Vector3()).z); o.scale.setScalar(k); o.position.set(x, yh(x, z) - gl.minY * k - 0.15, z); o.rotation.set(0, Y.yaw + 0.3, 0.18); scene.add(o); W.beached = o; o.visible = false; setWreck(isle()); }); }
-  for (const [nm, x0, z0, s, r, st] of [['lumber_pile', 6, -6, 2.3, 0.4, 2], ['supply_pile', -4, -8, 2.2, -0.3, 2], ['barrel', 7, 5, 1.1, 0, 4], ['crate', 8.5, 4, 1.0, 0.5, 4], ['crate', 8, 6.2, 1.0, 0.1, 4], ['campfire', -10, -6, 1.4, 0, 2], ['sail_tent', -12, 4, 3.2, 1.2, 1]]) {
-    const [x, z] = at(x0, z0); propAt(nm, x, yh(x, z), z, Y.yaw + r, s).then(o => { if (!o) return; o.userData.st = st; W.yard.push(o); setWreck(isle()); }); }
+  for (const [nm, x0, z0, s2, r, st] of [['lumber_pile', 6, -6, 2.3, 0.4, 2], ['supply_pile', -4, -8, 2.2, -0.3, 3], ['barrel', 7, 5, 1.1, 0, 4], ['crate', 8.5, 4, 1.0, 0.5, 4], ['crate', 8, 6.2, 1.0, 0.1, 4], ['campfire', -10, -6, 1.4, 0, 0], ['sail_tent', -12, 4, 3.2, 1.2, 0]]) {
+    const [x, z] = at(x0, z0); propAt(nm, x, yh(x, z), z, Y.yaw + r, s2).then(o => { if (!o) return; o.userData.st = st; W.yard.push(o); setWreck(isle()); }); addCircle(x, z, nm === 'sail_tent' ? 1.6 : 0.9); }
   { const g = new THREE.Group(), lm = H.M.wood; for (let i = -2; i <= 2; i++) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 4.2, 8), lm); l.rotation.z = Math.PI / 2; l.position.set(0, 0.28, i * 2.2); g.add(l); }
-    const [x, z] = at(0, 0); g.position.set(x, yh(x, z), z); g.rotation.y = Y.yaw; g.userData.st = 3; scene.add(g); W.yard.push(g); addBox(x, z, 2.4, 6, Y.yaw); }
+    const [x, z] = at(0, 0); g.position.set(x, yh(x, z), z); g.rotation.y = Y.yaw; g.userData.st = 0; scene.add(g); W.yard.push(g); addBox(x, z, 2.4, 6, Y.yaw); }
+  { const g = new THREE.Group(), lm = H.M.wood; const keel = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.35, 9.5), lm); keel.position.y = 0.75; g.add(keel); // (the bare frame: a keel and curved ribs)
+    for (let i = -4; i <= 4; i++) { const w = 1.5 * Math.cos(i / 5.2 * 1.3); for (const sd of [-1, 1]) { const rib = new THREE.Mesh(new THREE.TorusGeometry(w, 0.07, 5, 10, Math.PI / 2), lm); rib.position.set(0, 0.75 + w, i * 1.05); rib.rotation.set(0, Math.PI / 2, sd > 0 ? Math.PI : -Math.PI / 2); g.add(rib); } }
+    const [x, z] = at(0, 0); g.position.set(x, yh(x, z) + 0.2, z); g.rotation.y = Y.yaw; g.userData.st = 0; g.userData.until = 2; scene.add(g); W.yard.push(g); }
   { const [x, z] = at(0, 0); propAt('rowboat', x, yh(x, z) + 0.45, z, Y.yaw, 9).then(o => { if (!o) return; W.hull = o; setWreck(isle()); }); }
 }
-// how far Templeton's rebuild has got: one step for every main story quest done (the owner's storyline)
-const MAIN = ['gi_arrive', 'gi_village', 'gi_crank', 'gi_totems', 'gi_shelf', 'gi_summit'];
-export function rebuildStage() { const Q = G.save && G.save.quests; if (!Q) return 0; return MAIN.filter(id => Q.done.includes(id)).length + (isle().freed ? 1 : 0); }
+// how far Templeton's boat has got: a step for each victory that brings him materials (the owner's storyline)
+const MAIN = ['gi_boat', 'gi_ship1', 'gi_ship2', 'gi_ship3', 'gi_warchief'];
+export function rebuildStage() { const Q = G.save && G.save.quests; if (!Q) return 0; return MAIN.filter(id => Q.done.includes(id)).length; }
 const STAGE_SAY = [null,
-  ['Templeton drags your rowboat up the beach', '"Good planks! She\'ll be the bones of our new boat."'],
-  ['Templeton strips the wreck for timber', '"Every plank of my old girl gets a second life."'],
-  ['A new hull rises on log rollers', '"Your rowboat\'s ribs, my ship\'s keel. Look at her!"'],
-  ['Templeton fits the mast and rigging', '"A mast! Proper rope! Nearly there, tall one."'],
-  ['The new boat is in the water', '"She floats! Tied up at the pier. Now we just need the storms to stop."'],
-  ['The boat is ready to sail', '"Provisioned, patched and pretty. Free the island and we\'re gone."'],
-  ['Goblin Island is free', '"The storms are gone! Hop aboard, friend!"']];
-function setWreck(I) { const W = live.wreck; if (!W) return; const st = rebuildStage(); if (W.meshy) W.meshy.visible = true; if (W.fixed) W.fixed.visible = st >= 5; if (W.beached) W.beached.visible = st >= 1 && st < 3; if (W.hull) { W.hull.visible = st >= 3 && st < 5; } for (const o of W.yard || []) o.visible = st >= o.userData.st && (o.userData.st !== 3 || st < 5); if (world.myBoat) world.myBoat.visible = st < 1; W.holes.forEach((h, i) => { h.visible = !(i === 0 ? I.ship1 : I.ship3); }); W.sail.visible = !!I.ship2; W.g.rotation.z = I.ship3 ? 0.02 : 0.12; }
+  ['Templeton shows you his boat', '"Scraps and a bent hammer. But she\'s got good bones!"'],
+  ['A hull of seasoned timber', '"Real timber! Look at her, she\'s a boat now!"'],
+  ['Sails stitched and drying', '"Smells like a bog. Catches wind like a dream."'],
+  ['Nailed and tarred', '"Watertight! Now if only we could steer..."'],
+  ['The boat is in the water', '"Compass, rudder irons, and a free sea. Meet me at the pier, friend!"']];
+function setWreck(I) { const W = live.wreck; if (!W) return; const st = rebuildStage(); if (W.meshy) W.meshy.visible = true; if (W.fixed) W.fixed.visible = st >= 5; if (W.hull) W.hull.visible = st >= 2 && st < 5;
+  for (const o of W.yard || []) o.visible = st >= o.userData.st && (o.userData.until == null || st < o.userData.until) && !(o.userData.st === 0 && o.userData.until == null && st >= 5 && o.children.length === 5);
+  if (world.myBoat) world.myBoat.visible = false; W.holes.forEach(h => { h.visible = true; }); W.sail.visible = false; }
 // Snagglefoot: a small friendly goblin village (blue and yellow, never possessed)
 function buildSnagglefoot(scene) {
   const { M, tent, campfire, placeGroup, barrel, crate, bx, cy, addHouse } = H;
   for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28 + 0.3, r = 18 + (i % 2) * 5, x = V.x + Math.cos(a) * r, z = V.z + Math.sin(a) * r; propAt('goblin_hut', x, heightAt(x, z), z, -a - Math.PI / 2, 4.6); addCircle(x, z, 2.6); }
-  { const x = V.x + 15, z = V.z + 9; propAt('cook_pot', x, heightAt(x, z), z, 0, 1.6); addCircle(x, z, 0.9); }
+  { const x = V.x + 15, z = V.z + 9; propAt('cook_pot', x, heightAt(x, z), z, 0, 1.6); addCircle(x, z, 0.9);
+    // Mags' cook pot: the first crafting (she hands you meat to cook the first time)
+    use(x, z + 1.6, () => { const Q = G.save && G.save.quests; return Q && Q.active.gi_first && !isle().tut_cook ? 'Cook a meal (Mags\' cook pot)' : 'Cook (campfire)'; }, () => { const h = G.save;
+      if (h.quests.active.gi_first && !isle().tut_cook && itemCount(h, 'raw_meat') < 1) { addItem(h, 'raw_meat', 1, true); G.hooks.toast && G.hooks.toast('Mags hands you a cut of boar meat', '🥩', 'gold'); }
+      G.hooks.station && G.hooks.station('campfire'); }); }
+  // the village's old training dummy: a post, a straw-stuffed sack and a crossbar (the first steps)
+  { const g = new THREE.Group(), wd = H.M.wood, straw = new THREE.MeshStandardMaterial({ color: '#c8a85a', roughness: 1 }), sack = new THREE.MeshStandardMaterial({ color: '#9a7a4a', roughness: 1 });
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.9, 8), wd); post.position.y = 0.95; g.add(post);
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2, 6), wd); bar.rotation.z = Math.PI / 2; bar.position.y = 1.35; g.add(bar);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.22, 0.75, 10), sack); body.position.y = 1.1; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), sack); head.position.y = 1.68; g.add(head);
+    for (const sd of [-1, 1]) { const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 5), straw); tuft.position.set(sd * 0.62, 1.35, 0); tuft.rotation.z = sd * Math.PI / 2; g.add(tuft); }
+    live.dummyLook = g; }
   for (let i = 0; i < 3; i++) { const a = i / 3 * 6.28 + 1.1, x = V.x + Math.cos(a) * 10, z = V.z + Math.sin(a) * 10; propAt('goblin_tent', x, heightAt(x, z), z, -a, 3.0); addCircle(x, z, 1.6); }
   { const x = V.x - 8, z = V.z - 9; propAt('well', x, heightAt(x, z), z, 0.4, 3.2); addCircle(x, z, 1.3); }
   const fg = new THREE.Group(); campfire(fg, scene, V.x, V.z + 2); placeGroup(fg, V.x, V.z + 2, 0, scene); addCircle(V.x, V.z + 2, 0.9); H.fire(scene, V.x, heightAt(V.x, V.z + 2) + 0.5, V.z + 2, 1);
@@ -273,7 +311,7 @@ function use(x, z, label, fn) { (world.giUse || (world.giUse = [])).push({ x, z,
 const isle = () => (G.save ? (G.save.isle || (G.save.isle = {})) : {});
 function winch() {
   const I = isle(); if (I.bridge1) return;
-  if (!I.crank) { G.hooks.toast && G.hooks.toast('The crank handle is missing. The Bloodfang Warchief carries it.', '⚙', 'bad'); return; }
+  if (!I.crank) { G.hooks.toast && G.hooks.toast('The crank handle is missing. The Bloodfang Chieftain carries it.', '⚙', 'bad'); return; }
   I.bridge1 = true; live.crank.visible = true; live.bridge1.want = 1; G.hooks.banner && G.hooks.banner('The drawbridge comes down', 'The way north across the Great Gorge is open', 3500); G.hooks.questsChanged && G.hooks.questsChanged();
 }
 export function giApply(h) {
@@ -293,7 +331,7 @@ function syncColliders() {
 export function giKill(m) {
   if (!GI || !G.save) return; const I = isle(), say = (a, b) => G.hooks.banner && G.hooks.banner(a, b, 5000);
   if (m.giChief && !I[m.giChief]) { I[m.giChief] = true; m.respawnT = 1e12; const T = live.totems[m.giChief]; if (T) T.want = 1; const t = TRIBES[m.giChief];
-    if (m.giChief === 'bloodfang') { I.crank = true; say('The Bloodfang Warchief is dead', 'You took his iron crank: the drawbridge winch at the Great Gorge'); }
+    if (m.giChief === 'bloodfang') { I.crank = true; say('The Bloodfang Chieftain is dead', 'You took his iron crank: the drawbridge winch at the Great Gorge'); }
     else { const both = I.mudfoot && I.skull; say(`The ${t.name} chief is dead`, both ? 'Both war totems have fallen: the gatehouse on the Switchback Road opens' : 'Their war totem falls. One more tribe holds the gatehouse shut'); if (both) live.gatehouse.want = 1; } }
   if (m.giLair && !I['lair_' + m.giLair]) { I['lair_' + m.giLair] = true; m.respawnT = 1e12; if (m.giLair === 'gate') { say('Grumbak is dead', 'His great iron key opens the Skull Stair'); live.stairgate.want = 1; } else G.hooks.toast && G.hooks.toast(`${m.name} is slain`, '🏆', 'gold'); }
   G.hooks.questsChanged && G.hooks.questsChanged();
@@ -305,12 +343,18 @@ export function giTick(dt) {
   for (const gt of [live.gatehouse, live.stairgate]) { if (gt.open < gt.want) { gt.open = Math.min(1, gt.open + dt / 5); if (gt.open >= 1) syncColliders(); } gt.gate.position.y = gt.y + gt.open * 7.4; }
   for (const id in live.totems) { const T = live.totems[id]; if (T.k < T.want) { T.k = Math.min(1, T.k + dt * 0.7); T.g.rotation.z = Math.pow(T.k, 2) * 1.45; } }
   tickCarts();
+  // the first steps: you can't leave Snagglefoot until they're done (or skipped)
+  { const P = G.player, h = G.save; if (P && h && h.tut === 'on') { const dx = P.pos.x - V.x, dz = P.pos.z - V.z, d = Math.hypot(dx, dz), R2 = V.r + 9;
+      if (d > R2) { P.pos.x = V.x + dx / d * R2; P.pos.z = V.z + dz / d * R2; if ((G.time || 0) - (giTick.warn || -99) > 6) { giTick.warn = G.time || 0; G.hooks.toast && G.hooks.toast('Templeton: "Not yet! You can barely stand. Finish your first steps." (or skip them)', '🛑', 'bad'); } } } }
   if ((giTick.t = (giTick.t || 0) + dt) < 0.5) return; giTick.t = 0; tickDress();
   const P = G.player; if (!P || !G.save || !G.save.quests) return;
   const r = Math.hypot(P.pos.x - PEAK.x, P.pos.z - PEAK.z);
   if (!I.shelf && r < PEAK.rShelf && P.pos.y > PEAK.shelfH2 - 4) { I.shelf = true; G.hooks.banner && G.hooks.banner('The High Shelf', 'Halfway up Grimtusk Peak', 3500); G.hooks.questsChanged && G.hooks.questsChanged(); }
   if (!I.summit && r < PEAK.rSum + 4 && P.pos.y > PEAK.sumH - 8) { I.summit = true; G.hooks.banner && G.hooks.banner('The summit of Grimtusk Peak', 'The goblin city', 3500); G.hooks.questsChanged && G.hooks.questsChanged(); }
   const dn = (id) => G.save.quests.done.includes(id);
+  if (G.save.quests.active.gi_first && !I.tut_cook && itemCount(G.save, 'roast_meat') > 0) { I.tut_cook = true; G.hooks.toast && G.hooks.toast('A hot meal! You feel stronger.', '🍖', 'gold'); G.hooks.questsChanged && G.hooks.questsChanged(); }
+  // quests with nobody to give them start by themselves once their way is open
+  for (const q of QUESTS) if (q.main && !q.giver && !G.save.quests.active[q.id] && !dn(q.id) && (q.req || []).every(dn)) { G.save.quests.active[q.id] = { p: q.obj.map(() => 0), t: Date.now() }; G.hooks.questsChanged && G.hooks.questsChanged(); }
   if (I.ship1 !== dn('gi_ship1') || I.ship2 !== dn('gi_ship2') || I.ship3 !== dn('gi_ship3')) { I.ship1 = dn('gi_ship1'); I.ship2 = dn('gi_ship2'); I.ship3 = dn('gi_ship3'); setWreck(I); }
   { const st = rebuildStage(); if (I.rebuild == null) I.rebuild = st; if (st !== I.rebuild) { const up = st > I.rebuild; I.rebuild = st; setWreck(I); const s = STAGE_SAY[st]; if (up && s) { G.hooks.banner && G.hooks.banner(s[0], 'Templeton: ' + s[1], 6000); G.hooks.toast && G.hooks.toast('Templeton\'s boat: step ' + st + ' of 7', '🔨', 'gold'); } } }
   for (const qid of Object.keys(G.save.quests.active)) { const q = QUESTS.find(x => x.id === qid); if (q && !q.turnin && q.obj.length && q.obj.every(o => o.t === 'flag' && I[o.flag])) G.hooks.autoTurnIn && G.hooks.autoTurnIn(q); }
@@ -330,7 +374,7 @@ export function giPeople() {
       else { const a = i * 1.7; spot = { x: V.x + Math.cos(a) * 3.2, z: V.z + 2 + Math.sin(a) * 3.2 }; face = Math.atan2(V.x - spot.x, V.z + 2 - spot.z); job = 'talk'; }
       v.jobSpot = new THREE.Vector3(spot.x, 0, spot.z); v.jobFace = face; v.job = job; }); }
   for (const n of G.npcs) if (n.def && n.def.race === 'goblin') { if (n.id === 'templeton') { dressPerson(n, 'templeton', 1.05, 'goblin_villager'); continue; } dressPerson(n, n.id === 'grubnose' ? 'goblin_elder' : 'goblin_villager', n.id === 'grubnose' ? 1.3 : 1.35); }
-  for (let i = 0; i < 3; i++) { const v = new Villager(CAMP_SPOT.x + R(-8, 8), CAMP_SPOT.z + R(-8, 8), { race: 'human', sex: i === 1 ? 'f' : 'm', outfit: 'fisher', skin: ['#e0ac85', '#c08e68', '#f1c7a5'][i], hair: '#4a3020', hairStyle: i, beard: i === 0 ? 2 : 0, height: 0.95 }); v.talkable = true; v.vname = ['Bosun Crabb', 'Tess', 'Old Rope'][i]; G.npcs.push(v); }
+  // (no sailors on the beach: the hero washed up alone)
 }
 
 // ---------------- enemies ----------------
@@ -343,6 +387,13 @@ function mob(type, lv, x, z, name, model) { const m = new Mob(type, lv, x, z); m
   G.mobs.push(m); return m; }
 export function giSpawn() {
   if (!GI) return;
+  // the training dummy in Snagglefoot: takes hits, never fights back or dies; five hits for the first steps
+  { const D = TUT_DUMMY, m = new Mob('bandit', 1, D.x, D.z); m.dummy = true; m.hostile = false; m.def = Object.assign({}, m.def, { aggro: 0, flee: false, gold: null, loot: {}, gearChance: 0, name: 'Training Dummy' }); Object.defineProperty(m, 'name', { value: 'Training Dummy', configurable: true });
+    m.maxHp = m.hp = 1e6; m.xp = 0; m.loot = null; m.yaw = Math.atan2(V.x - D.x, V.z - D.z);
+    for (const c of m.root.children) c.visible = false; if (live.dummyLook) m.root.add(live.dummyLook);
+    const take = m.takeHit.bind(m); m.takeHit = (dmg, src, o) => { const d = take(dmg, src, o); m.hp = m.maxHp; m.dead = false; m.wob = 1; const I = isle(); I.dummyHits = (I.dummyHits || 0) + 1; if (I.dummyHits >= 5 && !I.tut_dummy) { I.tut_dummy = true; G.hooks.toast && G.hooks.toast('Good hits! The dummy has had enough.', '🎯', 'gold'); G.hooks.questsChanged && G.hooks.questsChanged(); } return d; };
+    m.update = function (dt) { this.dead = false; this.hp = this.maxHp; for (const k in this.status) if (typeof this.status[k] === 'number' && this.status[k] > 0) this.status[k] = 0; this.wob = Math.max(0, (this.wob || 0) - dt * 2.5); this.pos.set(D.x, heightAt(D.x, D.z), D.z); this.root.position.copy(this.pos); this.root.rotation.set(Math.sin(G.time * 30) * 0.12 * this.wob, this.yaw, 0); };
+    G.mobs.push(m); live.dummy = m; }
   const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
   for (const [id, t] of Object.entries(TRIBES)) {
     const c = mob('goblin_brute', t.chiefLv, t.x, t.z - 4); c.def = named('goblin_brute', t.chief, { elite: true, aggro: 9 }); c.giChief = id; c.bossy = true; c.maxHp = Math.round(c.maxHp * 2.6); c.hp = c.maxHp;

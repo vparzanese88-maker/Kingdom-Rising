@@ -2,7 +2,7 @@
 // Grimtusk Peak, a giant mountain in the north, and the way up winds round cliffs, valleys and ledges.
 //  The South Valley: the beach landing (the sailors' camp, the wrecked ship), Snagglefoot (a small friendly goblin
 //  village) and the Bloodfang tribe. The Great Gorge cuts the island in two from sea to sea; its one crossing is a
-//  raised drawbridge, and the Bloodfang Warchief carries the winch crank.
+//  raised drawbridge, and the Bloodfang Chieftain carries the winch crank.
 //  The Midlands: valleys between the West Fang, the East Fang and the Peak. The Mudfoot (west) and Skullsplitter
 //  (east) tribes each hold a war totem; both toppled, the goblin gatehouse at the foot of the Switchback Road opens.
 //  The High Shelf: a ledge round the mountain halfway up (troll lairs). Grumbak the Gate-Troll keeps the key to the
@@ -24,7 +24,7 @@ export const RAMP2 = { a0: -1.25, a1: 1.05, r0: PEAK.rUp + 10, r1: PEAK.rSum - 6
 export const rampPoint = (R, t) => { const a = R.a0 + (R.a1 - R.a0) * t, r = R.r0 + (R.r1 - R.r0) * t; return { x: PEAK.x + Math.cos(a) * r, z: PEAK.z + Math.sin(a) * r, h: R.h0 + (R.h1 - R.h0) * t, a }; };
 // tribes, the friendly village, troll lairs and the beach camp (each a flat clearing)
 export const TRIBES = {
-  bloodfang: { name: 'Bloodfang', x: -270, z: 300, r: 30, col: '#a02a20', lv: [2, 3], chief: 'Bloodfang Warchief', chiefLv: 4 },
+  bloodfang: { name: 'Bloodfang', x: -270, z: 300, r: 30, col: '#a02a20', lv: [2, 3], chief: 'Bloodfang Chieftain', chiefLv: 4 },
   mudfoot: { name: 'Mudfoot', x: -170, z: 30, r: 32, col: '#5a6a2a', lv: [5, 6], chief: 'Mudfoot Bog-Chief', chiefLv: 7 },
   skull: { name: 'Skullsplitter', x: 200, z: 25, r: 32, col: '#d8d0b8', lv: [5, 6], chief: 'Skullsplitter Headtaker', chiefLv: 7 },
 };
@@ -46,7 +46,8 @@ export const WORKS = [
 ];
 export const CAMP_SPOT = { x: 18, z: 352, r: 26 }; // the sailors' camp on the beach
 export const WRECK = { x: 70, z: 395, yaw: 0.6 }; // Templeton's wrecked ship (it never made the dock)
-export const BOATYARD = { x: 40, z: 399, yaw: 1.45 }; // where Templeton builds the new boat from the wreck and your rowboat
+export const BOATYARD = { x: VILLAGE_GI.x + 19, z: VILLAGE_GI.z + 24, yaw: 0.9 }; // where Templeton builds his boat, at the edge of his village
+export const WASH = { x: 32, z: 428 }; // the beach where the hero washed up, tangled in barrels and fishnets
 export const ROADS_GI = [
   [[0, 362], [-40, 340], [VILLAGE_GI.x, VILLAGE_GI.z]],                                     // beach to Snagglefoot
   [[VILLAGE_GI.x, VILLAGE_GI.z], [-60, 280], [-20, 240], [0, 200], [BRIDGE1.x, BRIDGE1.zS + 2]], // Snagglefoot to the gorge bridge

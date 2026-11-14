@@ -12,7 +12,9 @@ import { V } from './vfx.js';
 import { PORT } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
-import { GI } from './gimap.js';
+import { GI, WASH, BOATYARD } from './gimap.js';
+import { actor, playClip } from './gimodels.js';
+import { startTutorial, tutTick } from './gitut.js';
 import { giSpawn, giKill, giApply, giTick, giPeople, giRespawns, giMusic, rebuildStage } from './goblinisle.js';
 import { summonPets, petCommand, pets, PETS, stopPets, dismissPets } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
@@ -180,7 +182,7 @@ function startGame(save) {
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
   G.tod = h.tod ?? 0.3;
   $('title').hidden = true; $('creator').hidden = true; $('hud').hidden = false; $('death').hidden = true;
-  if (!BATTLE && !YARD && !ARENA) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); if (GI) { giApply(h); G.noHarvest = true; G.campFall = true; G.noSkills = true; } else buildDefenses(defensesFor(h)); } /* (Goblin Island: no skinning, gathering or looting) */
+  if (!BATTLE && !YARD && !ARENA) { fog.on = true; fog.soft = true; G.fog = fog; unpackFog(h.fogEx); if (GI) { if (h.tut == null) h.tut = h.introDone ? 'skip' : 'on'; giApply(h); G.noHarvest = true; G.campFall = true; G.noSkills = true; if (h.introDone) startTutorial(h); } else buildDefenses(defensesFor(h)); } /* (Goblin Island: no skinning, gathering or looting) */
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
@@ -600,6 +602,7 @@ function fallTree(n, p) {
 // then the scene cuts to the pier with the boat tied up beside you.
 const SAIL = { dur: 30, speed: 4.2, from: { x: -90, z: 1500 } };
 function startIntro() {
+  if (GI) return giIntroStart();
   const p = G.player;
   const boat = world.myBoat || placeHomeBoat(scene);
   const home = world.myBoatHome, to = { x: home.x, z: home.z }, yaw = Math.atan2(to.x - SAIL.from.x, to.z - SAIL.from.z);
@@ -623,6 +626,7 @@ function introBoatTo(I, dt) {
   const sail = b.userData.sail; if (sail) sail.scale.z = 1 + Math.sin(t * 1.7) * 0.06;
 }
 function updateIntro(dt) {
+  if (intro.gi) return giIntroUpdate(dt);
   const p = G.player, I = intro; I.t += dt; const t = I.t, b = I.boat;
   introBoatTo(I, dt);
   // the island only as a far-off coast: push the haze back and draw its trees far away
@@ -661,6 +665,7 @@ function updateIntro(dt) {
 }
 function endIntro() {
   if (!intro) return;
+  if (intro.gi) return giIntroEnd();
   const I = intro; intro = null; const p = G.player;
   for (const q of I.gulls) scene.remove(q.g); scene.remove(I.lander.g);
   if (I.poop) { I.boat.remove(I.poop.m); I.poop.m.scale.set(2.4, 0.35, 2.0); I.poop.m.position.y = 0.62; I.boat.add(I.poop.m); } // it stays. of course it stays.
@@ -684,6 +689,56 @@ function endIntro() {
   lockPointer();
 }
 // your own thoughts, shown in italics low on the screen
+// ---------- Goblos: washed ashore (the owner: all cinematic amazingness) ----------
+// black; the sea; sand. You lie tangled in nets on the beach, blurred and tilted. A small goblin walks up and talks to you.
+// Black again: he drags you to his village. You wake in Snagglefoot, beside his half-built boat.
+const GI_LINES = [[0.8, 7.5, '', '...cold water. Salt. The sea rolls you over, and over...'], [4.6, 7.5, '', '...then sand.'], [8.2, 12.6, '', 'You can\'t move. You can\'t remember anything. Not even your own name.'],
+  [13.4, 17, 'A small voice', '"Oi! You alive in there? You\'re all tangled up in fishnets, big fella."'], [17.2, 20.4, 'A small voice', '"Hold still now... Templeton\'s got you."'], [21.6, 26.5, '', 'Small, strong hands drag you up the beach, through the jungle... to a warm fire, and a bed of straw.']];
+const GI_END = 27.5;
+function giCap(who, text) { let c = $('gicap'); if (!c) { c = document.createElement('div'); c.id = 'gicap'; document.body.appendChild(c); } if (!text) { c.classList.remove('on'); return; } c.innerHTML = (who ? `<small>${who}</small>` : '') + text; c.classList.add('on'); }
+function giIntroStart() {
+  const p = G.player; intro = { gi: true, t: 0, line: -1, tem: null, faded: false, dark: false };
+  $('hud').hidden = true; p.vm.g.visible = false; p.ch.root.visible = false; p.place(WASH.x, WASH.z - 2, 0);
+  G.tod = 0.26; // (early morning)
+  const fd = $('sailfade'); fd.style.transition = 'none'; fd.style.opacity = 1; void fd.offsetWidth; fd.style.transition = '';
+  let sk = $('giskip'); if (!sk) { sk = document.createElement('div'); sk.id = 'giskip'; document.body.appendChild(sk); } sk.textContent = 'Space to skip'; sk.hidden = false;
+  actor('templeton', 1.05).then(Z => { if (!intro || !intro.gi || !Z) return; intro.tem = Z; scene.add(Z.o); Z.o.visible = false; });
+  setAmbience({ sea: 0.7, wind: 0.3, forest: 0, waterfall: 0, fire: 0, lava: 0, night: 0 });
+}
+function giIntroUpdate(dt) {
+  const I = intro; I.t += dt; const t = I.t, p = G.player, h0 = heightAt(WASH.x, WASH.z);
+  // the view: lying on your side on the sand, looking out to sea through blurred eyes
+  const sway = Math.sin(t * 0.5) * 0.02;
+  camera.position.set(WASH.x - 1.1, h0 + 0.3 + sway * 0.5, WASH.z - 1.4);
+  camera.lookAt(WASH.x + 1.6, h0 + 0.75 + (t > 13 ? 0.35 : 0), WASH.z + 7); camera.rotateZ(0.38 + sway);
+  p.pos.set(WASH.x, h0, WASH.z - 2); A.setListener(camera.position.x, camera.position.y, camera.position.z, 0);
+  const blur = t < 9 ? 7 : t < 14 ? 7 - (t - 9) * 1.0 : 2 + Math.sin(t * 1.3) * 0.6; canvas.style.filter = `blur(${blur.toFixed(1)}px) brightness(${t < 20 ? 0.85 : 0.7}) saturate(0.85)`;
+  // Templeton walks up from along the beach, stops in front of you and talks
+  const Z = I.tem; if (Z) { const a = { x: WASH.x - 7, z: WASH.z + 4 }, b = { x: WASH.x + 0.3, z: WASH.z + 0.6 };
+    if (t > 9.6) { Z.o.visible = true; const k = Math.min(1, (t - 9.6) / 3.4), e = k * k * (3 - 2 * k), x = a.x + (b.x - a.x) * e, z = a.z + (b.z - a.z) * e;
+      Z.o.position.set(x, heightAt(x, z), z); Z.o.rotation.y = k < 1 ? Math.atan2(b.x - a.x, b.z - a.z) : Math.atan2(camera.position.x - x, camera.position.z - z);
+      playClip(Z, k < 1 ? 'walk' : 'talk'); }
+    Z.mixer.update(dt); }
+  // captions
+  let li = -1; for (let i = 0; i < GI_LINES.length; i++) if (t > GI_LINES[i][0] && t < GI_LINES[i][1]) li = i;
+  if (li !== I.line) { I.line = li; giCap(li >= 0 ? GI_LINES[li][2] : '', li >= 0 ? GI_LINES[li][3] : ''); }
+  const fd = $('sailfade');
+  if (!I.faded && t > 7.2) { I.faded = true; fd.style.opacity = 0; }
+  if (!I.dark && t > 20.6) { I.dark = true; fd.style.opacity = 1; }
+  if (t > GI_END) endIntro();
+}
+function giIntroEnd() {
+  const I = intro; intro = null; const p = G.player;
+  if (I.tem) { scene.remove(I.tem.o); I.tem.mixer.stopAllAction(); }
+  giCap('', ''); if ($('giskip')) $('giskip').hidden = true; canvas.style.filter = '';
+  camera.rotation.order = 'YXZ'; const sx = BOATYARD.x - 5, sz = BOATYARD.z - 9; p.place(sx, sz, Math.atan2(BOATYARD.x + 2 - sx, BOATYARD.z - 5 - sz)); p.ch.root.visible = true; p.pitch = -0.05; if (p.vel) p.vel.set(0, 0, 0);
+  $('hud').hidden = false; G.save.introDone = true; G.tod = 0.33; saveNow();
+  const fd = $('sailfade'); fd.style.opacity = 1; setTimeout(() => { fd.style.opacity = 0; }, 600);
+  startTutorial(G.save);
+  setTimeout(() => monologue('Where... where am I? I can\'t remember a thing.'), 2000);
+  setTimeout(() => UI.banner('Goblos', 'Snagglefoot, a free goblin village', 4500), 7000);
+  lockPointer();
+}
 function monologue(text, ms = 5200) {
   const m = $('mono'); m.innerHTML = `<i>“${text}”</i><small>to yourself</small>`; m.hidden = false; m.classList.remove('out'); void m.offsetWidth; m.classList.add('in');
   clearTimeout(monologue.t); monologue.t = setTimeout(() => { m.classList.remove('in'); m.classList.add('out'); setTimeout(() => { m.hidden = true; }, 700); }, ms);
@@ -964,7 +1019,7 @@ function loop(now) {
 }
 let portraitCh = null, portraitRot = 0, musicFight = 0;
 function gameUpdate(dt) {
-  if (GI) giTick(dt);
+  if (GI) { giTick(dt); tutTick(); }
   const p = G.player;
   if (intro) updateIntro(dt);
   else {

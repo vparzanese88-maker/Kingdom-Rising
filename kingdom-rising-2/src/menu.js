@@ -1,4 +1,5 @@
 // Title screen (campaign saves) and the hero creator with a 3D preview.
+import { BOATYARD } from './gimap.js';
 import { classPortrait } from './portraits.js';
 import { CLASS_STORY, arenaLore, FACTIONS, ROLES, WORLD } from './classlore.js';
 import * as THREE from 'three';
@@ -534,7 +535,7 @@ let CC = null;
 function showCampCreator(camp) {
   const chars = camp ? (listCampaigns().find(c => c.id === camp.id) || { chars: [] }).chars : [];
   const freed = freedIn(chars), classes = [...CORE_CLASSES, ...ISLANDS.flatMap(i => i.classes), ...LATER].filter(k => CLASSES[k] && ABILITIES[k] && ABILITIES[k].length);
-  CC = { cls: 'warrior', name: '', camp: camp || null };
+  CC = { cls: 'warrior', name: '', camp: camp || null, intro: true };
   $('title').hidden = true; $('creator').hidden = true;
   let ov = $('campCreate'); if (ov) ov.remove(); ov = el('div', ''); ov.id = 'campCreate'; document.body.appendChild(ov);
   const bar = el('div', ''); bar.style.display = 'contents';
@@ -544,7 +545,8 @@ function showCampCreator(camp) {
   bar.append(back, el('span', 'sp'), el('span', 'alwait', 'Hero name'), nm, dice);
   const LV = { F: 1, C: 3, Q: 6, R: 9 };
   const side = () => `<div class="ccside"><div class="eyebrow">${camp ? esc(camp.name) : 'A new campaign'}</div><h3>Your voyage</h3>
-    <p>You sail into <b>Goblin Island</b>, overrun by goblins possessed by a cursed idol. Defeat its three goblin champions and the High Chief to free the island, then set sail for the next port.</p>
+    <p>You wash up on <b>Goblos</b> with no memory. Templeton, a friendly goblin, drags you to his village. Help him finish his boat, bring down the Warchief's regime, then sail together for <b>Gob</b>.</p>
+    <label class="ccintro"><input type="checkbox" id="ccintro"${CC.intro ? ' checked' : ''}> Play the intro <small>(the washed-ashore scene and the first steps in the village)</small></label>
     <div class="ccisl on"><b>Starting classes</b><span>${CORE_CLASSES.map(k => CLASSES[k].name).join(' · ')}</span></div>
     ${ISLANDS.map(i => `<div class="ccisl${freed.has(i.id) ? ' on' : ''}"><b>${freed.has(i.id) ? '✓' : '🔒'} ${esc(i.name)}</b><span>${i.classes.map(k => CLASSES[k] ? CLASSES[k].name : k).join(' · ')}</span></div>`).join('')}
     <p class="ccnote">Abilities unlock as you level: F at 1, C at 3, Q at 6 and your ultimate at 9. Press K in the game to see them all.</p></div>`;
@@ -553,6 +555,7 @@ function showCampCreator(camp) {
     barred: (k) => lockReason(k, freed), abNote: (a) => LV[a.key] ? 'Lv ' + LV[a.key] : '', side, lockText: 'Set sail',
     state: () => ({ teams: null, myTeam: 0, roster: [], mine: { cls: CC.cls, locked: false }, timer: null }),
     onPick: (k) => { CC.cls = k; }, onLock: () => finishCamp(ov, nm) });
+  ov.addEventListener('change', (e) => { if (e.target && e.target.id === 'ccintro') CC.intro = e.target.checked; });
   setTimeout(() => nm.focus(), 50);
 }
 function finishCamp(ov, nm) {
@@ -560,6 +563,8 @@ function finishCamp(ov, nm) {
   const cls = CC.cls, race = CLASS_RACE[cls] || 'human', d = defaults(), r = RACES[race] || RACES.human;
   const app = Object.assign({}, d.app, { skin: r.skins[1], hair: r.hairs[0] });
   const h = newHero({ name, race, cls, sex: 'm', weapon: START[cls], app });
-  h.campaign = CC.camp ? CC.camp.id : 'c' + h.id; h.campaignName = CC.camp ? CC.camp.name : `${name}'s Campaign`; h.gi = true; h.freed = []; h.zone = 'Goblin Island';
+  h.campaign = CC.camp ? CC.camp.id : 'c' + h.id; h.campaignName = CC.camp ? CC.camp.name : `${name}'s Campaign`; h.gi = true; h.freed = []; h.zone = 'Goblos';
+  h.tut = CC.intro ? 'on' : 'skip'; /* (the owner: the intro can be turned off here; then you start in Snagglefoot beside Templeton, the first steps done) */
+  if (!CC.intro) { h.introDone = true; h.quests.done.push('gi_arrive', 'gi_first'); h.isle = { tut_dummy: true, tut_cook: true }; h.pos = { x: BOATYARD.x - 5, z: BOATYARD.z - 9, yaw: Math.atan2(4, 9) }; }
   putSave(h); ov.remove(); goFull(); Menu.onPlay(h);
 }

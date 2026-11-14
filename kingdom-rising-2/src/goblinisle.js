@@ -9,6 +9,7 @@ import { distToLine } from './util.js';
 import { Mob, Villager } from './mobs.js';
 import { MOBS, ZONES, NPCS, QUESTS } from './data.js';
 import { dressMob, dressBeast, dressPerson, propAt, tickDress } from './gimodels.js';
+import { M } from './audio.js';
 import { GI, PEAK, GORGE, GORGE_W, GORGE_RIM, BRIDGE1, TRIBES, LAIRS, CAMP_SPOT, VILLAGE_GI, RAMP1, RAMP2, rampPoint, rampNear, WORKS, WRECK, CLIMBS, FANGS } from './gimap.js';
 
 const R = (a, b) => a + Math.random() * (b - a);
@@ -354,6 +355,15 @@ export function giSpawn() {
 const carts = [];
 export function tickCarts() { for (const c of carts) { if (!c.o) continue; const m = c.m; c.o.visible = !m.dead; if (m.dead) continue; const fx = Math.sin(m.yaw), fz = Math.cos(m.yaw), x = m.pos.x - fx * 2.4, z = m.pos.z - fz * 2.4; c.o.position.set(x, heightAt(x, z), z); c.o.rotation.y = m.yaw; } }
 export function objectives() {}
+// the music for where you stand: the village and the sailors' camp, the south valley, the jungle valleys, enemy camps and lairs, the mountain
+export function giMusic(p, fight) {
+  if (!M.areaMode) M.areaMode = true; const x = p.pos.x, z = p.pos.z, near = (c, r) => Math.hypot(x - c.x, z - c.z) < r;
+  M.setTown((near(V, V.r + 20) || near(CAMP_SPOT, 45)) && fight < 1);
+  const r = Math.hypot(x - PEAK.x, z - PEAK.z);
+  const area = r < PEAK.rUp && p.pos.y > PEAK.shelfH + 10 ? 'peak' : r < PEAK.rShelf + 4 && p.pos.y > PEAK.shelfH2 - 6 ? 'shelf'
+    : [...Object.values(TRIBES), ...LAIRS].some(t => near(t, (t.r || 18) + 25)) ? 'camp' : z > 175 ? 'meadow' : 'jungle';
+  M.setZone(area);
+}
 // where you wake after dying: the nearest safe place you have reached (never an enemy camp)
 export function giRespawns() {
   const I = isle(), out = [{ x: CAMP_SPOT.x + 3, z: CAMP_SPOT.z + 6 }, { x: V.x + 4, z: V.z + 8 }];

@@ -765,6 +765,8 @@ TRACKS.combat = { bpm: 148, div: 4, step(t, s, dest) {
 const SONGS = {
   coast: ['music/calm_meadow.mp3'], meadow: ['music/calm_meadow.mp3'], wood: ['music/calm_forest.mp3', 'music/forest.mp3'],
   highlands: ['music/calm_snow.mp3', 'music/calm_cave.mp3'], ashlands: ['music/calm_ash.mp3'],
+  // Goblin Island's areas
+  jungle: ['music/calm_forest.mp3', 'music/forest.mp3'], camp: ['music/calm_ash.mp3', 'music/calm_cave.mp3'], shelf: ['music/calm_cave.mp3', 'music/calm_snow.mp3'], peak: ['music/calm_snow.mp3'],
   town: ['music/town4.mp3', 'music/town2.mp3', 'music/town3.mp3', 'music/town1.mp3'],
 };
 const LOOPS = { title: 'music/title.mp3', combat: '../audio/rec/battle-music.mp3', boss: 'music/boss.mp3' };
@@ -779,7 +781,7 @@ function startSong(now) {
   if (list.length > 1 && pick === song.last[key]) pick = list[(list.indexOf(pick) + 1) % list.length];
   song.last[key] = pick;
   const el = new Audio(pick); el.volume = 0; el.preload = 'auto';
-  el.addEventListener('ended', () => { if (song.el === el) { song.el = null; song.lv = 0; song.silenceUntil = performance.now() + (townOn ? 15000 + Math.random() * 20000 : 60000 + Math.random() * 90000); } });
+  el.addEventListener('ended', () => { if (song.el === el) { song.el = null; song.lv = 0; song.silenceUntil = performance.now() + (M.areaMode ? 3000 + Math.random() * 5000 : townOn ? 15000 + Math.random() * 20000 : 60000 + Math.random() * 90000); } });
   song.el = el; song.lv = 0; song.ctx = key; song.fadeOut = false;
   el.play().then(() => { M.blocked = false; }).catch(() => { M.blocked = true; song.el = null; song.silenceUntil = now + 1500; });
 }
@@ -792,6 +794,7 @@ export const M = {
   setBoss(on) { bossOn = on; },
   setZone(z) { musicZone = z; },
   setTown(on) { townOn = on; },
+  areaMode: false, // (Goblin Island: the music follows the area you're in, and plays on without long silences)
   blocked: false,
 };
 let lastTick = performance.now();
@@ -816,12 +819,13 @@ setInterval(() => {
   if (song.el) {
     // entering or leaving town changes the song; moving between zones lets it finish
     if ((song.ctx === 'town') !== townOn) song.fadeOut = true;
+    if (M.areaMode && song.ctx !== ctxNow()) song.fadeOut = true;
     const target = song.fadeOut || fight ? 0 : 1;
     song.lv += Math.sign(target - song.lv) * Math.min(Math.abs(target - song.lv), dt * (target ? 0.25 : 0.4));
     routeEl(song.el); song.el.volume = Math.max(0, Math.min(1, song.lv * song.lv * musicVol(song.el) * 0.26 / (song.el._routed === true ? 0.6 : 1)));
     if (fight && song.lv <= 0.001 && !song.el.paused) song.el.pause();
     if (!fight && !song.fadeOut && song.el.paused && song.el.currentTime > 0) song.el.play().catch(() => {});
-    if (song.fadeOut && song.lv <= 0.001) { song.el.pause(); song.el = null; song.silenceUntil = now + (townOn ? 1500 : 20000); }
+    if (song.fadeOut && song.lv <= 0.001) { song.el.pause(); song.el = null; song.silenceUntil = now + (M.areaMode ? 1200 : townOn ? 1500 : 20000); }
   } else if (!fight && now > song.silenceUntil) startSong(now);
 }, 50);
 function combatTick() {}

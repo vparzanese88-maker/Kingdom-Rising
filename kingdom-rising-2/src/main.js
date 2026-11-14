@@ -13,7 +13,7 @@ import { PORT } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { GI } from './gimap.js';
-import { giSpawn, giKill, giApply, giTick, giPeople, giRespawns } from './goblinisle.js';
+import { giSpawn, giKill, giApply, giTick, giPeople, giRespawns, giMusic } from './goblinisle.js';
 import { summonPets, petCommand, pets, PETS, stopPets, dismissPets } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
 import { addIcons } from './icons2.js';
@@ -878,7 +878,7 @@ function updateZone(p) {
     const prev = zoneNow; zoneNow = z;
     const zn = ZONES.find(x => x.id === z);
     if (prev && zn && !BATTLE) { UI.banner(zn.name, `Level ${zn.lv}`); S.zone(); }
-    M.setZone(z);
+    if (!GI) M.setZone(z);
     if (G.save) G.save.zone = zn.name;
   }
   const m = biomeMasks(p.pos.x, p.pos.z);
@@ -976,7 +976,7 @@ function gameUpdate(dt) {
   { let threat = false, elite = false; for (const m of G.mobs) { if (m.dead || m.state !== 'chase') continue; if (Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z) > 35) continue; if (m.def.aggro > 0) threat = true; if (m.def.elite) elite = true; }
     musicFight = threat || elite ? Math.min(6, musicFight + dt) : Math.max(0, musicFight - dt * 0.4);
     M.setCombat(musicFight > 1.2); M.setBoss(elite); }
-  if (BATTLE) { const t = Battle.myTown(); M.setTown(Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 45 && musicFight < 1); } else { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
+  if (GI) giMusic(p, musicFight); else if (BATTLE) { const t = Battle.myTown(); M.setTown(Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 45 && musicFight < 1); } else { const near = (x, z, r) => Math.hypot(p.pos.x - x, p.pos.z - z) < r; M.setTown(near(VILLAGE.x, VILLAGE.z, 60) || CAMPS.slice(0, 3).some(c => near(c.x, c.z, 40))); }
   if (YARD) updateYard(dt);
   if (ARENA) Arena.updateArena(dt);
   if (!BATTLE && !YARD && !ARENA && !intro) { updateFog(dt, [{ x: p.pos.x, z: p.pos.z, r: 80 }]);

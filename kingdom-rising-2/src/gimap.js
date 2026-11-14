@@ -45,7 +45,8 @@ export const WORKS = [
   { id: 'build_g', kind: 'build', x: GATEHOUSE.x - 30, z: GATEHOUSE.z + 26, r: 16, tribe: 'skull' },
 ];
 export const CAMP_SPOT = { x: 18, z: 352, r: 26 }; // the sailors' camp on the beach
-export const WRECK = { x: 70, z: 395, yaw: 0.6 }; // the beached ship you repair to leave
+export const WRECK = { x: 70, z: 395, yaw: 0.6 }; // Templeton's wrecked ship (it never made the dock)
+export const BOATYARD = { x: 40, z: 399, yaw: 1.45 }; // where Templeton builds the new boat from the wreck and your rowboat
 export const ROADS_GI = [
   [[0, 362], [-40, 340], [VILLAGE_GI.x, VILLAGE_GI.z]],                                     // beach to Snagglefoot
   [[VILLAGE_GI.x, VILLAGE_GI.z], [-60, 280], [-20, 240], [0, 200], [BRIDGE1.x, BRIDGE1.zS + 2]], // Snagglefoot to the gorge bridge

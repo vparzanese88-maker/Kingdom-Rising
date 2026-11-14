@@ -568,7 +568,7 @@ export class NPC {
     this.yaw += angDiff(this.yaw, target) * Math.min(1, dt * 3);
     this.root.rotation.y = this.yaw;
     this.waveT -= dt;
-    if (this.mz) animPerson(this, dt, d < 9 ? 'talk' : 'idle'); else if (d < 70) animateHumanoid(this.ch, dt, { speed: 0, wave: this.waveT > 0, armed: !!this.ch.wt });
+    if (this.mz) animPerson(this, dt, d < 9 ? 'talk' : (this.def && this.def.job) || 'idle'); else if (d < 70) animateHumanoid(this.ch, dt, { speed: 0, wave: this.waveT > 0, armed: !!this.ch.wt });
     // keep player out
     if (d < this.radius + player.radius) { const k = (this.radius + player.radius - d) / Math.max(0.01, d); player.pos.x += (player.pos.x - this.pos.x) * k; player.pos.z += (player.pos.z - this.pos.z) * k; }
   }

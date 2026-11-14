@@ -13,7 +13,7 @@ import { PORT } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { GI } from './gimap.js';
-import { giSpawn, giKill, giApply, giTick, giPeople, giRespawns, giMusic } from './goblinisle.js';
+import { giSpawn, giKill, giApply, giTick, giPeople, giRespawns, giMusic, rebuildStage } from './goblinisle.js';
 import { summonPets, petCommand, pets, PETS, stopPets, dismissPets } from './pets.js';
 import { spawnGuards, updateGuards } from './guards.js';
 import { addIcons } from './icons2.js';
@@ -540,7 +540,7 @@ function hooks() {
     if (name == null) { e.hidden = true; return; } e.hidden = false; e.querySelector('b').textContent = name; e.querySelector('u').style.width = Math.round(Math.min(1, k) * 100) + '%'; };
   H.chatter = (v) => { const P = G.player; v.yaw = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); v.to = null; v.t = 6; S.click(); UI.openChatter(v); };
   H.mapLearned = (p, v) => chatAdd(`<b class="sk">Map updated:</b> ${p.name} <span style="color:#a8987a">(from ${v.vname})</span>`, 'skill');
-  H.boat = () => { S.step('wood'); if (GI) { UI.toast(G.save.isle && G.save.isle.freed ? 'The sea chart is coming soon.' : 'Free Goblin Island first: its three goblin champions and the High Chief must fall.', '⛵', 'bad'); return; } const q = G.save.quests;
+  H.boat = () => { S.step('wood'); if (GI) { const st = rebuildStage(); UI.toast(st < 5 ? 'Templeton is still building the new boat (step ' + st + ' of 7). Every main quest you finish moves it along.' : G.save.isle && G.save.isle.freed ? 'The sea chart is coming soon.' : 'Templeton: "She floats, but the idol\'s storms would sink us. Free the island first!"', '⛵', 'bad'); return; } const q = G.save.quests;
     UI.toast("You can't set sail yet: the boat needs major repairs.", '⛵', 'bad');
     monologue(q.active.mq_boat ? 'Split plank, torn sail... I need a shipwright before she goes anywhere.' : 'She needs major repairs before she sails again.', 4200); };
   H.station = (type) => { S.click(); UI.openCrafting(type); };
@@ -674,7 +674,7 @@ function endIntro() {
   saveNow();
   const fd = $('sailfade'); setTimeout(() => { fd.style.opacity = 0; }, 400);
   if (GI) { // Goblin Island: the arrival
-    setTimeout(() => monologue('Goblins everywhere... and every one of them has the same mad look in its eyes.'), 1800);
+    setTimeout(() => monologue('The ship\'s gone... but the rowboat held. I need supplies, and a bigger boat. And is that someone by that wreck?'), 1800);
     setTimeout(() => UI.banner('Goblin Island', 'Free the island: its three goblin champions and the High Chief must fall', 4500), 7000);
     setTimeout(() => UI.hint('The goblin city sits inside the ring of mountains in the north, past the <b>Great Gorge</b>. Its drawbridge is raised: the <b>Bloodfang Warchief</b> (west of the beach) carries the winch crank. Your goals are listed on the right.', 16000), 12500);
     lockPointer(); return; }

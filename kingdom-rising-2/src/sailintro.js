@@ -53,7 +53,7 @@ export function buildBoat() {
   // Goblin Island (the owner): you sail in on the Meshy rowboat; the old boat is hidden once it has loaded
   // the hero's boat grows with every island freed: a rowboat, a sailboat, a small ship, a large ship
   if (GI) loadGI(BOATS[0]).then(m0 => m0 || loadGI('rowboat')).then(m => { if (!m) return; const o = m.scene.clone(), sz = m.box.getSize(new THREE.Vector3()), along = sz.x > sz.z ? 'x' : 'z', L = BOAT_LEN[0], k = L / Math.max(sz.x, sz.z);
-    const inner = new THREE.Group(); o.scale.setScalar(k); o.position.set(-m.box.getCenter(new THREE.Vector3()).x * k, -m.minY * k - 0.9, -m.box.getCenter(new THREE.Vector3()).z * k); if (along === 'x') inner.rotation.y = Math.PI / 2; inner.add(o);
+    const inner = new THREE.Group(); o.scale.setScalar(k); o.position.set(-m.box.getCenter(new THREE.Vector3()).x * k, -m.minY * k - 0.2, -m.box.getCenter(new THREE.Vector3()).z * k); if (along === 'x') inner.rotation.y = Math.PI / 2; inner.add(o);
     inner.scale.set(1 / BOAT_SCALE, 1 / (BOAT_SCALE * 2 / 3), 1 / BOAT_SCALE); for (const c of g.children) c.visible = false; g.add(inner); });
   return g;
 }

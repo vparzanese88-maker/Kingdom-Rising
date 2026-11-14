@@ -86,15 +86,39 @@ export function dressPerson(p, name, height, fallback) {
 }
 export function animPerson(p, dt, state) { const Z = p.mz, P = G.player; if (P && p.pos.distanceToSquared(P.pos) > 80 * 80) return; play(Z, state || 'idle'); Z.mixer.update(dt); }
 // ---- animals moved in code (no rig needed): bob, sway and lunge ----
+// (the owner: nothing moves without its legs moving) Meshy's rigs only know two legs, so four-legged animals walk with a
+// leg shader: the model below the belly is split into four legs that swing in a trot, the feet lifting on the forward swing;
+// crabs scuttle (their legs patter up and down). Uniforms are per animal: phase and stride follow how fast it moves.
+export function legShader(mesh, U, crab) {
+  const g = mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox, sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+  const alongX = sz.x > sz.z, legTop = b.min.y + sz.y * (crab ? 0.5 : 0.4);
+  const mat = mesh.material.clone(); mesh.material = mat;
+  mat.onBeforeCompile = (sh) => { sh.uniforms.uPh = U.ph; sh.uniforms.uAmp = U.amp;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uPh, uAmp;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        { float minY = ${b.min.y.toFixed(4)}, top = ${legTop.toFixed(4)}, H = ${sz.y.toFixed(4)};
+          float k = clamp((top - transformed.y) / (top - minY), 0.0, 1.0);
+          float al = transformed.${alongX ? 'x' : 'z'} - ${(alongX ? c.x : c.z).toFixed(4)}, sd = transformed.${alongX ? 'z' : 'x'} - ${(alongX ? c.z : c.x).toFixed(4)};
+          ${crab ? `float ph = uPh * 2.0 + al * 9.0 + sd * 3.0; transformed.y += max(0.0, sin(ph)) * uAmp * H * 0.18 * k; transformed.${alongX ? 'x' : 'z'} += sin(ph * 0.5) * uAmp * H * 0.05 * k;`
+                 : `float off = (al > 0.0) == (sd > 0.0) ? 0.0 : 3.14159; float sw = sin(uPh + off);
+          k *= smoothstep(${(0.06 * (alongX ? sz.x : sz.z)).toFixed(4)}, ${(0.2 * (alongX ? sz.x : sz.z)).toFixed(4)}, abs(al)) * smoothstep(${(0.02 * (alongX ? sz.z : sz.x)).toFixed(4)}, ${(0.12 * (alongX ? sz.z : sz.x)).toFixed(4)}, abs(sd)); // (no movement between the legs: no stretched skin under the belly)
+          transformed.${alongX ? 'x' : 'z'} += sw * uAmp * H * 0.28 * k; transformed.y += max(0.0, cos(uPh + off)) * uAmp * H * 0.09 * k;`}
+        }`);
+  };
+  mat.customProgramCacheKey = () => 'legs' + (crab ? 'c' : 'q') + b.min.y.toFixed(3) + legTop.toFixed(3);
+}
 export function dressBeast(m, name, length) {
   loadGI(name).then(g => { if (!g || !m.root) return; const o = g.scene.clone(), sz = g.box.getSize(new THREE.Vector3()), k = length / Math.max(sz.x, sz.z) / (m.root.scale.y || 1);
-    o.scale.setScalar(k); o.position.y = -g.minY * k; const pivot = new THREE.Group(); pivot.add(o); for (const c of m.root.children) c.visible = false; m.root.add(pivot); m.beast = { pivot, t: Math.random() * 9 }; });
+    o.scale.setScalar(k); o.position.y = -g.minY * k; const pivot = new THREE.Group(); pivot.add(o); for (const c of m.root.children) c.visible = false; m.root.add(pivot);
+    const U = { ph: { value: Math.random() * 6 }, amp: { value: 0 } }; o.traverse(x => { if (x.isMesh) legShader(x, U, name === 'crab'); });
+    m.beast = { pivot, t: Math.random() * 9, U }; });
 }
 export function animBeast(m, dt, st) {
   const B = m.beast, sp = st.speed || 0; B.t += dt * (2 + sp * 1.6);
-  if (st.dead) { B.pivot.rotation.z += (Math.PI / 2 - B.pivot.rotation.z) * Math.min(1, dt * 6); return; }
-  B.pivot.position.y = sp > 0.3 ? Math.abs(Math.sin(B.t)) * 0.06 * Math.min(1, sp / 3) : Math.sin(B.t * 0.4) * 0.01;
-  B.pivot.rotation.x = st.action ? -Math.sin(Math.min(1, st.actionT || 0) * Math.PI) * 0.35 : Math.sin(B.t) * 0.03 * Math.min(1, sp);
+  if (st.dead) { B.U.amp.value = 0; B.pivot.rotation.z += (Math.PI / 2 - B.pivot.rotation.z) * Math.min(1, dt * 6); return; }
+  B.U.ph.value += dt * (1.5 + sp * 2.2); B.U.amp.value += ((sp > 0.2 ? Math.min(1, 0.35 + sp / 4) : 0) - B.U.amp.value) * Math.min(1, dt * 8); // (the legs: stride grows with speed, settles when it stops)
+  B.pivot.position.y = sp > 0.3 ? Math.abs(Math.sin(B.U.ph.value)) * 0.035 * Math.min(1, sp / 3) : Math.sin(B.t * 0.4) * 0.01;
+  B.pivot.rotation.x = st.action ? -Math.sin(Math.min(1, st.actionT || 0) * Math.PI) * 0.35 : Math.sin(B.U.ph.value * 2) * 0.02 * Math.min(1, sp);
   B.pivot.rotation.z = Math.sin(B.t * 0.5) * 0.02;
 }
 // ---- trees, rocks and bushes: the island's instanced scenery takes the Meshy shapes ----

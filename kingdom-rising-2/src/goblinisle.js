@@ -123,7 +123,7 @@ export function buildGoblinIsle(scene, helpers) {
   for (const [id, t] of Object.entries(TRIBES)) buildTribe(scene, id, t);
   for (const l of LAIRS) buildLair(scene, l);
   for (const w of WORKS) buildWork(scene, w);
-  buildClimbs(scene); buildShipParts(scene); buildFort(scene);
+  buildClimbs(scene); buildShipParts(scene); buildFort(scene); buildGrowth(scene);
   // jungle floor: ferns, mossy logs, mushrooms and bushes (Meshy props), clear of towns, camps and paths
   for (let i = 0, n = 0; i < 4000 && n < 260; i++) { const x = R(-440, 440), z = R(-420, 440), h = heightAt(x, z); if (h < 2.5 || giAvoid(x, z, 4) || Math.hypot(x - PEAK.x, z - PEAK.z) < PEAK.rLow + 10) continue;
     if ([CAMP_SPOT, V, ...Object.values(TRIBES), ...WORKS].some(c => Math.hypot(c.x - x, c.z - z) < c.r + 10)) continue; const k = n % 7, name = ['fern_lo', 'fern_lo', 'bush_lo', 'mossy_log', 'mushrooms', 'fern_lo', 'bush_lo'][k];
@@ -194,6 +194,22 @@ const STAGE_SAY = [null,
 function setWreck(I) { const W = live.wreck; if (!W) return; const st = rebuildStage(); if (W.meshy) W.meshy.visible = true; if (W.fixed) W.fixed.visible = st >= 5; if (W.hull) W.hull.visible = st >= 2 && st < 5;
   for (const o of W.yard || []) { o.visible = st >= o.userData.st && (o.userData.until == null || st < o.userData.until) && !(o.userData.st === 0 && o.userData.until == null && st >= 5 && o.children.length === 5); if (o.userData.col) o.userData.col.on = o.visible; }
   if (world.myBoat) world.myBoat.visible = false; W.holes.forEach(h => { h.visible = true; }); W.sail.visible = false; }
+// Snagglefoot grows as you help it (the owner: a living world that answers you): every quest you finish brings back a family,
+// a hut, a stall or a well, out at the edge of the village. Things already earned are there when you load.
+const HELP = ['gi_village', 'gi_boars', 'gi_madgobs', 'gi_ship1', 'gi_crank', 'gi_trolls', 'gi_ship2', 'gi_totems', 'gi_ship3', 'gi_shelf', 'gi_warchief'];
+const GROW = [ // [model, angle round the village, distance, height, turn]
+  ['goblin_hut', 3.85, 30, 4.4, 0], ['market_stall', 2.9, 27, 3.0, 0.5], ['goblin_tent', 4.45, 29, 3.0, 0], ['goblin_hut', 5.0, 30, 4.6, 0], ['well', 4.15, 25, 3.0, 0],
+  ['market_stall', 5.95, 27, 3.0, 0], ['goblin_hut', 1.6, 30, 4.4, 0], ['goblin_tent', 2.3, 29, 3.0, 0], ['goblin_hut', 0.0, 31, 4.6, 0], ['war_totem', 6.2, 22, 4.0, 0], ['goblin_hut', 2.65, 32, 4.8, 0]]; // (kept off the roads and Templeton's yard)
+const growthNow = () => { const Q = G.save && G.save.quests; return Q ? HELP.filter(id => Q.done.includes(id)).length : 0; };
+function buildGrowth(scene) { live.grow = [];
+  GROW.forEach(([nm, a, r, s2, t], i) => { const x = V.x + Math.cos(a) * r, z = V.z + Math.sin(a) * r, col = addCircle(x, z, nm === 'goblin_hut' ? 2.6 : nm === 'well' ? 1.3 : 1.6); col.on = false;
+    propAt(nm, x, heightAt(x, z), z, -a - Math.PI / 2 + t, s2).then(o => { if (!o) return; o.visible = false; live.grow[i] = { o, col }; setGrowth(true); }); }); }
+function setGrowth(quiet) { const n = growthNow(), I = isle();
+  live.grow.forEach((g, i) => { if (!g) return; g.o.visible = i < n; g.col.on = i < n; });
+  const had = I.grown || 0; if (n > had) { I.grown = n; if (!quiet) { G.hooks.toast && G.hooks.toast('Snagglefoot grows: a family comes home', '🏡', 'gold'); } }
+  while ((live.extraFolk || 0) < Math.min(n, 8)) { const k = live.extraFolk = (live.extraFolk || 0) + 1, a = k * 0.8 + 0.4, r = 20 + (k % 3) * 4; // (more goblins about the village)
+    const v = new Villager(V.x + Math.cos(a) * r, V.z + Math.sin(a) * r, { race: 'goblin', sex: k % 2 ? 'f' : 'm', outfit: ['worker', 'weaver', 'hunter', 'smith'][k % 4], skin: GSKIN[k % 4], hair: '#2a2010', hairStyle: k % 3, beard: 0, height: 0.9 });
+    v.talkable = true; v.vname = ['Dribble', 'Mosk', 'Tuggin', 'Wenna', 'Pib', 'Snoot', 'Garla', 'Flick'][k - 1]; G.npcs.push(v); dressPerson(v, 'goblin_villager', 1.15 + (k % 3) * 0.08); } }
 // the regime's fort on the summit of Grimtusk Peak: a palisade ring with its gate where the Skull Stair arrives, watchtowers,
 // war totems, bonfires and the Warchief's great hall in the middle (the owner's storyline: storm the fort, defeat its ruler)
 function buildFort(scene) {
@@ -397,6 +413,7 @@ export function giTick(dt) {
   // quests with nobody to give them start by themselves once their way is open
   for (const q of QUESTS) if (q.main && !q.giver && !G.save.quests.active[q.id] && !dn(q.id) && (q.req || []).every(dn)) { G.save.quests.active[q.id] = { p: q.obj.map(() => 0), t: Date.now() }; G.hooks.questsChanged && G.hooks.questsChanged(); }
   if (I.ship1 !== dn('gi_ship1') || I.ship2 !== dn('gi_ship2') || I.ship3 !== dn('gi_ship3')) { I.ship1 = dn('gi_ship1'); I.ship2 = dn('gi_ship2'); I.ship3 = dn('gi_ship3'); setWreck(I); }
+  if (live.grow && growthNow() !== (giTick.grownN ?? -1)) { const first = giTick.grownN == null; giTick.grownN = growthNow(); setGrowth(first); }
   { const st = rebuildStage(); if (I.rebuild == null) I.rebuild = st; if (st !== I.rebuild) { const up = st > I.rebuild; I.rebuild = st; setWreck(I); const s = STAGE_SAY[st]; if (up && s) { G.hooks.banner && G.hooks.banner(s[0], 'Templeton: ' + s[1], 6000); G.hooks.toast && G.hooks.toast('Templeton\'s boat: step ' + st + ' of 7', '🔨', 'gold'); } } }
   for (const qid of Object.keys(G.save.quests.active)) { const q = QUESTS.find(x => x.id === qid); if (q && !q.turnin && q.obj.length && q.obj.every(o => o.t === 'flag' && I[o.flag])) G.hooks.autoTurnIn && G.hooks.autoTurnIn(q); }
 }

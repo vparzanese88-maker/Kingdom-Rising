@@ -20,7 +20,7 @@ export const A = {
     musicBus = ctx.createGain(); sfxBus = ctx.createGain(); ambBus = ctx.createGain();
     // music skips the effects compressor (its make-up gain would push recorded music far too loud)
     musicOut = ctx.createGain(); musicOut.connect(ctx.destination); musicBus.connect(musicOut);
-    sfxBus.connect(master); ambBus.connect(master); swBus = ctx.createGain(); swBus.gain.value = 0.5; swBus.connect(sfxBus); /* (the owner: weapon slashes and swooshes at half volume) */
+    sfxBus.connect(master); ambBus.connect(master); swBus = ctx.createGain(); swBus.gain.value = 0.35; swBus.connect(sfxBus); /* (the owner: weapon slashes and swooshes at half volume) */
     reverb = ctx.createConvolver(); reverb.buffer = makeImpulse(2.8, 2.5);
     reverbSend = ctx.createGain(); reverbSend.gain.value = 0.9;
     reverbSend.connect(reverb); reverb.connect(master);
@@ -810,7 +810,7 @@ setInterval(() => {
     const c = loopCh(name);
     const rate = target ? (name === 'title' ? 0.25 : 0.6) : 0.3; /* (the title music eases in over about 4 s instead of arriving at full volume) */
     c.lv += Math.sign(target - c.lv) * Math.min(Math.abs(target - c.lv), dt * rate);
-    routeEl(c.el); c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * musicVol(c.el) * (name === 'title' ? 0.12 : name === 'combat' ? 0.22 : 0.34) /* (title music about a third of what it was, battle and boss music a quarter quieter: the owner found it far too loud) */ / (c.el._routed === true ? 0.6 : 1)));
+    routeEl(c.el); c.el.volume = Math.max(0, Math.min(1, c.lv * c.lv * musicVol(c.el) * (name === 'title' ? 0.2 : name === 'combat' ? 0.14 : 0.28) /* (every track is now evened out to the same loudness (-16 LUFS); the battle track, from a shared folder, is 5 dB hotter, so it plays lower) */ /* (title music about a third of what it was, battle and boss music a quarter quieter: the owner found it far too loud) */ / (c.el._routed === true ? 0.6 : 1)));
     if (c.lv > 0.001 && c.el.paused && !c.pending) { c.pending = true; c.el.play().then(() => { c.pending = false; M.blocked = false; }).catch(() => { c.pending = false; M.blocked = true; }); }
     if (c.lv <= 0.001 && !c.el.paused) { c.el.pause(); if (name !== 'title') c.el.currentTime = 0; }
   }
@@ -840,8 +840,8 @@ function loopNoise(type, f, q) {
   return { s, fl, g };
 }
 function startAmbience() {
-  amb.sea = loopNoise('lowpass', 500, 0.5);
-  amb.sea2 = loopNoise('bandpass', 1800, 0.4);
+  amb.sea = loopNoise('lowpass', 340, 0.4); // (the owner: soft lapping water, not constant heavy waves)
+  amb.sea2 = loopNoise('bandpass', 1400, 0.3);
   amb.wind = loopNoise('bandpass', 400, 0.6);
   amb.fall = loopNoise('lowpass', 1400, 0.3);
   amb.fire = loopNoise('bandpass', 2500, 0.6);
@@ -853,8 +853,8 @@ function ambTick() {
   if (!ctx) return;
   ambT += 0.1;
   const st = ambState, ON = track === 'explore' ? 1 : 0;
-  const wave = 0.55 + 0.45 * Math.sin(ambT * 0.7) * Math.sin(ambT * 0.31 + 1);
-  set(amb.sea.g, st.sea * 0.5 * wave * ON); set(amb.sea2.g, st.sea * 0.12 * Math.max(0, wave - 0.4) * ON);
+  const lap = Math.pow(Math.max(0, Math.sin(ambT * 1.15) * Math.sin(ambT * 0.43 + 1)), 2), wave = 0.35 + 0.65 * lap; // (small waves lapping now and then over a quiet wash)
+  set(amb.sea.g, st.sea * 0.2 * wave * ON); set(amb.sea2.g, st.sea * 0.03 * lap * ON);
   amb.wind.fl.frequency.value = 300 + 200 * Math.sin(ambT * 0.13);
   set(amb.wind.g, st.wind * (0.12 + 0.08 * Math.sin(ambT * 0.21)) * ON);
   set(amb.fall.g, st.waterfall * 0.55 * ON);

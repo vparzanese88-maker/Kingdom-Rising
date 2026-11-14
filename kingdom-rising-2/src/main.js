@@ -937,7 +937,8 @@ function updateZone(p) {
     if (G.save) G.save.zone = zn.name;
   }
   const m = biomeMasks(p.pos.x, p.pos.z);
-  const sea = Math.max(0, Math.min(1, 1 - (440 - p.pos.z) / 110)) + Math.max(0, Math.min(1, 1 - (500 - p.pos.x) / 90)) * (p.pos.z > -100 ? 1 : 0);
+  let sea = Math.max(0, Math.min(1, 1 - (440 - p.pos.z) / 110)) + Math.max(0, Math.min(1, 1 - (500 - p.pos.x) / 90)) * (p.pos.z > -100 ? 1 : 0);
+  if (GI) { const g = updateZone.sea = updateZone.sea || { t: 0, v: 0 }, tn = performance.now(); if (tn - g.t > 500) { g.t = tn; let wet = 0, n = 0; for (const r of [25, 60]) for (let a = 0; a < 6.28; a += 0.785) { n++; if (heightAt(p.pos.x + Math.cos(a) * r, p.pos.z + Math.sin(a) * r) < 0.2) wet += r === 25 ? 1.6 : 0.7; } g.v = Math.min(1, wet / n); } sea = g.v; } // (Goblos: as loud as the water near you is close, not the old Kelda coast)
   const fd = p.pos.distanceTo(fall.base);
   let fireD = 99; for (const f of world.fires) { const d = f.pos.distanceTo(p.pos); if (d < fireD) fireD = d; }
   let lavaD = 999; if (world.lavaPools) for (const L of world.lavaPools) lavaD = Math.min(lavaD, Math.hypot(L.x - p.pos.x, L.z - p.pos.z) - L.r);

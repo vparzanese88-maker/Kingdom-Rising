@@ -8,7 +8,7 @@ import { heightAt } from './terrain.js';
 import { distToLine } from './util.js';
 import { Mob, Villager } from './mobs.js';
 import { MOBS, ZONES, NPCS, QUESTS } from './data.js';
-import { dressMob, dressBeast, dressPerson, propAt, tickDress } from './gimodels.js';
+import { dressMob, dressBeast, dressPerson, propAt, tickDress, loadGI } from './gimodels.js';
 import { M } from './audio.js';
 import { GI, PEAK, GORGE, GORGE_W, GORGE_RIM, BRIDGE1, TRIBES, LAIRS, CAMP_SPOT, VILLAGE_GI, RAMP1, RAMP2, rampPoint, rampNear, WORKS, WRECK, CLIMBS, FANGS } from './gimap.js';
 
@@ -50,17 +50,17 @@ if (GI) {
     Q({ id: 'gi_summit', main: true, giver: null, turnin: null, req: ['gi_shelf'], title: 'The Summit', xp: 1000, lvl: 8,
       text: 'Climb the Skull Stair to the goblin city on the summit of Grimtusk Peak. The High Chief and his three champions wait there with the idol.',
       obj: [{ t: 'flag', flag: 'summit', label: 'Reach the summit of Grimtusk Peak', at: [PEAK.x, PEAK.z], r: 30 }] }),
-    Q({ id: 'gi_ship1', giver: 'rivet', turnin: 'rivet', req: ['gi_arrive'], title: 'Timber for the Hull', xp: 200, lvl: 2,
-      text: 'Rivet can mend the wrecked ship, but the hull needs good seasoned timber. The Bloodfang goblins stack it at their lumber camp in the south valley.',
-      done: 'Good wood! Rivet patch the big holes now.', obj: [{ t: 'flag', flag: 'timber', label: 'Take seasoned timber from the Bloodfang lumber camp', at: [WORKS[0].x, WORKS[0].z], r: 14 }] }),
+    Q({ id: 'gi_ship1', giver: 'rivet', turnin: 'rivet', req: ['gi_arrive'], title: 'A Proper Sailboat', xp: 200, lvl: 2,
+      text: 'Your little rowboat won\'t survive the open sea. Rivet can build you a proper sailboat from the wreck\'s timbers, but he needs good seasoned timber. The Bloodfang goblins stack it at their lumber camp in the south valley.',
+      done: 'Good wood! Rivet lay the keel now.', obj: [{ t: 'flag', flag: 'timber', label: 'Take seasoned timber from the Bloodfang lumber camp', at: [WORKS[0].x, WORKS[0].z], r: 14 }] }),
     Q({ id: 'gi_ship2', giver: 'rivet', turnin: 'rivet', req: ['gi_ship1', 'gi_crank'], title: 'Sailcloth', xp: 350, lvl: 4,
       text: 'The sails are rags. The Mudfoot goblins weave their hide-cloth on drying racks in their swamp village.',
       done: 'Smelly cloth. Strong cloth. Rivet sew!', obj: [{ t: 'flag', flag: 'cloth', label: 'Take sailcloth from the Mudfoot drying racks', at: [TRIBES.mudfoot.x + 10, TRIBES.mudfoot.z + 10], r: 14 }] }),
     Q({ id: 'gi_ship3', giver: 'rivet', turnin: 'rivet', req: ['gi_ship2'], title: 'Iron and Tar', xp: 500, lvl: 5,
       text: 'Last of all: iron nails from the Skullsplitter forge, and pitch-black tar from the troll Old Gnash\'s cauldron on the High Shelf.',
-      done: 'Nails! Tar! The big boat is almost a boat again.', obj: [{ t: 'flag', flag: 'nails', label: 'Take iron nails from the Skullsplitter forge', at: [TRIBES.skull.x - 10, TRIBES.skull.z + 10], r: 14 }, { t: 'flag', flag: 'tar', label: 'Take tar from Old Gnash\'s cauldron (High Shelf)', at: [LAIRS[0].x, LAIRS[0].z], r: 16 }] }),
+      done: 'Nails! Tar! Look at the pier, tall one: a real sailboat! Rivet\'s best boat ever.', obj: [{ t: 'flag', flag: 'nails', label: 'Take iron nails from the Skullsplitter forge', at: [TRIBES.skull.x - 10, TRIBES.skull.z + 10], r: 14 }, { t: 'flag', flag: 'tar', label: 'Take tar from Old Gnash\'s cauldron (High Shelf)', at: [LAIRS[0].x, LAIRS[0].z], r: 16 }] }),
     Q({ id: 'gi_sail', main: true, giver: 'rivet', turnin: 'rivet', req: ['gi_ship3'], title: 'Set Sail', xp: 400, lvl: 8,
-      text: 'The ship is mended, but the idol\'s storms wreck every ship that leaves. Free the island first: kill the High Chief and his champions on the summit.',
+      text: 'Your new sailboat waits at the pier, but the idol\'s storms wreck every ship that leaves. Free the island first: kill the High Chief and his champions on the summit.',
       obj: [{ t: 'flag', flag: 'freed', label: 'Free Goblin Island (the summit)' }] }),
     Q({ id: 'gi_boars', giver: 'mags', turnin: 'mags', req: ['gi_village'], title: 'Garden Raiders', xp: 180, lvl: 1,
       text: 'Wild boars dig up Snagglefoot\'s gardens every night. Mags wants five of them gone (and in her pot).', done: 'Boar stew tonight! You are welcome at our fire, tall one.',
@@ -89,7 +89,12 @@ export function giAvoid(x, z, pad = 0) {
 
 // ---------------- the build ----------------
 export function buildGoblinIsle(scene, helpers) {
-  if (!GI) return; H = helpers; const { M } = H;
+  if (!GI) return; H = Object.assign({}, helpers); const { M } = H;
+  // (the owner: all new models for everything) the small helpers place Meshy props instead of the old shapes
+  H.barrel = (sc, x, z) => { propAt('barrel', x, heightAt(x, z), z, R(0, 6.28), 1.0); addCircle(x, z, 0.4); };
+  H.crate = (sc, x, z, r = 0, s = 0.8) => { propAt('crate', x, heightAt(x, z), z, r, s * 1.1); addBox(x, z, s * 0.55, s * 0.55, r); };
+  H.tent = (sc, x, z, rot, m, s = 1) => { propAt(m === M.cloth || m === M.clothBlue ? 'sail_tent' : 'goblin_tent', x, heightAt(x, z), z, rot, 3.2 * s); addCircle(x, z, 1.7 * s); };
+  H.campfire = (g) => { propAt('campfire', 0, 0, 0, R(0, 6.28), 0.9, g); };
   M.goblinRed = new THREE.MeshStandardMaterial({ color: '#8a2018', roughness: 0.9, side: THREE.DoubleSide });
   M.mud = new THREE.MeshStandardMaterial({ color: '#4a4a24', roughness: 1, side: THREE.DoubleSide });
   M.boneCloth = new THREE.MeshStandardMaterial({ color: '#d8d0b8', roughness: 0.95, side: THREE.DoubleSide });
@@ -105,8 +110,8 @@ export function buildGoblinIsle(scene, helpers) {
   for (const w of WORKS) buildWork(scene, w);
   buildClimbs(scene); buildShipParts(scene);
   // jungle floor: ferns, mossy logs, mushrooms and bushes (Meshy props), clear of towns, camps and paths
-  for (let i = 0, n = 0; i < 2000 && n < 140; i++) { const x = R(-440, 440), z = R(-420, 440), h = heightAt(x, z); if (h < 2.5 || giAvoid(x, z, 4) || Math.hypot(x - PEAK.x, z - PEAK.z) < PEAK.rLow + 10) continue;
-    if ([CAMP_SPOT, V, ...Object.values(TRIBES), ...WORKS].some(c => Math.hypot(c.x - x, c.z - z) < c.r + 10)) continue; const k = n % 7, name = ['fern', 'fern', 'jungle_bush', 'mossy_log', 'mushrooms', 'fern', 'jungle_bush'][k];
+  for (let i = 0, n = 0; i < 4000 && n < 260; i++) { const x = R(-440, 440), z = R(-420, 440), h = heightAt(x, z); if (h < 2.5 || giAvoid(x, z, 4) || Math.hypot(x - PEAK.x, z - PEAK.z) < PEAK.rLow + 10) continue;
+    if ([CAMP_SPOT, V, ...Object.values(TRIBES), ...WORKS].some(c => Math.hypot(c.x - x, c.z - z) < c.r + 10)) continue; const k = n % 7, name = ['fern_lo', 'fern_lo', 'bush_lo', 'mossy_log', 'mushrooms', 'fern_lo', 'bush_lo'][k];
     propAt(name, x, h, z, R(0, 6.28), name === 'mossy_log' ? 1.0 : name === 'mushrooms' ? 0.7 : R(0.9, 1.5)); if (name === 'mossy_log') addCircle(x, z, 1.0); n++; }
 }
 function buildSailorCamp(scene) {
@@ -127,35 +132,40 @@ function buildWreck(scene) {
   addBox(WRECK.x, WRECK.z, 4.2, 12, WRECK.yaw);
   live.wreck = { g, holes, sail };
   propAt('shipwreck', WRECK.x, heightAt(WRECK.x, WRECK.z) - 0.6, WRECK.z, WRECK.yaw, 9).then(o => { if (!o) return; live.wreck.meshy = o; g.visible = false; setWreck(isle()); });
-  propAt('ship', WRECK.x, heightAt(WRECK.x, WRECK.z) - 0.8, WRECK.z, WRECK.yaw, 16).then(o => { if (!o) return; live.wreck.fixed = o; o.visible = false; setWreck(isle()); });
+  { const P = world.pier, dx = P ? P.x + P.w + 10 : WRECK.x, dz = P ? (P.z0 + P.z1) / 2 + 8 : WRECK.z; // (the owner: Rivet builds you a bigger ship; it moors at the pier beside your rowboat)
+    propAt('rowboat', dx, -0.8, dz, 0.04, 9).then(o => { if (!o) return; live.wreck.fixed = o; o.visible = false; setWreck(isle()); }); } // (your next boat: the sailboat; a small ship and a large ship come with later islands)
 }
-function setWreck(I) { const W = live.wreck; if (!W) return; if (W.meshy) { W.meshy.visible = !I.ship3; if (W.fixed) W.fixed.visible = !!I.ship3; } W.holes.forEach((h, i) => { h.visible = !(i === 0 ? I.ship1 : I.ship3); }); W.sail.visible = !!I.ship2; W.g.rotation.z = I.ship3 ? 0.02 : 0.12; }
+function setWreck(I) { const W = live.wreck; if (!W) return; if (W.meshy) W.meshy.visible = true; if (W.fixed) W.fixed.visible = !!I.ship3; W.holes.forEach((h, i) => { h.visible = !(i === 0 ? I.ship1 : I.ship3); }); W.sail.visible = !!I.ship2; W.g.rotation.z = I.ship3 ? 0.02 : 0.12; }
 // Snagglefoot: a small friendly goblin village (blue and yellow, never possessed)
 function buildSnagglefoot(scene) {
   const { M, tent, campfire, placeGroup, barrel, crate, bx, cy, addHouse } = H;
   for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28 + 0.3, r = 18 + (i % 2) * 5, x = V.x + Math.cos(a) * r, z = V.z + Math.sin(a) * r; propAt('goblin_hut', x, heightAt(x, z), z, -a - Math.PI / 2, 4.6); addCircle(x, z, 2.6); }
   { const x = V.x + 15, z = V.z + 9; propAt('cook_pot', x, heightAt(x, z), z, 0, 1.6); addCircle(x, z, 0.9); }
-  for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + 1.1; tent(scene, V.x + Math.cos(a) * 9, V.z + Math.sin(a) * 9, a, i % 2 ? M.snag : M.snag2, 0.9); }
+  for (let i = 0; i < 3; i++) { const a = i / 3 * 6.28 + 1.1, x = V.x + Math.cos(a) * 10, z = V.z + Math.sin(a) * 10; propAt('goblin_tent', x, heightAt(x, z), z, -a, 3.0); addCircle(x, z, 1.6); }
+  { const x = V.x - 8, z = V.z - 9; propAt('well', x, heightAt(x, z), z, 0.4, 3.2); addCircle(x, z, 1.3); }
   const fg = new THREE.Group(); campfire(fg, scene, V.x, V.z + 2); placeGroup(fg, V.x, V.z + 2, 0, scene); addCircle(V.x, V.z + 2, 0.9); H.fire(scene, V.x, heightAt(V.x, V.z + 2) + 0.5, V.z + 2, 1);
-  { const g = new THREE.Group(); for (let k = 0; k < 3; k++) cy(0.5, 0.55, 1.5, k % 2 ? M.snag2 : M.snag, 0, 0.75 + k * 1.5, 0, g, 8); const sun = new THREE.Mesh(new THREE.CircleGeometry(0.9, 12), M.snag2); sun.position.set(0, 5.2, 0.05); g.add(sun); placeGroup(g, V.x - 6, V.z - 10, 0, scene); addCircle(V.x - 6, V.z - 10, 0.6); }
-  { const g = new THREE.Group(); bx(3, 1, 1.2, M.plank, 0, 0.5, 0, g); for (const sx of [-1, 1]) for (const sz of [-1, 1]) cy(0.07, 0.07, 2.6, M.beam, sx * 1.4, 1.3, sz * 0.6, g, 5); bx(3.4, 0.08, 1.8, M.snag, 0, 2.6, 0, g, 0.15); placeGroup(g, V.x + 10, V.z + 4, 0.6, scene); addBox(V.x + 10, V.z + 4, 1.5, 0.6, 0.6); }
+  { const x = V.x + 10, z = V.z + 4; propAt('market_stall', x, heightAt(x, z), z, -0.6 + Math.PI, 3.0); addBox(x, z, 1.5, 0.8, 0.6); }
   [[V.x + 4, V.z + 12], [V.x + 5, V.z + 13], [V.x - 11, V.z + 6]].forEach(([x, z]) => barrel(scene, x, z)); [[V.x - 12, V.z + 8, 0.4], [V.x + 13, V.z - 3, 0.1]].forEach(([x, z, r]) => crate(scene, x, z, r));
-  for (let i = 0; i < 44; i++) { const a = i / 44 * 6.28; if ([0.15, 2.2, 3.6, -0.9].some(gp => Math.abs(Math.atan2(Math.sin(a - gp), Math.cos(a - gp))) < 0.18)) continue; const x = V.x + Math.cos(a) * V.r, z = V.z + Math.sin(a) * V.r; const g = new THREE.Group(); cy(0.1, 0.12, 1.4, M.beam, 0, 0.7, 0, g, 5); placeGroup(g, x, z, a, scene); }
+  { const n = Math.round(V.r * 6.28 / 2.6); for (let i = 0; i < n; i++) { const a = (i + 0.5) / n * 6.28; if ([0.15, 2.2, 3.6, -0.9].some(gp => Math.abs(Math.atan2(Math.sin(a - gp), Math.cos(a - gp))) < 0.2)) continue; const x = V.x + Math.cos(a) * V.r, z = V.z + Math.sin(a) * V.r; propAt('fence', x, heightAt(x, z), z, -a - Math.PI / 2, 1.3); addBox(x, z, 1.3, 0.15, -a + Math.PI / 2); } }
 }
 // the gorge: rock faces down both walls, the drawbridge and its winch
 function buildGorge(scene) {
   const { M, bx, cy } = H;
   { const pts = []; for (const side of [-1, 1]) for (let i = 0; i < GORGE.length - 1; i++) { const [ax, az] = GORGE[i], [bx2, bz] = GORGE[i + 1], len = Math.hypot(bx2 - ax, bz - az), ux = (bx2 - ax) / len, uz = (bz - az) / len, nx = -uz * side, nz = ux * side;
       for (let d = 0; d < len; d += 5.5) { const x = ax + ux * d + nx * (GORGE_W + 2.5), z = az + uz * d + nz * (GORGE_W + 2.5); if (Math.abs(x - BRIDGE1.x) < 5) continue; const y = heightAt(x, z); if (y < -6) continue; pts.push([x, y, z]); } }
-    const im = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), M.rockDark, pts.length), o = new THREE.Object3D();
-    pts.forEach(([x, y, z], i) => { o.position.set(x, y - 2, z); o.rotation.set(i * 1.3, i * 2.1, i * 0.7); o.scale.set(4.5 + (i % 3), 7 + (i % 4) * 1.5, 4.5 + ((i + 1) % 3)); o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
-    im.castShadow = im.receiveShadow = true; scene.add(im); }
+    loadGI('rock_face').then(gl => { if (!gl) return; let geo = null, mat = null; gl.scene.updateMatrixWorld(true); gl.scene.traverse(o => { if (o.isMesh && !geo) { geo = o.geometry.clone().applyMatrix4(o.matrixWorld); mat = o.material; } }); if (!geo) return;
+      geo.computeBoundingBox(); const b = geo.boundingBox, c = b.getCenter(new THREE.Vector3()), hh = b.max.y - b.min.y; geo.translate(-c.x, -b.min.y, -c.z); geo.scale(1 / hh, 1 / hh, 1 / hh);
+      const im = new THREE.InstancedMesh(geo, mat, pts.length), o = new THREE.Object3D();
+      pts.forEach(([x, y, z], i) => { o.position.set(x, y - 9, z); o.rotation.set(0, i * 2.1, (i % 3 - 1) * 0.08); const hgt = 16 + (i % 4) * 3; o.scale.set(hgt * 0.9, hgt, hgt * 0.9); o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
+      im.castShadow = im.receiveShadow = true; scene.add(im); }); }
   const B = BRIDGE1, yS = heightAt(B.x, B.zS), yN = heightAt(B.x, B.zN), len = B.zS - B.zN;
   for (const [z, y] of [[B.zS, yS], [B.zN, yN]]) for (const sx of [-1, 1]) { const g = new THREE.Group(); cy(0.45, 0.55, 8, M.beam, 0, 4, 0, g, 8); bx(1.2, 0.7, 1.2, M.iron, 0, 8.2, 0, g); g.position.set(B.x + sx * 2.9, y, z); scene.add(g); addCircle(B.x + sx * 2.9, z, 0.4); }
   for (const z of [B.zS - 3, B.zN + 3]) parts.gap1.push(addBox(B.x, z, 2.6, 0.5, 0, 'gap')); // (until it's down, nobody steps off the end)
   const deck = new THREE.Group(), pivot = new THREE.Group(); pivot.position.set(B.x, yN + 0.25, B.zN); scene.add(pivot);
   for (let i = 0; i < len / 0.6; i++) bx(4.4, 0.18, 0.55, M.plank, 0, 0, 0.3 + i * 0.6, deck); for (const sx of [-1, 1]) { bx(0.25, 0.3, len, M.beam, sx * 2.1, 0.12, len / 2, deck); bx(0.12, 1.0, len, M.beam, sx * 2.25, 0.7, len / 2, deck); }
   pivot.add(deck); live.bridge1 = { pivot, yS, yN, len, open: 0, want: 0 }; setBridge(live.bridge1, 0);
+  loadGI('drawbridge').then(gl => { if (!gl) return; const o = gl.scene.clone(), sz = gl.box.getSize(new THREE.Vector3()), c = gl.box.getCenter(new THREE.Vector3()), along = sz.x > sz.z ? 'x' : 'z', inner = new THREE.Group();
+    o.position.set(-c.x, -gl.box.max.y, -c.z); inner.add(o); if (along === 'x') inner.rotation.y = Math.PI / 2; const wrap = new THREE.Group(); wrap.add(inner); wrap.scale.set(4.6 / Math.min(sz.x, sz.z), 1.2 / Math.max(0.05, sz.y), len / Math.max(sz.x, sz.z)); wrap.position.set(0, 0.15, len / 2); for (const ch of deck.children) ch.visible = false; deck.add(wrap); });
   { const g = new THREE.Group(); bx(1.6, 0.9, 1.2, M.beam, 0, 0.45, 0, g); const drum = cy(0.45, 0.45, 1.5, M.iron, 0, 1.2, 0, g, 12); drum.rotation.z = Math.PI / 2;
     g.position.set(B.x + 4.6, yS, B.zS + 2.5); scene.add(g); addBox(B.x + 4.6, B.zS + 2.5, 0.8, 0.6, 0);
     const crank = new THREE.Group(); bx(0.08, 0.7, 0.08, M.iron, 0, -0.3, 0, crank); bx(0.08, 0.08, 0.5, M.iron, 0, -0.62, 0.22, crank); crank.position.set(0.95, 1.2, 0); crank.visible = false; g.add(crank); live.crank = crank;
@@ -171,18 +181,19 @@ function gateAcross(scene, Rp, t, kind) {
   if (kind !== 'stone') { const fl = new THREE.Mesh(new THREE.PlaneGeometry(2, 3.2), M.goblinRed); fl.position.set(0, 6.6, 1.35); g.add(fl); }
   for (let i = -w + 0.4; i <= w - 0.4; i += 0.7) cy(0.07, 0.07, 7.4, M.iron, i, 3.7, 0, gate, 5); for (let yy = 0.8; yy < 7.3; yy += 1.1) bx(w * 2, 0.12, 0.12, M.iron, 0, yy, 0, gate);
   for (const o of [g, gate]) { o.position.set(p.x, y, p.z); o.rotation.y = dir + Math.PI / 2; scene.add(o); }
+  if (kind !== 'stone') propAt('gatehouse', p.x, y, p.z, dir + Math.PI, 12).then(o => { if (o) g.visible = false; });
+  else for (const sd of [-1, 1]) { const q = { x: p.x + Math.cos(dir) * sd * (w + 1.5), z: p.z - Math.sin(dir) * sd * (w + 1.5) }; propAt('rock_face', q.x, heightAt(q.x, q.z), q.z, dir, 12).then(o => { if (o) g.visible = false; }); }
   const cols = [addBox(p.x, p.z, w + 0.3, 0.6, dir + Math.PI / 2, 'gate')];
   for (const s of [-1, 1]) { const q = { x: p.x + Math.cos(dir) * s * (w + 1.5), z: p.z - Math.sin(dir) * s * (w + 1.5) }; addBox(q.x, q.z, 1.5, 1.5, dir + Math.PI / 2); }
   for (let tt = Math.max(0, t - 0.06); tt < t + 0.2; tt += 0.012) { const a = rampPoint(Rp, tt), out = Math.hypot(a.x - PEAK.x, a.z - PEAK.z) + Rp.half + 0.8, ang = Math.atan2(a.z - PEAK.z, a.x - PEAK.x), x = PEAK.x + Math.cos(ang) * out, z = PEAK.z + Math.sin(ang) * out;
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.25, 3.4, 6), M.beam); st.position.set(x, heightAt(x, z) + 1.5, z); st.castShadow = true; scene.add(st); addCircle(x, z, 0.75); }
+    if (Math.round(tt / 0.012) % 3 === 0) propAt('palisade', x, heightAt(x, z), z, -ang - Math.PI / 2, 3.0); addCircle(x, z, 0.75); }
   return { gate, y, open: 0, want: 0, cols };
 }
 function buildTribe(scene, id, t) {
   const { M, tent, campfire, placeGroup, bx, cy, barrel } = H;
   const mat = id === 'bloodfang' ? M.goblinRed : id === 'mudfoot' ? M.mud : M.boneCloth;
   const toward = Math.atan2(-t.z, -t.x), stake = new THREE.CylinderGeometry(0.03, 0.24, 3.8, 6);
-  for (let i = 0; i < 60; i++) { const a = i / 60 * Math.PI * 2; if (Math.abs(Math.sin((a - toward) / 2)) < 0.09) continue; const x = t.x + Math.cos(a) * t.r, z = t.z + Math.sin(a) * t.r;
-    const m = new THREE.Mesh(stake, M.beam); m.castShadow = true; m.position.set(x, heightAt(x, z) + 1.6, z); m.rotation.set(Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25); scene.add(m); addCircle(x, z, 0.5); }
+  { const n = Math.round(t.r * 6.28 / 4.2); for (let i = 0; i < n; i++) { const a = (i + 0.5) / n * Math.PI * 2; if (Math.abs(Math.sin((a - toward) / 2)) < 0.11) continue; const x = t.x + Math.cos(a) * t.r, z = t.z + Math.sin(a) * t.r; propAt('palisade', x, heightAt(x, z), z, -a - Math.PI / 2, 3.2); addBox(x, z, 2.2, 0.4, -a + Math.PI / 2); } }
   for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28 + 0.6, x = t.x + Math.cos(a) * t.r * 0.62, z = t.z + Math.sin(a) * t.r * 0.62; propAt('goblin_tent', x, heightAt(x, z), z, -a + Math.PI / 2, 3.4); addCircle(x, z, 1.8); }
   propAt('bonfire', t.x, heightAt(t.x, t.z), t.z, 0, 1.6); addCircle(t.x, t.z, 1.1); H.fire(scene, t.x, heightAt(t.x, t.z) + 0.8, t.z, 1.3);
   { const a = toward + 0.5, x = t.x + Math.cos(a) * (t.r - 3), z = t.z + Math.sin(a) * (t.r - 3); propAt('watchtower', x, heightAt(x, z), z, -a, 8); addCircle(x, z, 2.2); }
@@ -194,7 +205,8 @@ function buildTribe(scene, id, t) {
   live.totems[id] = { g, k: 0, want: 0 };
 }
 function buildLair(scene, l) {
-  const { M, cy } = H, away = Math.atan2(l.z - PEAK.z, l.x - PEAK.x), g = new THREE.Group();
+  const away = Math.atan2(l.z - PEAK.z, l.x - PEAK.x); propAt('cave_mouth', l.x, heightAt(l.x, l.z), l.z, -away + Math.PI / 2, 7); propAt('cook_pot', l.x + 4, heightAt(l.x + 4, l.z + 3), l.z + 3, 0, 1.8); return;
+  const { M, cy } = H, g = new THREE.Group();
   for (let i = 0; i < 12; i++) { const a = -1.2 + i / 11 * 2.4, r = 7 + Math.sin(i * 2.1) * 0.8, rk = new THREE.Mesh(new THREE.DodecahedronGeometry(R(2.2, 3.4), 0), M.rockDark); rk.position.set(Math.sin(a) * r, R(1, 2.2) + Math.cos(a) * 3, -Math.cos(a) * r * 0.6 - 3); rk.castShadow = true; g.add(rk); }
   const mouth = new THREE.Mesh(new THREE.CircleGeometry(3.4, 14, 0, Math.PI), new THREE.MeshBasicMaterial({ color: '#050403' })); mouth.position.set(0, 0.05, -4.2); g.add(mouth);
   for (let i = 0; i < 10; i++) { const b = cy(0.06, 0.08, R(0.6, 1.4), M.bone, R(-5, 5), 0.1, R(-1, 5), g, 5); b.rotation.set(Math.PI / 2, R(0, 3), 0); }
@@ -346,6 +358,7 @@ export function giSpawn() {
     else { if (roll < 0.6) for (let i = 0; i < ri(3, 4); i++) mob(i === 3 ? 'goblin_brute' : i === 2 ? 'goblin_slinger' : 'goblin', ri(4, 6), x + R(-7, 7), z + R(-7, 7), 'Idol-mad Goblin'); else if (roll < 0.8) for (let i = 0; i < 2; i++) mob('wolf', ri(4, 5), x + R(-6, 6), z + R(-6, 6)); }
   }
   for (let i = 0; i < 12; i++) { const x = -120 + i * 22, z = 455 + Math.sin(i) * 12; if (heightAt(x, z) > 0.2 && heightAt(x, z) < 2) mob('crab', 1, x, z); }
+  for (const [x, z] of [[-90, 70], [140, 90], [-250, 120], [260, 160], [40, 110]]) { if (heightAt(x, z) < 2) continue; const m = mob('tiger', ri(4, 6), x, z, 'Jungle Panther'); dressBeast(m, 'panther2', 2.2); m.noWander = false; }
   // goblin packs out in the wilds walk a route together (out to a lookout and back), beasts graze where they are
   for (const m of G.mobs) if (!m.job && !m.patrol && !m.sitAt && !m.giChief && !m.giLair && m.def.variant === 'goblin' && !/Gate Guard|Idol Guard/.test(m.def.name)) {
     if (m.def.name !== 'Idol-mad Goblin') continue; const a = Math.random() * 6.28, d = R(30, 60), h = m.home; const pts = [new THREE.Vector3(h.x, 0, h.z), new THREE.Vector3(h.x + Math.cos(a) * d, 0, h.z + Math.sin(a) * d)];
@@ -355,6 +368,17 @@ export function giSpawn() {
 const carts = [];
 export function tickCarts() { for (const c of carts) { if (!c.o) continue; const m = c.m; c.o.visible = !m.dead; if (m.dead) continue; const fx = Math.sin(m.yaw), fz = Math.cos(m.yaw), x = m.pos.x - fx * 2.4, z = m.pos.z - fz * 2.4; c.o.position.set(x, heightAt(x, z), z); c.o.rotation.y = m.yaw; } }
 export function objectives() {}
+// --- what grows where (world.js giScatter) ---
+export function beachMaskGI(x, z) { const dx = x, dz = z + 15, r = Math.hypot(dx, dz); return Math.max(0, Math.min(1, (r - 420) / 50)) * (heightAt(x, z) < 6 ? 1 : 0); }
+export function giTerrain(x, z) {
+  const r = Math.hypot(x - PEAK.x, z - PEAK.z), near = (c, rr) => Math.hypot(x - c.x, z - c.z) < rr;
+  const town = near(V, V.r + 16) || near(CAMP_SPOT, 40) || Object.values(TRIBES).some(t => near(t, t.r + 6)) || WORKS.some(w => near(w, w.r + 4));
+  const forestK = town ? 0 : r < PEAK.rShelf ? 0.35 : z > 175 ? 0.7 : 1.1;
+  const cliffFoot = r > PEAK.rLow - 2 && r < PEAK.rLow + 25;
+  return { forestK, rockK: cliffFoot ? 6 : 1, cliffFoot, dead: LAIRS.some(l => near(l, 35)) };
+}
+export function giLandmarks() { return [[-40, 90], [120, 110], [-230, 110], [250, 230], [-160, 380], [80, -10]]; }
+export function giCliffFoot() { const a = Math.random() * 6.28, rr = PEAK.rLow + 2 + Math.random() * 14, x = PEAK.x + Math.cos(a) * rr, z = PEAK.z + Math.sin(a) * rr; if (Math.random() < 0.4) { const i = Math.floor(Math.random() * (GORGE.length - 1)), f = Math.random(), [ax, az] = GORGE[i], [bx2, bz] = GORGE[i + 1], s = Math.random() < 0.5 ? 1 : -1; return [ax + (bx2 - ax) * f, az + (bz - az) * f + s * (GORGE_RIM + 3 + Math.random() * 6)]; } return [x, z]; }
 // the music for where you stand: the village and the sailors' camp, the south valley, the jungle valleys, enemy camps and lairs, the mountain
 export function giMusic(p, fight) {
   if (!M.areaMode) M.areaMode = true; const x = p.pos.x, z = p.pos.z, near = (c, r) => Math.hypot(x - c.x, z - c.z) < r;

@@ -5,7 +5,7 @@ import { mulberry32, fbm, smooth, clamp, lerp, hash2, distToLine } from './util.
 import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLAGE, SPAWN, RIVER, ROADS, BRIDGES, LAVA_POOLS, CAMPS, PLATEAU, LAKE, VOLCANO, SEA, normalAt, PORT, MOUNT } from './terrain.js';
 import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
 import { GI } from './gimap.js';
-import { buildGoblinIsle, giAvoid } from './goblinisle.js';
+import { buildGoblinIsle, giAvoid, beachMaskGI, giTerrain, giLandmarks, giCliffFoot } from './goblinisle.js';
 import { swapScenery } from './gimodels.js';
 import { buildBirdsGI, updateBirdsGI } from './gilife.js';
 import { YARD, ARENA } from './battlemap.js';
@@ -288,9 +288,30 @@ function battleScatter() {
   for (let i = 0; i < 2600; i++) { const x = R(-540, 540), z = R(-540, 540), h = heightAt(x, z); if (h < 1.2 || clear(x, z, -3)) continue; if (rng() < 0.04) addNode('rock', x, z, R(0.7, 1.2), R(0, 6.28), 'rock' + (i % 3)); }
   for (let i = 0; i < 2200; i++) { const x = R(-540, 540), z = R(-540, 540), h = heightAt(x, z); if (h < 1.5 || clear(x, z, -4)) continue; addInstance('bush', x, h - 0.15, z, R(0, 6.28), R(0.6, 1.4), '#' + tmpC.setHSL(R(0.2, 0.33), 0.45, R(0.4, 0.55)).getHexString()); }
 }
+// Goblin Island (the owner: varied trees, placed the way a real island grows them): palms on the beaches only, clustered jungle
+// with clearings, thicker in the valleys, a few giant banyans as landmarks, sparse trees up the mountain, dead ones by the
+// troll lairs, boulders at the foot of the cliffs and along the gorge, flat rocks in the meadows; nothing on roads or steep rock
+function giScatter() {
+  for (const k of ['tree_jungle', 'tree_kapok', 'tree_broad', 'tree_young', 'tree_banyan', 'tree_palm2', 'tree_palm3', 'tree_dead', 'rock_boulder', 'rock_flat']) if (!kinds[k]) kinds[k] = { geo: (k.startsWith('rock') ? kinds.rock0 : k.includes('palm') ? kinds.palm : kinds.oakA).geo, mat: (k.startsWith('rock') ? kinds.rock0 : k.includes('palm') ? kinds.palm : kinds.oakA).mat, shadowDist: k.startsWith('rock') ? 50 : 90 };
+  const pick = (arr) => arr[Math.floor(rng() * arr.length)];
+  for (let i = 0; i < 30000; i++) {
+    const x = R(-HALF + 10, HALF - 10), z = R(-HALF + 10, HALF - 10), h = heightAt(x, z); if (h < 0.9) continue;
+    if (normalAt(x, z).y < 0.8 || avoid(x, z, 1)) continue;
+    const beach = beachMaskGI(x, z), forest = fbm(x * 0.007 + 31, z * 0.007 - 12, 3), clump = fbm(x * 0.03 + 5, z * 0.03, 2);
+    const giT = giTerrain(x, z);
+    if (beach > 0.5) { if (h < 4.5 && rng() < 0.05 * beach) { const t = pick(['palm', 'palm', 'palm', 'tree_palm2', 'tree_palm3']); addNode('tree_palm', x, z, R(1.6, 2.4), R(0, 6.28), t); } continue; } // (palms only by the sea)
+    let dens = smooth(-0.1, 0.3, forest) * (0.14 + smooth(-0.1, 0.35, clump) * 0.3) * giT.forestK; // (real forests: dense clumps, open meadows between)
+    if (rng() > dens) { if (rng() < 0.0025 * giT.rockK) addNode('rock', x, z, giT.cliffFoot ? R(0.7, 1.4) : R(0.25, 0.5), R(0, 6.28), giT.cliffFoot ? 'rock_boulder' : 'rock_flat'); continue; }
+    const roll = rng(), t = giT.dead && rng() < 0.5 ? 'tree_dead' : roll < 0.03 ? 'tree_jungle' : h > 45 ? pick(['tree_young', 'tree_broad', 'tree_dead']) : pick(['tree_kapok', 'tree_broad', 'tree_broad', 'tree_young', 'tree_young', 'tree_palm3']); // (the owner: all new Meshy trees; the first big jungle tree rare)
+    addNode(t === 'tree_palm3' ? 'tree_palm' : t === 'birch' ? 'tree_birch' : 'tree_oak', x, z, t === 'tree_kapok' ? R(2.2, 2.9) : t === 'tree_young' ? R(1.2, 1.7) : R(1.7, 2.4), R(0, 6.28), t);
+  }
+  for (const [x, z] of giLandmarks()) if (!avoid(x, z)) addNode('tree_oak', x, z, 3.6, R(0, 6.28), 'tree_banyan'); // (a few giant banyans you can steer by)
+  for (let i = 0; i < 900; i++) { const [x, z] = giCliffFoot(); if (x == null || avoid(x, z, 1)) continue; addNode('rock', x, z, R(0.9, 2.0), R(0, 6.28), 'rock_boulder'); }
+}
 function scatter() {
   if (BATTLE) return battleScatter();
   if (YARD || ARENA) return;
+  if (GI) return giScatter();
   // trees
   const tries = 26000;
   for (let i = 0; i < tries; i++) {

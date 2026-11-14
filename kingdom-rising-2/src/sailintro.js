@@ -1,3 +1,5 @@
+import { GI } from './gimap.js';
+import { loadGI } from './gimodels.js';
 // Campaign opening: you sail in towards Driftwood Coast on a battered little boat, in first person.
 // The same boat is then tied up at the end of the pier for the rest of the game (press E: it needs repairs).
 import * as THREE from 'three';
@@ -48,9 +50,15 @@ export function buildBoat() {
   g.userData.bow = new THREE.Vector3(0, 0.86, 2.55); // where a gull can perch
   g.userData.seat = new THREE.Vector3(0.45, 1.0, -1.7); // the sailor's eye, standing at the stern (in boat units; the boat is built at 3x)
   g.scale.set(BOAT_SCALE, BOAT_SCALE * 2 / 3, BOAT_SCALE); // three times longer and wider, twice as deep
+  // Goblin Island (the owner): you sail in on the Meshy rowboat; the old boat is hidden once it has loaded
+  // the hero's boat grows with every island freed: a rowboat, a sailboat, a small ship, a large ship
+  if (GI) loadGI(BOATS[0]).then(m0 => m0 || loadGI('rowboat')).then(m => { if (!m) return; const o = m.scene.clone(), sz = m.box.getSize(new THREE.Vector3()), along = sz.x > sz.z ? 'x' : 'z', L = BOAT_LEN[0], k = L / Math.max(sz.x, sz.z);
+    const inner = new THREE.Group(); o.scale.setScalar(k); o.position.set(-m.box.getCenter(new THREE.Vector3()).x * k, -m.minY * k - 0.9, -m.box.getCenter(new THREE.Vector3()).z * k); if (along === 'x') inner.rotation.y = Math.PI / 2; inner.add(o);
+    inner.scale.set(1 / BOAT_SCALE, 1 / (BOAT_SCALE * 2 / 3), 1 / BOAT_SCALE); for (const c of g.children) c.visible = false; g.add(inner); });
   return g;
 }
 export const BOAT_SCALE = 3, BOAT_Y = 0;
+export const BOATS = ['boat_row', 'rowboat', 'boat_smallship', 'ship'], BOAT_LEN = [7, 11, 16, 22]; // (Meshy models: rowboat, sailboat, small ship, large ship)
 
 // a gull with flapping wings and folding legs
 export function buildGull() {

@@ -6,6 +6,7 @@ import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLA
 import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
 import { GI } from './gimap.js';
 import { buildGoblinIsle, giAvoid } from './goblinisle.js';
+import { swapScenery } from './gimodels.js';
 import { YARD, ARENA } from './battlemap.js';
 import { buildColosseum } from './arenamap.js';
 import { buildRuins } from './ruinsmap.js';
@@ -217,7 +218,7 @@ function buildChunks(scene) {
       });
       im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
       im.computeBoundingSphere();
-      im.userData.kind = kind; im.userData.shadowDist = K.shadowDist || 90;
+      im.userData.kind = kind; im.userData.shadowDist = K.shadowDist || 90; im.userData.ic = im.instanceColor;
       scene.add(im); c.meshes.push(im);
     }
     c.items = null;
@@ -231,7 +232,8 @@ export function cullChunks(px, pz, viewDist, shadows) {
   for (const c of world.chunks) {
     const d = Math.hypot(c.cx - px, c.cz - pz);
     const vis = d < viewDist + CHUNK * 0.75;
-    for (const m of c.meshes) { m.visible = vis; m.castShadow = shadows && d < m.userData.shadowDist + CHUNK * 0.5; }
+    for (const m of c.meshes) { m.visible = vis; m.castShadow = shadows && d < m.userData.shadowDist + CHUNK * 0.5;
+      const K = kinds[m.userData.kind]; if (K && K.hi && vis) { const w = d < 95 ? K.hi : K.lo; if (m.geometry !== w.geo) { m.geometry = w.geo; m.material = w.mat; m.instanceColor = w === K.hi ? null : m.userData.ic; } } } // (Goblin Island: Meshy trees and rocks near you, light shapes far off)
   }
 }
 
@@ -896,6 +898,7 @@ export function buildWorld(scene) {
   mergeStatics(scene);
   scatter();
   buildChunks(scene);
+  if (GI) swapScenery(kinds); // (Goblin Island: Meshy trees, rocks and bushes)
   if (!ARENA) buildGrass(scene); // (the arena floor is sand)
   buildBirds(scene);
   buildAmbient(scene);

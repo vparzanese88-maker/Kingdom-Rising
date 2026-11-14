@@ -1,0 +1,14 @@
+<!doctype html><html><body style="margin:0;background:#8ab"><canvas id="c" width="1600" height="1000"></canvas>
+<script type="importmap">{"imports":{"three":"../vendor/three/build/three.module.min.js","three/addons/":"../vendor/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three'; import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const names = new URLSearchParams(location.search).get('n').split(',');
+const R = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true }); R.outputColorSpace = THREE.SRGBColorSpace;
+const S = new THREE.Scene(); S.background = new THREE.Color('#9ab8c8'); S.add(new THREE.HemisphereLight('#fff', '#556', 2.2)); const d = new THREE.DirectionalLight('#fff', 2); d.position.set(3, 5, 4); S.add(d);
+const cols = Math.ceil(Math.sqrt(names.length * 1.6)), L = new GLTFLoader(); window.info = {};
+await Promise.all(names.map((n, i) => L.loadAsync('../models/gi/' + n + '.glb').then(g => { const o = g.scene; o.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(o, true), s = b.getSize(new THREE.Vector3()), k = 1 / Math.max(s.x, s.y, s.z);
+  o.scale.multiplyScalar(k); o.updateMatrixWorld(true); const b2 = new THREE.Box3().setFromObject(o, true), c = b2.getCenter(new THREE.Vector3());
+  const gx = (i % cols) * 1.3, gy = -Math.floor(i / cols) * 1.4; o.position.set(gx - c.x, gy - b2.min.y, -c.z); S.add(o); window.info[n] = { size: [s.x, s.y, s.z].map(v => +v.toFixed(3)), clips: g.animations.map(a => a.name + ':' + a.duration.toFixed(1)) }; })));
+const rows = Math.ceil(names.length / cols), cam = new THREE.OrthographicCamera(-0.8, cols * 1.3 - 0.5, 1.3, -rows * 1.4 + 1.3, 0.1, 100); cam.position.set(0, 0, 10);
+R.render(S, cam); window.done = true;
+</script></body></html>

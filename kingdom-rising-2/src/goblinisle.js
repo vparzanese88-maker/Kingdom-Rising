@@ -8,6 +8,7 @@ import { heightAt } from './terrain.js';
 import { distToLine } from './util.js';
 import { Mob, Villager } from './mobs.js';
 import { MOBS, ZONES, NPCS, QUESTS } from './data.js';
+import { dressMob, dressBeast, dressPerson, propAt, tickDress } from './gimodels.js';
 import { GI, PEAK, GORGE, GORGE_W, GORGE_RIM, BRIDGE1, TRIBES, LAIRS, CAMP_SPOT, VILLAGE_GI, RAMP1, RAMP2, rampPoint, rampNear, WORKS, WRECK, CLIMBS, FANGS } from './gimap.js';
 
 const R = (a, b) => a + Math.random() * (b - a);
@@ -102,6 +103,10 @@ export function buildGoblinIsle(scene, helpers) {
   for (const l of LAIRS) buildLair(scene, l);
   for (const w of WORKS) buildWork(scene, w);
   buildClimbs(scene); buildShipParts(scene);
+  // jungle floor: ferns, mossy logs, mushrooms and bushes (Meshy props), clear of towns, camps and paths
+  for (let i = 0, n = 0; i < 2000 && n < 140; i++) { const x = R(-440, 440), z = R(-420, 440), h = heightAt(x, z); if (h < 2.5 || giAvoid(x, z, 4) || Math.hypot(x - PEAK.x, z - PEAK.z) < PEAK.rLow + 10) continue;
+    if ([CAMP_SPOT, V, ...Object.values(TRIBES), ...WORKS].some(c => Math.hypot(c.x - x, c.z - z) < c.r + 10)) continue; const k = n % 7, name = ['fern', 'fern', 'jungle_bush', 'mossy_log', 'mushrooms', 'fern', 'jungle_bush'][k];
+    propAt(name, x, h, z, R(0, 6.28), name === 'mossy_log' ? 1.0 : name === 'mushrooms' ? 0.7 : R(0.9, 1.5)); if (name === 'mossy_log') addCircle(x, z, 1.0); n++; }
 }
 function buildSailorCamp(scene) {
   const { M, tent, campfire, placeGroup, barrel, crate } = H, c = CAMP_SPOT;
@@ -120,12 +125,15 @@ function buildWreck(scene) {
   g.position.set(WRECK.x, heightAt(WRECK.x, WRECK.z) - 0.4, WRECK.z); g.rotation.set(0, WRECK.yaw, 0.12); scene.add(g);
   addBox(WRECK.x, WRECK.z, 4.2, 12, WRECK.yaw);
   live.wreck = { g, holes, sail };
+  propAt('shipwreck', WRECK.x, heightAt(WRECK.x, WRECK.z) - 0.6, WRECK.z, WRECK.yaw, 9).then(o => { if (!o) return; live.wreck.meshy = o; g.visible = false; setWreck(isle()); });
+  propAt('ship', WRECK.x, heightAt(WRECK.x, WRECK.z) - 0.8, WRECK.z, WRECK.yaw, 16).then(o => { if (!o) return; live.wreck.fixed = o; o.visible = false; setWreck(isle()); });
 }
-function setWreck(I) { const W = live.wreck; if (!W) return; W.holes.forEach((h, i) => { h.visible = !(i === 0 ? I.ship1 : I.ship3); }); W.sail.visible = !!I.ship2; W.g.rotation.z = I.ship3 ? 0.02 : 0.12; }
+function setWreck(I) { const W = live.wreck; if (!W) return; if (W.meshy) { W.meshy.visible = !I.ship3; if (W.fixed) W.fixed.visible = !!I.ship3; } W.holes.forEach((h, i) => { h.visible = !(i === 0 ? I.ship1 : I.ship3); }); W.sail.visible = !!I.ship2; W.g.rotation.z = I.ship3 ? 0.02 : 0.12; }
 // Snagglefoot: a small friendly goblin village (blue and yellow, never possessed)
 function buildSnagglefoot(scene) {
   const { M, tent, campfire, placeGroup, barrel, crate, bx, cy, addHouse } = H;
-  for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28 + 0.3, r = 18 + (i % 2) * 5; addHouse(scene, V.x + Math.cos(a) * r, V.z + Math.sin(a) * r, 5.5, 4.5, 3.2, 'thatch', { cx: V.x, cz: V.z }); }
+  for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28 + 0.3, r = 18 + (i % 2) * 5, x = V.x + Math.cos(a) * r, z = V.z + Math.sin(a) * r; propAt('goblin_hut', x, heightAt(x, z), z, -a - Math.PI / 2, 4.6); addCircle(x, z, 2.6); }
+  { const x = V.x + 15, z = V.z + 9; propAt('cook_pot', x, heightAt(x, z), z, 0, 1.6); addCircle(x, z, 0.9); }
   for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + 1.1; tent(scene, V.x + Math.cos(a) * 9, V.z + Math.sin(a) * 9, a, i % 2 ? M.snag : M.snag2, 0.9); }
   const fg = new THREE.Group(); campfire(fg, scene, V.x, V.z + 2); placeGroup(fg, V.x, V.z + 2, 0, scene); addCircle(V.x, V.z + 2, 0.9); H.fire(scene, V.x, heightAt(V.x, V.z + 2) + 0.5, V.z + 2, 1);
   { const g = new THREE.Group(); for (let k = 0; k < 3; k++) cy(0.5, 0.55, 1.5, k % 2 ? M.snag2 : M.snag, 0, 0.75 + k * 1.5, 0, g, 8); const sun = new THREE.Mesh(new THREE.CircleGeometry(0.9, 12), M.snag2); sun.position.set(0, 5.2, 0.05); g.add(sun); placeGroup(g, V.x - 6, V.z - 10, 0, scene); addCircle(V.x - 6, V.z - 10, 0.6); }
@@ -174,13 +182,13 @@ function buildTribe(scene, id, t) {
   const toward = Math.atan2(-t.z, -t.x), stake = new THREE.CylinderGeometry(0.03, 0.24, 3.8, 6);
   for (let i = 0; i < 60; i++) { const a = i / 60 * Math.PI * 2; if (Math.abs(Math.sin((a - toward) / 2)) < 0.09) continue; const x = t.x + Math.cos(a) * t.r, z = t.z + Math.sin(a) * t.r;
     const m = new THREE.Mesh(stake, M.beam); m.castShadow = true; m.position.set(x, heightAt(x, z) + 1.6, z); m.rotation.set(Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25); scene.add(m); addCircle(x, z, 0.5); }
-  for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28 + 0.6; tent(scene, t.x + Math.cos(a) * t.r * 0.62, t.z + Math.sin(a) * t.r * 0.62, a + 1.6, i % 2 ? M.hide : mat, 1.15); }
-  const fg = new THREE.Group(); campfire(fg, scene, t.x, t.z); placeGroup(fg, t.x, t.z, 0, scene); addCircle(t.x, t.z, 0.9); H.fire(scene, t.x, heightAt(t.x, t.z) + 0.5, t.z, 1.3);
+  for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28 + 0.6, x = t.x + Math.cos(a) * t.r * 0.62, z = t.z + Math.sin(a) * t.r * 0.62; propAt('goblin_tent', x, heightAt(x, z), z, -a + Math.PI / 2, 3.4); addCircle(x, z, 1.8); }
+  propAt('bonfire', t.x, heightAt(t.x, t.z), t.z, 0, 1.6); addCircle(t.x, t.z, 1.1); H.fire(scene, t.x, heightAt(t.x, t.z) + 0.8, t.z, 1.3);
+  { const a = toward + 0.5, x = t.x + Math.cos(a) * (t.r - 3), z = t.z + Math.sin(a) * (t.r - 3); propAt('watchtower', x, heightAt(x, z), z, -a, 8); addCircle(x, z, 2.2); }
+  { const x = t.x + 6, z = t.z - 5; propAt('cook_pot', x, heightAt(x, z), z, 0, 1.6); addCircle(x, z, 0.9); const x2 = t.x - 8, z2 = t.z + 8; propAt('supply_pile', x2, heightAt(x2, z2), z2, 1, 1.8); addCircle(x2, z2, 1.4); }
   for (let i = 0; i < 4; i++) barrel(scene, t.x - t.r * 0.4 + (i % 2) * 0.9, t.z + t.r * 0.35 + (i >> 1) * 0.9);
   const tp = { x: t.x + Math.cos(toward + Math.PI) * 9, z: t.z + Math.sin(toward + Math.PI) * 9 }, g = new THREE.Group();
-  for (let k = 0; k < 4; k++) { cy(0.55 - k * 0.06, 0.6 - k * 0.06, 1.6, k % 2 ? mat : M.beam, 0, 0.8 + k * 1.6, 0, g, 8); bx(0.7, 0.35, 0.2, M.dark, 0, 1.0 + k * 1.6, 0.52 - k * 0.05, g); }
-  for (const s of [-1, 1]) bx(1.6, 0.25, 0.3, mat, s * 0.9, 6.0, 0, g, 0, 0, s * 0.3);
-  const sk = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), M.bone); sk.position.y = 7.0; g.add(sk);
+  propAt('war_totem', 0, 0, 0, 0, 7.5, g); // (topples with its chief)
   g.position.set(tp.x, heightAt(tp.x, tp.z), tp.z); g.rotation.y = toward + Math.PI; scene.add(g); addCircle(tp.x, tp.z, 0.7);
   live.totems[id] = { g, k: 0, want: 0 };
 }
@@ -199,6 +207,7 @@ function buildWork(scene, w) {
   else if (w.kind === 'quarry') { for (let i = 0; i < 8; i++) { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(R(0.6, 1.3), 0), M.stone); r.position.set(R(-4, 4), 0.5, R(-4, 4)); g.add(r); } bx(2, 1, 1.2, M.plank, 5, 0.5, 0, g); }
   else { for (const sx of [-1, 1]) for (const sz of [-1, 1]) cy(0.2, 0.25, 7, M.beam, sx * 2.4, 3.5, sz * 2.4, g, 6); bx(5.4, 0.25, 5.4, M.plank, 0, 3.5, 0, g); for (let i = 0; i < 4; i++) bx(5, 0.15, 0.3, M.plank, 0, 5.5, -2 + i * 1.3, g); }
   placeGroup(g, w.x, w.z, R(0, 3), scene); addCircle(w.x, w.z, w.kind === 'build' ? 3.4 : 2.6);
+  { const x = w.x + 7, z = w.z + 4; propAt(w.kind === 'lumber' ? 'lumber_pile' : 'supply_pile', x, heightAt(x, z), z, R(0, 3), 1.8); addCircle(x, z, 1.5); const x2 = w.x - 5, z2 = w.z - 7; propAt('goblin_cart', x2, heightAt(x2, z2), z2, R(0, 3), 2.2); addCircle(x2, z2, 1.6); }
   barrel(scene, w.x + 6, w.z - 5); crate(scene, w.x - 6, w.z + 5, 0.3);
 }
 // climbing vines on the gorge's south wall, so a fall into the river isn't the end
@@ -262,7 +271,7 @@ export function giTick(dt) {
   { const b = live.bridge1; if (b.open !== b.want) { b.open = Math.max(0, Math.min(1, b.open + Math.sign(b.want - b.open) * dt / 4)); setBridge(b, b.open < 1 ? Math.pow(b.open, 1.6) : 1); if (b.open === b.want) syncColliders(); } }
   for (const gt of [live.gatehouse, live.stairgate]) { if (gt.open < gt.want) { gt.open = Math.min(1, gt.open + dt / 5); if (gt.open >= 1) syncColliders(); } gt.gate.position.y = gt.y + gt.open * 7.4; }
   for (const id in live.totems) { const T = live.totems[id]; if (T.k < T.want) { T.k = Math.min(1, T.k + dt * 0.7); T.g.rotation.z = Math.pow(T.k, 2) * 1.45; } }
-  if ((giTick.t = (giTick.t || 0) + dt) < 0.5) return; giTick.t = 0;
+  if ((giTick.t = (giTick.t || 0) + dt) < 0.5) return; giTick.t = 0; tickDress();
   const P = G.player; if (!P || !G.save || !G.save.quests) return;
   const r = Math.hypot(P.pos.x - PEAK.x, P.pos.z - PEAK.z);
   if (!I.shelf && r < PEAK.rShelf && P.pos.y > PEAK.shelfH2 - 4) { I.shelf = true; G.hooks.banner && G.hooks.banner('The High Shelf', 'Halfway up Grimtusk Peak', 3500); G.hooks.questsChanged && G.hooks.questsChanged(); }
@@ -277,7 +286,8 @@ export function giPeople() {
   if (!GI) return;
   const OUT = ['worker', 'weaver', 'hunter', 'smith'];
   for (let i = 0; i < 9; i++) { const a = i / 9 * 6.28, r = 6 + (i % 3) * 5, v = new Villager(V.x + Math.cos(a) * r, V.z + Math.sin(a) * r, { race: 'goblin', sex: i % 2 ? 'f' : 'm', outfit: OUT[i % 4], skin: GSKIN[i % 4], hair: '#2a2010', hairStyle: i % 3, beard: 0, height: 0.85 + (i % 4) * 0.08 });
-    v.talkable = true; v.vname = ['Pogg', 'Nib', 'Grizzle', 'Tumble', 'Wort', 'Fizzle', 'Squik', 'Moss', 'Bimble'][i]; G.npcs.push(v); }
+    v.talkable = true; v.vname = ['Pogg', 'Nib', 'Grizzle', 'Tumble', 'Wort', 'Fizzle', 'Squik', 'Moss', 'Bimble'][i]; G.npcs.push(v); dressPerson(v, 'goblin_villager', 1.2 + (i % 4) * 0.08); }
+  for (const n of G.npcs) if (n.def && n.def.race === 'goblin') dressPerson(n, n.id === 'grubnose' ? 'goblin_elder' : 'goblin_villager', n.id === 'grubnose' ? 1.3 : 1.35);
   for (let i = 0; i < 3; i++) { const v = new Villager(CAMP_SPOT.x + R(-8, 8), CAMP_SPOT.z + R(-8, 8), { race: 'human', sex: i === 1 ? 'f' : 'm', outfit: 'fisher', skin: ['#e0ac85', '#c08e68', '#f1c7a5'][i], hair: '#4a3020', hairStyle: i, beard: i === 0 ? 2 : 0, height: 0.95 }); v.talkable = true; v.vname = ['Bosun Crabb', 'Tess', 'Old Rope'][i]; G.npcs.push(v); }
 }
 
@@ -287,6 +297,7 @@ const SIZE = { goblin: [0.72, 1.18], goblin_slinger: [0.66, 0.95], goblin_brute:
 function mob(type, lv, x, z, name) { const m = new Mob(type, lv, x, z); m.def = named(type, name || MOBS[type].name, { aggro: Math.round(MOBS[type].aggro * 0.6) });
   m.maxHp = Math.round(m.maxHp * 1.8); m.hp = m.maxHp; m.dmg *= 1.4; m.xp = Math.round(m.xp * 1.3);
   const sz = SIZE[type]; if (sz) { const k = sz[0] + Math.random() * (sz[1] - sz[0]); m.root.scale.multiplyScalar(k); m.radius *= k; if (m.height) m.height *= k; m.maxHp = Math.round(m.maxHp * (0.75 + k * 0.25)); m.hp = m.maxHp; }
+  dressMob(m); if (type === 'boar') dressBeast(m, 'boar', 1.6); else if (type === 'crab') dressBeast(m, 'crab', 0.9); // (the Meshy bodies)
   G.mobs.push(m); return m; }
 export function giSpawn() {
   if (!GI) return;

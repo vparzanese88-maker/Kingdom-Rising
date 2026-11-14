@@ -1,3 +1,4 @@
+import { animMob, animBeast, animPerson } from './gimodels.js';
 // Creatures (procedural animals, spiders, crabs, humanoid monsters), mob AI, and village NPCs.
 import * as THREE from 'three';
 import { MOBS, NPCS, mobHp, mobDmg, mobXp, MOB_ABILITIES, LV_K, shownLv, levelGap } from './data.js';
@@ -518,6 +519,7 @@ export class Mob {
     if (this.def.boss || this.def.variant === 'troll' || this.def.variant === 'golem') { V.addShake(0.15); const p = this.pos.clone(); p.x += Math.sin(this.yaw) * this.reach; p.z += Math.cos(this.yaw) * this.reach; V.burst('dust', p, 12, { speed: 3 }); S.hit('stone', p); }
   }
   animate(dt, st) {
+    if (this.mz) return animMob(this, dt, st); if (this.beast) return animBeast(this, dt, st); // (Goblin Island: the Meshy bodies)
     const m = this.model;
     if (m.kind === 'quad') animQuad(m, dt, Object.assign({}, st, { action: st.action && st.action !== 'charge' && st.action !== 'pounce' ? 'attack' : null, speed: (st.action === 'charge' || st.action === 'pounce') && !this.windup ? 9 : st.speed }));
     else if (m.kind === 'spider') animSpider(m, dt, st);
@@ -557,7 +559,7 @@ export class NPC {
     this.yaw += angDiff(this.yaw, target) * Math.min(1, dt * 3);
     this.root.rotation.y = this.yaw;
     this.waveT -= dt;
-    if (d < 70) animateHumanoid(this.ch, dt, { speed: 0, wave: this.waveT > 0, armed: !!this.ch.wt });
+    if (this.mz) animPerson(this, dt, d < 9 ? 'talk' : 'idle'); else if (d < 70) animateHumanoid(this.ch, dt, { speed: 0, wave: this.waveT > 0, armed: !!this.ch.wt });
     // keep player out
     if (d < this.radius + player.radius) { const k = (this.radius + player.radius - d) / Math.max(0.01, d); player.pos.x += (player.pos.x - this.pos.x) * k; player.pos.z += (player.pos.z - this.pos.z) * k; }
   }
@@ -576,6 +578,7 @@ export class Villager {
     const dpl = this.pos.distanceTo(player.pos); setDetail(this.ch, dpl < 30); this.root.visible = dpl < 120;
     this.pos.y = heightAt(this.pos.x, this.pos.z);
     this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
+    if (this.mz) { animPerson(this, dt, sp > 0.2 ? 'walk' : this.pos.distanceTo(player.pos) < 5 ? 'talk' : (this.job || 'idle')); return; }
     if (this.pos.distanceTo(player.pos) < 70) animateHumanoid(this.ch, dt, { speed: sp });
   }
 }

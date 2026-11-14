@@ -854,6 +854,7 @@ const HOME_GREET = ['Ah, the newcomer.', 'Morning, sailor.', 'The sailor! Everyo
 // --- NPC dialog ---
 export function openDialog(npc) {
   const h = G.player.h; Game.talkTo(h, npc.id);
+  if (document.body.classList.contains('gi') && npc.def && npc.id) G.talkNpc = npc; // (story characters: the talking camera frames their face)
   const c = openWin('dialog', '', '', 'dialog');
   const render = (view) => {
     c.innerHTML = '';

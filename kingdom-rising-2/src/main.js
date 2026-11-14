@@ -1006,6 +1006,7 @@ function loop(now) {
     const g2 = pc.getContext('2d'); g2.clearRect(0, 0, pc.width, pc.height);
     g2.drawImage(renderer.domElement, 0, renderer.domElement.height - chh * pr, cw * pr, chh * pr, 0, 0, pc.width, pc.height);
   }
+  talkCam();
   if (grade) grade.uniforms.sepia.value = 0; // (no sepia while aiming)
   composer.render(paused ? 0 : dt);
   // first-person hands & weapon on top
@@ -1019,6 +1020,35 @@ function loop(now) {
   }
 }
 let portraitCh = null, portraitRot = 0, musicFight = 0;
+// ---------- the talking camera (the owner: in story talks, zoom on their face and upper body, nothing in the way) ----------
+// While a story character's dialog is open the camera moves in front of them, at face height, a little to one side; your
+// own body and anyone standing in between are hidden; everything comes back when the dialog closes.
+let TC = null;
+function talkCam() {
+  const tn = performance.now(), dt = Math.min(0.1, (tn - (talkCam.t || tn)) / 1000); talkCam.t = tn; // (real time: talks pause the game)
+  const npc = G.talkNpc, open = npc && (UI.UI.open === 'dialog' || G.inScene) && G.player && !G.player.dead;
+  if (!open) { if (TC) { for (const o of TC.hid) o.visible = true; camera.fov = TC.fov; camera.updateProjectionMatrix(); if (G.player) { G.player.ch.root.visible = TC.pv; G.player.vm.g.visible = TC.vv; } document.body.classList.remove('talkcam'); TC = null; G.talkNpc = null; } return; }
+  const p = G.player;
+  if (!TC || TC.npc !== npc) {
+    if (TC) for (const o of TC.hid) o.visible = true;
+    npc.root.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(npc.root), top = isFinite(bb.max.y) ? bb.max.y : npc.pos.y + 1.7, ht = Math.max(0.8, top - npc.pos.y);
+    TC = { npc, ht, top, pv: p.ch.root.visible, vv: p.vm.g.visible, hid: [], from: camera.position.clone(), fq: camera.quaternion.clone(), k: 0, fov: camera.fov };
+    document.body.classList.add('talkcam');
+  }
+  p.ch.root.visible = false; p.vm.g.visible = false;
+  const yaw = Math.atan2(p.pos.x - npc.pos.x, p.pos.z - npc.pos.z), fx = Math.sin(yaw), fz = Math.cos(yaw), sx = Math.cos(yaw), sz = -Math.sin(yaw);
+  const face = npc.pos.y + TC.ht * 0.86, dist = Math.max(1.3, TC.ht * 1.25);
+  const eye = new THREE.Vector3(npc.pos.x + fx * dist + sx * dist * 0.32, face + 0.02, npc.pos.z + fz * dist + sz * dist * 0.32);
+  const look = new THREE.Vector3(npc.pos.x + sx * 0.08, npc.pos.y + TC.ht * 0.6, npc.pos.z + sz * 0.08); // (aimed a little below the face, so the face sits in the upper half, clear of the talk box)
+  TC.k = Math.min(1, TC.k + dt * 2.2); const e = TC.k * TC.k * (3 - 2 * TC.k);
+  const wq = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(eye, look, new THREE.Vector3(0, 1, 0))); // (camera-style: looks down -Z at the face)
+  camera.position.lerpVectors(TC.from, eye, e); camera.quaternion.copy(TC.fq).slerp(wq, e);
+  camera.fov = TC.fov + (36 - TC.fov) * e; camera.updateProjectionMatrix(); // (a portrait lens: face and shoulders fill the frame)
+  { const want = Math.atan2(eye.x - npc.pos.x, eye.z - npc.pos.z); let d = want - (npc.yaw || 0); d = Math.atan2(Math.sin(d), Math.cos(d)); npc.yaw = (npc.yaw || 0) + d * Math.min(1, dt * 6); if (npc.root) npc.root.rotation.y = npc.yaw; if (npc.mz && npc.mz.mixer) npc.mz.mixer.update(dt); } // (they turn to face you, and keep breathing while the game is paused)
+  // hide anyone between the camera and the face (other people, goblins)
+  if (TC.k < 1 || !TC.swept) { TC.swept = TC.k >= 1; const a = eye, b = look, ab = b.clone().sub(a), L = ab.length(); ab.normalize();
+    for (const u of [...G.npcs, ...G.mobs]) { if (u === npc || !u.root || !u.root.visible) continue; const w = u.pos.clone().sub(a), t = w.dot(ab); if (t < -0.3 || t > L + 0.2) continue; const d = w.sub(ab.clone().multiplyScalar(t)).setY(0).length(); if (d < 0.9) { u.root.visible = false; TC.hid.push(u.root); } } }
+}
 function gameUpdate(dt) {
   if (GI) { giTick(dt); tutTick(); }
   const p = G.player;

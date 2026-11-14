@@ -17,6 +17,7 @@ export function playScene(lines, done, focus) {
   if (document.pointerLockElement) document.exitPointerLock();
   G.uiOpen = true; G.inScene = true; const hud = document.getElementById('hud'); if (hud) hud.classList.add('scenehide');
   scene = { lines, i: -1, done, focus, typed: 0, full: '', t: 0 };
+  if (focus && focus.root && document.body.classList.contains('gi')) G.talkNpc = focus; // (the talking camera frames them)
   next();
 }
 function next() {

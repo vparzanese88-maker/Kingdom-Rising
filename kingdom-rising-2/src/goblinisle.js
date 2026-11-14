@@ -400,9 +400,7 @@ export function giTick(dt) {
   for (const gt of [live.gatehouse, live.stairgate]) { if (gt.open < gt.want) { gt.open = Math.min(1, gt.open + dt / 5); if (gt.open >= 1) syncColliders(); } gt.gate.position.y = gt.y + gt.open * 7.4; }
   for (const id in live.totems) { const T = live.totems[id]; if (T.k < T.want) { T.k = Math.min(1, T.k + dt * 0.7); T.g.rotation.z = Math.pow(T.k, 2) * 1.45; } }
   tickCarts();
-  // the first steps: you can't leave Snagglefoot until they're done (or skipped)
-  { const P = G.player, h = G.save; if (P && h && h.tut === 'on') { const dx = P.pos.x - V.x, dz = P.pos.z - V.z, d = Math.hypot(dx, dz), R2 = V.r + 9;
-      if (d > R2) { P.pos.x = V.x + dx / d * R2; P.pos.z = V.z + dz / d * R2; if ((G.time || 0) - (giTick.warn || -99) > 6) { giTick.warn = G.time || 0; G.hooks.toast && G.hooks.toast('Templeton: "Not yet! You can barely stand. Finish your first steps." (or skip them)', '🛑', 'bad'); } } } }
+  // (the first steps no longer fence you into Snagglefoot: the owner wants you free to leave the starting area any time)
   if ((giTick.t = (giTick.t || 0) + dt) < 0.5) return; giTick.t = 0; tickDress();
   const P = G.player; if (!P || !G.save || !G.save.quests) return;
   const r = Math.hypot(P.pos.x - PEAK.x, P.pos.z - PEAK.z);

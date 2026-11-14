@@ -1,5 +1,5 @@
 // Goblos: the first steps in Snagglefoot (the owner: the basics, stupid simple; mostly tips, a few small quests;
-// skippable, and all the tips go away when skipped). While they run you can't leave the village.
+// skippable, and all the tips go away when skipped). You are free to leave the village at any time.
 import { G } from './state.js';
 import { QUESTS } from './data.js';
 const STEPS = [

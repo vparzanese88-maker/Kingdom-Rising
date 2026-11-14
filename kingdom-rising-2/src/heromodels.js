@@ -268,18 +268,25 @@ export function attachHeroModel(ch, cls) {
 // toward the palm about the knuckle line, more the further out it is (a spiral, like three finger joints closing), so the fingers wrap the
 // grip instead of splaying across it. The thumb (well out to the thumb side) is left alone. o: [knuckle line 0-1 up the hand, curl at the
 // fingertips in radians]
-function curlFingers(base, o, only) { const K0 = (o && o[0]) || 0.52, A = (o && o[1]) || 2.5; base.updateMatrixWorld(true); const hands = []; base.traverse(b => { if (b.isBone && /^(Left|Right)Hand$/.test(b.name) && (!only || b.name === only + 'Hand')) hands.push(b); }); /* (only: 'Left' or 'Right', one hand) */
+export function curlFingers(base, o, only) { const K0 = (o && o[0]) || 0.52, A = (o && o[1]) || 2.5; base.updateMatrixWorld(true); const hands = []; base.traverse(b => { if (b.isBone && /^(Left|Right)Hand$/.test(b.name) && (!only || b.name === only + 'Hand')) hands.push(b); }); /* (only: 'Left' or 'Right', one hand) */
   base.traverse(sk => { if (!sk.isSkinnedMesh || !sk.skeleton) return; const G = sk.geometry, P = G.attributes.position, N = G.attributes.normal, SI = G.attributes.skinIndex, SW = G.attributes.skinWeight; if (!P || !SI || !SW) return;
     for (const hb of hands) { const bi = sk.skeleton.bones.indexOf(hb); if (bi < 0) continue; const mt = new THREE.Matrix4().multiplyMatrices(sk.skeleton.boneInverses[bi], sk.bindMatrix), mi = mt.clone().invert(), nm = new THREE.Matrix3().setFromMatrix4(mt), ni = nm.clone().invert();
       const ids = [], v = new THREE.Vector3(), c = new THREE.Vector3(); for (let i = 0; i < P.count; i++) { let best = -1, bw = 0; for (let j = 0; j < 4; j++) { const w = SW.getComponent(i, j); if (w > bw) { bw = w; best = SI.getComponent(i, j); } } if (best === bi && bw >= 0.5) { ids.push(i); c.add(v.fromBufferAttribute(P, i).applyMatrix4(mt)); } }
       if (ids.length < 8) continue; c.multiplyScalar(1 / ids.length); const F = c.clone().normalize(); let len = 0; for (const i of ids) len = Math.max(len, v.fromBufferAttribute(P, i).applyMatrix4(mt).dot(F));
-      const iq = new THREE.Quaternion(); sk.skeleton.boneInverses[bi].decompose(new THREE.Vector3(), iq, new THREE.Vector3()); const T = new THREE.Vector3(0, 0, 1).applyQuaternion(iq); T.addScaledVector(F, -T.dot(F)).normalize(); const X = new THREE.Vector3().crossVectors(T, F), side = hb.name.startsWith('Right') ? 1 : -1;
+      const iq = new THREE.Quaternion(); sk.skeleton.boneInverses[bi].decompose(new THREE.Vector3(), iq, new THREE.Vector3()); let T = new THREE.Vector3(0, 0, 1).applyQuaternion(iq); T.addScaledVector(F, -T.dot(F)).normalize(); let X = new THREE.Vector3().crossVectors(T, F), side = hb.name.startsWith('Right') ? 1 : -1;
+      if (o && o[3]) { const t2 = X.clone(); X = new THREE.Vector3().crossVectors(t2, F); T = t2; side *= o[3]; } /* (o[3] = ±1: models whose hand's Z faces out of the palm: bend about the true knuckle line instead, this way round) */
       let tm = 0; for (const i of ids) tm += v.fromBufferAttribute(P, i).applyMatrix4(mt).dot(T); tm /= ids.length; /* (the hand's middle, across) */
-      const s0 = len * K0, piv = F.clone().multiplyScalar(s0), q = new THREE.Quaternion(), w = new THREE.Vector3(), n = new THREE.Vector3();
+      const s0 = len * K0, piv = F.clone().multiplyScalar(s0), q = new THREE.Quaternion(), w = new THREE.Vector3(), n = new THREE.Vector3(), ring = []; /* (ring: the curled fingers, for measuring the fist's hole) */
+      const rg = o && o[2] ? len * o[2] : 0, axisP = piv.clone().addScaledVector(X, side * rg); /* (o[2]: wrap the fingers round a handle of this radius (a share of the hand's length) instead of folding them at the knuckles) */
       for (const i of ids) { v.fromBufferAttribute(P, i).applyMatrix4(mt); const sA = v.dot(F); if (sA <= s0) continue; const lat = v.dot(T) - tm; if (lat > len * 0.3 && sA < len * 0.9) continue; /* (the thumb) */
-        const u = Math.min(1, (sA - s0) / Math.max(1e-6, len - s0)); q.setFromAxisAngle(T, side * A * Math.pow(u, 0.85)); w.copy(v).sub(piv).applyQuaternion(q).add(piv).applyMatrix4(mi); P.setXYZ(i, w.x, w.y, w.z);
+        const u = Math.min(1, (sA - s0) / Math.max(1e-6, len - s0)); q.setFromAxisAngle(T, side * A * Math.pow(u, 0.85)); w.copy(v).sub(axisP).applyQuaternion(q).add(axisP); if (u > 0.25) ring.push(w.clone()); w.applyMatrix4(mi); P.setXYZ(i, w.x, w.y, w.z);
         if (N) { n.fromBufferAttribute(N, i).applyMatrix3(nm).applyQuaternion(q).applyMatrix3(ni).normalize(); N.setXYZ(i, n.x, n.y, n.z); } }
-      P.needsUpdate = true; if (N) N.needsUpdate = true; }
+      P.needsUpdate = true; if (N) N.needsUpdate = true;
+      // the fist's hole: a circle fitted to the curled fingers across the grip (in the hand's own frame); a handle placed on its centre line sits in the fingers
+      if (ring.length > 10) { let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, sxz = 0, syz = 0, sz = 0, nn = ring.length;
+        for (const p of ring) { const d = p.clone().sub(piv), x = d.dot(F), y = d.dot(X), z = x * x + y * y; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; sxz += x * z; syz += y * z; sz += z; }
+        const M = new THREE.Matrix3().set(sxx, sxy, sx, sxy, syy, sy, sx, sy, nn).invert(), b = new THREE.Vector3(-sxz, -syz, -sz).applyMatrix3(M), cx = -b.x / 2, cy = -b.y / 2, r = Math.sqrt(Math.max(0, cx * cx + cy * cy - b.z));
+        (base.userData.fist || (base.userData.fist = {}))[hb.name] = { C: rg ? axisP.clone().addScaledVector(T, tm) : piv.clone().addScaledVector(F, cx).addScaledVector(X, cy).addScaledVector(T, tm), T: T.clone(), F: F.clone(), r: rg || r }; } } /* (with rg the hole is exactly the wrap axis) */
     G.computeBoundingBox(); G.computeBoundingSphere(); }); }
 // curlMorph: each hand's closed fist as a shape the model can take (two morph targets: right hand, left hand), its fingers curled the way
 // curlFingers closes them, built once per class on a copy of the mesh (the class's own mesh, its first-person arms and its fist frames are

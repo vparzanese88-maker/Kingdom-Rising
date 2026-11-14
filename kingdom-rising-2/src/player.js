@@ -703,7 +703,7 @@ export class Player {
       case 'Digit5': this.hotbar(4); break;
       case 'KeyE': this.interact(); break;
       case 'KeyR': if (this.h.arenaUlt) this.ultimate(); else this.quaff(); break; // (the arena: R is your ultimate)
-      case 'KeyV': break; /* (heroes have no first-person view to switch to) */
+      case 'KeyV': if (!this.h.arena || this.h.camp) this.camDistT = this.camDistT > 0.5 ? 0 : 3.2; break; /* (V: first person or behind the hero; the arena has no first person) */
       case 'KeyX': if (this.sheathed) this.drawWeapons(); else this.xHoldT = G.time; break; // hold X to put your weapons away, tap X to draw them
     }
   }
@@ -2663,7 +2663,7 @@ export class Player {
     // like Paladins: first person, but the camera swings out behind you while an ultimate, a leap or a defensive stance plays, then back in
     this.tpT = Math.max(0, (this.tpT || 0) - dt); this.ultImmT = Math.max(0, (this.ultImmT || 0) - dt); if (this.barrageT > 0) { this.barrageT -= dt; this.barrageCd = (this.barrageCd || 0) - dt; if (this.lmbHeld && this.barrageCd <= 0 && !this.held && !this.isFrozen() && !this.dead) { this.barrageCd = 0.09; this.arcaneRound(); } }
     if (!(this.barrageT > 0) && this.lmbHeld && this.h.arena && this.W && !this.atk && !(this.press && this.press.aimShot) && !this.held && !this.isFrozen() && !this.dead && !G.uiOpen && document.pointerLockElement) this.light(); /* (left click held: auto-fire) */
-    this.camDistT = Math.max(CAM_MIN, this.camDistT); if (this.camDist < CAM_MIN * 0.5 && !this.cine) this.camDist = CAM_MIN; /* (the owner: no first-person view: the camera always stays behind the hero) */
+    if (this.h.arena && !this.h.camp) { this.camDistT = Math.max(CAM_MIN, this.camDistT); if (this.camDist < CAM_MIN * 0.5 && !this.cine) this.camDist = CAM_MIN; } /* (the arena stays behind the hero; the campaign and the yard have the first-person view back: the owner asked for it) */
     const camWant = this.tpT > 0 && !this.dead ? Math.max(this.tpDist || 3.4, this.camDistT) : this.camDistT; if (this.tpT <= 0) this.tpDist = 0;
     this.camDist += (camWant - this.camDist) * Math.min(1, dt * (camWant > this.camDistT ? 7 : 5));
     const fp = this.camDist < 0.6;

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outfits · Kingdom Rising II</title>
+<style>
+:root { --bg:#14110d; --panel:rgba(24,20,15,.93); --line:#4a3c28; --gold:#e8c46a; --ink:#f1e6cc; --dim:#a8987a; }
+* { box-sizing:border-box; }
+html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:Georgia,'Times New Roman',serif; overflow:hidden; }
+#view { position:fixed; inset:0; }
+.panel { position:fixed; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 8px 30px rgba(0,0,0,.5); overflow:auto; }
+#left { left:16px; top:16px; bottom:16px; width:300px; }
+#right { right:16px; top:16px; bottom:16px; width:300px; }
+h1 { font-size:20px; margin:0 0 2px; color:var(--gold); }
+h2 { font-size:12px; text-transform:uppercase; letter-spacing:2px; color:var(--dim); margin:14px 0 7px; font-weight:normal; }
+.eyebrow { font-size:11px; color:var(--dim); letter-spacing:2px; text-transform:uppercase; }
+a.back { color:var(--dim); font-size:12px; text-decoration:none; } a.back:hover { color:var(--gold); }
+.grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.card { position:relative; border:2px solid #3a3020; border-radius:9px; overflow:hidden; cursor:pointer; background:#0e0c09; aspect-ratio:3/4; }
+.card img { width:100%; height:100%; object-fit:cover; }
+.card span { position:absolute; left:0; right:0; bottom:0; background:rgba(0,0,0,.7); font-size:11.5px; padding:4px 5px; text-align:center; }
+.card.on { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
+.card.wait { opacity:.45; cursor:default; }
+.dyes { display:flex; flex-wrap:wrap; gap:7px; }
+.dye { width:34px; height:34px; border-radius:50%; border:2px solid #3a3020; cursor:pointer; position:relative; }
+.dye.on { border-color:#fff; box-shadow:0 0 0 2px var(--gold); }
+.dye[title="Original"] { background:conic-gradient(#2a5ad0,#e8c46a,#8a5a2a,#2a5ad0); }
+.row { display:flex; gap:6px; flex-wrap:wrap; }
+.tog { flex:1; padding:7px 6px; background:#221c14; color:var(--ink); border:1px solid var(--line); border-radius:8px; font:inherit; font-size:13px; cursor:pointer; }
+.tog.on { border-color:var(--gold); background:#3a2e1a; }
+.wpn { display:flex; align-items:center; gap:8px; padding:7px 9px; margin:4px 0; background:#1c1710; border:1px solid var(--line); border-radius:8px; cursor:pointer; font-size:14px; }
+.wpn.on { border-color:var(--gold); background:#3a2e1a; }
+.wpn small { color:var(--dim); margin-left:auto; font-size:11px; }
+.note { font-size:12px; color:var(--dim); line-height:1.45; }
+#load { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); color:var(--gold); font-size:18px; pointer-events:none; }
+@media (max-width:900px) { #left, #right { position:static; width:auto; margin:8px; } body { overflow:auto; } #view { position:relative; height:60vh; } }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three/build/three.module.min.js", "three/addons/": "./vendor/three/examples/jsm/" } }</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="load">Loading…</div>
+<div class="panel" id="left">
+  <div class="eyebrow">Kingdom Rising II</div>
+  <h1>Outfits</h1>
+  <a class="back" href="./">← back to the title screen</a>
+  <h2>Armour</h2>
+  <div class="grid" id="outfits"></div>
+  <p class="note">Four kinds of armour (plate, mail, leather, cloth), two tiers each. Every outfit is one complete model, so nothing gaps, floats or clips.</p>
+</div>
+<div class="panel" id="right">
+  <h2 style="margin-top:0">Dye</h2>
+  <div class="dyes" id="dyes"></div>
+  <h2>Weapons</h2>
+  <div id="weapons"></div>
+  <h2>Pose</h2>
+  <div class="row"><button class="tog on" data-a="idle">Stand</button><button class="tog" data-a="walk">Walk</button><button class="tog" data-a="run">Run</button><button class="tog" id="spin">Turn</button></div>
+  <p class="note">Drag to turn the camera, scroll to zoom.</p>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { curlFingers } from './src/heromodels.js'; // (the same fist your class heroes make round their grips)
+
+// ---- the outfits: one complete model each (made from approved art in the class portrait style) ----
+// dye: the hue (0-1) of the part that takes the dye (the blue cloth, the green leather)
+const OUTFITS = [
+  { id: 'plate1', name: 'Plate I', dye: 0.62 }, { id: 'plate2', name: 'Plate II', dye: 0.62 },
+  { id: 'mail1', name: 'Mail I', dye: 0.62 }, { id: 'mail2', name: 'Mail II', dye: 0.62 },
+  { id: 'leather1', name: 'Leather I', dye: 0.3 }, { id: 'leather2', name: 'Leather II', dye: 0.36 },
+  { id: 'cloth1', name: 'Cloth I', dye: 0.6 }, { id: 'cloth2', name: 'Cloth II', dye: 0.56 },
+];
+const DYES = [['Original', null], ['Crimson', [0.0, 1, 0.9]], ['Ember', [0.06, 1, 1]], ['Gold', [0.12, 1, 1.1]], ['Emerald', [0.37, 1, 0.9]], ['Teal', [0.48, 1, 0.95]], ['Royal', [0.63, 1, 1]], ['Violet', [0.76, 0.9, 0.95]], ['Rose', [0.9, 0.8, 1.05]], ['Midnight', [0.65, 0.35, 0.45]], ['Ivory', [0.1, 0.12, 1.5]]];
+// ---- weapons: the class weapons, each with its own grip (which end is the handle, where the fist closes, how it turns) ----
+const WEAPONS = [
+  { id: 'warrior_sword', name: 'Knight\'s Sword', hand: 'R', len: 1.05 }, { id: 'warrior_shield', name: 'Heater Shield', hand: 'L', len: 0.85, shield: true },
+  { id: 'bers_axe', name: 'Great Axe', hand: 'R', len: 1.2 }, { id: 'rogue_dagger', name: 'Dagger', hand: 'R', len: 0.42 },
+  { id: 'ranger_bow', name: 'Longbow', hand: 'L', len: 1.45, bow: true }, { id: 'cleric_hammer', name: 'War Hammer', hand: 'R', len: 0.85 },
+  { id: 'druid_staff', name: 'Druid Staff', hand: 'R', len: 1.75 }, { id: 'shaman_spear', name: 'Spear', hand: 'R', len: 1.8 },
+  { id: 'priest_scepter', name: 'Scepter', hand: 'R', len: 0.7 }, { id: 'wizard_book', name: 'Spellbook', hand: 'L', len: 0.32, book: true },
+];
+const H90 = Math.PI / 2;
+// each weapon's grip, set by filming every option and keeping the right one: hr (how it turns in the hand), flip (which end is the
+// handle), at (where the fist closes, from the handle end, 0-1)
+const GRIP = Object.assign({
+  warrior_sword: { flip: 1, at: 0.12 }, rogue_dagger: { flip: 1, at: 0.18 },
+  bers_axe: { at: 0.22 }, cleric_hammer: { at: 0.2 }, priest_scepter: { at: 0.22 },
+  druid_staff: { at: 0.42 }, shaman_spear: { at: 0.42 },
+}, window.GRIP || {});
+
+const view = document.getElementById('view');
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); R.setPixelRatio(Math.min(2, devicePixelRatio)); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.shadowMap.enabled = true; view.appendChild(R.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#1c1812');
+const cam = new THREE.PerspectiveCamera(32, 1, 0.05, 100);
+scene.add(new THREE.HemisphereLight('#fff4e0', '#3a3020', 1.4));
+const sun = new THREE.DirectionalLight('#ffe8c8', 2.3); sun.position.set(2.5, 5, 3.5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 3, bottom: -1 }); scene.add(sun);
+const rim = new THREE.DirectionalLight('#9ab8ff', 1.0); rim.position.set(-3, 3, -4); scene.add(rim);
+const floor = new THREE.Mesh(new THREE.CircleGeometry(2.2, 64), new THREE.MeshStandardMaterial({ color: '#3a3022', roughness: 0.95 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const ctl = { target: new THREE.Vector3(0, 1, 0), yaw: 0.35, pitch: 0.12, dist: 4.4, update() { this.pitch = Math.max(-0.3, Math.min(1.2, this.pitch)); this.dist = Math.max(0.8, Math.min(9, this.dist)); cam.position.set(this.target.x + Math.sin(this.yaw) * Math.cos(this.pitch) * this.dist, this.target.y + Math.sin(this.pitch) * this.dist, this.target.z + Math.cos(this.yaw) * Math.cos(this.pitch) * this.dist); cam.lookAt(this.target); } };
+{ let drag = null; const el = R.domElement; el.style.touchAction = 'none';
+  el.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e => { if (!drag) return; ctl.yaw -= (e.clientX - drag.x) * 0.008; ctl.pitch += (e.clientY - drag.y) * 0.006; drag = { x: e.clientX, y: e.clientY }; });
+  el.addEventListener('pointerup', () => drag = null); el.addEventListener('wheel', e => { e.preventDefault(); ctl.dist *= Math.exp(e.deltaY * 0.001); }, { passive: false }); }
+function resize() { const w = view.clientWidth || innerWidth, h = view.clientHeight || innerHeight; R.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); } addEventListener('resize', resize); resize();
+
+const GL = new GLTFLoader(), FL = new FBXLoader(), cache = {};
+const loadOutfit = (id) => cache[id] || (cache[id] = new Promise(res => GL.load(`models/outfits/${id}.glb`, res, undefined, () => res(null))));
+const loadWeapon = (id) => cache['w' + id] || (cache['w' + id] = new Promise(res => FL.load(`models/w/${id}.fbx`, res, undefined, () => res(null))));
+// (Meshy meshes can carry zero-length normals that flash; point them up)
+const fixNormals = (g) => { const n = g && g.attributes.normal; if (!n) return; for (let i = 0; i < n.count; i++) { const l = Math.hypot(n.getX(i), n.getY(i), n.getZ(i)); if (!(l > 1e-4)) n.setXYZ(i, 0, 1, 0); } n.needsUpdate = true; };
+
+// ---- the dye: the outfit's dyeable colour (its own hue band) is turned to the dye's hue; skin, metal, gold and leather keep theirs ----
+const DY = { on: { value: 0 }, src: { value: 0.62 }, hue: { value: 0 }, sat: { value: 1 }, val: { value: 1 } };
+function dyeable(mat) {
+  mat.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, { uDyeOn: DY.on, uDyeSrc: DY.src, uDyeHue: DY.hue, uDyeSat: DY.sat, uDyeVal: DY.val });
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      uniform float uDyeOn, uDyeSrc, uDyeHue, uDyeSat, uDyeVal;
+      vec3 rgb2hsv(vec3 c){ vec4 K = vec4(0.,-1./3.,2./3.,-1.); vec4 p = mix(vec4(c.bg,K.wz), vec4(c.gb,K.xy), step(c.b,c.g)); vec4 q = mix(vec4(p.xyw,c.r), vec4(c.r,p.yzx), step(p.x,c.r)); float d = q.x - min(q.w,q.y); float e = 1.0e-10; return vec3(abs(q.z + (q.w - q.y)/(6.*d+e)), d/(q.x+e), q.x); }
+      vec3 hsv2rgb(vec3 c){ vec3 p = abs(fract(c.xxx + vec3(1.,2./3.,1./3.))*6.-3.); return c.z * mix(vec3(1.), clamp(p-1.,0.,1.), c.y); }`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      if (uDyeOn > 0.5) { vec3 hsv = rgb2hsv(diffuseColor.rgb); float d = abs(fract(hsv.x - uDyeSrc + 0.5) - 0.5);
+        float m = (1.0 - smoothstep(0.07, 0.13, d)) * smoothstep(0.18, 0.32, hsv.y);
+        vec3 t = hsv2rgb(vec3(uDyeHue, clamp(hsv.y * uDyeSat, 0., 1.), clamp(hsv.z * uDyeVal, 0., 1.))); diffuseColor.rgb = mix(diffuseColor.rgb, t, m); }`); };
+  mat.customProgramCacheKey = () => 'dye';
+}
+
+let holder = null, body = null, mixer = null, acts = {}, curAct = 'idle', outfit = null, dye = 'Original', worn = {}, spinning = false, rest = [];
+const bones = {};
+function play(a) { curAct = a; document.querySelectorAll('[data-a]').forEach(b => b.classList.toggle('on', b.dataset.a === a)); for (const k in acts) acts[k].stop(); (acts[a] || acts.idle) && (acts[a] || acts.idle).reset().play(); }
+let want = { L: null, R: null }; // (the weapons wanted in each hand; the model is rebuilt with those hands closed into fists)
+async function setOutfit(o) { outfit = o; document.querySelectorAll('.card').forEach(c => c.classList.toggle('on', c.dataset.id === o.id)); DY.src.value = o.dye; await build(); }
+let building = Promise.resolve();
+function build() { building = building.then(build1, build1); return building; } // (one build at a time: a second click waits for the first)
+async function build1() {
+  const o = outfit, g = await loadOutfit(o.id); if (!g || outfit !== o) return;
+  const s = SkeletonUtils.clone(g.scene); for (const k in bones) delete bones[k];
+  s.traverse(m => { if (m.isMesh) { m.geometry = m.geometry.clone(); m.castShadow = true; fixNormals(m.geometry); const mt = m.material = m.material.clone(); mt.metalness = 0; mt.roughness = Math.max(0.6, mt.roughness ?? 1); dyeable(mt); } if (m.isBone) bones[m.name] = m; });
+  if (window.CURL) for (const h of ['L', 'R']) if (want[h]) curlFingers(s, window.CURL, h === 'L' ? 'Left' : 'Right'); // (these outfit models have no finger bones yet, and bending the hand by vertices twisted the fingers: hands stay open until the finger-boned rigs are in)
+  if (holder) scene.remove(holder); holder = new THREE.Group(); scene.add(holder); holder.add(s);
+  s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s), k = 1.8 / (bb.max.y - bb.min.y); s.scale.setScalar(k); s.position.y = -bb.min.y * k; s.updateMatrixWorld(true);
+  body = s; mixer = new THREE.AnimationMixer(s); acts = {};
+  for (const c of g.animations) { const n = c.name.toLowerCase(); const key = /idle/.test(n) ? 'idle' : /walk/.test(n) ? 'walk' : /run/.test(n) ? 'run' : null; if (key && !acts[key]) acts[key] = mixer.clipAction(c); }
+  worn = {}; for (const h of ['L', 'R']) if (want[h]) await attach(want[h]);
+  play(curAct); document.getElementById('load').style.display = 'none'; refresh();
+}
+// ---- holding a weapon: fixed to the hand bone, its handle at the fist, turned so the blade/head points along the hand ----
+// the weapon, turned so its handle runs along +Y (handle end down), its origin moved to the middle of the handle at the grip point
+// (the centre of the handle's own cross-section there, measured from the model, not guessed)
+function prepWeapon(fbx, def) {
+  const w = fbx.clone(true); w.traverse(m => { if (m.isMesh) { m.castShadow = true; fixNormals(m.geometry); for (const mt of [].concat(m.material)) { mt.metalness = Math.min(mt.metalness ?? 0, 0.3); mt.roughness = Math.max(0.45, mt.roughness ?? 1); } } });
+  const box = new THREE.Box3().setFromObject(w), sz = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const ax = sz.x >= sz.y && sz.x >= sz.z ? 'x' : sz.y >= sz.z ? 'y' : 'z', k = def.len / sz[ax], t = GRIP[def.id] || {};
+  const inner = new THREE.Group(); inner.add(w); w.scale.setScalar(k); w.position.copy(c).multiplyScalar(-k);
+  if (ax === 'x') inner.rotation.z = -Math.PI / 2; else if (ax === 'z') inner.rotation.x = Math.PI / 2;
+  const piv = new THREE.Group(); piv.add(inner); if (t.flip) piv.rotation.x = Math.PI;
+  piv.updateMatrixWorld(true);
+  // the handle's cross-section at the grip: every vertex within a thin slice of the long axis, averaged across
+  const at = t.at ?? (def.shield || def.book || def.bow ? 0.5 : 0.16), yg = -def.len / 2 + at * def.len, band = def.len * 0.025, v = new THREE.Vector3(); let sx = 0, sz2 = 0, n = 0;
+  piv.traverse(m => { if (!m.isMesh) return; const P = m.geometry.attributes.position; for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld); if (Math.abs(v.y - yg) < band) { sx += v.x; sz2 += v.z; n++; } } });
+  const g = new THREE.Group(); g.add(piv); piv.position.set(-(n ? sx / n : 0), -yg, -(n ? sz2 / n : 0)); return g;
+}
+async function attach(def) {
+  const fbx = await loadWeapon(def.id); if (!fbx || !body) return;
+  const hn = (def.hand === 'L' ? 'Left' : 'Right') + 'Hand', hand = bones[hn]; if (!hand) return;
+  const t = GRIP[def.id] || {}, w = prepWeapon(fbx, def), ws = hand.getWorldScale(new THREE.Vector3()), F = body.userData.fist && body.userData.fist[hn];
+  const o = new THREE.Group(); o.add(w); w.scale.setScalar(1 / ws.y);
+  if (F && !def.shield && !def.book) {
+    // the handle on the fist's centre line: +Y (toward the blade or head) along the fist's axis, turned about it by spin
+    const axis = F.T.clone().multiplyScalar(t.dir ?? (def.hand === 'L' ? -1 : 1)), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis);
+    q.premultiply(new THREE.Quaternion().setFromAxisAngle(axis, t.spin ?? 0)); o.quaternion.copy(q); o.position.copy(F.C);
+  } else { o.rotation.set(...(t.hr || [H90, 0, 0])); o.position.set(0, (t.py ?? 0.08) / ws.y, (t.pz ?? 0.02) / ws.y); }
+  hand.add(o); worn[def.hand] = { def, o };
+}
+async function wield(def) { want[def.hand] = def; await build(); }
+function unwield(h) { if (!want[h]) return; want[h] = null; return build(); }
+
+// ---- panels ----
+function refresh() {
+  document.querySelectorAll('.wpn').forEach(e => e.classList.toggle('on', Object.values(worn).some(w => w && w.def.id === e.dataset.id)));
+  document.querySelectorAll('.dye').forEach(e => e.classList.toggle('on', e.title === dye));
+}
+const oEl = document.getElementById('outfits');
+for (const o of OUTFITS) { const d = document.createElement('div'); d.className = 'card'; d.dataset.id = o.id; d.innerHTML = `<img src="models/outfits/${o.id}.jpg" alt=""><span>${o.name}</span>`; d.onclick = () => setOutfit(o); oEl.appendChild(d); }
+const dEl = document.getElementById('dyes');
+for (const [n, v] of DYES) { const d = document.createElement('div'); d.className = 'dye'; d.title = n; if (v) d.style.background = `hsl(${v[0] * 360} ${Math.min(100, v[1] * 75)}% ${Math.min(80, 40 * v[2])}%)`;
+  d.onclick = () => { dye = n; DY.on.value = v ? 1 : 0; if (v) { DY.hue.value = v[0]; DY.sat.value = v[1]; DY.val.value = v[2]; } refresh(); }; dEl.appendChild(d); }
+const wEl = document.getElementById('weapons');
+for (const w of WEAPONS) { const d = document.createElement('div'); d.className = 'wpn'; d.dataset.id = w.id; d.innerHTML = `${w.name}<small>${w.hand === 'L' ? 'off hand' : 'main hand'}</small>`; d.onclick = () => (want[w.hand] === w) ? unwield(w.hand) : wield(w); wEl.appendChild(d); }
+document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => play(b.dataset.a));
+document.getElementById('spin').onclick = (e) => { spinning = !spinning; e.target.classList.toggle('on', spinning); };
+const clock = new THREE.Clock();
+R.setAnimationLoop(() => { const dt = Math.min(0.05, clock.getDelta()); if (mixer) mixer.update(dt); if (spinning && holder) holder.rotation.y += dt * 0.6; ctl.update(); R.render(scene, cam); });
+window.OUT = { dbg: () => { const F = body.userData.fist || {}; const out = {}; for (const k in F) { const hb = bones[k], q = hb.getWorldQuaternion(new THREE.Quaternion()); out[k] = { r: +F[k].r.toFixed(4), C: F[k].C.toArray().map(v => +v.toFixed(3)), Tw: F[k].T.clone().applyQuaternion(q).toArray().map(v => +v.toFixed(2)), Fw: F[k].F.clone().applyQuaternion(q).toArray().map(v => +v.toFixed(2)) }; } const w = worn.R; if (w) { const q = w.o.getWorldQuaternion(new THREE.Quaternion()); out.wpnY = new THREE.Vector3(0, 1, 0).applyQuaternion(q).toArray().map(v => +v.toFixed(2)); out.wpnPos = w.o.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(3)); out.hand = bones.RightHand.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(3)); out.ws = bones.RightHand.getWorldScale(new THREE.Vector3()).y; } return out; }, hand: (h) => bones[h + 'Hand'] && bones[h + 'Hand'].getWorldPosition(new THREE.Vector3()), setOutfit: (id) => setOutfit(OUTFITS.find(o => o.id === id)), wield: (id) => wield(WEAPONS.find(w => w.id === id)), unwield, setDye: (n) => [...dEl.children].find(d => d.title === n).click(), play, cam, ctl, R, get worn() { return worn; } };
+setOutfit(OUTFITS[0]);
+</script>
+</body>
+</html>

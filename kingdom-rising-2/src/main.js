@@ -9,11 +9,12 @@ import { G } from './state.js';
 import { settings, putSave, getSave } from './saves.js';
 import { A, S, M, setAmbience } from './audio.js';
 import { V } from './vfx.js';
-import { PORT } from './terrain.js';
+import { PORT, SEA } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
 import { GI, WASH, BOATYARD } from './gimap.js';
 import { actor, playClip } from './gimodels.js';
+import { tickHeroModel, heroHeight } from './heromodels.js';
 import { startTutorial, tutTick } from './gitut.js';
 import { giSpawn, giKill, giApply, giTick, giPeople, giRespawns, giMusic, rebuildStage } from './goblinisle.js';
 import { summonPets, petCommand, pets, PETS, stopPets, dismissPets } from './pets.js';
@@ -178,6 +179,7 @@ function startGame(save) {
   for (const p of G.projectiles) p.mesh && scene.remove(p.mesh); G.projectiles.length = 0;
   if (!BATTLE && !YARD && !ARENA) Arena.campHero(h); /* (the campaign: the new classes, levelled from 1) */
   const p = new Player(h); G.player = p;
+  if (GI) p.camDist = p.camDistT = h.camD ?? 0; /* (Goblos plays in first person; V or the mouse wheel steps out behind the hero, and that choice is kept) */
   if (h.pos) p.place(h.pos.x, h.pos.z, h.pos.yaw); else p.place(SPAWN.x, SPAWN.z, Math.atan2(VILLAGE.x - SPAWN.x, VILLAGE.z - SPAWN.z));
   if (h.hp) p.hp = Math.max(1, Math.min(p.maxHp, h.hp));
   G.tod = h.tod ?? 0.3;
@@ -191,7 +193,7 @@ function startGame(save) {
 function saveNow() {
   if (BATTLE || YARD || ARENA) return;
   const p = G.player, h = G.save; if (!p || !h) return;
-  h.pos = { x: p.pos.x, z: p.pos.z, yaw: p.yaw }; if (p.dead) h.pos = null;
+  h.pos = { x: p.pos.x, z: p.pos.z, yaw: p.yaw }; if (p.dead) h.pos = null; if (GI) h.camD = p.camDistT;
   h.hp = p.hp; h.tod = G.tod; if (fog.on && fog.soft) h.fogEx = packFog();
   const zn = ZONES.find(z => z.id === G.zone); h.zone = zn ? zn.name : h.zone;
   putSave(h);
@@ -692,44 +694,87 @@ function endIntro() {
 // ---------- Goblos: washed ashore (the owner: all cinematic amazingness) ----------
 // black; the sea; sand. You lie tangled in nets on the beach, blurred and tilted. A small goblin walks up and talks to you.
 // Black again: he drags you to his village. You wake in Snagglefoot, beside his half-built boat.
-const GI_LINES = [[0.8, 7.5, '', '...cold water. Salt. The sea rolls you over, and over...'], [4.6, 7.5, '', '...then sand.'], [8.2, 12.6, '', 'You can\'t move. You can\'t remember anything. Not even your own name.'],
-  [13.4, 17, 'A small voice', '"Oi! You alive in there? You\'re all tangled up in fishnets, big fella."'], [17.2, 20.4, 'A small voice', '"Hold still now... Templeton\'s got you."'], [21.6, 26.5, '', 'Small, strong hands drag you up the beach, through the jungle... to a warm fire, and a bed of straw.']];
-const GI_END = 27.5;
+const GI_LINES = [[1.2, 5.4, '', '...cold water. Salt. The sea rolls you over, and over...'], [5.8, 9.6, '', '...something holds you up. Barrels. A tangle of net. The current carries you in...'],
+  [10.6, 15.4, '', '...then sand. You can\'t move. You can\'t remember anything. Not even your own name.'],
+  [16.2, 19.8, 'A small voice', '"Oi! You alive in there? You\'re all tangled up in fishnets, big fella."'], [20, 23.2, 'A small voice', '"Hold still now... Templeton\'s got you."'], [24.4, 29.3, '', 'Small, strong hands drag you up the beach, through the jungle... to a warm fire, and a bed of straw.']];
+const GI_RAFT = 10, GI_SH = 2.8, GI_END = 30.3; /* (the raft shot runs to 10 s; the old sand scene follows, shifted 2.8 s later) */
+// the raft: three lashed barrels, a couple of planks and a torn fishing net, the wreck that carried you ashore
+function buildRaft() {
+  const g = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: '#7a5634', roughness: 0.85 }), dark = new THREE.MeshStandardMaterial({ color: '#4a3220', roughness: 0.9 }), iron = new THREE.MeshStandardMaterial({ color: '#3b3a38', roughness: 0.6, metalness: 0.5 });
+  for (const [x, z, r] of [[-0.42, -0.85, 0.1], [0.4, 0.05, -0.15], [-0.35, 0.95, 0.2]]) {
+    const b = new THREE.Group(), body = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 1.05, 14), wood); body.scale.set(1, 1, 1);
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 10), wood); belly.scale.set(1, 1.15, 1); b.add(body, belly);
+    for (const y of [-0.38, 0.38]) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.385, 0.025, 6, 18), iron); band.rotation.x = Math.PI / 2; band.position.y = y; b.add(band); }
+    b.rotation.set(0, r, Math.PI / 2); b.position.set(x, 0, z); g.add(b);
+  }
+  for (const [x, w] of [[-0.15, 0.32], [0.25, 0.26]]) { const pl = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, 2.9), dark); pl.position.set(x, 0.4, 0); pl.rotation.y = x * 0.2; g.add(pl); }
+  // the net: a sagging mesh of knotted cord, draped over the barrels and the planks
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'); c.strokeStyle = '#d8cfae'; c.lineWidth = 3;
+  for (let i = -128; i < 256; i += 21) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i + 128, 128); c.stroke(); c.beginPath(); c.moveTo(i, 128); c.lineTo(i + 128, 0); c.stroke(); }
+  const tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(3, 4); tx.colorSpace = THREE.SRGBColorSpace;
+  const ng = new THREE.PlaneGeometry(1.9, 1.1, 16, 10), pa = ng.attributes.position;
+  for (let i = 0; i < pa.count; i++) { const x = pa.getX(i), y = pa.getY(i); pa.setZ(i, 0.5 - Math.pow(Math.abs(x) / 0.95, 2) * 0.62 + Math.sin(y * 3.1 + x * 2) * 0.05); }
+  ng.computeVertexNormals();
+  const net = new THREE.Mesh(ng, new THREE.MeshStandardMaterial({ map: tx, alphaTest: 0.4, transparent: false, side: THREE.DoubleSide, roughness: 1 })); net.rotation.x = -Math.PI / 2; net.position.set(0.05, 0.36, 1.05); g.add(net); g.scale.setScalar(1.2); /* (over his legs: his chest and face stay clear for the camera) */
+  g.userData.net = net; return g;
+}
 function giCap(who, text) { let c = $('gicap'); if (!c) { c = document.createElement('div'); c.id = 'gicap'; document.body.appendChild(c); } if (!text) { c.classList.remove('on'); return; } c.innerHTML = (who ? `<small>${who}</small>` : '') + text; c.classList.add('on'); }
 function giIntroStart() {
-  const p = G.player; intro = { gi: true, t: 0, line: -1, tem: null, faded: false, dark: false };
-  $('hud').hidden = true; p.vm.g.visible = false; p.ch.root.visible = false; p.place(WASH.x, WASH.z - 2, 0);
+  const p = G.player; intro = { gi: true, t: 0, line: -1, tem: null, faded: false, dark: false, cut: false };
+  $('hud').hidden = true; p.vm.g.visible = false; p.ch.root.visible = true; p.ch.hoverStill = true; p.place(WASH.x, WASH.z - 2, 0);
   G.tod = 0.26; // (early morning)
   const fd = $('sailfade'); fd.style.transition = 'none'; fd.style.opacity = 1; void fd.offsetWidth; fd.style.transition = '';
   let sk = $('giskip'); if (!sk) { sk = document.createElement('div'); sk.id = 'giskip'; document.body.appendChild(sk); } sk.textContent = 'Space to skip'; sk.hidden = false;
+  if (!world.giRaft) { world.giRaft = buildRaft(); scene.add(world.giRaft); } intro.raft = world.giRaft;
   actor('templeton', 1.05).then(Z => { if (!intro || !intro.gi || !Z) return; intro.tem = Z; scene.add(Z.o); Z.o.visible = false; });
-  setAmbience({ sea: 0.7, wind: 0.3, forest: 0, waterfall: 0, fire: 0, lava: 0, night: 0 });
+  setAmbience({ sea: 0.9, wind: 0.45, forest: 0, waterfall: 0, fire: 0, lava: 0, night: 0 });
 }
+// where the raft is at time t: drifting in from the open sea, slowing, and grounding in the shallows in front of where you wake
+const RAFT_DIR = 0.44, raftAt = (t) => { const k = Math.min(1, t / (GI_RAFT - 0.6)), e = 1 - Math.pow(1 - k, 2.2), d = 23 + (1 - e) * 62, side = Math.sin(t * 0.3) * 0.8 * (1 - e); /* (it grounds at the waterline, about 23 m out from where you wake: the waves wash you the rest of the way) */
+  const x = WASH.x + Math.sin(RAFT_DIR) * d + Math.cos(RAFT_DIR) * side, z = WASH.z + Math.cos(RAFT_DIR) * d - Math.sin(RAFT_DIR) * side;
+  const ground = heightAt(x, z), wave = (1 - e * 0.85) * (Math.sin(t * 1.3) * 0.16 + Math.sin(t * 0.7 + 1) * 0.09);
+  return { x, z, y: Math.max(SEA + 0.05 + wave, ground + 0.32), roll: (1 - e * 0.9) * Math.sin(t * 0.9) * 0.08, pitch: (1 - e * 0.9) * Math.sin(t * 1.1 + 0.6) * 0.06, yaw: RAFT_DIR + (1 - e) * 0.3 + Math.sin(t * 0.4) * 0.05 }; };
 function giIntroUpdate(dt) {
-  const I = intro; I.t += dt; const t = I.t, p = G.player, h0 = heightAt(WASH.x, WASH.z);
-  // the view: lying on your side on the sand, looking out to sea through blurred eyes
-  const sway = Math.sin(t * 0.5) * 0.02;
-  camera.position.set(WASH.x - 1.1, h0 + 0.3 + sway * 0.5, WASH.z - 1.4);
-  camera.lookAt(WASH.x + 1.6, h0 + 0.75 + (t > 13 ? 0.35 : 0), WASH.z + 7); camera.rotateZ(0.38 + sway);
-  p.pos.set(WASH.x, h0, WASH.z - 2); A.setListener(camera.position.x, camera.position.y, camera.position.z, 0);
-  const blur = t < 9 ? 7 : t < 14 ? 7 - (t - 9) * 1.0 : 2 + Math.sin(t * 1.3) * 0.6; canvas.style.filter = `blur(${blur.toFixed(1)}px) brightness(${t < 20 ? 0.85 : 0.7}) saturate(0.85)`;
-  // Templeton walks up from along the beach, stops in front of you and talks
-  const Z = I.tem; if (Z) { const a = { x: WASH.x - 7, z: WASH.z + 4 }, b = { x: WASH.x + 0.3, z: WASH.z + 0.6 };
-    if (t > 9.6) { Z.o.visible = true; const k = Math.min(1, (t - 9.6) / 3.4), e = k * k * (3 - 2 * k), x = a.x + (b.x - a.x) * e, z = a.z + (b.z - a.z) * e;
-      Z.o.position.set(x, heightAt(x, z), z); Z.o.rotation.y = k < 1 ? Math.atan2(b.x - a.x, b.z - a.z) : Math.atan2(camera.position.x - x, camera.position.z - z);
-      playClip(Z, k < 1 ? 'walk' : 'talk'); }
-    Z.mixer.update(dt); }
+  const I = intro; I.t += dt; const t = I.t, p = G.player, h0 = heightAt(WASH.x, WASH.z), fd = $('sailfade');
+  // the raft drifts in (and stays on the beach afterwards: the wreck that carried you)
+  const R = I.raft, ra = raftAt(Math.min(t, GI_RAFT)); R.position.set(ra.x, ra.y, ra.z); R.rotation.set(ra.pitch, ra.yaw, ra.roll, 'YXZ'); R.updateMatrixWorld(true);
+  if (t < GI_RAFT) {
+    // shot one: the hero lying on his back on the barrels, half under the net, the island ahead
+    const HH = heroHeight(p.h.cls) * 0.98, at = new THREE.Vector3(0, 0.74, HH * 0.5 - 0.2).applyMatrix4(R.matrixWorld); /* (his feet at the seaward end, head towards the shore, face up) */
+    p.ch.root.position.copy(at); p.ch.root.quaternion.setFromEuler(new THREE.Euler(ra.pitch - Math.PI / 2 + 0.04, ra.yaw, ra.roll, 'YXZ'));
+    p.ch.root.updateMatrixWorld(true); tickHeroModel(p.ch, dt);
+    // the camera: starts high out at sea behind the raft, then swings round low beside it as it nears the beach
+    const k = Math.min(1, t / (GI_RAFT - 1)), e = k * k * (3 - 2 * k), a = RAFT_DIR - 0.1 + e * 1.15, d = 9 - e * 4.4, hgt = 5.5 - e * 3.2;
+    camera.position.set(ra.x + Math.sin(a) * d, Math.max(SEA + 0.6, ra.y + hgt), ra.z + Math.cos(a) * d);
+    { const f = -2.2 + e * 1.8; camera.lookAt(ra.x + Math.sin(RAFT_DIR) * f, ra.y + 0.55 - e * 0.2, ra.z + Math.cos(RAFT_DIR) * f); } camera.rotateZ(Math.sin(t * 0.8) * 0.012);
+    A.setListener(camera.position.x, camera.position.y, camera.position.z, 0);
+    canvas.style.filter = 'brightness(0.92) saturate(0.9)';
+    if (!I.faded && t > 0.6) { I.faded = true; fd.style.opacity = 0; }
+    if (!I.cut && t > GI_RAFT - 0.9) { I.cut = true; fd.style.opacity = 1; }
+  } else {
+    if (p.ch.root.visible) { p.ch.root.visible = false; p.ch.hoverStill = false; p.ch.root.quaternion.identity(); fd.style.opacity = 0; I.faded2 = true; }
+    // shot two: your own eyes, lying on your side on the sand, looking out to sea through a blur (the raft beached in front of you)
+    const ts = t - GI_SH, sway = Math.sin(ts * 0.5) * 0.02;
+    camera.position.set(WASH.x - 1.1, h0 + 0.3 + sway * 0.5, WASH.z - 1.4);
+    camera.lookAt(WASH.x + 1.6, h0 + 0.75 + (ts > 13 ? 0.35 : 0), WASH.z + 7); camera.rotateZ(0.38 + sway);
+    p.pos.set(WASH.x, h0, WASH.z - 2); A.setListener(camera.position.x, camera.position.y, camera.position.z, 0);
+    const blur = ts < 9 ? 6 - (ts - 7.2) * 0.8 : ts < 14 ? 4.6 - (ts - 9) * 0.5 : 2 + Math.sin(ts * 1.3) * 0.6; canvas.style.filter = `blur(${Math.max(1.4, blur).toFixed(1)}px) brightness(${ts < 20 ? 0.85 : 0.7}) saturate(0.85)`;
+    // Templeton walks up from along the beach, stops in front of you and talks
+    const Z = I.tem; if (Z) { const a = { x: WASH.x - 7, z: WASH.z + 4 }, b = { x: WASH.x + 0.3, z: WASH.z + 0.6 };
+      if (ts > 9.6) { Z.o.visible = true; const k = Math.min(1, (ts - 9.6) / 3.4), e = k * k * (3 - 2 * k), x = a.x + (b.x - a.x) * e, z = a.z + (b.z - a.z) * e;
+        Z.o.position.set(x, heightAt(x, z), z); Z.o.rotation.y = k < 1 ? Math.atan2(b.x - a.x, b.z - a.z) : Math.atan2(camera.position.x - x, camera.position.z - z);
+        playClip(Z, k < 1 ? 'walk' : 'talk'); }
+      Z.mixer.update(dt); }
+    if (!I.dark && ts > 20.6) { I.dark = true; fd.style.opacity = 1; }
+  }
   // captions
   let li = -1; for (let i = 0; i < GI_LINES.length; i++) if (t > GI_LINES[i][0] && t < GI_LINES[i][1]) li = i;
   if (li !== I.line) { I.line = li; giCap(li >= 0 ? GI_LINES[li][2] : '', li >= 0 ? GI_LINES[li][3] : ''); }
-  const fd = $('sailfade');
-  if (!I.faded && t > 7.2) { I.faded = true; fd.style.opacity = 0; }
-  if (!I.dark && t > 20.6) { I.dark = true; fd.style.opacity = 1; }
   if (t > GI_END) endIntro();
 }
 function giIntroEnd() {
   const I = intro; intro = null; const p = G.player;
-  if (I.tem) { scene.remove(I.tem.o); I.tem.mixer.stopAllAction(); }
+  if (I.tem) { scene.remove(I.tem.o); I.tem.mixer.stopAllAction(); } p.ch.hoverStill = false; p.ch.root.quaternion.identity(); p.camDist = p.camDistT = G.save.camD ?? 0; /* (you wake in first person) */ if (I.raft) { const ra = raftAt(GI_RAFT); I.raft.position.set(ra.x, ra.y, ra.z); I.raft.rotation.set(0, ra.yaw, 0); }
   giCap('', ''); if ($('giskip')) $('giskip').hidden = true; canvas.style.filter = '';
   camera.rotation.order = 'YXZ'; const sx = BOATYARD.x - 5, sz = BOATYARD.z - 9; p.place(sx, sz, Math.atan2(BOATYARD.x + 2 - sx, BOATYARD.z - 5 - sz)); p.ch.root.visible = true; p.pitch = -0.05; if (p.vel) p.vel.set(0, 0, 0);
   $('hud').hidden = false; G.save.introDone = true; G.tod = 0.33; saveNow();

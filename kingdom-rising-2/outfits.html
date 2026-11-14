@@ -3,33 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Outfits · Kingdom Rising II</title>
+<title>Armoury · Kingdom Rising II</title>
 <style>
 :root { --bg:#14110d; --panel:rgba(24,20,15,.93); --line:#4a3c28; --gold:#e8c46a; --ink:#f1e6cc; --dim:#a8987a; }
 * { box-sizing:border-box; }
 html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:Georgia,'Times New Roman',serif; overflow:hidden; }
 #view { position:fixed; inset:0; }
 .panel { position:fixed; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 8px 30px rgba(0,0,0,.5); overflow:auto; }
-#left { left:16px; top:16px; bottom:16px; width:300px; }
-#right { right:16px; top:16px; bottom:16px; width:300px; }
+#left { left:16px; top:16px; bottom:16px; width:340px; }
+#right { right:16px; top:16px; bottom:16px; width:280px; }
 h1 { font-size:20px; margin:0 0 2px; color:var(--gold); }
 h2 { font-size:12px; text-transform:uppercase; letter-spacing:2px; color:var(--dim); margin:14px 0 7px; font-weight:normal; }
 .eyebrow { font-size:11px; color:var(--dim); letter-spacing:2px; text-transform:uppercase; }
 a.back { color:var(--dim); font-size:12px; text-decoration:none; } a.back:hover { color:var(--gold); }
-.grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
-.card { position:relative; border:2px solid #3a3020; border-radius:9px; overflow:hidden; cursor:pointer; background:#0e0c09; aspect-ratio:3/4; }
-.card img { width:100%; height:100%; object-fit:cover; }
-.card span { position:absolute; left:0; right:0; bottom:0; background:rgba(0,0,0,.7); font-size:11.5px; padding:4px 5px; text-align:center; }
-.card.on { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
-.card.wait { opacity:.45; cursor:default; }
+.slot { margin:0 0 10px; }
+.slot .lab { display:flex; justify-content:space-between; align-items:baseline; font-size:13px; margin-bottom:4px; }
+.slot .lab b { color:var(--gold); font-weight:normal; } .slot .lab i { color:var(--dim); font-size:11px; font-style:normal; }
+.opts { display:flex; gap:5px; flex-wrap:wrap; }
+.opt { width:44px; height:44px; border:2px solid #3a3020; border-radius:7px; cursor:pointer; background-color:#0e0c09; background-repeat:no-repeat; position:relative; }
+.opt.on { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
+.opt.none { display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--dim); text-align:center; line-height:1.05; }
+.opt.na { opacity:.35; cursor:default; }
+.sets { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
+.set { border:1px solid var(--line); border-radius:7px; padding:5px 2px; font-size:11.5px; text-align:center; cursor:pointer; background:#1c1710; }
+.set:hover { border-color:var(--gold); }
 .dyes { display:flex; flex-wrap:wrap; gap:7px; }
-.dye { width:34px; height:34px; border-radius:50%; border:2px solid #3a3020; cursor:pointer; position:relative; }
+.dye { width:30px; height:30px; border-radius:50%; border:2px solid #3a3020; cursor:pointer; }
 .dye.on { border-color:#fff; box-shadow:0 0 0 2px var(--gold); }
 .dye[title="Original"] { background:conic-gradient(#2a5ad0,#e8c46a,#8a5a2a,#2a5ad0); }
 .row { display:flex; gap:6px; flex-wrap:wrap; }
 .tog { flex:1; padding:7px 6px; background:#221c14; color:var(--ink); border:1px solid var(--line); border-radius:8px; font:inherit; font-size:13px; cursor:pointer; }
 .tog.on { border-color:var(--gold); background:#3a2e1a; }
-.wpn { display:flex; align-items:center; gap:8px; padding:7px 9px; margin:4px 0; background:#1c1710; border:1px solid var(--line); border-radius:8px; cursor:pointer; font-size:14px; }
+.wpn { display:flex; align-items:center; gap:8px; padding:6px 9px; margin:4px 0; background:#1c1710; border:1px solid var(--line); border-radius:8px; cursor:pointer; font-size:14px; }
 .wpn.on { border-color:var(--gold); background:#3a2e1a; }
 .wpn small { color:var(--dim); margin-left:auto; font-size:11px; }
 .note { font-size:12px; color:var(--dim); line-height:1.45; }
@@ -43,11 +48,13 @@ a.back { color:var(--dim); font-size:12px; text-decoration:none; } a.back:hover 
 <div id="load">Loading…</div>
 <div class="panel" id="left">
   <div class="eyebrow">Kingdom Rising II</div>
-  <h1>Outfits</h1>
+  <h1>Armoury</h1>
   <a class="back" href="./">← back to the title screen</a>
-  <h2>Armour</h2>
-  <div class="grid" id="outfits"></div>
-  <p class="note">Four kinds of armour (plate, mail, leather, cloth), two tiers each. Every outfit is one complete model, so nothing gaps, floats or clips.</p>
+  <h2>Equipment</h2>
+  <div id="slots"></div>
+  <h2>Whole sets</h2>
+  <div class="sets" id="sets"></div>
+  <p class="note">Each piece can be worn with any other: a plate chest with leather boots, mail gloves with cloth legs. "None" shows the plain shirt, trousers and bare hands underneath.</p>
 </div>
 <div class="panel" id="right">
   <h2 style="margin-top:0">Dye</h2>
@@ -62,44 +69,43 @@ a.back { color:var(--dim); font-size:12px; text-decoration:none; } a.back:hover 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { curlFingers } from './src/heromodels.js'; // (the same fist your class heroes make round their grips)
 
-// ---- the outfits: one complete model each (made from approved art in the class portrait style) ----
-// dye: the hue (0-1) of the part that takes the dye (the blue cloth, the green leather)
+// ---- the armour: eight outfits in the class-portrait style, each cut into pieces (chest, gloves, legs, boots) that fit any other ----
 const OUTFITS = [
   { id: 'plate1', name: 'Plate I', dye: 0.62 }, { id: 'plate2', name: 'Plate II', dye: 0.62 },
   { id: 'mail1', name: 'Mail I', dye: 0.62 }, { id: 'mail2', name: 'Mail II', dye: 0.62 },
   { id: 'leather1', name: 'Leather I', dye: 0.3 }, { id: 'leather2', name: 'Leather II', dye: 0.36 },
   { id: 'cloth1', name: 'Cloth I', dye: 0.6 }, { id: 'cloth2', name: 'Cloth II', dye: 0.56 },
 ];
-const DYES = [['Original', null], ['Crimson', [0.0, 1, 0.9]], ['Ember', [0.06, 1, 1]], ['Gold', [0.12, 1, 1.1]], ['Emerald', [0.37, 1, 0.9]], ['Teal', [0.48, 1, 0.95]], ['Royal', [0.63, 1, 1]], ['Violet', [0.76, 0.9, 0.95]], ['Rose', [0.9, 0.8, 1.05]], ['Midnight', [0.65, 0.35, 0.45]], ['Ivory', [0.1, 0.12, 1.5]]];
-// ---- weapons: the class weapons, each with its own grip (which end is the handle, where the fist closes, how it turns) ----
-const WEAPONS = [
-  { id: 'warrior_sword', name: 'Knight\'s Sword', hand: 'R', len: 1.05 }, { id: 'warrior_shield', name: 'Heater Shield', hand: 'L', len: 0.85, shield: true },
-  { id: 'bers_axe', name: 'Great Axe', hand: 'R', len: 1.2 }, { id: 'rogue_dagger', name: 'Dagger', hand: 'R', len: 0.42 },
-  { id: 'ranger_bow', name: 'Longbow', hand: 'L', len: 1.45, bow: true }, { id: 'cleric_hammer', name: 'War Hammer', hand: 'R', len: 0.85 },
-  { id: 'druid_staff', name: 'Druid Staff', hand: 'R', len: 1.75 }, { id: 'shaman_spear', name: 'Spear', hand: 'R', len: 1.8 },
-  { id: 'priest_scepter', name: 'Scepter', hand: 'R', len: 0.7 }, { id: 'wizard_book', name: 'Spellbook', hand: 'L', len: 0.32, book: true },
+const BASE = 'leather1'; // (the body underneath: its head, and the plain clothes shown when a slot is empty)
+// the slots, and where each sits on the outfit's card picture (for the little icons)
+const SLOTS = [
+  { id: 'helm', name: 'Helm', na: 'needs new models' }, { id: 'cape', name: 'Cape' },
+  { id: 'chest', name: 'Chest', crop: [50, 30] }, { id: 'gloves', name: 'Gloves', crop: [22, 50] },
+  { id: 'legs', name: 'Legs', crop: [50, 62] }, { id: 'boots', name: 'Boots', crop: [50, 92] },
 ];
-const H90 = Math.PI / 2;
-// each weapon's grip, set by filming every option and keeping the right one: hr (how it turns in the hand), flip (which end is the
-// handle), at (where the fist closes, from the handle end, 0-1)
-const GRIP = Object.assign({
-  warrior_sword: { flip: 1, at: 0.12 }, rogue_dagger: { flip: 1, at: 0.18 },
-  bers_axe: { at: 0.22 }, cleric_hammer: { at: 0.2 }, priest_scepter: { at: 0.22 },
-  druid_staff: { at: 0.42 }, shaman_spear: { at: 0.42 },
-}, window.GRIP || {});
+const CAPES = [{ id: 'cape1', name: 'Travelling cape', col: '#7a1e1e' }, { id: 'cape2', name: 'Long cape', col: '#1e3a7a', long: true }];
+// which piece each bone's skin belongs to
+const slotOf = (n) => /^(Head|headfront|head_end)$/.test(n) ? 'head' : /Hand|Thumb|Index|Middle|Ring|Pinky/.test(n) ? 'gloves' : /UpLeg|^Hips$/.test(n) ? 'legs' : /Leg$|Foot|Toe/.test(n) ? 'boots' : 'chest';
+const DYES = [['Original', null], ['Crimson', [0.0, 1, 0.9]], ['Ember', [0.06, 1, 1]], ['Gold', [0.12, 1, 1.1]], ['Emerald', [0.37, 1, 0.9]], ['Teal', [0.48, 1, 0.95]], ['Royal', [0.63, 1, 1]], ['Violet', [0.76, 0.9, 0.95]], ['Rose', [0.9, 0.8, 1.05]], ['Midnight', [0.65, 0.35, 0.45]], ['Ivory', [0.1, 0.12, 1.5]]];
+const WEAPONS = [
+  { id: 'warrior_sword', name: 'Knight\'s Sword', hand: 'R', len: 1.05, flip: 1, at: 0.12 }, { id: 'warrior_shield', name: 'Heater Shield', hand: 'L', len: 0.8, shield: true },
+  { id: 'bers_axe', name: 'Great Axe', hand: 'R', len: 1.2, at: 0.22 }, { id: 'rogue_dagger', name: 'Dagger', hand: 'R', len: 0.42, flip: 1, at: 0.18 },
+  { id: 'ranger_bow', name: 'Longbow', hand: 'L', len: 1.45, at: 0.5, bow: true, hold: [0, 1, 0.25] }, { id: 'cleric_hammer', name: 'War Hammer', hand: 'R', len: 0.85, at: 0.2 },
+  { id: 'druid_staff', name: 'Druid Staff', hand: 'R', len: 1.75, at: 0.42, hold: [0, 1, 0.12] }, { id: 'shaman_spear', name: 'Spear', hand: 'R', len: 1.8, at: 0.42, hold: [0, 1, 0.12] },
+  { id: 'priest_scepter', name: 'Scepter', hand: 'R', len: 0.7, at: 0.22 }, { id: 'wizard_book', name: 'Spellbook', hand: 'L', len: 0.3, book: true },
+];
+const GRIP = window.GRIP || {}; // (testing: per-weapon overrides)
 
 const view = document.getElementById('view');
 const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); R.setPixelRatio(Math.min(2, devicePixelRatio)); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.shadowMap.enabled = true; view.appendChild(R.domElement);
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#1c1812');
 const cam = new THREE.PerspectiveCamera(32, 1, 0.05, 100);
 scene.add(new THREE.HemisphereLight('#fff4e0', '#3a3020', 1.4));
-const sun = new THREE.DirectionalLight('#ffe8c8', 2.3); sun.position.set(2.5, 5, 3.5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 3, bottom: -1 }); scene.add(sun);
+const sun = new THREE.DirectionalLight('#ffe8c8', 2.3); sun.position.set(2.5, 5, 3.5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 3, bottom: -1 }); sun.shadow.bias = -0.0005; scene.add(sun);
 const rim = new THREE.DirectionalLight('#9ab8ff', 1.0); rim.position.set(-3, 3, -4); scene.add(rim);
 const floor = new THREE.Mesh(new THREE.CircleGeometry(2.2, 64), new THREE.MeshStandardMaterial({ color: '#3a3022', roughness: 0.95 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-const ctl = { target: new THREE.Vector3(0, 1, 0), yaw: 0.35, pitch: 0.12, dist: 4.4, update() { this.pitch = Math.max(-0.3, Math.min(1.2, this.pitch)); this.dist = Math.max(0.8, Math.min(9, this.dist)); cam.position.set(this.target.x + Math.sin(this.yaw) * Math.cos(this.pitch) * this.dist, this.target.y + Math.sin(this.pitch) * this.dist, this.target.z + Math.cos(this.yaw) * Math.cos(this.pitch) * this.dist); cam.lookAt(this.target); } };
+const ctl = { target: new THREE.Vector3(0, 1, 0), yaw: 0.35, pitch: 0.12, dist: 4.4, update() { this.pitch = Math.max(-0.3, Math.min(1.2, this.pitch)); this.dist = Math.max(0.5, Math.min(9, this.dist)); cam.position.set(this.target.x + Math.sin(this.yaw) * Math.cos(this.pitch) * this.dist, this.target.y + Math.sin(this.pitch) * this.dist, this.target.z + Math.cos(this.yaw) * Math.cos(this.pitch) * this.dist); cam.lookAt(this.target); } };
 { let drag = null; const el = R.domElement; el.style.touchAction = 'none';
   el.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); });
   el.addEventListener('pointermove', e => { if (!drag) return; ctl.yaw -= (e.clientX - drag.x) * 0.008; ctl.pitch += (e.clientY - drag.y) * 0.006; drag = { x: e.clientX, y: e.clientY }; });
@@ -107,15 +113,15 @@ const ctl = { target: new THREE.Vector3(0, 1, 0), yaw: 0.35, pitch: 0.12, dist: 
 function resize() { const w = view.clientWidth || innerWidth, h = view.clientHeight || innerHeight; R.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); } addEventListener('resize', resize); resize();
 
 const GL = new GLTFLoader(), FL = new FBXLoader(), cache = {};
-const loadOutfit = (id) => cache[id] || (cache[id] = new Promise(res => GL.load(`models/outfits/${id}.glb`, res, undefined, () => res(null))));
-const loadWeapon = (id) => cache['w' + id] || (cache['w' + id] = new Promise(res => FL.load(`models/w/${id}.fbx`, res, undefined, () => res(null))));
-// (Meshy meshes can carry zero-length normals that flash; point them up)
+const V3 = () => new THREE.Vector3();
 const fixNormals = (g) => { const n = g && g.attributes.normal; if (!n) return; for (let i = 0; i < n.count; i++) { const l = Math.hypot(n.getX(i), n.getY(i), n.getZ(i)); if (!(l > 1e-4)) n.setXYZ(i, 0, 1, 0); } n.needsUpdate = true; };
+const wpos = (o) => V3().setFromMatrixPosition(o.matrixWorld);
 
-// ---- the dye: the outfit's dyeable colour (its own hue band) is turned to the dye's hue; skin, metal, gold and leather keep theirs ----
-const DY = { on: { value: 0 }, src: { value: 0.62 }, hue: { value: 0 }, sat: { value: 1 }, val: { value: 1 } };
-function dyeable(mat) {
-  mat.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, { uDyeOn: DY.on, uDyeSrc: DY.src, uDyeHue: DY.hue, uDyeSat: DY.sat, uDyeVal: DY.val });
+// ---- the dye: each piece's own dyeable colour (its hue band) turned to the chosen hue; skin, metal, gold and leather keep theirs ----
+const DY = { on: { value: 0 }, hue: { value: 0 }, sat: { value: 1 }, val: { value: 1 } };
+function dyeable(mat, src) {
+  const uSrc = { value: src };
+  mat.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, { uDyeOn: DY.on, uDyeSrc: uSrc, uDyeHue: DY.hue, uDyeSat: DY.sat, uDyeVal: DY.val });
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
       uniform float uDyeOn, uDyeSrc, uDyeHue, uDyeSat, uDyeVal;
       vec3 rgb2hsv(vec3 c){ vec4 K = vec4(0.,-1./3.,2./3.,-1.); vec4 p = mix(vec4(c.bg,K.wz), vec4(c.gb,K.xy), step(c.b,c.g)); vec4 q = mix(vec4(p.xyw,c.r), vec4(c.r,p.yzx), step(p.x,c.r)); float d = q.x - min(q.w,q.y); float e = 1.0e-10; return vec3(abs(q.z + (q.w - q.y)/(6.*d+e)), d/(q.x+e), q.x); }
@@ -124,77 +130,294 @@ function dyeable(mat) {
       if (uDyeOn > 0.5) { vec3 hsv = rgb2hsv(diffuseColor.rgb); float d = abs(fract(hsv.x - uDyeSrc + 0.5) - 0.5);
         float m = (1.0 - smoothstep(0.07, 0.13, d)) * smoothstep(0.18, 0.32, hsv.y);
         vec3 t = hsv2rgb(vec3(uDyeHue, clamp(hsv.y * uDyeSat, 0., 1.), clamp(hsv.z * uDyeVal, 0., 1.))); diffuseColor.rgb = mix(diffuseColor.rgb, t, m); }`); };
-  mat.customProgramCacheKey = () => 'dye';
+  mat.customProgramCacheKey = () => 'dye' + src.toFixed(3);
 }
 
-let holder = null, body = null, mixer = null, acts = {}, curAct = 'idle', outfit = null, dye = 'Original', worn = {}, spinning = false, rest = [];
-const bones = {};
-function play(a) { curAct = a; document.querySelectorAll('[data-a]').forEach(b => b.classList.toggle('on', b.dataset.a === a)); for (const k in acts) acts[k].stop(); (acts[a] || acts.idle) && (acts[a] || acts.idle).reset().play(); }
-let want = { L: null, R: null }; // (the weapons wanted in each hand; the model is rebuilt with those hands closed into fists)
-async function setOutfit(o) { outfit = o; document.querySelectorAll('.card').forEach(c => c.classList.toggle('on', c.dataset.id === o.id)); DY.src.value = o.dye; await build(); }
-let building = Promise.resolve();
-function build() { building = building.then(build1, build1); return building; } // (one build at a time: a second click waits for the first)
-async function build1() {
-  const o = outfit, g = await loadOutfit(o.id); if (!g || outfit !== o) return;
-  const s = SkeletonUtils.clone(g.scene); for (const k in bones) delete bones[k];
-  s.traverse(m => { if (m.isMesh) { m.geometry = m.geometry.clone(); m.castShadow = true; fixNormals(m.geometry); const mt = m.material = m.material.clone(); mt.metalness = 0; mt.roughness = Math.max(0.6, mt.roughness ?? 1); dyeable(mt); } if (m.isBone) bones[m.name] = m; });
-  if (window.CURL) for (const h of ['L', 'R']) if (want[h]) curlFingers(s, window.CURL, h === 'L' ? 'Left' : 'Right'); // (these outfit models have no finger bones yet, and bending the hand by vertices twisted the fingers: hands stay open until the finger-boned rigs are in)
-  if (holder) scene.remove(holder); holder = new THREE.Group(); scene.add(holder); holder.add(s);
-  s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s), k = 1.8 / (bb.max.y - bb.min.y); s.scale.setScalar(k); s.position.y = -bb.min.y * k; s.updateMatrixWorld(true);
-  body = s; mixer = new THREE.AnimationMixer(s); acts = {};
-  for (const c of g.animations) { const n = c.name.toLowerCase(); const key = /idle/.test(n) ? 'idle' : /walk/.test(n) ? 'walk' : /run/.test(n) ? 'run' : null; if (key && !acts[key]) acts[key] = mixer.clipAction(c); }
-  worn = {}; for (const h of ['L', 'R']) if (want[h]) await attach(want[h]);
-  play(curAct); document.getElementById('load').style.display = 'none'; refresh();
+// ---- loading an outfit: its rest shape in one shared size (1.8 tall, feet on the floor), cut into pieces by which bone moves each triangle ----
+const loadGlb = (u) => new Promise(res => GL.load(u, res, undefined, () => res(null)));
+const clean = (n) => n.replace('mixamorig:', '');
+function outfitData(id) {
+  return cache[id] || (cache[id] = loadGlb(`models/outfits/${id}.glb`).then(g => {
+    if (!g) return null; const o = OUTFITS.find(x => x.id === id);
+    g.scene.updateMatrixWorld(true); let mesh = null; g.scene.traverse(m => { if (m.isSkinnedMesh && !mesh) mesh = m; }); if (!mesh) return null;
+    const S = mesh.skeleton, geo = mesh.geometry, P = geo.attributes.position, n = P.count, rest = new Float32Array(n * 3), v = V3();
+    const bb = new THREE.Box3(); for (let i = 0; i < n; i++) { v.fromBufferAttribute(P, i).applyMatrix4(mesh.bindMatrix); rest.set([v.x, v.y, v.z], i * 3); bb.expandByPoint(v); }
+    const k = 1.8 / (bb.max.y - bb.min.y), off = new THREE.Vector3((bb.min.x + bb.max.x) / 2, bb.min.y, (bb.min.z + bb.max.z) / 2);
+    const N = new THREE.Matrix4().makeScale(k, k, k).multiply(new THREE.Matrix4().makeTranslation(-off.x, -off.y, -off.z)); // (normalize: into the shared size)
+    for (let i = 0; i < n; i++) { v.fromArray(rest, i * 3).applyMatrix4(N); v.toArray(rest, i * 3); }
+    // each bone's rest place in that space; bones the base body lacks (skirt flaps, a cloak) follow their nearest named ancestor
+    const named = new Set(['Hips', 'Spine', 'Spine01', 'Spine02', 'neck', 'Head', 'headfront', 'head_end']); const isNamed = (b) => named.has(b.name) || /^(mixamorig:)?(Left|Right)/.test(b.name);
+    const joint = {}, mapTo = S.bones.map(b => { let a = b; while (a && a.isBone && !isNamed(a)) a = a.parent; return a && a.isBone ? clean(a.name) : 'Hips'; });
+    S.bones.forEach((b, i) => { const w = N.clone().multiply(mesh.bindMatrix).multiply(S.boneInverses[i].clone().invert()); joint[clean(b.name)] = V3().setFromMatrixPosition(w); });
+    // the pieces: each triangle goes to the piece most of its corners belong to (by each corner's strongest bone)
+    const SI = geo.attributes.skinIndex, SW = geo.attributes.skinWeight, vs = new Array(n);
+    for (let i = 0; i < n; i++) { let bi = 0, bw = -1; for (let c = 0; c < 4; c++) { const w = SW.getComponent(i, c); if (w > bw) { bw = w; bi = SI.getComponent(i, c); } } vs[i] = slotOf(mapTo[bi]); }
+    const idx = geo.index ? geo.index.array : Array.from({ length: n }, (_, i) => i), parts = {};
+    for (let t = 0; t < idx.length; t += 3) { const a = vs[idx[t]], b = vs[idx[t + 1]], c = vs[idx[t + 2]], s = (b === c) ? b : a; (parts[s] || (parts[s] = [])).push(idx[t], idx[t + 1], idx[t + 2]); }
+    const base = new THREE.BufferGeometry(); base.setAttribute('position', new THREE.BufferAttribute(rest, 3)); for (const a of ['uv', 'skinIndex', 'skinWeight']) if (geo.attributes[a]) base.setAttribute(a, geo.attributes[a]);
+    base.setIndex(Array.from(idx)); base.computeVertexNormals();
+    const mat = mesh.material.clone(); mat.metalness = 0; mat.roughness = Math.max(0.6, mat.roughness ?? 1); dyeable(mat, o.dye);
+    return { id, g, mesh, S, geo: base, parts, joint, mapTo, mat, N };
+  }));
 }
-// ---- holding a weapon: fixed to the hand bone, its handle at the fist, turned so the blade/head points along the hand ----
-// the weapon, turned so its handle runs along +Y (handle end down), its origin moved to the middle of the handle at the grip point
-// (the centre of the handle's own cross-section there, measured from the model, not guessed)
+
+// ---- the body: the base outfit's skeleton, animated; every worn piece is skinned to it, moved so its joints sit on the base's joints ----
+let rig = null; const B = {}; // B: bone by name
+const holder = new THREE.Group(); scene.add(holder);
+async function makeRig() {
+  const D = await outfitData(BASE); const s = D.g.scene; s.traverse(m => { if (m.isMesh) m.visible = false; if (m.isBone) B[clean(m.name)] = m; });
+  // (the rig's nodes sit in their own units and place; this frame carries them into the mesh's bind space, so bones and skin agree)
+  s.updateMatrixWorld(true); const hi = D.S.bones.findIndex(b => clean(b.name) === 'Hips'), hb = D.S.bones[hi];
+  const X = D.mesh.bindMatrix.clone().multiply(D.S.boneInverses[hi].clone().invert()).multiply(hb.matrixWorld.clone().invert());
+  const wrap = new THREE.Group(); wrap.matrixAutoUpdate = false; wrap.matrix.copy(D.N).multiply(X); wrap.add(s); holder.add(wrap); holder.updateMatrixWorld(true);
+  const restW = {}, restQ = {}, restP = {}; for (const n in B) { restW[n] = B[n].matrixWorld.clone(); restQ[n] = B[n].quaternion.clone(); restP[n] = B[n].position.clone(); } // (the bind pose: the glTF nodes load in it)
+  // (the clips came from the first rig, which counted in centimetres: their hip travel is scaled to this rig's units)
+  const H0 = B.Hips.position.clone(); for (const c of D.g.animations) for (const t of c.tracks) if (t.name === 'Hips.position' && Math.abs(t.values[1]) > 1e-6) { const f = H0.y / t.values[1]; if (Math.abs(f - 1) > 0.2) for (let i = 0; i < t.values.length; i++) t.values[i] *= f;
+    const dx = H0.x - t.values[0], dz = H0.z - t.values[2]; for (let i = 0; i < t.values.length; i += 3) { t.values[i] += dx; t.values[i + 2] += dz; } } // (and the first rig's hips stood further back: the travel starts from this rig's own hips)
+  const mixer = new THREE.AnimationMixer(s), acts = {};
+  for (const c of D.g.animations) { const nm = c.name.toLowerCase(), key = /idle/.test(nm) ? 'idle' : /casual_walk/.test(nm) ? 'walk' : /run/.test(nm) ? 'run' : null; if (key && !acts[key]) acts[key] = mixer.clipAction(c); }
+  rig = { D, restW, restQ, restP, mixer, acts, wrap };
+  rig.B_parent = {}; for (const n in B) rig.B_parent[n] = B[n].parent && B[n].parent.isBone ? clean(B[n].parent.name) : null;
+  setupHands(); stance.measure();
+}
+const worn = { chest: null, gloves: null, legs: null, boots: null, cape: null }; const meshes = {};
+async function piece(slot, id) {
+  const D = await outfitData(id || BASE); if (!D) return null; const tri = D.parts[slot]; if (!tri) return null;
+  const g = D.geo.clone(); g.setIndex(tri); g.computeBoundingSphere();
+  const bones = [], inv = [];
+  D.S.bones.forEach((b, i) => { const nm = D.mapTo[i], bn = B[nm] ? nm : 'Hips', jb = D.joint[nm] || D.joint.Hips, jB = wpos({ matrixWorld: rig.restW[bn] });
+    bones.push(B[bn]); inv.push(rig.restW[bn].clone().invert().multiply(new THREE.Matrix4().makeTranslation(jB.x - jb.x, jB.y - jb.y, jB.z - jb.z))); });
+  const m = new THREE.SkinnedMesh(g, D.mat); m.bindMode = 'detached'; m.bind(new THREE.Skeleton(bones, inv), new THREE.Matrix4()); m.frustumCulled = false; m.castShadow = true; m.userData.src = id || BASE;
+  return m;
+}
+async function equip(slot, id) {
+  if (slot === 'cape') { worn.cape = id; buildCape(); refresh(); return; }
+  worn[slot] = id; const m = await piece(slot, id); if (worn[slot] !== id) return;
+  if (meshes[slot]) scene.remove(meshes[slot]); meshes[slot] = m; if (m) scene.add(m);
+  refresh(); if (worn.cape) buildCape();
+}
+
+// ---- hands: real finger bones, closed into a fist round whatever they hold ----
+const FINGERS = ['Index', 'Middle', 'Ring', 'Pinky'];
+const hands = {};
+function setupHands() {
+  for (const sd of ['Left', 'Right']) {
+    const P = (n) => wpos({ matrixWorld: rig.restW[n] });
+    const I1 = P(sd + 'HandIndex1'), P1 = P(sd + 'HandPinky1'), M1 = P(sd + 'HandMiddle1'), M3 = P(sd + 'HandMiddle3'), T3 = P(sd + 'HandThumb3');
+    const f = M3.clone().sub(M1).normalize(), across = I1.clone().sub(P1).normalize();
+    const n = V3().crossVectors(f, across).normalize(); if (n.dot(T3.clone().sub(M1)) < 0) n.negate(); // (the palm faces the side the thumb tucks across to)
+    hands[sd] = { n, f, across, flip: window.PALMFLIP ? -1 : 1 };
+  }
+}
+// curl: 0 relaxed, 1 a full fist; thumb: how far it wraps over
+function pose(sd, curl, thumb = curl) {
+  const H = hands[sd]; if (!H) return; const n = H.n.clone().multiplyScalar(H.flip);
+  const segs = (fn, angs) => { for (let j = 1; j <= 3; j++) { const nm = sd + 'Hand' + fn + j, b = B[nm]; if (!b) continue; const c = B[sd + 'Hand' + fn + (j + 1)];
+      const pb = wpos({ matrixWorld: rig.restW[nm] }), pc = c ? wpos({ matrixWorld: rig.restW[sd + 'Hand' + fn + (j + 1)] }) : pb.clone().add(H.f.clone().multiplyScalar(0.02));
+      const dir = pc.sub(pb).normalize(), axW = V3().crossVectors(dir, n).normalize(); // (turns the segment towards the palm)
+      const pq = new THREE.Quaternion(); rig.restW[clean(b.parent.name)].decompose(V3(), pq, V3());
+      const axL = axW.applyQuaternion(pq.invert()).normalize();
+      b.quaternion.copy(rig.restQ[nm]).premultiply(new THREE.Quaternion().setFromAxisAngle(axL, angs[j - 1])); } };
+  const D2R = Math.PI / 180, rel = [14, 18, 10], fist = [74, 100, 64];
+  for (const fn of FINGERS) segs(fn, [0, 1, 2].map(i => (rel[i] + (fist[i] - rel[i]) * curl) * D2R));
+  segs('Thumb', [0, 1, 2].map(i => ([6, 8, 6][i] + ([18, 34, 30][i] - [6, 8, 6][i]) * thumb) * D2R));
+}
+// the hole in the fist, in the hand bone's own space: where a handle sits (C), which way it runs (T: little finger to index), and where the knuckles face (K)
+function fistFrame(sd) {
+  holder.updateMatrixWorld(true); const hb = B[sd + 'Hand'], inv = hb.matrixWorld.clone().invert(), pts = [];
+  for (const fn of FINGERS) for (let j = 1; j <= 4; j++) { const b = B[sd + 'Hand' + fn + j]; if (b) pts.push(wpos(b)); }
+  const C = pts.reduce((a, p) => a.add(p), V3()).multiplyScalar(1 / pts.length);
+  const T = wpos(B[sd + 'HandIndex1']).sub(wpos(B[sd + 'HandPinky1'])).normalize();
+  const K = wpos(B[sd + 'HandMiddle2']).sub(wpos(B[sd + 'HandMiddle1'])); K.sub(T.clone().multiplyScalar(K.dot(T))).normalize();
+  const q = new THREE.Quaternion(); hb.matrixWorld.decompose(V3(), q, V3()); const qi = q.clone().invert();
+  return { C: C.applyMatrix4(inv), T: T.applyQuaternion(qi), K: K.applyQuaternion(qi), scale: hb.getWorldScale(V3()).x };
+}
+
+// ---- a relaxed stand, made from the model's own rest pose: arms hanging at the sides, elbows a little bent, breathing ----
+// (the stock idle clip is lopsided: one hand held out in front, the other at the belt)
+const stance = { q: {}, body: new Set(),
+  measure() {
+    for (const c of rig.D.g.animations) for (const t of c.tracks) this.body.add(t.name.split('.')[0]);
+    const P = (n) => wpos({ matrixWorld: rig.restW[n] }), WQ = (n) => { const q = new THREE.Quaternion(); rig.restW[n].decompose(V3(), q, V3()); return q; };
+    const fz = Math.sign(P('LeftToeBase').z - P('LeftFoot').z) || 1, fwd = V3().set(0, 0, fz);
+    for (const sd of ['Left', 'Right']) {
+      const A = sd + 'Arm', F = sd + 'ForeArm', d0 = P(F).sub(P(A)).normalize(), side = Math.sign(d0.x) || 1;
+      const t = V3().set(side * Math.sin(0.16), -Math.cos(0.16), fz * 0.04).normalize(), qa = new THREE.Quaternion().setFromUnitVectors(d0, t); // (the upper arm hangs about 9 degrees out from the body)
+      const parA = WQ(rig.B_parent[A]);
+      this.q[A] = parA.clone().invert().multiply(qa).multiply(WQ(A));
+      const elbow = new THREE.Quaternion().setFromAxisAngle(V3().crossVectors(t, fwd).normalize(), -0.32 * 1); // (the forearm a little forward)
+      const fW = elbow.clone().multiply(qa).multiply(WQ(F)), aW = qa.clone().multiply(WQ(A)); this.q[F] = aW.clone().invert().multiply(fW);
+      this.side = this.side || {}; this.side[sd] = { t, fwd };
+    }
+    this.fz = fz;
+  },
+  apply(k, time) { if (k <= 0.001) return;
+    for (const n of this.body) { const b = B[clean(n)]; if (!b) continue; const q = this.q[clean(n)] || rig.restQ[clean(n)]; b.quaternion.slerp(q, k); b.position.lerp(rig.restP[clean(n)], k); }
+    const br = Math.sin(time * 1.7) * 0.018 * k, sw = Math.sin(time * 0.6) * 0.012 * k; // (breathing, and a slow sway)
+    for (const [n, a] of [['Spine01', br], ['Spine02', br * 0.6], ['neck', -br * 0.8]]) { const b = B[n]; if (!b) continue; const pq = b.parent.getWorldQuaternion(new THREE.Quaternion()), ax = V3().set(1, 0, 0).applyQuaternion(holder.quaternion).applyQuaternion(pq.invert()); b.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(ax, a)); }
+    const h = B.Hips, pq = h.parent.getWorldQuaternion(new THREE.Quaternion()), ax = V3().set(0, 0, 1).applyQuaternion(holder.quaternion).applyQuaternion(pq.invert()); h.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(ax, sw));
+  } };
+
+// ---- weapons ----
+const loadWeapon = (id) => cache['w' + id] || (cache['w' + id] = new Promise(res => FL.load(`models/w/${id}.fbx`, res, undefined, () => res(null))));
+// the weapon turned so its long axis is +Y (toward the blade or head), its origin on the handle's centre at the grip; .wide: the way its blade/head spreads
 function prepWeapon(fbx, def) {
   const w = fbx.clone(true); w.traverse(m => { if (m.isMesh) { m.castShadow = true; fixNormals(m.geometry); for (const mt of [].concat(m.material)) { mt.metalness = Math.min(mt.metalness ?? 0, 0.3); mt.roughness = Math.max(0.45, mt.roughness ?? 1); } } });
-  const box = new THREE.Box3().setFromObject(w), sz = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
-  const ax = sz.x >= sz.y && sz.x >= sz.z ? 'x' : sz.y >= sz.z ? 'y' : 'z', k = def.len / sz[ax], t = GRIP[def.id] || {};
+  const box = new THREE.Box3().setFromObject(w), sz = box.getSize(V3()), c = box.getCenter(V3());
+  const ax = ['x', 'y', 'z'].sort((a, b) => sz[b] - sz[a])[0], k = def.len / sz[ax];
   const inner = new THREE.Group(); inner.add(w); w.scale.setScalar(k); w.position.copy(c).multiplyScalar(-k);
   if (ax === 'x') inner.rotation.z = -Math.PI / 2; else if (ax === 'z') inner.rotation.x = Math.PI / 2;
-  const piv = new THREE.Group(); piv.add(inner); if (t.flip) piv.rotation.x = Math.PI;
-  piv.updateMatrixWorld(true);
-  // the handle's cross-section at the grip: every vertex within a thin slice of the long axis, averaged across
-  const at = t.at ?? (def.shield || def.book || def.bow ? 0.5 : 0.16), yg = -def.len / 2 + at * def.len, band = def.len * 0.025, v = new THREE.Vector3(); let sx = 0, sz2 = 0, n = 0;
-  piv.traverse(m => { if (!m.isMesh) return; const P = m.geometry.attributes.position; for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld); if (Math.abs(v.y - yg) < band) { sx += v.x; sz2 += v.z; n++; } } });
-  const g = new THREE.Group(); g.add(piv); piv.position.set(-(n ? sx / n : 0), -yg, -(n ? sz2 / n : 0)); return g;
+  const piv = new THREE.Group(); piv.add(inner); if (def.flip) piv.rotation.x = Math.PI; piv.updateMatrixWorld(true);
+  const pts = []; piv.traverse(m => { if (!m.isMesh) return; const P = m.geometry.attributes.position; for (let i = 0; i < P.count; i++) pts.push(V3().fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld)); });
+  const at = def.at ?? 0.5, yg = -def.len / 2 + at * def.len, band = def.len * 0.025; let sx = 0, sz2 = 0, nn = 0;
+  for (const v of pts) if (Math.abs(v.y - yg) < band) { sx += v.x; sz2 += v.z; nn++; }
+  const cx = nn ? sx / nn : 0, cz = nn ? sz2 / nn : 0;
+  // the spread of the blade/head (above the hand): its main direction across the handle, pointing to the heavy side
+  let xx = 0, zz = 0, xz = 0, mx = 0, mz = 0; for (const v of pts) if (v.y > yg + def.len * 0.15) { const x = v.x - cx, z = v.z - cz; xx += x * x; zz += z * z; xz += x * z; mx += x; mz += z; }
+  const th = 0.5 * Math.atan2(2 * xz, xx - zz), wide = V3().set(Math.cos(th), 0, Math.sin(th)); if (wide.x * mx + wide.z * mz < 0) wide.negate();
+  const g = new THREE.Group(); g.add(piv); piv.position.set(-cx, -yg, -cz); g.userData.wide = wide; return g;
 }
-async function attach(def) {
-  const fbx = await loadWeapon(def.id); if (!fbx || !body) return;
-  const hn = (def.hand === 'L' ? 'Left' : 'Right') + 'Hand', hand = bones[hn]; if (!hand) return;
-  const t = GRIP[def.id] || {}, w = prepWeapon(fbx, def), ws = hand.getWorldScale(new THREE.Vector3()), F = body.userData.fist && body.userData.fist[hn];
-  const o = new THREE.Group(); o.add(w); w.scale.setScalar(1 / ws.y);
-  if (F && !def.shield && !def.book) {
-    // the handle on the fist's centre line: +Y (toward the blade or head) along the fist's axis, turned about it by spin
-    const axis = F.T.clone().multiplyScalar(t.dir ?? (def.hand === 'L' ? -1 : 1)), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis);
-    q.premultiply(new THREE.Quaternion().setFromAxisAngle(axis, t.spin ?? 0)); o.quaternion.copy(q); o.position.copy(F.C);
-  } else { o.rotation.set(...(t.hr || [H90, 0, 0])); o.position.set(0, (t.py ?? 0.08) / ws.y, (t.pz ?? 0.02) / ws.y); }
-  hand.add(o); worn[def.hand] = { def, o };
+// a shield: its thin axis is the face, the wide end is the top; returned with +Y up, +Z out of the face, centred
+function prepShield(fbx, def) {
+  const w = fbx.clone(true); w.traverse(m => { if (m.isMesh) { m.castShadow = true; fixNormals(m.geometry); for (const mt of [].concat(m.material)) { mt.metalness = Math.min(mt.metalness ?? 0, 0.4); } } });
+  const box = new THREE.Box3().setFromObject(w), sz = box.getSize(V3()), c = box.getCenter(V3()), d = ['x', 'y', 'z'].sort((a, b) => sz[b] - sz[a]), up = d[0], thin = d[2], k = def.len / sz[up];
+  const inner = new THREE.Group(); inner.add(w); w.scale.setScalar(k); w.position.copy(c).multiplyScalar(-k);
+  const U = { x: V3().set(1, 0, 0), y: V3().set(0, 1, 0), z: V3().set(0, 0, 1) };
+  const pts = []; inner.updateMatrixWorld(true); inner.traverse(m => { if (!m.isMesh) return; const P = m.geometry.attributes.position; for (let i = 0; i < P.count; i++) pts.push(V3().fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld)); });
+  // top: the end that is wider; face: the side the middle bulges to
+  const L = def.len, width = (s) => { let lo = 1e9, hi = -1e9; for (const v of pts) if (Math.abs(v[up] - s * L * 0.32) < L * 0.05) { lo = Math.min(lo, v[d[1]]); hi = Math.max(hi, v[d[1]]); } return hi - lo; };
+  const upS = (GRIP.shieldUp ?? (width(1) >= width(-1) ? 1 : -1)); let cm = 0, cn = 0, am = 0; for (const v of pts) { am += v[thin]; if (Math.abs(v[up]) < L * 0.12 && Math.abs(v[d[1]]) < L * 0.12) { cm += v[thin]; cn++; } } am /= pts.length; cm = cn ? cm / cn : am;
+  const faceS = GRIP.shieldFace ?? (cm >= am ? 1 : -1), Yv = U[up].clone().multiplyScalar(upS), Zv = U[thin].clone().multiplyScalar(faceS), Xv = V3().crossVectors(Yv, Zv);
+  const basis = new THREE.Matrix4().makeBasis(Xv, Yv, Zv).invert(); inner.applyMatrix4(basis);
+  let back = 1e9; for (const v of pts) back = Math.min(back, v.clone().applyMatrix4(basis).z); // (how far the back of the shield sits behind its centre)
+  const g = new THREE.Group(); g.add(inner); g.userData.back = back; return g;
 }
-async function wield(def) { want[def.hand] = def; await build(); }
-function unwield(h) { if (!want[h]) return; want[h] = null; return build(); }
+const held = { L: null, R: null };
+async function wield(def) {
+  const sd = def.hand === 'L' ? 'Left' : 'Right', h = def.hand; unwieldNow(h); held[h] = { def, o: null };
+  const fbx = await loadWeapon(def.id); if (!fbx || !held[h] || held[h].def !== def) return;
+  let o;
+  if (def.shield) {
+    // on the outside of the forearm, the face turned out, the point down: the forearm runs through the straps behind it
+    pose(sd, 1, 0.6); const fa = B[sd + 'ForeArm'], hd = B[sd + 'Hand']; holder.updateMatrixWorld(true);
+    const E = wpos(fa), W = wpos(hd), f = W.clone().sub(E), len = f.length(); f.normalize();
+    const side = E.clone().sub(wpos(B.Spine02)); side.y = 0; const out = side.sub(f.clone().multiplyScalar(side.dot(f))).normalize();
+    const s = prepShield(fbx, def), Yw = f.clone().negate(), Zw = out, Xw = V3().crossVectors(Yw, Zw).normalize(); Zw.crossVectors(Xw, Yw).normalize();
+    const at = E.clone().addScaledVector(f, len * 0.5).addScaledVector(Zw, (GRIP.shieldOut ?? 0.085) - s.userData.back);
+    const mw = new THREE.Matrix4().makeBasis(Xw, Yw, Zw).setPosition(at); o = new THREE.Group(); o.add(s);
+    fa.matrixWorld.clone().invert().multiply(mw).decompose(o.position, o.quaternion, o.scale); fa.add(o);
+  } else {
+    pose(sd, def.book ? 0.18 : 1, def.book ? 0.1 : 0.85); const F = fistFrame(sd), w = prepWeapon(fbx, def); o = new THREE.Group(); o.add(w); w.scale.setScalar(1 / F.scale);
+    if (def.book) { // (flat against the palm, the spine along the fingers, the fingers curled lightly over its edge)
+      w.clear(); const bk = prepShield(fbx, def), H = hands[sd], rq = new THREE.Quaternion(); rig.restW[sd + 'Hand'].decompose(V3(), rq, V3()); const qi = rq.clone().invert();
+      const Z = H.n.clone().applyQuaternion(qi), Y = H.f.clone().applyQuaternion(qi), X = V3().crossVectors(Y, Z).normalize(); Y.crossVectors(Z, X);
+      const M1 = wpos({ matrixWorld: rig.restW[sd + 'HandMiddle1'] }).applyMatrix4(rig.restW[sd + 'Hand'].clone().invert());
+      o = new THREE.Group(); o.add(bk); bk.scale.setScalar(1 / F.scale); o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z)); o.position.copy(M1).addScaledVector(Y, 0.03 / F.scale).addScaledVector(Z, (0.02 - bk.userData.back) / F.scale); }
+    else { // the handle down the fist's hole; the blade's edge (or the axe's head) turned to face where the knuckles point
+      const q1 = new THREE.Quaternion().setFromUnitVectors(V3().set(0, 1, 0), F.T), wd = w.userData.wide.clone().applyQuaternion(q1);
+      const ang = Math.atan2(V3().crossVectors(wd, F.K).dot(F.T), wd.dot(F.K)) + ((GRIP[def.id] || {}).spin || 0); o.quaternion.copy(q1).premultiply(new THREE.Quaternion().setFromAxisAngle(F.T, ang)); o.position.copy(F.C); }
+    B[sd + 'Hand'].add(o); o.userData.T = F.T.clone();
+  }
+  held[h].o = o; refresh();
+}
+function unwieldNow(h) { const w = held[h]; if (w && w.o && w.o.parent) w.o.parent.remove(w.o); held[h] = null; pose(h === 'L' ? 'Left' : 'Right', 0); }
+function unwield(h) { unwieldNow(h); refresh(); }
 
-// ---- panels ----
+// ---- the cape: a cloth that hangs from the shoulders behind the back, cut to the shape of whatever is worn, swinging behind as you move ----
+let cape = null;
+function capeTex(col) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 512; const x = c.getContext('2d');
+  x.fillStyle = col; x.fillRect(0, 0, 256, 512);
+  for (let i = 0; i < 9; i++) { const gx = (i + 0.5) * 256 / 9, gr = x.createLinearGradient(gx - 16, 0, gx + 16, 0); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.5, 'rgba(0,0,0,0.22)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(gx - 16, 60, 32, 452); } // (the folds)
+  for (let i = 0; i < 4000; i++) { x.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},0.04)`; x.fillRect(Math.random() * 256, Math.random() * 512, 2, 1); } // (the weave)
+  x.fillStyle = '#c9a24a'; x.fillRect(0, 494, 256, 10); x.fillRect(0, 0, 256, 8); x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(0, 504, 256, 3);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+function buildCape() {
+  if (cape) { cape.chain[0].parent && cape.chain[0].parent.remove(cape.chain[0]); scene.remove(cape.mesh); cape = null; }
+  const C = CAPES.find(c => c.id === worn.cape); if (!C || !rig) return;
+  // the back's silhouette (rest pose) from everything worn: how far back the body reaches at each height
+  const fz = Math.sign(wpos({ matrixWorld: rig.restW.LeftToeBase }).z - wpos({ matrixWorld: rig.restW.LeftFoot }).z) || 1;
+  const top = wpos({ matrixWorld: rig.restW.neck }).y - 0.03, bot = C.long ? 0.16 : 0.42, rows = 16, cols = 12;
+  const backAt = new Float32Array(rows + 1).fill(-fz * 0.1);
+  for (const m of ['chest', 'legs', 'head'].map(sl => meshes[sl]).filter(Boolean)) { const P = m.geometry.attributes.position, ix = m.geometry.index.array;
+    for (const i of ix) { const y = P.getY(i), x = P.getX(i), z = P.getZ(i); if (Math.abs(x) > 0.26) continue; const r = Math.round((top - y) / (top - bot) * rows); if (r < 0 || r > rows) continue; backAt[r] = fz > 0 ? Math.min(backAt[r], z) : Math.max(backAt[r], z); } }
+  for (let r = 1; r <= rows; r++) backAt[r] = fz > 0 ? Math.min(backAt[r], backAt[r - 1] + 0.015) : Math.max(backAt[r], backAt[r - 1] - 0.015); // (falls straight, never tucks in under the seat)
+  const pos = [], uv = [], si = [], sw = [], idx = [], NB = 4;
+  for (let r = 0; r <= rows; r++) { const t = r / rows, y = top - t * (top - bot), half = 0.21 + t * (C.long ? 0.19 : 0.13);
+    for (let c = 0; c <= cols; c++) { const u = c / cols, e = Math.abs(u - 0.5) * 2, x = (u - 0.5) * 2 * half, wrap = e * e * (0.13 - t * 0.07);
+      pos.push(x, y - (r === 0 ? e * e * 0.07 : 0), backAt[r] - fz * 0.05 + fz * wrap * (r < 3 ? 1.6 : 1)); uv.push(u, 1 - t);
+      const bf = t * (NB - 1), b0 = Math.min(NB - 1, Math.floor(bf)), b1 = Math.min(NB - 1, b0 + 1), k = bf - b0; si.push(b0, b1, 0, 0); sw.push(1 - k, k, 0, 0); } }
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const a = r * (cols + 1) + c, b = a + cols + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); g.setIndex(idx); g.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({ map: capeTex(C.col), roughness: 0.92, side: THREE.DoubleSide }); dyeable(mat, new THREE.Color(C.col).getHSL({}).h);
+  // the cape's own bones: a chain down the middle of the back, hung from the upper back (made in the rest pose, then the body's pose comes back)
+  const saved = {}; for (const n in B) { saved[n] = [B[n].quaternion.clone(), B[n].position.clone()]; B[n].quaternion.copy(rig.restQ[n]); B[n].position.copy(rig.restP[n]); } const hr = holder.rotation.y; holder.rotation.y = 0; holder.updateMatrixWorld(true);
+  const chain = [], inv = []; let parent = B.Spine02;
+  for (let i = 0; i < NB; i++) { const r = Math.round(i / (NB - 1) * rows), p = V3().set(0, top - (i / (NB - 1)) * (top - bot), backAt[r] - fz * 0.05);
+    const b = new THREE.Bone(); b.name = 'cape' + i; b.position.copy(p.clone().applyMatrix4(parent.matrixWorld.clone().invert())); b.quaternion.copy(parent.getWorldQuaternion(new THREE.Quaternion()).invert()); parent.add(b); b.updateMatrixWorld(true);
+    chain.push(b); inv.push(b.matrixWorld.clone().invert()); parent = b; }
+  for (const n in B) { B[n].quaternion.copy(saved[n][0]); B[n].position.copy(saved[n][1]); } holder.rotation.y = hr; holder.updateMatrixWorld(true);
+  const mesh = new THREE.SkinnedMesh(g, mat); mesh.bindMode = 'detached'; mesh.bind(new THREE.Skeleton(chain, inv), new THREE.Matrix4()); mesh.frustumCulled = false; mesh.castShadow = true; scene.add(mesh);
+  cape = { mesh, chain, fz, swing: 0 };
+}
+function tickCape(dt) {
+  if (!cape) return; const want = curAct === 'run' ? 0.55 : curAct === 'walk' ? 0.25 : 0.03; cape.swing += (want - cape.swing) * Math.min(1, dt * 3);
+  const t = clock.elapsedTime, right = V3().set(1, 0, 0).applyQuaternion(holder.quaternion);
+  for (let i = 0; i < cape.chain.length; i++) { const b = cape.chain[i];
+    // the top rides the upper back; each link below hangs straight down (gravity), lifting back more the faster you go, with a ripple
+    const pq = b.parent.getWorldQuaternion(new THREE.Quaternion());
+    if (i === 0) continue; // (the top is fixed to the upper back as it was made)
+    const a = cape.swing * (0.4 + i * 0.3) * (1 + Math.sin(t * (curAct === 'run' ? 9 : 6) - i * 1.2) * 0.2) + Math.sin(t * 1.3 - i) * 0.012;
+    const world = holder.quaternion.clone().premultiply(new THREE.Quaternion().setFromAxisAngle(right, a * cape.fz));
+    b.quaternion.copy(pq.invert().multiply(world)); b.updateMatrixWorld(true); }
+}
+
+// ---- the panels ----
+let curAct = 'idle', spinning = false, dye = 'Original';
+function play(a) { curAct = a; document.querySelectorAll('[data-a]').forEach(b => b.classList.toggle('on', b.dataset.a === a)); if (!rig) return; for (const k in rig.acts) rig.acts[k].fadeOut(0.25); const A = a === 'idle' ? null : rig.acts[a]; A && A.reset().fadeIn(0.25).play(); } // (standing: the relaxed stand below, not a clip)
 function refresh() {
-  document.querySelectorAll('.wpn').forEach(e => e.classList.toggle('on', Object.values(worn).some(w => w && w.def.id === e.dataset.id)));
+  document.querySelectorAll('.opt').forEach(e => e.classList.toggle('on', (worn[e.dataset.slot] || null) === (e.dataset.id || null)));
+  document.querySelectorAll('.wpn').forEach(e => e.classList.toggle('on', Object.values(held).some(w => w && w.def.id === e.dataset.id)));
   document.querySelectorAll('.dye').forEach(e => e.classList.toggle('on', e.title === dye));
 }
-const oEl = document.getElementById('outfits');
-for (const o of OUTFITS) { const d = document.createElement('div'); d.className = 'card'; d.dataset.id = o.id; d.innerHTML = `<img src="models/outfits/${o.id}.jpg" alt=""><span>${o.name}</span>`; d.onclick = () => setOutfit(o); oEl.appendChild(d); }
+const sEl = document.getElementById('slots');
+for (const S of SLOTS) {
+  const d = document.createElement('div'); d.className = 'slot'; d.innerHTML = `<div class="lab"><b>${S.name}</b><i>${S.na || ''}</i></div><div class="opts"></div>`; const os = d.querySelector('.opts');
+  const add = (id, html, style, title) => { const e = document.createElement('div'); e.className = 'opt' + (id ? '' : ' none') + (S.na ? ' na' : ''); e.dataset.slot = S.id; e.dataset.id = id || ''; e.title = title; if (html) e.innerHTML = html; if (style) Object.assign(e.style, style); if (!S.na) e.onclick = () => equip(S.id, id); os.appendChild(e); };
+  add(null, 'None', null, 'Nothing');
+  if (S.id === 'cape') for (const c of CAPES) add(c.id, '', { background: `linear-gradient(160deg, ${c.col}, #111)` }, c.name);
+  else if (!S.na) for (const o of OUTFITS) add(o.id, '', { backgroundImage: `url(models/outfits/${o.id}.jpg)`, backgroundSize: '260%', backgroundPosition: `${S.crop[0]}% ${S.crop[1]}%` }, `${o.name} ${S.name.toLowerCase()}`);
+  sEl.appendChild(d);
+}
+const setEl = document.getElementById('sets');
+for (const o of OUTFITS) { const e = document.createElement('div'); e.className = 'set'; e.textContent = o.name; e.onclick = () => wearSet(o.id); setEl.appendChild(e); }
+async function wearSet(id) { await Promise.all(['chest', 'gloves', 'legs', 'boots'].map(s => equip(s, id))); }
 const dEl = document.getElementById('dyes');
 for (const [n, v] of DYES) { const d = document.createElement('div'); d.className = 'dye'; d.title = n; if (v) d.style.background = `hsl(${v[0] * 360} ${Math.min(100, v[1] * 75)}% ${Math.min(80, 40 * v[2])}%)`;
   d.onclick = () => { dye = n; DY.on.value = v ? 1 : 0; if (v) { DY.hue.value = v[0]; DY.sat.value = v[1]; DY.val.value = v[2]; } refresh(); }; dEl.appendChild(d); }
 const wEl = document.getElementById('weapons');
-for (const w of WEAPONS) { const d = document.createElement('div'); d.className = 'wpn'; d.dataset.id = w.id; d.innerHTML = `${w.name}<small>${w.hand === 'L' ? 'off hand' : 'main hand'}</small>`; d.onclick = () => (want[w.hand] === w) ? unwield(w.hand) : wield(w); wEl.appendChild(d); }
+for (const w of WEAPONS) { const d = document.createElement('div'); d.className = 'wpn'; d.dataset.id = w.id; d.innerHTML = `${w.name}<small>${w.hand === 'L' ? 'off hand' : 'main hand'}</small>`; d.onclick = () => (held[w.hand] && held[w.hand].def === w) ? unwield(w.hand) : wield(w); wEl.appendChild(d); }
 document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => play(b.dataset.a));
 document.getElementById('spin').onclick = (e) => { spinning = !spinning; e.target.classList.toggle('on', spinning); };
-const clock = new THREE.Clock();
-R.setAnimationLoop(() => { const dt = Math.min(0.05, clock.getDelta()); if (mixer) mixer.update(dt); if (spinning && holder) holder.rotation.y += dt * 0.6; ctl.update(); R.render(scene, cam); });
-window.OUT = { dbg: () => { const F = body.userData.fist || {}; const out = {}; for (const k in F) { const hb = bones[k], q = hb.getWorldQuaternion(new THREE.Quaternion()); out[k] = { r: +F[k].r.toFixed(4), C: F[k].C.toArray().map(v => +v.toFixed(3)), Tw: F[k].T.clone().applyQuaternion(q).toArray().map(v => +v.toFixed(2)), Fw: F[k].F.clone().applyQuaternion(q).toArray().map(v => +v.toFixed(2)) }; } const w = worn.R; if (w) { const q = w.o.getWorldQuaternion(new THREE.Quaternion()); out.wpnY = new THREE.Vector3(0, 1, 0).applyQuaternion(q).toArray().map(v => +v.toFixed(2)); out.wpnPos = w.o.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(3)); out.hand = bones.RightHand.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(3)); out.ws = bones.RightHand.getWorldScale(new THREE.Vector3()).y; } return out; }, hand: (h) => bones[h + 'Hand'] && bones[h + 'Hand'].getWorldPosition(new THREE.Vector3()), setOutfit: (id) => setOutfit(OUTFITS.find(o => o.id === id)), wield: (id) => wield(WEAPONS.find(w => w.id === id)), unwield, setDye: (n) => [...dEl.children].find(d => d.title === n).click(), play, cam, ctl, R, get worn() { return worn; } };
-setOutfit(OUTFITS[0]);
+
+const clock = new THREE.Clock(); let stanceK = 1;
+// a staff stands upright and a bow hangs straight down the side: the wrist turns the fist so the handle runs the way the weapon is carried
+function wrists() {
+  for (const h of ['L', 'R']) { const w = held[h]; if (!w || !w.o || !w.def.hold || !w.o.userData.T || curAct !== 'idle') continue;
+    const hb = B[(h === 'L' ? 'Left' : 'Right') + 'Hand'], hq = hb.getWorldQuaternion(new THREE.Quaternion()), Tw = w.o.userData.T.clone().applyQuaternion(hq);
+    const want = V3().fromArray(w.def.hold).normalize().applyQuaternion(holder.quaternion); let q = new THREE.Quaternion().setFromUnitVectors(Tw, want);
+    const ang = 2 * Math.acos(Math.min(1, Math.abs(q.w))), lim = 1.4; if (ang > lim) q = new THREE.Quaternion().slerp(q, lim / ang);
+    const pq = hb.parent.getWorldQuaternion(new THREE.Quaternion()); hb.quaternion.premultiply(pq.clone().invert().multiply(q).multiply(pq)); hb.updateMatrixWorld(true); }
+}
+function step(dt) { if (rig) { rig.mixer.update(dt); stanceK += ((curAct === 'idle' ? 1 : 0) - stanceK) * Math.min(1, dt * 5); holder.updateMatrixWorld(true); stance.apply(stanceK, clock.elapsedTime); holder.updateMatrixWorld(true); wrists(); tickCape(dt); } if (spinning) holder.rotation.y += dt * 0.6; }
+R.setAnimationLoop(() => { step(Math.min(0.05, clock.getDelta())); ctl.update(); R.render(scene, cam); });
+// (for testing)
+window.OUT = { equip, wearSet, wield: (id) => wield(WEAPONS.find(w => w.id === id)), unwield, play, step, ctl, R, cam, B, holder, held, worn, meshes, setDye: (n) => [...dEl.children].find(d => d.title === n).click(), pose, fistFrame, hands, stance, get rig() { return rig; }, get cape() { return cape; } };
+(async () => {
+  await makeRig(); await Promise.all(['head', 'chest', 'gloves', 'legs', 'boots'].map(async s => { const m = await piece(s, s === 'head' ? null : 'plate1'); if (s !== 'head') worn[s] = 'plate1'; meshes[s] = m; if (m) scene.add(m); }));
+  for (const sd of ['Left', 'Right']) pose(sd, 0); play('idle'); refresh(); document.getElementById('load').style.display = 'none'; window.OUT.ready = true;
+})();
 </script>
 </body>
 </html>

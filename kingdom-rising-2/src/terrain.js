@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { fbm, ridged, smooth, lerp, clamp, distToLine } from './util.js';
 import { BATTLE, YARD, ARENA, battleHeight, LAYOUT, roadPolylines, WALL_R } from './battlemap.js';
-import { GI, giShape, giCamps, ROADS_GI } from './gimap.js';
+import { GI, giShape, giCamps, ROADS_GI, northCoast } from './gimap.js';
 
 export const HALF = 600, SEG = /[?&]mode=arena/.test(location.search) ? 60 : 300, CELL = (HALF * 2) / SEG; // (the arena never shows the ground outside its walls up close)
 export const SEA = 0;
@@ -67,9 +67,11 @@ export function rawHeight(x, z, noCamps) {
   if (GI) h = giShape(x, z, h, jungle); // Goblin Island: the gorge, the Crown Ridge and its cuts
   // the coast all the way round: beach, then the sea
   const [r, R] = isleR(x, z);
+  if (GI && northCoast(x, z)) { h += 9 * smooth(R - 90, R - 30, r); h = lerp(h, -9, smooth(R - 14, R - 3, r)); } // Goblin Island: sea cliffs north of the gorge
+  else {
   const beach = smooth(R - 62, R - 30, r);
   h = lerp(h, 1.1 + (h - 1.1) * 0.08, beach);
-  h = lerp(h, -9, smooth(R - 18, R + 34, r));
+  h = lerp(h, -9, smooth(R - 18, R + 34, r)); }
   // river channel
   const rd = riverDist(x, z);
   if (rd.d < 60) {

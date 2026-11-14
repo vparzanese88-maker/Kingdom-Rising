@@ -681,7 +681,7 @@ export class Player {
     const col = w ? (w.rarity >= 2 ? RARITY[w.rarity].col : WEAPON_TYPES[w.wt].element === 'fire' ? '#ff9050' : '#ffffff') : '#fff';
     this.trail.mat.uniforms.color.value.set(col); this.trailL.mat.uniforms.color.value.set(col);
   }
-  place(x, z, yaw) { this.pos.set(x, groundAt(x, z).h, z); /* stand on piers and bridges, not the ground under them */ this.yaw = yaw; this.bodyYaw = yaw; this.vel.set(0, 0, 0); }
+  place(x, z, yaw) { this.pos.set(x, groundAt(x, z).h, z); this._lx = this._lz = undefined; this.fallTop = null; /* stand on piers and bridges, not the ground under them */ this.yaw = yaw; this.bodyYaw = yaw; this.vel.set(0, 0, 0); }
 
   // ---------- input ----------
   isFrozen() { return !!(this.db && this.db.freeze && this.db.freeze.t > 0); } // (frozen: no moving, jumping, attacking, dodging or abilities)
@@ -2310,6 +2310,14 @@ export class Player {
   climbOut() { let g = null, r = 0; for (const d of [0.6, 1.2, 1.9, 2.6]) { const t = groundAt(this.pos.x + Math.sin(this.yaw) * d, this.pos.z + Math.cos(this.yaw) * d, this.pos.y + 2.8); if (t.surf && t.h - this.pos.y <= 2.8) { g = t; r = d; break; } } if (!g) return false;
     this.pos.x += Math.sin(this.yaw) * r; this.pos.z += Math.cos(this.yaw) * r; this.pos.y = g.h; this.vel.set(0, 0, 0); this.onGround = true; this.swim = false; S.splash(this.pos, 0.6); return true; }
   swimK() { const k = Math.min(1, ((this.h.swimSkill || 1) - 1) / 49); return 0.65 + 0.45 * k; } // swimming skill 1-50: slow at first, quick with practice
+  steepBlock(x0, z0) {
+    const x1 = this.pos.x, z1 = this.pos.z, d = Math.hypot(x1 - x0, z1 - z0); if (d < 1e-4) return;
+    const g0 = groundAt(x0, z0, this.pos.y + 1).h, rise = (x, z) => groundAt(x, z, this.pos.y + 1).h - g0;
+    const bad = (x, z) => { const r = rise(x, z), dd = Math.hypot(x - x0, z - z0); return r > 0.18 && r / Math.max(dd, 1e-4) > 1.25 && groundAt(x, z, this.pos.y + 1).h > this.pos.y + 0.15; };
+    if (!bad(x1, z1)) return;
+    if (!bad(x1, z0)) { this.pos.z = z0; return; } if (!bad(x0, z1)) { this.pos.x = x0; return; }
+    this.pos.x = x0; this.pos.z = z0; this.vel.x *= 0.3; this.vel.z *= 0.3;
+  }
   jump() { if (this.swim) { this.climbOut(); return; } if (this.transcendT > 0 || this.hoverH > 0.05 || (this.iceFormOn && this.buffs.iceblock > 0)) return; /* (hovering (Arcane Ascension, the bard's note): no jumping) */ if (this.onGround && !this.dodge && !this.gathering && !this.dead && !this.swim) { this.vel.y = 9.2; /* (you can jump mid-swing, and swing mid-jump) */ this.onGround = false; this.landDip = 0.07; S.jump(); V.burst('dust', this.pos.clone().setY(this.pos.y + 0.1), 8, { speed: 2, size: 0.45, up: 0.3 }); } else if (this.swim) this.vel.y = 3; }
   tryDodge(dirOverride) {
     if (this.dodge || this.dead || this.isFrozen() || (this.iceFormOn && this.buffs.iceblock > 0) || this.gathering || !this.onGround || this.swim || this.transcendT > 0 || this.hoverH > 0.05) return; // (no dodging while hovering)
@@ -2515,8 +2523,11 @@ export class Player {
       else this.vel.y -= (this.vel.y > 0 ? 21 : 26) * dt;
       this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; this.pos.y += this.vel.y * dt;
     }
+    const sx0 = this._lx ?? this.pos.x, sz0 = this._lz ?? this.pos.z;
     { const rd = this.ch && this.ch._rootDelta; if (rd && (rd.x || rd.z)) { this.pos.x += rd.x; this.pos.z += rd.z; rd.set(0, 0, 0); } } /* (a recorded attack that steps forward carries you forward with it) */
     collide(this.pos, this.radius);
+    // the campaign (the owner): rock too steep to walk can't be climbed (except at vines: climbing), so cliffs block for real
+    if (G.campFall && !this.swim && !this.leap && !this.climb) this.steepBlock(sx0, sz0);
     // world bounds
     this.pos.x = clamp(this.pos.x, -590, 590); this.pos.z = clamp(this.pos.z, -590, 590);
     const g2 = groundAt(this.pos.x, this.pos.z, this.pos.y);
@@ -2533,7 +2544,7 @@ export class Player {
     // step down slopes smoothly
     if (this.onGround && !this.swim && this.pos.y - g2.h < 0.5 && this.vel.y <= 0) this.pos.y = g2.h;
     if (this.hoverH > 0.005 && !this.leap) { this.pos.y = Math.max(g2.h, wl) + this.hoverH; this.vel.y = 0; this.onGround = true; this.swim = false; } // (Arcane Ascension: he hovers this high over the ground, or the water)
-    this.onSurf = g2.surf;
+    this.onSurf = g2.surf; this._lx = this.pos.x; this._lz = this.pos.z;
     // lava
     if (world.lavaPools) for (const L of world.lavaPools) if (Math.hypot(this.pos.x - L.x, this.pos.z - L.z) < L.r && this.pos.y < L.y + 0.6) { this.pos.y = Math.max(this.pos.y, L.y - 0.3); this.lavaT = (this.lavaT || 0) + dt; if (this.lavaT > 0.5) { this.lavaT = 0; this.iframes = 0; this.takeDamage(this.maxHp * 0.12, null); V.burst('fire', this.pos, 20, { speed: 3 }); } }
     // footsteps

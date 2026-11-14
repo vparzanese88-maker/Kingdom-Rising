@@ -319,7 +319,15 @@ export const S = {
     } else if (el === 'arcane') {
       // recorded CC0 spell sounds (audio/CREDITS.md): a quick magical whoosh for a plain bolt, a full spell for abilities with a low boom
       // under it. Until they have loaded (or if they can't), the synthesized spell below plays instead
-      if (b < 0.9 ? sample(Math.random() < 0.5 ? 'wiz_bolt1' : 'wiz_bolt2', o.node, 0.94 + Math.random() * 0.12, 0.55 + 0.35 * b) : sample('wiz_cast', o.node, 1.02 - Math.min(0.12, (b - 1) * 0.1), Math.min(1.1, 0.6 + 0.25 * b))) {
+      // the owner: the recorded samples sounded odd. Now a clean, soft whoosh: a falling bright tone with a breath of air, a few
+      // sparkles; abilities add a low warm swell under it
+      if (true) { const big = b >= 0.9, k = big ? 1.2 : 0.75;
+        tone(t, 0.22 * k, o.node, { type: 'sine', f: big ? 760 : 980, f2: big ? 300 : 430, gain: 0.07 * k, a: 0.008 });
+        tone(t, 0.18 * k, o.node, { type: 'triangle', f: big ? 1140 : 1470, f2: big ? 450 : 640, gain: 0.025 * k, a: 0.008 });
+        noise(t, 0.26 * k, o.node, { type: 'bandpass', f: 2600, f2: 700, q: 0.9, gain: 0.16 * k, a: 0.012 });
+        for (let i = 0; i < (big ? 5 : 3); i++) tone(t + 0.03 + i * 0.035, 0.12, o.node, { type: 'sine', f: 2200 + Math.random() * 1800, gain: 0.012, a: 0.004 });
+        if (big) { tone(t, 0.6, o.node, { type: 'sine', f: 140, f2: 70, gain: 0.12, a: 0.03 }); noise(t + 0.02, 0.45, o.node, { type: 'lowpass', f: 900, f2: 200, gain: 0.12, a: 0.04 }); }
+      } else if (false) {
         if (b >= 0.9) { tone(t, 0.7, o.node, { type: 'sine', f: 90, f2: 38, gain: 0.3 * Math.min(1.5, b), a: 0.01 }); noise(t, 0.5, o.node, { type: 'lowpass', f: 700, f2: 150, gain: 0.25 * Math.min(1.5, b), a: 0.02 }); }
       } else {
       // a spell: a bright shimmering chord that blooms and rings out (detuned pairs beat against each other, so it glitters),

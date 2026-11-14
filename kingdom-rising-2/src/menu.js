@@ -547,7 +547,7 @@ function showCampCreator(camp) {
     <p>You sail into <b>Goblin Island</b>, overrun by goblins possessed by a cursed idol. Defeat its three goblin champions and the High Chief to free the island, then set sail for the next port.</p>
     <div class="ccisl on"><b>Starting classes</b><span>${CORE_CLASSES.map(k => CLASSES[k].name).join(' · ')}</span></div>
     ${ISLANDS.map(i => `<div class="ccisl${freed.has(i.id) ? ' on' : ''}"><b>${freed.has(i.id) ? '✓' : '🔒'} ${esc(i.name)}</b><span>${i.classes.map(k => CLASSES[k] ? CLASSES[k].name : k).join(' · ')}</span></div>`).join('')}
-    <p class="ccnote">Abilities unlock as you level: F at 1, C at 3, Q at 6 and your ultimate at 9. Every level gives a perk point.</p></div>`;
+    <p class="ccnote">Abilities unlock as you level: F at 1, C at 3, Q at 6 and your ultimate at 9. Press K in the game to see them all.</p></div>`;
   mountHeroSelect(ov, { eyebrow: camp ? 'New character · ' + camp.name : 'New Campaign', title: 'Choose your hero', sub: 'Start as a Warrior, Wizard or Rogue. Free islands to unlock the rest.', bar, initial: 'warrior', classes,
     groups: [{ id: 'core', name: 'Starting', classes: CORE_CLASSES.slice(), tip: 'Every campaign starts with these three' }, ...ISLANDS.map(i => ({ id: i.id, name: i.name, classes: i.classes.filter(k => classes.includes(k)), tip: i.tip }))],
     barred: (k) => lockReason(k, freed), abNote: (a) => LV[a.key] ? 'Lv ' + LV[a.key] : '', side, lockText: 'Set sail',

@@ -78,7 +78,7 @@ export function buildAbilityBar() {
   let ult = null; if (h.arenaUlt) { bar.appendChild(el('div', 'sep')); const ua = ABILITIES[h.cls].find(x => x.id === h.arenaUlt); ult = mk('R', Icons.abilityIcon(h.arenaUlt), 'ult'); ult.insertAdjacentHTML('beforeend', '<div class="ultfill"></div><span class="ultpct"></span>'); ult.title = ua ? `Ultimate · ${ua.name} [R] · ${ua.desc} Charges over time, faster when you deal damage or heal.` : '';
     if (HERO_HUD) { ult.insertAdjacentHTML('afterbegin', '<svg class="ultring" viewBox="0 0 100 100"><circle class="urbg" cx="50" cy="50" r="45"/><circle class="urfg" cx="50" cy="50" r="45" pathLength="100"/></svg>'); const w = el('div', ''); w.id = 'arult'; w.appendChild(ult); bar.lastChild.remove(); $('bottom').insertBefore(w, bar); } } /* the arena: the ultimate is a charge ring on its own at the bottom centre */
   const combo = el('div', 'combostrip'); bar.appendChild(combo);
-  const pp = HERO_HUD || h.camp ? el('div', 'perkpts', '') : null; if (pp) { pp.hidden = true; bar.insertBefore(pp, bar.firstChild); } /* (unspent perk points, beside the abilities) */
+  const pp = HERO_HUD && !h.camp ? el('div', 'perkpts', '') : null; /* (the campaign has no perk points) */ if (pp) { pp.hidden = true; bar.insertBefore(pp, bar.firstChild); } /* (unspent perk points, beside the abilities) */
   abilEls = { ws, lmb, rmb, hb, f, combo, ult, pp };
   refreshAbilityBar();
 }
@@ -90,7 +90,7 @@ export function refreshAbilityBar() {
   abilEls.lmb.querySelector('.ai').innerHTML = W ? Icons.itemSvg(p.weapon) : Icons.abilityIcon('fist');
   abilEls.lmb.title = W ? comboText(p.weapon.wt) : 'Left click: punch';
   { const st = W ? comboSteps(p.weapon.wt) : [], cs = abilEls.combo;
-    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' + (G.newFx ? ' · hold for heavy' : '') : 'Left click'}${G.campAb ? ' · K or P: perks' : G.battleFx ? ' · F special · K for details' : ''}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
+    cs.innerHTML = st.length ? `<div class="cst">${W.kind === 'melee' ? 'Left-click combo' + (G.newFx ? ' · hold for heavy' : '') : 'Left click'}${G.campAb ? ' · K: abilities' : G.battleFx ? ' · F special · K for details' : ''}</div><div class="crow">` + st.map((x, i) => `<div class="cstep${i === st.length - 1 && st.length > 1 ? ' fin' : ''}"><b>${i + 1}</b><span>${x.n}</span><i>${x.d}%</i>${x.tags.map(t => `<em>${t}</em>`).join('')}</div>`).join('') + '</div>' : '';
     { const sid = W && G.battleFx && !G.campAb ? RMB_SPECIAL[p.weapon.wt] : null, S2 = sid && WSKILLS[sid]; if (S2) cs.innerHTML += `<div class="crow"><div class="cstep fin fsp" title="${S2.desc.replace(/"/g, '')}"><b>F</b><span>${S2.name}</span><i>⟳ ${S2.cd || ''}s</i></div></div>`; }
     cs._n = st.length; cs.classList.toggle('battle', !!G.battleFx); if ((settings.hud || {}).combo?.hide) cs.style.display = 'none'; requestAnimationFrame(() => { const l = abilEls.lmb; cs.style.right = (l.parentNode.offsetWidth - l.offsetLeft - l.offsetWidth) + 'px'; }); }
   const sk = p.skills();

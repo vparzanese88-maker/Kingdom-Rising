@@ -423,7 +423,7 @@ export function gainXp(h, n, why) {
     if (hasTrees(h.cls)) unlocked.push('New skill point: press K'); else for (const a of ABILITIES[h.cls]) if (a.level === h.level) unlocked.push(`${a.key ? "[" + a.key + "] " : ""}${a.name}`);
     if (h.level === RANK2_LEVEL) unlocked.push('Class abilities upgraded to Rank II');
     if ((!h.arena || h.camp) && fixedKit(h)) { G.hooks.gearChanged && G.hooks.gearChanged(); }
-    if (h.camp) { unlocked.length = 0; unlocked.push('Perk point: press P'); for (const id of [...(h.arenaKit || []), h.arenaUlt]) if (id && kitNeed(h, id) === h.level) { const a = ABILITIES[h.cls].find(x => x.id === id); if (a) unlocked.push(`${id === h.arenaUlt ? 'Ultimate [R]' : '[' + ['F', 'C', 'Q'][h.arenaKit.indexOf(id)] + ']'} ${a.name}`); } }
+    if (h.camp) { unlocked.length = 0; for (const id of [...(h.arenaKit || []), h.arenaUlt]) if (id && kitNeed(h, id) === h.level) { const a = ABILITIES[h.cls].find(x => x.id === id); if (a) unlocked.push(`${id === h.arenaUlt ? 'Ultimate [R]' : '[' + ['F', 'C', 'Q'][h.arenaKit.indexOf(id)] + ']'} ${a.name}`); } }
     G.hooks.levelUp && G.hooks.levelUp(h.level, unlocked);
   }
   if (h.level >= LEVEL_CAP) h.xp = 0;

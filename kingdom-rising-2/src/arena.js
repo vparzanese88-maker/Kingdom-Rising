@@ -1383,12 +1383,19 @@ export function mouseKeys(p) {
 export function abilityCards(p) {
   const h = p.h, cls = h.cls, A2 = ABILITIES[cls] || [], ab = (id) => id && id !== 'aim' ? A2.find(a => a.id === id) : null, kit = h.arenaKit || ARENA_KITS[cls] || [];
   const u = ab(h.arenaUlt || ARENA_ULT[cls]) || (ULTS[cls] ? { id: ARENA_ULT[cls], name: ULTS[cls].name, desc: ULTS[cls].desc } : null); /* (the hero's own ultimate: the berserker's Bladestorm is not in ULTS) */
-  const rows = [...mouseKeys(p), ...['F', 'C', 'Q'].map((k, i) => { const a = ab(kit[i]); return a && { k, name: a.name, meta: a.cd ? `${a.cd} s cooldown` : '', desc: a.desc || '', icon: Icons.abilityIcon(a.id) }; }), u && { k: 'R', name: u.name, ult: true, desc: u.desc || '', icon: Icons.abilityIcon(u.id) }];
+  const rows = [...mouseKeys(p), ...['F', 'C', 'Q'].map((k, i) => { const a = ab(kit[i]); return a && { k, id: a.id, name: a.name, meta: a.cd ? `${a.cd} s cooldown` : '', desc: a.desc || '', icon: Icons.abilityIcon(a.id) }; }), u && { k: 'R', id: u.id, name: u.name, ult: true, desc: u.desc || '', icon: Icons.abilityIcon(u.id) }];
   const box = elx('div', 'perkgrid abilgrid');
-  for (const r of rows) { if (!r) continue; const card = elx('div', 'perkcard has abilcard' + (r.k === 'LMB' || r.k === 'RMB' ? ' mousecard' : ''));
+  for (const r of rows) { if (!r) continue; const need = h.camp && r.id ? Game.kitNeed(h, r.id) : 1, locked = need > (h.level || 1); const card = elx('div', 'perkcard has abilcard' + (r.k === 'LMB' || r.k === 'RMB' ? ' mousecard' : '') + (locked ? ' abillocked' : ''));
     card.innerHTML = `<div class="kiti">${r.icon}</div><div class="kitt">${r.ult ? `<b><span style="font-size:1.45em;letter-spacing:.02em">${r.name}</span> ${keyBadge('R')}<small class="dim" style="font-size:.72em;font-weight:600;letter-spacing:.12em">ULTIMATE</small></b>` : `<b>${r.name} ${keyBadge(r.k)}${r.meta ? `<span class="dim" style="font-weight:400">${r.meta}</span>` : ''}</b>`}<span>${r.desc}</span></div>`; /* (the ultimate's name reads big, the ULTIMATE tag small) */
+    if (h.camp && r.id && need > 1) card.insertAdjacentHTML('beforeend', `<div class="abilunlock${locked ? '' : ' got'}">${locked ? '🔒 Unlocks at level ' + need : '✓ Unlocked at level ' + need}</div>`);
     box.appendChild(card); }
   return box;
+}
+// the campaign (the owner): K shows your abilities and the level each one unlocks at; no perk tree
+export function openAbilities(UI) {
+  const p = G.player, h = p.h, c = UI.openWin('abilities', CLASSES[h.cls].name + ' · abilities', '', 'big');
+  c.insertAdjacentHTML('beforeend', `<div class="perkhead"><b>Level ${h.level || 1}</b> <small>a new ability unlocks at levels 3, 6 and 9</small></div>`);
+  c.appendChild(abilityCards(p));
 }
 // P: perks. Points come with time; spend them on any of your class's ten perks (three ranks each), whenever you like
 export function openPerks(UI) {

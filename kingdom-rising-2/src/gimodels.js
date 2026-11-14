@@ -73,8 +73,8 @@ export function animMob(m, dt, st) {
   Z.hitCd = (Z.hitCd || 0) - dt; Z.mixer.update(dt);
 }
 // (a friendly goblin) villager or elder: idles, walks, talks when you're near; workers chop, hammer and carry
-export function dressPerson(p, name, height) {
-  loadGI(name).then(g => { if (!g || !p.root) return; const Z = rigOf(g, height / (p.root.scale.y || 1)); for (const c of p.root.children) c.visible = false; p.root.add(Z.o); p.mz = Z; play(Z, 'idle'); });
+export function dressPerson(p, name, height, fallback) {
+  loadGI(name).then(g => { if (!g && fallback) return dressPerson(p, fallback, height); if (!g || !p.root) return; const Z = rigOf(g, height / (p.root.scale.y || 1)); for (const c of p.root.children) c.visible = false; p.root.add(Z.o); p.mz = Z; play(Z, 'idle'); });
 }
 export function animPerson(p, dt, state) { const Z = p.mz, P = G.player; if (P && p.pos.distanceToSquared(P.pos) > 80 * 80) return; play(Z, state || 'idle'); Z.mixer.update(dt); }
 // ---- animals moved in code (no rig needed): bob, sway and lunge ----

@@ -19,7 +19,8 @@ const LORE_GI = {
   text: [
     'Sailors call it Goblin Island; the old charts name it Grimtusk Isle. For as long as anyone remembers its goblin tribes fought each other more than anyone else: the Bloodfang of the southern jungle, the Mudfoot of the western swamps, the Skullsplitters of the eastern hills.',
     'Then the High Chief dug something up beneath the goblin city: a black stone idol with too many eyes. Within a season every tribe knelt to him. Now the goblins do not squabble or run. Their eyes are glassy, they fight to the last, and they whisper to the idol in their sleep.',
-    'The trolls in the hills have felt it too and grown savage. Three goblin champions, a musketeer, a bombardier and a blunderbuss gunner, guard the High Chief in his city behind the Crown Ridge, a ring of mountains with only two ways through. Every ship that comes too close is wrecked.',
+    'The trolls in the hills have felt it too and grown savage. Three goblin champions, a musketeer, a bombardier and a blunderbuss gunner, guard the High Chief in his city on the summit of Grimtusk Peak. The idol\'s storms wreck every ship that comes too close.',
+    'Your own ship was attacked at sea; you got away in a rowboat and washed up here. On the beach you met Templeton, a little goblin shipwright from far away whose ship never made the dock. He is no fighter, but he is a wonder with his hands: from his wreck and your rowboat he is building a new boat, a little more with every step you take toward the summit.',
   ],
 };
 export const LORE = GI ? LORE_GI : LORE_KELDA;
@@ -29,7 +30,7 @@ export function pois() {
   if (GI) return [ // Goblin Island
     { id: 'village', name: 'Snagglefoot (friendly goblins)', x: VILLAGE_GI.x, z: VILLAGE_GI.z, icon: '⌂', col: '#ffe080', town: true },
     { id: 'camp', name: "Sailors' Camp", x: CAMP_SPOT.x, z: CAMP_SPOT.z, icon: '⌂', col: '#fff', town: true },
-    { id: 'wreck', name: 'The Wrecked Ship', x: WRECK.x, z: WRECK.z, icon: '⛵', col: '#e8d8a8' },
+    { id: 'wreck', name: "Templeton's Wreck", x: WRECK.x, z: WRECK.z, icon: '⛵', col: '#e8d8a8' },
     ...Object.entries(TRIBES).map(([id, t]) => ({ id: 'tribe_' + id, name: `${t.name} Tribe`, x: t.x, z: t.z, icon: '⚔', col: t.col })),
     ...LAIRS.map(l => ({ id: 'lair_' + l.id, name: `Troll lair: ${l.name}`, x: l.x, z: l.z, icon: '☠', col: '#c8a080' })),
     { id: 'bridge1', name: 'Gorge Drawbridge', x: BRIDGE1.x, z: (BRIDGE1.zS + BRIDGE1.zN) / 2, icon: '⛓', col: '#e8d8a8' },

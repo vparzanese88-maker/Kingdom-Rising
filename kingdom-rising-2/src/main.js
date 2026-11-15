@@ -25,7 +25,7 @@ import { NEW_CLASSES } from './classes2.js';
 import { updateBanners } from './banners.js';
 import { storyTalk, sceneKey, updateScene, inScene, advance as sceneAdvance } from './story.js';
 import { buildDefenses, defensesFor, startConstruction, updateConstruction } from './seabreak.js';
-import { initSailing, sailTick, sailing, sailLook, sailWheel, sailKey, sailSave, sailStart, sailStop } from './sailing.js';
+import { initSailing, sailTick, sailing, sailLook, sailWheel, sailKey, sailSave, sailStart, sailStop, SAIL_HOME } from './sailing.js';
 import { mobsInCone, foe as isFoe } from './combat.js';
 import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
@@ -190,8 +190,11 @@ function startGame(save) {
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
+  // ?dock in the address: straight to the ship's dock, no intro (for trying out the ship)
+  const toDock = GI && /[?&]dock\b/.test(location.search); if (toDock) { h.introDone = true; if (h.tut == null || h.tut === 'on') h.tut = 'skip'; }
   if (!h.introDone) startIntro(); else { if (!GI && !BATTLE && !YARD && !ARENA && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${(h.arena && (h.cls === 'musketeer' || h.cls === 'blunderbuss' || h.cls === 'bombardier')) ? 'Goblin' : RACES[h.race].name} ${CLASSES[h.cls].name}`); }
   if (GI) sailStart(h); // (the rowboat where you left it; back in it if you saved at sea)
+  if (toDock && !sailing()) { const dx = SAIL_HOME.x - WASH.x, dz = SAIL_HOME.z - WASH.z, L = Math.hypot(dx, dz), k = Math.max(0, L - 14) / L; p.place(WASH.x + dx * k, WASH.z + dz * k, Math.atan2(dx, dz)); if (p.vel) p.vel.set(0, 0, 0); } // (on the dock, facing the ship)
 }
 function saveNow() {
   if (BATTLE || YARD || ARENA) return;

@@ -2544,7 +2544,7 @@ export class Player {
     // the campaign (the owner): rock too steep to walk can't be climbed (except at vines: climbing), so cliffs block for real
     if (G.campFall && !this.swim && !this.leap && !this.climb) this.steepBlock(sx0, sz0);
     // world bounds
-    this.pos.x = clamp(this.pos.x, -590, 590); this.pos.z = clamp(this.pos.z, -590, 590);
+    if (!(G.offGrid && G.offGrid(this.pos))) { this.pos.x = clamp(this.pos.x, -590, 590); this.pos.z = clamp(this.pos.z, -590, 590); } // (G.offGrid: Goblos' Driftwood Key, out past the grid, keeps you on and around it instead)
     const g2 = groundAt(this.pos.x, this.pos.z, this.pos.y);
     const wasAir = !this.onGround;
     if (this.pos.y <= g2.h && !this.leap && !this.climb) {

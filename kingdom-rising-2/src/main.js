@@ -26,6 +26,7 @@ import { NEW_CLASSES } from './classes2.js';
 import { updateBanners } from './banners.js';
 import { storyTalk, sceneKey, updateScene, inScene, advance as sceneAdvance } from './story.js';
 import { buildDefenses, defensesFor, startConstruction, updateConstruction } from './seabreak.js';
+import { initSailing, sailTick, sailing, sailLook, sailWheel, sailKey, sailSave, sailStart, sailStop, SAIL_HOME } from './sailing.js';
 import { mobsInCone, foe as isFoe } from './combat.js';
 import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
@@ -81,6 +82,7 @@ function boot() {
   if (ARENA) { if (water) water.visible = false; if (fall) (fall.visible !== undefined) && (fall.visible = false); } // (no sea or waterfall inside the colosseum)
   buildWorld(scene); if (!BATTLE) placeHomeBoat(scene);
   V.init(scene, camera); FireFX.init(scene);
+  if (GI) initSailing({ scene, camera, water }); // (Goblos: your rowboat, its dock and Driftwood Key out at sea)
   composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: settings.quality === 'low' ? 0 : 4 })); // (multisampled: smooth edges even through the post effects)
   composer.addPass(new RenderPass(scene, camera));
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.88); composer.addPass(bloom);
@@ -189,19 +191,23 @@ function startGame(save) {
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
+  // ?dock in the address: straight to the ship's dock, no intro (for trying out the ship)
+  const toDock = GI && /[?&]dock\b/.test(location.search); if (toDock) { h.introDone = true; if (h.tut == null || h.tut === 'on') h.tut = 'skip'; }
   if (!h.introDone) startIntro(); else { if (!GI && !BATTLE && !YARD && !ARENA && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${(h.arena && (h.cls === 'musketeer' || h.cls === 'blunderbuss' || h.cls === 'bombardier')) ? 'Goblin' : RACES[h.race].name} ${CLASSES[h.cls].name}`); }
+  if (GI) sailStart(h); // (the rowboat where you left it; back in it if you saved at sea)
+  if (toDock && !sailing()) { const dx = SAIL_HOME.x - WASH.x, dz = SAIL_HOME.z - WASH.z, L = Math.hypot(dx, dz), k = Math.max(0, L - 14) / L; p.place(WASH.x + dx * k, WASH.z + dz * k, Math.atan2(dx, dz)); if (p.vel) p.vel.set(0, 0, 0); } // (on the dock, facing the ship)
 }
 function saveNow() {
   if (BATTLE || YARD || ARENA) return;
   const p = G.player, h = G.save; if (!p || !h) return;
-  h.pos = { x: p.pos.x, z: p.pos.z, yaw: p.yaw }; if (p.dead) h.pos = null; if (GI) h.camD = p.camDistT;
+  h.pos = { x: p.pos.x, z: p.pos.z, yaw: p.yaw }; if (p.dead) h.pos = null; if (GI) { h.camD = sailing() ? (h.camD ?? 0) : p.camDistT; sailSave(h); }
   h.hp = p.hp; h.tod = G.tod; if (fog.on && fog.soft) h.fogEx = packFog();
   const zn = ZONES.find(z => z.id === G.zone); h.zone = zn ? zn.name : h.zone;
   putSave(h);
 }
 function quitToTitle() {
   if (BATTLE || ARENA) { location.href = location.pathname; return; }
-  saveNow(); UI.closeWin();
+  saveNow(); UI.closeWin(); if (GI) sailStop();
   if (G.player) { scene.remove(G.player.ch.root); G.vmCam.remove(G.player.vm.g); G.player = null; }
   $('hud').hidden = true; $('death').hidden = true; $('clickToPlay').hidden = true; $('intro').hidden = true; intro = null;
   if (document.pointerLockElement) document.exitPointerLock();
@@ -892,6 +898,7 @@ function input() {
       if (map[e.code]) { S.click(); UI.toggleWin(map[e.code]); return; }
       if (e.code === 'Escape') { if (G.uiOpen) { UI.closeWin(); } else UI.openPause(); return; }
     }
+    if (GI && sailing()) { G.keys[e.code] = true; if (!e.repeat && !G.uiOpen) sailKey(e.code); return; } // (rowing: W/S/A/D steer the boat, E steps ashore; no attacks or abilities)
     G.keys[e.code] = true;
     if (!e.repeat && !G.uiOpen && p) { p.onKey(e.code, true); p.tapRoll(e.code); }
   });
@@ -901,12 +908,13 @@ function input() {
   canvas.addEventListener('mousedown', (e) => { if (inScene()) return;
     if (mode !== 'game' || intro) return;
     if (!document.pointerLockElement) { if (!G.uiOpen && !G.player.dead) { if ((BATTLE || ARENA) && !document.fullscreenElement && Menu.fsWanted && Menu.fsWanted()) { goFull(); setTimeout(lockPointer, 350); } else lockPointer(); } return; }
+    if (GI && sailing()) return;
     G.player.onMouse(e.button, true);
   });
   addEventListener('mouseup', (e) => { if (mode === 'game' && G.player && document.pointerLockElement) G.player.onMouse(e.button, false); else if (G.player) G.player.press = null; });
   addEventListener('contextmenu', (e) => e.preventDefault());
-  addEventListener('mousemove', (e) => { if (petWheel) { petWheelMove(e.movementX, e.movementY); return; } if (intro && document.pointerLockElement) { const k = 0.0032 * (settings.sens || 1); intro.ly = Math.max(-2.6, Math.min(2.6, intro.ly - e.movementX * k)); intro.lp = Math.max(-1.0, Math.min(1.1, intro.lp - e.movementY * k)); return; } if (mode === 'game' && document.pointerLockElement && G.player && !intro && !G.uiOpen) { G.player.look(e.movementX, e.movementY); if (G.player.camDist < 0.6) { camera.rotation.order = 'YXZ'; camera.rotation.x = G.player.pitch; camera.rotation.y = G.player.yaw + Math.PI; } G.player.lookDX = (G.player.lookDX || 0) + e.movementX; G.player.lookDY = (G.player.lookDY || 0) + e.movementY; } });
-  addEventListener('wheel', (e) => { if (mode === 'game' && G.player && !G.uiOpen) G.player.onWheel(e.deltaY); }, { passive: true });
+  addEventListener('mousemove', (e) => { if (petWheel) { petWheelMove(e.movementX, e.movementY); return; } if (intro && document.pointerLockElement) { const k = 0.0032 * (settings.sens || 1); intro.ly = Math.max(-2.6, Math.min(2.6, intro.ly - e.movementX * k)); intro.lp = Math.max(-1.0, Math.min(1.1, intro.lp - e.movementY * k)); return; } if (GI && sailing() && mode === 'game' && document.pointerLockElement && !G.uiOpen) { sailLook(e.movementX, e.movementY); return; } if (mode === 'game' && document.pointerLockElement && G.player && !intro && !G.uiOpen) { G.player.look(e.movementX, e.movementY); if (G.player.camDist < 0.6) { camera.rotation.order = 'YXZ'; camera.rotation.x = G.player.pitch; camera.rotation.y = G.player.yaw + Math.PI; } G.player.lookDX = (G.player.lookDX || 0) + e.movementX; G.player.lookDY = (G.player.lookDY || 0) + e.movementY; } });
+  addEventListener('wheel', (e) => { if (mode === 'game' && G.player && !G.uiOpen) { if (GI && sailing()) sailWheel(e.deltaY); else G.player.onWheel(e.deltaY); } }, { passive: true });
   document.addEventListener('pointerlockchange', () => {
     const locked = !!document.pointerLockElement;
     $('clickToPlay').hidden = locked || mode !== 'game' || G.uiOpen || intro || (G.player && G.player.dead) || G.altFree;
@@ -945,6 +953,7 @@ function updateDayNight(dt, focus) {
   scene.fog.color.lerp(fogC, Math.min(1, dt * 2)); const vd = settings.viewDist;
   scene.fog.near = (zn === 'ashlands' ? 60 : zn === 'wood' ? 90 : 140) * vd; scene.fog.far = (zn === 'ashlands' ? 420 : zn === 'wood' ? 520 : 900) * vd;
   if (intro) { scene.fog.near = 350; scene.fog.far = 2600; } // sailing in: the island is a hazy coast on the horizon
+  else if (G.fogOverride) G.fogOverride(scene.fog); // (Goblos: out at sea in the rowboat you see further)
   scene.background = null;
   for (const m of water.mats) { m.uniforms.time.value = G.time; m.uniforms.sunDir.value.copy(sd); m.uniforms.sky.value.copy(c.hor); m.uniforms.skyTop && m.uniforms.skyTop.value.copy(c.top); m.uniforms.sunCol.value.copy(c.sun).multiplyScalar(night > 0.5 ? 0.2 : 1); m.uniforms.light.value = 0.35 + c.light * 0.5; m.uniforms.fogColor && m.uniforms.fogColor.value.copy(scene.fog.color); m.uniforms.fogNear && (m.uniforms.fogNear.value = scene.fog.near); m.uniforms.fogFar && (m.uniforms.fogFar.value = scene.fog.far); }
   fall.mat.uniforms.time.value = G.time; fall.mat.uniforms.light.value = 0.4 + c.light * 0.5;
@@ -1105,7 +1114,7 @@ function gameUpdate(dt) {
   if (intro) updateIntro(dt);
   else {
     if (G.uiOpen && (UI.UI.open === 'pause' || UI.UI.open === 'settings' || UI.UI.open === 'controls')) return 'paused'; // pause freezes the world
-    p.update(dt);
+    if (!(GI && sailTick(dt))) p.update(dt); // (in the rowboat the boat has the controls)
   }
   G.inCombat = Math.max(0, G.inCombat - dt);
   // battle music only for real fights: hostile mobs hunting you, or an elite

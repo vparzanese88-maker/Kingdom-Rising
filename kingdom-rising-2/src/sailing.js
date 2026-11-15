@@ -205,6 +205,7 @@ function buildBoatRig() {
       if (top) B.pennant = buildPennant(root, top.add(new THREE.Vector3(0, -0.3, 0))); }
   });
   placeBoat(HOME.x, HOME.z, HOME.yaw);
+  if (/[?&]sailtest/.test(location.search)) window.__sail = { B, board, G }; // (automated tests only)
 }
 // the sea must never show inside her: a hull-shaped lid at the waterline, drawn only into the depth buffer just before the water
 function waterMask(wl) {
@@ -436,3 +437,4 @@ export function sailStop() { B.mode = 'idle'; document.body.classList.remove('sa
 // (tests and tools)
 export const SAIL = B;
 export const SAIL_HOME = HOME;
+export const SAIL_DOCK = (() => { const p = dockAt(30); return { x: p.x, z: p.z, yaw: Math.atan2(HOME.x - p.x, HOME.z - p.z) }; })(); // (a spot on the dock astern of her, looking up at the whole ship)

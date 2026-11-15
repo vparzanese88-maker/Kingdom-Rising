@@ -9,6 +9,7 @@ import { G } from './state.js';
 import { settings, putSave, getSave } from './saves.js';
 import { A, S, M, setAmbience } from './audio.js';
 import { V } from './vfx.js';
+import { FireFX } from './firefx.js';
 import { PORT, SEA } from './terrain.js';
 import { applyBattleTerrain, buildTerrain, buildWater, buildSky, buildWaterfall, skyColors, heightAt, zoneAt, SPAWN, VILLAGE, FALL, CAMPS, biomeMasks } from './terrain.js';
 import { buildGull, flap, placeHomeBoat, BOAT_Y } from './sailintro.js';
@@ -25,7 +26,7 @@ import { NEW_CLASSES } from './classes2.js';
 import { updateBanners } from './banners.js';
 import { storyTalk, sceneKey, updateScene, inScene, advance as sceneAdvance } from './story.js';
 import { buildDefenses, defensesFor, startConstruction, updateConstruction } from './seabreak.js';
-import { initSailing, sailTick, sailing, sailLook, sailWheel, sailKey, sailSave, sailStart, sailStop } from './sailing.js';
+import { initSailing, sailTick, sailing, sailLook, sailWheel, sailKey, sailSave, sailStart, sailStop, SAIL_DOCK } from './sailing.js';
 import { mobsInCone, foe as isFoe } from './combat.js';
 import { initChat, openChat, add as chatAdd } from './chat.js';
 import { pois, learn, known, chatter, villagerName, LORE } from './lore.js';
@@ -80,7 +81,7 @@ function boot() {
   buildTerrain(scene); water = buildWater(scene); sky = buildSky(scene); fall = buildWaterfall(scene);
   if (ARENA) { if (water) water.visible = false; if (fall) (fall.visible !== undefined) && (fall.visible = false); } // (no sea or waterfall inside the colosseum)
   buildWorld(scene); if (!BATTLE) placeHomeBoat(scene);
-  V.init(scene, camera);
+  V.init(scene, camera); FireFX.init(scene);
   if (GI) initSailing({ scene, camera, water }); // (Goblos: your rowboat, its dock and Driftwood Key out at sea)
   composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: settings.quality === 'low' ? 0 : 4 })); // (multisampled: smooth edges even through the post effects)
   composer.addPass(new RenderPass(scene, camera));
@@ -190,8 +191,11 @@ function startGame(save) {
   initChat(() => lockPointer()); Game.autoFillHotbar(h); UI.buildMapImage(); UI.buildAbilityBar(); UI.updateTracker(); UI.applyHud();
   zoneNow = null; mode = 'game'; G.paused = false; G.uiOpen = false;
   A.init(); M.play('explore');
+  // ?dock in the address: straight to the ship's dock, no intro (for trying out the ship)
+  const toDock = GI && /[?&]dock\b/.test(location.search); if (toDock) { h.introDone = true; if (h.tut == null || h.tut === 'on') h.tut = 'skip'; }
   if (!h.introDone) startIntro(); else { if (!GI && !BATTLE && !YARD && !ARENA && !h.quests.active.mq_boat && !h.quests.done.includes('mq_boat')) { startMainQuest(h); setTimeout(() => UI.toast('New main quest: Repairs at Sea\'s End', '📜', 'gold'), 2500); } lockPointer(); UI.banner(`Welcome back, ${h.name}`, `Level ${h.level} ${(h.arena && (h.cls === 'musketeer' || h.cls === 'blunderbuss' || h.cls === 'bombardier')) ? 'Goblin' : RACES[h.race].name} ${CLASSES[h.cls].name}`); }
   if (GI) sailStart(h); // (the rowboat where you left it; back in it if you saved at sea)
+  if (toDock && !sailing()) { p.place(SAIL_DOCK.x, SAIL_DOCK.z, SAIL_DOCK.yaw); p.pitch = 0; if (p.vel) p.vel.set(0, 0, 0); } // (on the dock astern of the ship, looking up at her)
 }
 function saveNow() {
   if (BATTLE || YARD || ARENA) return;
@@ -951,7 +955,7 @@ function updateDayNight(dt, focus) {
   if (intro) { scene.fog.near = 350; scene.fog.far = 2600; } // sailing in: the island is a hazy coast on the horizon
   else if (G.fogOverride) G.fogOverride(scene.fog); // (Goblos: out at sea in the rowboat you see further)
   scene.background = null;
-  for (const m of water.mats) { m.uniforms.time.value = G.time; m.uniforms.sunDir.value.copy(sd); m.uniforms.sky.value.copy(c.hor); m.uniforms.sunCol.value.copy(c.sun).multiplyScalar(night > 0.5 ? 0.2 : 1); m.uniforms.light.value = 0.35 + c.light * 0.5; m.uniforms.fogColor && m.uniforms.fogColor.value.copy(scene.fog.color); m.uniforms.fogNear && (m.uniforms.fogNear.value = scene.fog.near); m.uniforms.fogFar && (m.uniforms.fogFar.value = scene.fog.far); }
+  for (const m of water.mats) { m.uniforms.time.value = G.time; m.uniforms.sunDir.value.copy(sd); m.uniforms.sky.value.copy(c.hor); m.uniforms.skyTop && m.uniforms.skyTop.value.copy(c.top); m.uniforms.sunCol.value.copy(c.sun).multiplyScalar(night > 0.5 ? 0.2 : 1); m.uniforms.light.value = 0.35 + c.light * 0.5; m.uniforms.fogColor && m.uniforms.fogColor.value.copy(scene.fog.color); m.uniforms.fogNear && (m.uniforms.fogNear.value = scene.fog.near); m.uniforms.fogFar && (m.uniforms.fogFar.value = scene.fog.far); }
   fall.mat.uniforms.time.value = G.time; fall.mat.uniforms.light.value = 0.4 + c.light * 0.5;
   // windows & lamps glow at night
   const winGlow = Math.max(0, Math.min(1, (0.25 - sunY) / 0.3));
@@ -964,8 +968,11 @@ function updateDayNight(dt, focus) {
 function updateFires(dt, focus) {
   // nearest fires get the real lights; all near fires emit particles
   const list = world.fires.map(f => ({ f, d: f.pos.distanceTo(focus) })).sort((a, b) => a.d - b.d);
-  fireLights.forEach((l, i) => { const e = list[i]; if (e && e.d < 70) { l.position.copy(e.f.pos).add(new THREE.Vector3(0, 0.6, 0)); l.intensity = (e.f.size > 0 ? 4 : 6) * (0.85 + Math.sin(G.time * 13 + i) * 0.08 + Math.sin(G.time * 29 + i * 2) * 0.07); l.distance = e.f.size > 0 ? 16 : 26; l.color.set(e.f.size > 0 ? '#ff9040' : '#ff5010'); } else l.intensity = 0; });
-  for (const e of list) { if (e.d > 70) break; V.fireTick(e.f, dt, true); }
+  const nk = G.night || 0;
+  fireLights.forEach((l, i) => { const e = list[i]; if (e && e.d < 80) { const s = e.f.size, k = FireFX.flicker(world.fires.indexOf(e.f), G.time), fade = Math.min(1, (80 - e.d) / 15); /* (the light dances with its flames: brighter and a touch whiter as they leap, sinking redder as they drop) */
+      l.position.copy(e.f.pos); l.position.x += Math.sin(G.time * 7.3 + i) * 0.06 * s; l.position.z += Math.cos(G.time * 6.1 + i) * 0.06 * s; l.position.y += 0.5 * Math.max(0.6, s) + (k - 0.85) * 0.4;
+      l.intensity = (s > 0 ? (5 + nk * 4) * Math.max(0.7, s) : 6) * k * fade; l.distance = s > 0 ? 7 + s * 8 : 26; l.decay = 1.6; l.color.setRGB(1, 0.42 + (k - 0.8) * 0.5, 0.12 + (k - 0.8) * 0.2); if (!(s > 0)) l.color.set('#ff5010'); } else l.intensity = 0; });
+  FireFX.update(dt, world.fires, list.filter(e => e.d < 70), G.time, nk, scene.fog, world.torches, focus);
   // chimney smoke
   if (world.smokes) for (const s of world.smokes) if (s.distanceTo(focus) < 120 && Math.random() < dt * 3) V.norm.spawn(s.x, s.y, s.z, 0.3 + Math.random() * 0.3, 1.2, Math.random() * 0.2, 5, 0.6, 3, SMK0, SMK1, 0.35, 0, -0.05, 0.1);
   // waterfall mist
@@ -1035,7 +1042,7 @@ function loop(now) {
   const p = G.player;
   if (mode === 'title' || mode === 'creator') {
     G.tod = 0.66; // golden late afternoon behind the menus
-    titleCam(G.time);
+    titleCam(G.time); if (window.KR2_CAM) { const c = window.KR2_CAM; camera.position.set(c.p[0], c.p[1], c.p[2]); camera.lookAt(c.t[0], c.t[1], c.t[2]); } // (tests: a fixed camera)
     const focus = new THREE.Vector3(VILLAGE.x, 0, VILLAGE.z);
     G.night = updateDayNight(dt, focus); updateFires(dt, camera.position);
     cullChunks(camera.position.x, camera.position.z, 500 * settings.viewDist, settings.shadows); updateGrass(VILLAGE.x, VILLAGE.z + 30, settings.grass);
@@ -1058,6 +1065,7 @@ function loop(now) {
     g2.drawImage(renderer.domElement, 0, renderer.domElement.height - chh * pr, cw * pr, chh * pr, 0, 0, pc.width, pc.height);
   }
   talkCam();
+  if (window.KR2_CAM) { const c = window.KR2_CAM; camera.position.set(c.p[0], c.p[1], c.p[2]); camera.lookAt(c.t[0], c.t[1], c.t[2]); } // (tests: a fixed camera for screenshots)
   if (grade) grade.uniforms.sepia.value = 0; // (no sepia while aiming)
   composer.render(paused ? 0 : dt);
   // first-person hands & weapon on top

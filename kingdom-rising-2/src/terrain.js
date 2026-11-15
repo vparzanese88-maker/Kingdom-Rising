@@ -1,8 +1,9 @@
 // Terrain heights, biomes/zones, terrain mesh, water, sky and lighting.
 import * as THREE from 'three';
+import { settings } from './saves.js';
 import { fbm, ridged, smooth, lerp, clamp, distToLine } from './util.js';
 import { BATTLE, YARD, ARENA, battleHeight, LAYOUT, roadPolylines, WALL_R } from './battlemap.js';
-import { GI, giShape, giCamps, ROADS_GI, northCoast } from './gimap.js';
+import { GI, giShape, giCamps, ROADS_GI, northCoast, GORGE, GORGE_W, CREEK, CREEK_W, CREEK_DEPTH, CREEK_ROCKS, creekNear, gorgeRocks } from './gimap.js';
 import { driftHeight } from './driftkey.js';
 
 export const HALF = 600, SEG = /[?&]mode=arena/.test(location.search) ? 60 : 300, CELL = (HALF * 2) / SEG; // (the arena never shows the ground outside its walls up close)
@@ -190,6 +191,8 @@ export function buildTerrain(scene) {
     // river bed
     const rd = riverDist(x, z).d;
     if (rd < 14 && h < 4) tmp.lerp(COL.mud, smooth(14, 6, rd) * 0.7);
+    // Brook Run's bed: wet pebbles and sand, mossy dark banks
+    if (GI) { const cr = creekNear(x, z); if (cr.d < CREEK_W + 4) { const kb = smooth(CREEK_W + 4, CREEK_W - 0.5, cr.d); wl(2, kb * 0.55); wl(4, smooth(CREEK_W + 1, CREEK_W - 1, cr.d) * 0.5); tmp.lerp(COL.mud, kb * 0.5); } }
     // roads
     const roadD = roadDist(x, z);
     if (GI && roadD < 4.5 && h > 0.4) wl(3, smooth(4.5, 1.8, roadD) * 0.95);
@@ -234,69 +237,244 @@ function paintedGround(mat) {
 }
 
 // ---------- water ----------
+// The sea, the gorge's river and Brook Run share one look: rolling Gerstner swells that calm down in the shallows,
+// drifting ripples (analytic noise normals), a sky reflection that grows at grazing angles, a sharp sun highlight with
+// glitter, clear turquoise shallows over sunlit caustics, fading to deep blue, and foam that laps up the beach in waves.
+// Running water (the gorge, the creek) is advected along a flow field so it visibly runs downstream, with white water
+// streaks and foam round the rocks standing in it.
 function heightTexture() {
   const N = 512, data = new Uint16Array(N * N);
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const x = -HALF + (i + 0.5) / N * HALF * 2, z = -HALF + (j + 0.5) / N * HALF * 2; data[j * N + i] = THREE.DataUtils.toHalfFloat(heightAt(x, z)); }
   const t = new THREE.DataTexture(data, N, N, THREE.RedFormat, THREE.HalfFloatType);
   t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true; return t;
 }
+// where the sea runs as a river (Goblos: the Great Gorge, west to east): a flow vector in m/s per texel, zero elsewhere
+function flowTexture() {
+  const N = 256, data = new Uint16Array(N * N * 2), H = THREE.DataUtils.toHalfFloat;
+  if (GI) for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const x = -HALF + (i + 0.5) / N * HALF * 2, z = -HALF + (j + 0.5) / N * HALF * 2, r = distToLine(x, z, GORGE);
+    if (r.d > GORGE_W + 14) continue;
+    const seg = (k) => { const a = GORGE[Math.max(0, Math.min(GORGE.length - 2, k))], b = GORGE[Math.max(0, Math.min(GORGE.length - 2, k)) + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
+    const d0 = seg(r.i), d1 = r.t > 0.5 ? seg(r.i + 1) : seg(r.i - 1), w = Math.abs(r.t - 0.5) > 0.3 ? (Math.abs(r.t - 0.5) - 0.3) / 0.4 * 0.5 : 0; // (blend into the next stretch near the bends)
+    let fx = d0[0] * (1 - w) + d1[0] * w, fz = d0[1] * (1 - w) + d1[1] * w; const l = Math.hypot(fx, fz) || 1;
+    const sp = 2.6 * (1 - smooth(GORGE_W - 3, GORGE_W + 12, r.d) * 0.7) * smooth(590, 500, Math.abs(x)); // (fastest down the middle, slack by the walls, calm where it meets the sea)
+    data[(j * N + i) * 2] = H(fx / l * sp); data[(j * N + i) * 2 + 1] = H(fz / l * sp);
+  }
+  const t = new THREE.DataTexture(data, N, N, THREE.RGFormat, THREE.HalfFloatType);
+  t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true; return t;
+}
+const WATER_GLSL = `
+  float hsh(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+  float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hsh(i), hsh(i + vec2(1, 0)), f.x), mix(hsh(i + vec2(0, 1)), hsh(i + vec2(1, 1)), f.x), f.y); }
+  // value noise and its slope (x: value, yz: d/dx, d/dy)
+  vec3 vnd(vec2 p){ vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f), du = 6.0 * f * (1.0 - f);
+    float a = hsh(i), b = hsh(i + vec2(1, 0)), c = hsh(i + vec2(0, 1)), d = hsh(i + vec2(1, 1)), k = a - b - c + d;
+    return vec3(a + (b - a) * u.x + (c - a) * u.y + k * u.x * u.y, du * (vec2(b - a, c - a) + k * u.yx)); }
+  // wind ripples on still water: four octaves drifting different ways; returns the surface slope (fine octaves fade with distance)
+  vec2 ripples(vec2 p, float t, float far){ vec2 g = vec2(0.0);
+    g += vnd(p * 0.16 + vec2(t * 0.045, t * 0.03)).yz * 0.16 * 0.55;
+    g += vnd(p * 0.42 + vec2(-t * 0.09, t * 0.11) + 3.1).yz * 0.42 * 0.2;
+    #ifndef LOWQ
+    g += vnd(p * 1.1 + vec2(t * 0.16, -t * 0.21) + 7.7).yz * 1.1 * 0.07 * (1.0 - far * 0.7);
+    g += vnd(p * 2.7 + vec2(-t * 0.3, -t * 0.24) + 1.9).yz * 2.7 * 0.025 * (1.0 - far);
+    #endif
+    return g; }
+  // running water in the flow's own frame: ripples stretched along the current, streaks of white water (x,y: slope, z: streak, w: fine noise)
+  vec4 flowLayer(vec2 p, vec2 fd){ vec2 pr = vec2(-fd.y, fd.x), q = vec2(dot(p, fd), dot(p, pr));
+    vec3 a = vnd(vec2(q.x * 0.28, q.y * 0.85)), b = vnd(vec2(q.x * 0.75, q.y * 1.9) + 11.0), c = vnd(q * 2.4 + 5.0);
+    vec2 sq = a.yz * vec2(0.28, 0.85) * 0.3 + b.yz * vec2(0.75, 1.9) * 0.1 + c.yz * 2.4 * 0.03;
+    return vec4(fd * sq.x + pr * sq.y, a.x * 0.6 + b.x * 0.4, c.x); }
+  // caustics: a bright net of light on the bottom of the shallows
+  float caustic(vec2 p, float t){ float c1 = vn(p + vec2(t * 0.35, t * 0.22)), c2 = vn(p * 1.3 - vec2(t * 0.28, -t * 0.19) + 5.3); float c = 1.0 - abs(c1 - c2); return pow(c, 9.0); }
+  vec3 skyRefl(vec3 R, vec3 hor, vec3 top){ return mix(hor, top, smoothstep(-0.05, 0.55, R.y)); }
+`;
+// the swells, shared with JS (seaWaveY) so boats can ride them: [kind 0 rolling in to the island / 1 one way, dirX, dirZ, wavelength, height, sideways push]
+const ISLE_C = new THREE.Vector2(0, -15);
+const WAVES = [[0, 0, 0, 46, 0.32, 0.55], [0, 0, 0, 74, 0.24, 0.5], [1, 0.8, 0.6, 58, 0.2, 0.5], [1, -0.5, 0.86, 41, 0.13, 0.5]];
+const GLSL_WAVES = WAVES.map(([k, dx, dz, L, A, Q]) => `wave(p, ${k ? `vec2(${dx.toFixed(3)}, ${dz.toFixed(3)}), 0.0` : 'normalize(isleC - p + vec2(1e-3)), 1.0'}, ${L.toFixed(1)}, ${A.toFixed(3)} * sh, ${Q.toFixed(2)}, t, d, n);`).join('\n      ');
+// height of the sea surface at (x, z) at time t, for things that float (boats, barrels): the same swells the sea draws.
+// Pass the water depth there (level minus ground) if known: the swells calm down in the shallows the same way.
+export function seaWaveY(x, z, t, depth = 20) {
+  const sh = smooth(0.3, 6, depth) * (0.35 + 0.65 * smooth(1, 14, depth)); let y = 0;
+  for (const [k, dx0, dz0, L, A] of WAVES) { const kk = 6.2832 / L, c = Math.sqrt(9.8 / kk); let ph;
+    if (k === 0) ph = -kk * Math.hypot(x - ISLE_C.x, z - ISLE_C.y) - kk * c * t; else ph = kk * (dx0 * x + dz0 * z - c * t);
+    y += A * sh * Math.sin(ph); }
+  return SEA + y;
+}
+// waveHeight(x, z, t): how far the sea surface at world (x, z) is raised (or lowered) by the swells, in metres, at time t.
+// Pass G.time (the sea shader's time uniform is G.time). It is exactly the vertical part of the sea vertex shader: the same
+// four swells, damped over shallows from the ground height there (heightAt; open sea outside the terrain grid). The swells
+// also push the surface sideways a little (up to ~0.6 m); a floating ship can ignore that. Add SEA for the absolute height.
+export function waveHeight(x, z, t) { return seaWaveY(x, z, t, SEA - heightAt(x, z)) - SEA; }
 export function buildWater(scene) {
-  const htex = heightTexture();
+  const htex = heightTexture(), ftex = flowTexture();
+  const rocks = GI ? gorgeRocks() : []; while (rocks.length < 8) rocks.push([9e4, 9e4, 0]);
   const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
-    time: { value: 0 }, hmap: { value: null }, level: { value: 0 }, halfW: { value: HALF },
-    deep: { value: new THREE.Color('#0d3d5c') }, shallow: { value: new THREE.Color('#2f9fae') }, sky: { value: new THREE.Color('#9cc8ea') },
+    time: { value: 0 }, hmap: { value: null }, flowMap: { value: null }, level: { value: 0 }, halfW: { value: HALF }, waves: { value: 1 },
+    deep: { value: new THREE.Color('#0b4068') }, shallow: { value: new THREE.Color('#2f9fae') }, sky: { value: new THREE.Color('#9cc8ea') }, skyTop: { value: new THREE.Color('#3a78c8') },
     sunDir: { value: new THREE.Vector3(0.3, 0.8, 0.2) }, sunCol: { value: new THREE.Color('#fff2d0') }, flow: { value: 0 }, light: { value: 1 }, trop: { value: GI ? 1 : 0 },
+    rocks: { value: rocks.slice(0, 8).map(r => new THREE.Vector3(r[0], r[1], r[2])) }, isleC: { value: ISLE_C },
   }]);
   const vert = `
-    uniform float time; varying vec3 vW; varying float vWave;
+    uniform float time, level, halfW, waves; uniform sampler2D hmap; uniform vec2 isleC;
+    varying vec3 vW; varying vec3 vN; varying float vCrest;
     #include <fog_pars_vertex>
-    void main(){ vec3 p = position; vec4 w = modelMatrix * vec4(p,1.0);
-      float wv = sin(w.x*0.08+time*1.1)*0.18 + sin(w.z*0.11+time*0.9)*0.14 + sin((w.x+w.z)*0.21+time*1.7)*0.06;
-      w.y += wv; vWave = wv; vW = w.xyz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
+    vec3 wave(vec2 p, vec2 dir, float radial, float L, float A, float Q, float t, inout vec3 d, inout vec3 n){
+      float k = 6.2832 / L, c = sqrt(9.8 / k);
+      float ph = radial > 0.5 ? -k * length(p - isleC) - k * c * t : k * (dot(dir, p) - c * t);
+      float s = sin(ph), co = cos(ph), wa = k * A;
+      d += vec3(dir.x * Q * A * co, A * s, dir.y * Q * A * co);
+      n += vec3(-dir.x * wa * co, -Q * wa * s, -dir.y * wa * co);
+      return d; }
+    void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vec2 p = w.xz; float t = time;
+      float depth = level - texture2D(hmap, (p + halfW) / (halfW * 2.0)).r;
+      float sh = smoothstep(0.3, 6.0, depth) * (0.35 + 0.65 * smoothstep(1.0, 14.0, depth)) * waves; // (the swells die down over the shallows: no water climbing the beach)
+      vec3 d = vec3(0.0), n = vec3(0.0, 1.0, 0.0);
+      ${GLSL_WAVES}
+      w.xyz += d; vN = normalize(n); vCrest = d.y / 0.9; vW = w.xyz;
+      vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
       #include <fog_vertex>
     }`;
   const frag = `
-    uniform float time, level, halfW, flow, light, trop; uniform sampler2D hmap; uniform vec3 deep, shallow, sky, sunDir, sunCol; varying vec3 vW; varying float vWave;
+    uniform float time, level, halfW, flow, light, trop; uniform sampler2D hmap, flowMap; uniform vec3 deep, shallow, sky, skyTop, sunDir, sunCol; uniform vec3 rocks[8];
+    varying vec3 vW; varying vec3 vN; varying float vCrest;
     #include <fog_pars_fragment>
-    float hsh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
-    float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hsh(i),hsh(i+vec2(1,0)),f.x), mix(hsh(i+vec2(0,1)),hsh(i+vec2(1,1)),f.x), f.y); }
+    ${WATER_GLSL}
     void main(){
-      vec2 uv = (vW.xz + halfW) / (halfW*2.0);
-      float ground = texture2D(hmap, uv).r;
-      float depth = level - ground;
-      vec2 q = vW.xz*0.35 + vec2(time*0.25, time*0.18 + flow*time);
-      float n1 = vn(q), n2 = vn(q*2.3 - time*0.3), n3 = vn(vW.xz*0.06 + time*0.05);
-      vec3 N = normalize(vec3((n1-0.5)*0.55 + (n2-0.5)*0.3, 1.0, (n2-0.5)*0.55 + (n3-0.5)*0.4));
-      vec3 V = normalize(cameraPosition - vW);
-      float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-      vec3 col = mix(shallow, deep, smoothstep(0.2, 7.0, depth));
-      col = mix(col, vec3(0.2, 0.78, 0.74), smoothstep(4.5, 0.3, depth) * 0.75 * trop); // (Goblos: clear turquoise shallows)
-      col += vec3(0.9, 1.0, 0.95) * pow(vn(vW.xz * 0.9 + time * 0.35) * vn(vW.xz * 1.3 - time * 0.27), 3.0) * 1.6 * smoothstep(3.0, 0.4, depth) * trop; // (sun glitter on the sandy bottom)
-      col = mix(col, sky * 0.95, fres * 0.65);
-      vec3 H = normalize(sunDir + V); float spec = pow(max(dot(N, H), 0.0), 140.0) * 1.6;
-      col += sunCol * spec;
-      float foam = smoothstep(1.3, 0.0, depth) * (0.55 + 0.45*sin(time*2.0 + vW.x*0.4 + vW.z*0.3 + n1*6.0));
-      foam += smoothstep(0.35, 0.0, depth) * 0.6;
-      foam += smoothstep(0.82, 1.0, sin(depth * 4.2 - time * 1.5 + n3 * 5.0)) * smoothstep(2.6, 0.4, depth) * 0.6 * trop; // (little waves rolling in to the beach)
-      foam *= smoothstep(-0.3, 0.2, depth);
-      col = mix(col, vec3(0.95,0.97,1.0), clamp(foam, 0.0, 1.0) * 0.8);
-      col *= light;
-      float a = clamp(0.55 + depth*0.12 + fres*0.3 + foam, 0.0, 0.96);
-      gl_FragColor = vec4(col, a);
+      vec2 p = vW.xz, uv = (p + halfW) / (halfW * 2.0);
+      float depth = level - texture2D(hmap, uv).r;
+      vec3 V = cameraPosition - vW; float dist = length(V); V /= dist; float far = smoothstep(40.0, 260.0, dist);
+      float t = time;
+      // running water: two advected layers that hand over to each other, so it flows forever without stretching
+      vec2 fl = texture2D(flowMap, uv).rg; float fs = length(fl); vec2 slope; float streak = 0.0, fine = 0.5;
+      if (fs > 0.05) { vec2 fd = fl / fs; float T = 3.0, ph0 = fract(t / T), ph1 = fract(t / T + 0.5), w0 = 1.0 - abs(1.0 - 2.0 * ph0);
+        vec4 A = flowLayer((p - fl * ph0 * T) * 1.4, fd), B = flowLayer((p - fl * ph1 * T) * 1.4 + vec2(17.3, 5.1), fd);
+        vec4 F = A * w0 + B * (1.0 - w0); float kf = smoothstep(0.05, 0.6, fs);
+        slope = mix(ripples(p, t, far), F.xy * (0.7 + fs * 0.25), kf); streak = F.z * kf; fine = F.w;
+      } else slope = ripples(p, t, far);
+      vec3 N = normalize(vN + vec3(-slope.x, 0.0, -slope.y) * mix(1.0, 0.3, far));
+      float ndv = max(dot(N, V), 0.0);
+      float fres = 0.04 + 0.96 * pow(1.0 - ndv, 4.0);
+      // the water's own colour: clear turquoise over sand, through teal, to deep blue
+      float ab = 1.0 - exp(-max(depth, 0.0) * 0.2);
+      vec3 tq = vec3(0.1, 0.78, 0.74);
+      vec3 col = mix(mix(shallow, tq, trop * 0.8), mix(shallow, vec3(0.06, 0.5, 0.7), trop), smoothstep(0.0, 0.55, ab)); col = mix(col, deep, smoothstep(0.4, 1.0, ab)); // (turquoise, a bright sea blue, then the deep)
+      col = mix(col, deep * 0.7, smoothstep(9.0, 30.0, depth) * 0.6);
+      // sunlight through the waves: crests glow a lighter green-blue
+      col += vec3(0.05, 0.22, 0.2) * clamp(vCrest + 0.35, 0.0, 1.0) * (1.0 - ab * 0.3) * (0.4 + 0.6 * max(dot(sunDir, vec3(0, 1, 0)), 0.0));
+      // caustics dancing on the shallow bottom
+      float sz = smoothstep(4.5, 0.4, depth) * smoothstep(-0.2, 0.3, depth);
+      col += vec3(0.75, 0.95, 0.85) * caustic(p * 0.55 + N.xz * 0.4, t) * sz * (0.35 + 0.35 * trop) * (1.0 - far);
+      // reflections: the sky (more at grazing angles), the sun's highlight and a glitter of sparkles
+      vec3 R = reflect(-V, N); vec3 refl = mix(skyRefl(R, sky, skyTop), skyTop, 0.2);
+      col = mix(col, refl, clamp(fres * 0.65, 0.0, 0.5));
+      float sd = max(dot(R, sunDir), 0.0);
+      vec3 spec = sunCol * (pow(sd, 900.0) * 4.0 + pow(sd, 90.0) * 0.45 + pow(sd, 10.0) * 0.05);
+      #ifndef LOWQ
+      float gl = smoothstep(0.86, 0.97, vn(p * 5.5 + N.xz * 14.0 + t * 0.7)) * smoothstep(0.4, 0.9, vn(p * 12.0 - t * 1.3));
+      spec += sunCol * gl * pow(sd, 5.0) * 3.0 * (1.0 - far * 0.6); // (glitter: tiny sparks that wink on and off)
+      #endif
+      // foam: the line where the water meets the sand breathes in and out; waves of foam roll in to the beach; white water on the river
+      float nf = vn(p * 0.35 + t * 0.05), nf2 = vn(p * 1.7 - t * 0.2);
+      float lap = 0.25 + 0.22 * sin(t * 0.85 + nf * 4.0) + 0.1 * sin(t * 1.9 + p.x * 0.05);
+      float foam = smoothstep(lap + 0.26, lap - 0.02, depth) * (0.55 + 0.45 * smoothstep(0.3, 0.6, nf2));
+      float roll = fract(depth * 0.7 + t * 0.22 + nf * 0.5);
+      float band = smoothstep(0.0, 0.04, roll) * smoothstep(0.3 + depth * 0.05, 0.06, roll); // (a sharp front, a fading tail)
+      foam += band * smoothstep(3.6, 0.4, depth) * smoothstep(-0.2, 0.15, depth) * smoothstep(0.22, 0.5, nf2) * trop;
+      foam += smoothstep(0.55, 1.0, vCrest) * smoothstep(0.62, 0.82, nf2 * 0.6 + vn(p * 0.6 + t * 0.1) * 0.4) * 0.55 * smoothstep(6.0, 12.0, depth); // (whitecaps out at sea)
+      if (fs > 0.05) { foam += smoothstep(0.7, 0.8, streak + fine * 0.12) * 0.7 * smoothstep(0.4, 1.6, fs);
+        foam += smoothstep(3.5, 0.5, depth) * smoothstep(0.45, 0.7, fine) * 0.8; // (churned up against the walls)
+        vec2 fd = fl / fs, pr = vec2(-fd.y, fd.x);
+        for (int i = 0; i < 8; i++) { vec2 o = p - rocks[i].xy; float r = rocks[i].z, dd = length(o) - r; if (dd > 26.0) continue;
+          foam += smoothstep(1.4, 0.0, dd) * (0.6 + 0.5 * nf2); // (a collar of foam where the current hits the rock)
+          float al = dot(o, fd), sd2 = abs(dot(o, pr)); if (al > 0.0) foam += exp(-sd2 / (r * 0.55 + al * 0.12)) * exp(-al / 14.0) * smoothstep(0.35, 0.75, streak + nf2 * 0.3) * 1.2; } } // (and a white wake trailing downstream)
+      foam = clamp(foam, 0.0, 1.0) * smoothstep(-0.35, 0.05, depth);
+      vec3 foamCol = vec3(0.93, 0.97, 1.0) * (0.7 + 0.3 * max(sunDir.y, 0.0));
+      col = mix(col, foamCol, foam * 0.92);
+      col *= light; col += spec * (1.0 - foam);
+      float a = clamp(0.3 + max(depth, 0.0) * 0.28 + fres * 0.4 + foam, 0.0, 0.97);
+      a = mix(a, 1.0, far * 0.3);
+      gl_FragColor = vec4(col, min(a, 0.97));
       #include <fog_fragment>
     }`;
-  const mk = (level, extra = {}) => { const u = THREE.UniformsUtils.clone(uniforms); u.hmap.value = htex; u.level.value = level; const m = new THREE.ShaderMaterial({ uniforms: u, vertexShader: vert, fragmentShader: frag, transparent: true, fog: true, depthWrite: false }); Object.assign(m.uniforms, {}); return m; };
+  const mk = (level) => { const u = THREE.UniformsUtils.clone(uniforms); u.hmap.value = htex; u.flowMap.value = ftex; u.level.value = level; u.rocks.value = uniforms.rocks.value; u.isleC.value = ISLE_C; return new THREE.ShaderMaterial({ uniforms: u, vertexShader: vert, fragmentShader: frag, transparent: true, fog: true, depthWrite: false, defines: settings.quality === 'low' ? { LOWQ: 1 } : {} }); }; // (low quality: fewer ripple octaves, no glitter)
   const seaMat = mk(SEA);
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2 + 2000, HALF * 2 + 2000, 200, 200).rotateX(-Math.PI / 2), seaMat);
   sea.position.y = SEA; sea.renderOrder = 2; scene.add(sea);
-  const lakeMat = mk(LAKE.y);
+  const lakeMat = mk(LAKE.y); lakeMat.uniforms.waves.value = 0.25;
   const lakeGeo = new THREE.CircleGeometry(LAKE.r + 8, 48).rotateX(-Math.PI / 2);
   const lake = new THREE.Mesh(lakeGeo, lakeMat); lake.position.set(LAKE.x, LAKE.y, LAKE.z); lake.renderOrder = 2; scene.add(lake);
   // stream strip to lip
   const sx = LAKE.x + 20, sz = LAKE.z + 4, len = Math.hypot(FALL.x - sx, FALL.z - sz);
   const stream = new THREE.Mesh(new THREE.PlaneGeometry(len + 2, 9, 20, 2).rotateX(-Math.PI / 2), lakeMat);
   stream.position.set((sx + FALL.x) / 2, LAKE.y - 0.4, (sz + FALL.z) / 2); stream.rotation.y = -Math.atan2(FALL.z - sz, FALL.x - sx); stream.renderOrder = 2; scene.add(stream);
-  return { mats: [seaMat, lakeMat], sea };
+  const mats = [seaMat, lakeMat];
+  if (GI) mats.push(buildCreek(scene, uniforms));
+  return { mats, sea };
+}
+// Brook Run (Goblos): a ribbon of running water laid in its carved bed, from the spring down the cascade to the sea.
+// The banks clip its edges, so its shore follows the ground. Water runs faster (and whiter) where the bed is steep.
+function buildCreek(scene, base) {
+  const pts = []; // resample the creek every metre: position, direction, bed height, distance along, speed
+  for (let i = 0; i < CREEK.length - 1; i++) { const [ax, az, ay] = CREEK[i], [bx, bz, by] = CREEK[i + 1], L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L));
+    for (let k = 0; k < n; k++) { const t = k / n; pts.push([ax + (bx - ax) * t, az + (bz - az) * t, ay + (by - ay) * t, (ay - by) / L]); } }
+  pts.push([CREEK[CREEK.length - 1][0], CREEK[CREEK.length - 1][1], CREEK[CREEK.length - 1][2], 0.05]);
+  // smooth the direction and slope a little so the bends and the cascade's foot don't kink
+  const dir = pts.map((p, i) => { const a = pts[Math.max(0, i - 3)], b = pts[Math.min(pts.length - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
+  const slope = pts.map((p, i) => { let s = 0, n = 0; for (let k = -4; k <= 4; k++) { const q = pts[Math.max(0, Math.min(pts.length - 1, i + k))]; s += q[3]; n++; } return s / n; });
+  const ACR = 9, HW = CREEK_W + 1.4, P = [], S = [], Vv = [], SP = [], D = [], WD = [], idx = [];
+  let along = 0;
+  pts.forEach((p, i) => { if (i) along += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
+    const [dx, dz] = dir[i], nx = -dz, nz = dx;
+    let low = Infinity; for (const o of [-1.2, 0, 1.2]) low = Math.min(low, heightAt(p[0] + nx * o, p[1] + nz * o)); // (the mesh's own channel bottom: water always shows above it)
+    const y = Math.max(p[2] + CREEK_DEPTH, low + 0.3, SEA + 0.04), sp = Math.min(6, 0.9 + Math.max(0, slope[i]) * 14);
+    for (let j = 0; j < ACR; j++) { const v = j / (ACR - 1) * 2 - 1, px = p[0] + nx * v * HW, pz = p[1] + nz * v * HW; P.push(px, y, pz); S.push(along); Vv.push(v); SP.push(sp); D.push(dx, dz); WD.push(y - heightAt(px, pz)); } }); // (WD: how deep the water is over the ground there: it thins out to nothing at the banks)
+  for (let i = 0; i < pts.length - 1; i++) for (let j = 0; j < ACR - 1; j++) { const a = i * ACR + j, b = a + 1, c = a + ACR, d = c + 1; idx.push(a, b, c, b, d, c); } // (wound to face up)
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('aS', new THREE.Float32BufferAttribute(S, 1)); g.setAttribute('aV', new THREE.Float32BufferAttribute(Vv, 1));
+  g.setAttribute('aSp', new THREE.Float32BufferAttribute(SP, 1)); g.setAttribute('aD', new THREE.Float32BufferAttribute(WD, 1)); g.setAttribute('aDir', new THREE.Float32BufferAttribute(D, 2)); g.setIndex(idx); g.computeBoundingSphere();
+  const rocks = CREEK_ROCKS.map(r => new THREE.Vector3(r[0], r[1], r[2])); while (rocks.length < 12) rocks.push(new THREE.Vector3(9e4, 9e4, 0));
+  const u = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { time: { value: 0 }, sky: { value: base.sky.value.clone() }, skyTop: { value: base.skyTop.value.clone() }, sunDir: { value: new THREE.Vector3(0.3, 0.8, 0.2) }, sunCol: { value: new THREE.Color('#fff2d0') }, light: { value: 1 }, total: { value: along } }]);
+  u.rocks = { value: rocks.slice(0, 12) };
+  const mat = new THREE.ShaderMaterial({ uniforms: u, transparent: true, depthWrite: false, fog: true,
+    vertexShader: `attribute float aS, aV, aSp, aD; attribute vec2 aDir; varying float vS, vV, vSp, vD; varying vec2 vDir; varying vec3 vW;
+      #include <fog_pars_vertex>
+      void main(){ vS = aS; vV = aV; vSp = aSp; vD = aD; vDir = aDir; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
+      #include <fog_vertex>
+      }`,
+    fragmentShader: `uniform float time, light, total; uniform vec3 sky, skyTop, sunDir, sunCol; uniform vec3 rocks[12]; varying float vS, vV, vSp, vD; varying vec2 vDir; varying vec3 vW;
+      #include <fog_pars_fragment>
+      ${WATER_GLSL}
+      void main(){
+        vec2 p = vW.xz, fd = normalize(vDir), pr = vec2(-fd.y, fd.x); float t = time;
+        vec3 V = cameraPosition - vW; float dist = length(V); V /= dist;
+        float T = 2.0, ph0 = fract(t / T), ph1 = fract(t / T + 0.5), w0 = 1.0 - abs(1.0 - 2.0 * ph0);
+        vec2 fl = fd * vSp;
+        vec4 F = flowLayer(p * 1.6 - fl * 1.6 * ph0 * T, fd) * w0 + flowLayer(p * 1.6 - fl * 1.6 * ph1 * T + vec2(9.1, 3.3), fd) * (1.0 - w0);
+        float white = smoothstep(1.8, 4.5, vSp) * 0.7; // (the cascade: churning white water)
+        vec3 N = normalize(vec3(-F.x, 1.0, -F.y) * vec3(1.0 + white, 1.0, 1.0 + white));
+        float fres = 0.04 + 0.96 * pow(1.0 - max(dot(N, V), 0.0), 4.0);
+        float acr = abs(vV), dep = smoothstep(0.0, 0.9, vD); // (deepest down the middle, thinning to the banks)
+        vec3 col = mix(vec3(0.2, 0.64, 0.6), vec3(0.04, 0.27, 0.38), dep);
+        col += vec3(0.7, 0.95, 0.8) * caustic(p * 1.3 - fl * t * 0.3, t * 1.5) * (0.25 + 0.3 * (1.0 - dep));
+        vec3 R = reflect(-V, N); col = mix(col, skyRefl(R, sky, skyTop), clamp(fres * 0.6, 0.0, 0.42));
+        float sd = max(dot(R, sunDir), 0.0); vec3 spec = sunCol * (pow(sd, 500.0) * 4.0 + pow(sd, 60.0) * 0.5);
+        spec += sunCol * smoothstep(0.75, 0.95, vn(p * 4.0 + N.xz * 8.0 + t)) * pow(sd, 5.0) * 1.8;
+        // foam: streaks riding the current, a frill along the banks, collars and wakes round the rocks, white water down the cascade
+        float foam = smoothstep(0.68, 0.86, F.z + F.w * 0.2) * 0.55;
+        foam += smoothstep(0.3, 0.06, vD) * smoothstep(0.4, 0.7, F.w + F.z * 0.4) * 0.7; // (a lacy frill where it laps the banks)
+        foam = mix(foam, 1.0, white * smoothstep(0.35, 0.62, F.z * 0.7 + F.w * 0.5));
+        for (int i = 0; i < 12; i++) { vec2 o = p - rocks[i].xy; float r = rocks[i].z, dd = length(o) - r; if (dd > 8.0) continue;
+          foam += smoothstep(0.55, 0.0, dd) * (0.7 + 0.3 * F.w);
+          float al = dot(o, fd), sd2 = abs(dot(o, pr)); if (al > 0.0) foam += exp(-sd2 / (r * 0.45 + al * 0.1)) * exp(-al / 4.0) * smoothstep(0.3, 0.7, F.z + F.w * 0.3); }
+        foam = clamp(foam, 0.0, 1.0);
+        col = mix(col, vec3(0.94, 0.98, 1.0), foam * 0.9);
+        col *= light; col += spec * (1.0 - foam);
+        float a = (0.5 + dep * 0.42 + fres * 0.15 + foam * 0.4) * smoothstep(-0.02, 0.12, vD) * smoothstep(1.0, 0.7, acr) * smoothstep(0.0, 1.5, vS) * smoothstep(total, total - 6.0, vS);
+        gl_FragColor = vec4(col, clamp(a, 0.0, 0.96));
+        #include <fog_fragment>
+      }` });
+  const m = new THREE.Mesh(g, mat); m.renderOrder = 2; m.frustumCulled = true; scene.add(m);
+  return mat;
 }
 
 // waterfall: a curtain of falling water from the lip to the river, with mist

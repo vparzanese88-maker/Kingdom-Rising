@@ -17,6 +17,9 @@ import { settings } from './saves.js';
 import { mulberry32, smooth, clamp, fbm } from './util.js';
 import * as UI from './ui.js';
 import * as Game from './game.js';
+import * as Terrain from './terrain.js';
+import { splitSails, updateSails, buildWheel, buildRudder, buildPennant, flapPennant } from './shiprig.js';
+import { ikArm } from './heromodels.js';
 
 // ---- the dock: out from the wash-up beach, away from the raft ----
 const DOCK_A = 1.0, DOCK_S0 = 14, DOCK_S1 = 116, DOCK_Y = 1.6, DOCK_HW = 1.3;
@@ -24,7 +27,8 @@ const dfw = { x: Math.sin(DOCK_A), z: Math.cos(DOCK_A) }, drt = { x: Math.cos(DO
 const dockAt = (s, side = 0) => ({ x: WASH.x + dfw.x * s + drt.x * side, z: WASH.z + dfw.z * s + drt.z * side });
 const HOME = (() => { const p = dockAt(79, 6.8); return { x: p.x, z: p.z, yaw: DOCK_A }; })(); // moored alongside the outer half of the dock in deep water (5 m and more), bow out to sea
 let BOAT_L = 66; const DRAFT = 2.7, SHALLOW = -3.4, MAXF = 13, MAXB = 2.5, LIMIT = 1600; // (a 66 m ship: her keel sits 2.7 m down, so she grounds where the sea is shallower than 1.5 m)
-const W = (x, z, t) => Math.sin(x * 0.08 + t * 1.1) * 0.18 + Math.sin(z * 0.11 + t * 0.9) * 0.14 + Math.sin((x + z) * 0.21 + t * 1.7) * 0.06; // (the sea shader's own swell)
+const W0 = (x, z, t) => Math.sin(x * 0.08 + t * 1.1) * 0.18 + Math.sin(z * 0.11 + t * 0.9) * 0.14 + Math.sin((x + z) * 0.21 + t * 1.7) * 0.06; // (the sea shader's own swell)
+const W = (x, z, t) => (typeof Terrain.waveHeight === 'function' ? Terrain.waveHeight(x, z, t) : W0(x, z, t)); // (the real sea surface, when terrain.js offers it)
 
 const B = { on: false, mode: 'idle', root: null, hull: null, oars: [], x: HOME.x, z: HOME.z, yaw: HOME.yaw, spd: 0, turn: 0, y: 0, pitch: 0, roll: 0,
   cy: 0, cp: 0.3, cd: 80, lookT: 0, t: 0, from: null, to: null, camFrom: null, camQ: null, prevCam: 0, fogK: 0, ph: [0, 0], dims: { w: 9.6, h: 7.7 }, helm: new THREE.Vector3(2.4, 7.7, -19.5), deckY: 7.7, surfs: [],
@@ -192,7 +196,14 @@ function buildBoatRig() {
     const sx = BOAT_L * 0.045; let z0 = hz, z1 = hz; while (z0 > -BOAT_L / 2 && Math.abs((down(sx, z0 - 0.75) ?? -9) - B.deckY) < 0.9) z0 -= 0.75; while (z1 < 0 && Math.abs((down(sx, z1 + 0.75) ?? -9) - B.deckY) < 0.9) z1 += 0.75;
     B.qd = { z0: z0 + 0.5, z1: z1 - 0.5, x0: hx * 0.55, x1: Math.max(hx + 1, (wl.find(w => w[0] >= hz) || [0, 4])[1] - 0.4) }; // (the stern deck either side of the raised poop down the middle)
     B.dims = { w: Math.max(...wl.map(w => w[1])) * 2, h: B.deckY };
-    waterMask(wl); mooring(); });
+    waterMask(wl); mooring();
+    // the moving parts: sails cut from the model, the wheel, the rudder, a pennant at the masthead
+    B.sails = splitSails(o); updateSails(B.sails, 0, false, 0, 0);
+    B.wheel = buildWheel(root, new THREE.Vector3(hx, B.deckY, hz + 0.95));
+    const zs = (wl.find(w => w[1] > 0.3) || [-BOAT_L / 2 + 4])[0]; B.rudder = buildRudder(root, new THREE.Vector3(0, 0.6, zs + 1.2));
+    { let top = null; const v = new THREE.Vector3(); root.updateMatrixWorld(true); o.traverse(mm => { if (!mm.isMesh || mm.parent !== o && mm.parent.isMesh) return; const P = mm.geometry.attributes.position; for (let i = 0; i < P.count; i += 2) { v.fromBufferAttribute(P, i).applyMatrix4(mm.matrixWorld); if (!top || v.y > top.y) top = v.clone(); } });
+      if (top) B.pennant = buildPennant(root, top.add(new THREE.Vector3(0, -0.3, 0))); }
+  });
   placeBoat(HOME.x, HOME.z, HOME.yaw);
 }
 // the sea must never show inside her: a hull-shaped lid at the waterline, drawn only into the depth buffer just before the water
@@ -274,7 +285,7 @@ function leave() {
 function finishLeave() {
   const p = G.player, to = B.to; B.mode = 'idle'; document.body.classList.remove('sailing'); if (B.hud) B.hud.hidden = true;
   const yaw = Math.atan2(to.x - B.x, to.z - B.z); p.place(to.x, to.z, yaw); p.pitch = -0.05; p.vel.set(0, 0, 0); p.onGround = true; p.fallTop = null;
-  p.ch.hoverStill = false; p.ch.root.rotation.set(0, yaw, 0); p.camDist = p.camDistT = B.prevCam;
+  p.ch.hoverStill = false; p.ch.root.rotation.set(0, yaw, 0); p.camDist = p.camDistT = B.prevCam; if (B.hidW) { for (const w of B.hidW) w.visible = true; B.hidW = null; }
   S.step('sand', p.pos, 1.1); B.spd = 0; B.turn = 0;
   if (Math.hypot(B.x - HOME.x, B.z - HOME.z) < 90 && (B.x !== HOME.x || B.z !== HOME.z)) { placeBoat(HOME.x, HOME.z, HOME.yaw); UI.toast('Dockhands warp your ship in and tie her up at the dock.', '⚓', 'gold'); } // (back home: she is made fast alongside, gangway down)
 }
@@ -290,10 +301,19 @@ export function sailTick(dt) {
   const fx = Math.sin(B.yaw), fz = Math.cos(B.yaw), rx = Math.cos(B.yaw), rz = -Math.sin(B.yaw), L2 = BOAT_L * 0.42, hw = B.dims.w * 0.5;
   const wb = W(B.x + fx * L2, B.z + fz * L2, t), ws = W(B.x - fx * L2, B.z - fz * L2, t), wl = W(B.x - rx * hw, B.z - rz * hw, t), wr = W(B.x + rx * hw, B.z + rz * hw, t);
   const acc = (B.spd - (B.lastSpd ?? B.spd)) / Math.max(dt, 1e-3); B.lastSpd = B.spd;
-  const moored = B.mode === 'idle' && Math.abs(B.x - HOME.x) < 0.06 && Math.abs(B.z - HOME.z) < 0.06, sw = moored ? 0.15 : 0.45; // (a 22 m hull rides the swell gently; tied up she barely stirs, so you can walk her deck)
-  B.y += (((wb + ws + wl + wr) * 0.25) * sw + SEA - B.y) * Math.min(1, dt * 2);
-  B.pitch += ((Math.atan2(ws - wb, L2 * 2) - clamp(acc, -2, 2) * 0.006) * sw - B.pitch) * Math.min(1, dt * 1.5);
-  B.roll += ((Math.atan2(wl - wr, hw * 2) * 0.5) * sw - B.turn * Math.abs(B.spd) * 0.012 - B.roll) * Math.min(1, dt * 1.5);
+  const moored = B.mode === 'idle' && Math.abs(B.x - HOME.x) < 0.06 && Math.abs(B.z - HOME.z) < 0.06, sw = moored ? 0.3 : 1; // (tied up she barely stirs, so you can walk her deck)
+  // she rides the sea surface itself (sampled under bow, stern and both sides) plus the long ocean swell, on springs, so she has weight:
+  // she heels into her turns and dips her bow as she gathers way
+  const swY = Math.sin(t * 0.6) * 0.3 + Math.sin(t * 0.37 + 1) * 0.15, swR = Math.sin(t * 0.72) * 0.024 + Math.sin(t * 0.41 + 2) * 0.012, swP = Math.sin(t * 0.53 + 0.7) * 0.011 + Math.sin(t * 0.31) * 0.006;
+  const yT = SEA + ((wb + ws + wl + wr) * 0.25 + swY) * sw, pT = (Math.atan2(ws - wb, L2 * 2) * 1.6 + swP) * sw + clamp(acc, -1.5, 1.5) * 0.012, rT = (Math.atan2(wl - wr, hw * 2) * 1.6 + swR) * sw + B.turn * Math.abs(B.spd) * 0.018;
+  B.vy = (B.vy || 0) + ((yT - B.y) * 3 - (B.vy || 0) * 2.4) * dt; B.y += B.vy * dt;
+  B.vp = (B.vp || 0) + ((pT - B.pitch) * 2.6 - (B.vp || 0) * 2.0) * dt; B.pitch += B.vp * dt;
+  B.vr = (B.vr || 0) + ((rT - B.roll) * 2.2 - (B.vr || 0) * 1.6) * dt; B.roll += B.vr * dt;
+  // the helm: the wheel turns and the rudder swings as you steer; the sails set when you take the wheel and fill with the wind
+  { const K = G.keys, st = B.mode === 'sail' && !G.uiOpen ? (K.KeyA ? 1 : 0) - (K.KeyD ? 1 : 0) : 0; B.helmA = (B.helmA || 0) + (st - (B.helmA || 0)) * Math.min(1, dt * 1.6);
+    if (B.wheel) B.wheel.w.rotation.z = -B.helmA * 2.8; if (B.rudder) B.rudder.rotation.y = -B.helmA * 0.5;
+    const wind = Math.min(1, 0.25 + Math.abs(B.spd) / 11), open = B.mode === 'sail' || B.mode === 'board' || B.mode === 'leave' && B.spd > 2; if (B.sails) updateSails(B.sails, dt, B.mode === 'sail' || B.mode === 'board', wind, t);
+    if (B.pennant) flapPennant(B.pennant, t, open ? wind : 0.3); G.windAdd = B.mode === 'sail' ? 0.15 + Math.abs(B.spd) * 0.025 : 0; }
   // tied up at the dock her stern deck and the gangway can be walked; anywhere else they are not there
   if (B.shipSurfs) { for (const sf of B.shipSurfs) sf.y = moored ? B.deckY + Math.min(0, B.y) : -1e3; B.gang.visible = moored; for (const r of B.rails) r.on = moored; }
   B.root.position.set(B.x, B.y, B.z); B.root.rotation.set(B.pitch, B.yaw, B.roll, 'YXZ');
@@ -338,12 +358,13 @@ function steer(dt) {
   // foam: a wake off the stern, spray from the bow at speed
   const as = Math.abs(B.spd), fx = Math.sin(B.yaw), fz = Math.cos(B.yaw), rx = Math.cos(B.yaw), rz = -Math.sin(B.yaw), wk = B.dims.w * 0.45;
   if (as > 0.8 && Math.random() < dt * (10 + as * 3)) for (const sd of [-1, 1]) { const back = (B.spd > 0 ? -BOAT_L : BOAT_L) * (0.3 + Math.random() * 0.2); V.norm.spawn(B.x + fx * back + rx * sd * wk, SEA + 0.12, B.z + fz * back + rz * sd * wk, rx * sd * 0.7 - fx * B.spd * 0.15, 0.25, rz * sd * 0.7 - fz * B.spd * 0.15, 2.4, 0.9, 2.8, FOAM0, FOAM1, 0.55, 0, 0.3, 1.2); }
-  if (as > 5 && Math.random() < dt * (as - 3) * 1.5) for (const sd of [-1, 1]) V.norm.spawn(B.x + fx * BOAT_L * 0.4 + rx * sd * 0.9, SEA + 0.4, B.z + fz * BOAT_L * 0.4 + rz * sd * 0.9, rx * sd * 1.6 + fx * B.spd * 0.3, 1.6 + Math.random(), rz * sd * 1.6 + fz * B.spd * 0.3, 0.8, 0.4, 0.9, FOAM0, FOAM1, 0.8, 0, 7, 0.6);
+  if (as > 3 && Math.random() < dt * (as - 2) * 3) for (const sd of [-1, 1]) for (let q = 0; q < 1 + Math.floor(as / 5); q++) V.norm.spawn(B.x + fx * BOAT_L * 0.4 + rx * sd * 1.5, SEA + 0.5, B.z + fz * BOAT_L * 0.4 + rz * sd * 1.5, rx * sd * (2 + as * 0.2) + fx * B.spd * 0.3, 2 + Math.random() * as * 0.35, rz * sd * (2 + as * 0.2) + fz * B.spd * 0.3, 1.1, 0.7, 1.8, FOAM0, FOAM1, 0.85, 0, 7, 0.5); // (a bow wave thrown out both sides, bigger the faster she goes)
 }
 // the sea against her hull: a soft wash now and then, more often the faster she goes, and a creak of timber
 function seaSounds(dt) {
   if (B.mode !== 'sail') return; const as = Math.abs(B.spd); B.sndT = (B.sndT || 0) - dt * (0.35 + as * 0.12);
   if (B.sndT <= 0) { B.sndT = 1 + Math.random() * 1.5; const p = new THREE.Vector3(B.x + Math.sin(B.yaw) * BOAT_L * 0.4, 0, B.z + Math.cos(B.yaw) * BOAT_L * 0.4); S.splash(p, 0.18 + Math.min(0.3, as * 0.03)); if (Math.random() < 0.35) S.step('wood', G.player.pos, 0.5); }
+  if ((B.creakT = (B.creakT ?? 3) - dt) <= 0) { B.creakT = 3 + Math.random() * 4; if (S.cartCreak) S.cartCreak(G.player.pos, 0.25 + Math.random() * 0.15); } // (her timbers creak as she rolls)
 }
 function heroInBoat(dt) {
   const p = G.player, s = seat(); B.t += dt;
@@ -353,7 +374,15 @@ function heroInBoat(dt) {
   p.bodyYaw = B.mode === 'leave' ? Math.atan2(B.to.x - B.from.x, B.to.z - B.from.z) : B.yaw; p.yaw = B.yaw + B.cy; p.vel.set(0, 0, 0); p.onGround = true; p.fallTop = null; p.swim = false;
   p.ch.hoverStill = true; p.vm.g.visible = false; if (p.adsG) p.adsG.visible = false; p.ch.root.visible = true;
   p.animate(dt, 0);
-  if (B.mode === 'sail') { p.ch.root.rotation.x = B.pitch; p.ch.root.rotation.z = B.roll; }
+  if (B.mode === 'sail') { p.ch.root.rotation.x = B.pitch; p.ch.root.rotation.z = B.roll; handsOnWheel(p); }
+  const wp = p.ch.weapons; if (wp) for (const k of ['main', 'off']) if (wp[k] && wp[k].visible && B.mode === 'sail') { wp[k].visible = false; (B.hidW || (B.hidW = new Set())).add(wp[k]); }
+}
+function handsOnWheel(p) {
+  const H = p.ch.heroModel, Bn = H && H.bones; if (!Bn || !B.wheel || !Bn.RightHand || !Bn.LeftHand) return;
+  p.ch.root.updateMatrixWorld(true); B.wheel.w.updateMatrixWorld(true); const c = B.wheel.w.getWorldPosition(new THREE.Vector3()), R = B.wheel.R, q = B.root.quaternion;
+  const right = new THREE.Vector3(-1, 0, 0).applyQuaternion(q), up = new THREE.Vector3(0, 1, 0).applyQuaternion(q), back = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
+  for (const sd of [1, -1]) { const tgt = c.clone().addScaledVector(right, sd * R * 0.82).addScaledVector(up, R * 0.35).addScaledVector(back, 0.12), pole = tgt.clone().addScaledVector(right, sd * 0.5).addScaledVector(up, -0.6).addScaledVector(back, 0.4);
+    try { if (sd > 0) ikArm(null, Bn.RightArm, Bn.RightForeArm, Bn.RightHand, tgt, pole); else ikArm(null, Bn.LeftArm, Bn.LeftForeArm, Bn.LeftHand, tgt, pole); } catch (e) {} }
 }
 // a chase camera behind the boat; the mouse swings it round and up or down, the wheel moves it in and out
 function chasePose() {

@@ -993,7 +993,7 @@ function updateZone(p) {
   const fd = p.pos.distanceTo(fall.base);
   let fireD = 99; for (const f of world.fires) { const d = f.pos.distanceTo(p.pos); if (d < fireD) fireD = d; }
   let lavaD = 999; if (world.lavaPools) for (const L of world.lavaPools) lavaD = Math.min(lavaD, Math.hypot(L.x - p.pos.x, L.z - p.pos.z) - L.r);
-  setAmbience({ sea: Math.min(1, sea), wind: 0.25 + m.hl * 0.6 + Math.max(0, p.pos.y - 30) / 80, forest: Math.min(1, m.forest + (z === 'meadow' ? 0.6 : 0)), waterfall: Math.max(0, 1 - fd / 140), fire: Math.max(0, 1 - fireD / 9), lava: Math.max(0, 1 - lavaD / 40), night: G.night || 0 });
+  setAmbience({ sea: Math.min(1, sea), wind: 0.25 + m.hl * 0.6 + Math.max(0, p.pos.y - 30) / 80 + (G.windAdd || 0), forest: Math.min(1, m.forest + (z === 'meadow' ? 0.6 : 0)), waterfall: Math.max(0, 1 - fd / 140), fire: Math.max(0, 1 - fireD / 9), lava: Math.max(0, 1 - lavaD / 40), night: G.night || 0 });
 }
 function updateMobs(dt, p) {
   let chasing = false;

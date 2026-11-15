@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { fbm, ridged, smooth, lerp, clamp, distToLine } from './util.js';
 import { BATTLE, YARD, ARENA, battleHeight, LAYOUT, roadPolylines, WALL_R } from './battlemap.js';
 import { GI, giShape, giCamps, ROADS_GI, northCoast } from './gimap.js';
+import { driftHeight } from './driftkey.js';
 
 export const HALF = 600, SEG = /[?&]mode=arena/.test(location.search) ? 60 : 300, CELL = (HALF * 2) / SEG; // (the arena never shows the ground outside its walls up close)
 export const SEA = 0;
@@ -87,7 +88,7 @@ export function rawHeight(x, z, noCamps) {
 export const heights = new Float32Array((SEG + 1) * (SEG + 1));
 export function heightAt(x, z) {
   const gx = (x + HALF) / CELL, gz = (z + HALF) / CELL;
-  if (gx < 0 || gz < 0 || gx >= SEG || gz >= SEG) return -10;
+  if (gx < 0 || gz < 0 || gx >= SEG || gz >= SEG) return GI ? driftHeight(x, z) : -10; // (Goblos: Driftwood Key, out at sea past the grid)
   const ix = Math.floor(gx), iz = Math.floor(gz), fx = gx - ix, fz = gz - iz;
   const i00 = iz * (SEG + 1) + ix, i10 = i00 + 1, i01 = i00 + SEG + 1, i11 = i01 + 1;
   if (fx + fz < 1) return heights[i00] + (heights[i10] - heights[i00]) * fx + (heights[i01] - heights[i00]) * fz;

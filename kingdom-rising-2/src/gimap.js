@@ -17,6 +17,24 @@ export const FANGS = [{ x: -320, z: 60, r: 150, h: 125 }, { x: 330, z: 80, r: 15
 // the gorge, from sea to sea
 export const GORGE = [[-660, 190], [-470, 152], [-300, 186], [-150, 150], [-40, 160], [40, 162], [150, 148], [300, 186], [460, 150], [660, 182]];
 export const GORGE_W = 13, GORGE_RIM = 16.5;
+// Brook Run: a clear creek that springs from the rocks at the foot of the gorge's high south bank, tumbles down a rocky rapid and winds across the
+// South Valley to the sea east of the wreck. Points are [x, z, bed height]; the terrain is carved to the bed (giShape),
+// terrain.js draws the flowing water a little above it, and rocks in the stream (CREEK_ROCKS: x, z, radius) get foam.
+export const CREEK = [[149, 206, 9.3], [148, 215, 7.1], [147, 226, 4.8], [144, 242, 3.6], [138, 262, 3.1], [135, 285, 2.5], [138, 310, 2.0], [150, 332, 1.35], [165, 360, 1.0], [162, 392, 0.75], [152, 416, 0.3], [142, 436, -0.6], [136, 452, -2.2]];
+export const CREEK_W = 3.2, CREEK_BANK = 5.0, CREEK_DEPTH = 0.75;
+export const CREEK_ROCKS = [[149.6, 211, 0.75], [147.0, 219, 0.8], [149.2, 224, 0.6], [146.5, 232, 0.7], [142.6, 251, 0.6], [136.6, 279, 0.55], [139.4, 312, 0.6], [158.4, 347, 0.65], [163.6, 377, 0.6], [155.8, 407, 0.55]];
+// boulders standing in the gorge's river (x, offset from the middle of the gorge, radius at the waterline): the river foams round them
+export const GORGE_ROCKS_AT = [[-118, 4.5, 2.0], [-64, -5, 2.4], [-28, 3.5, 1.6], [34, -4, 2.0], [72, 5, 2.6], [118, -3.5, 1.8]];
+// nearest point on the creek: distance, bed height there, and how far along it is (metres from the spring)
+const CREEK_BB = { x0: 120, x1: 185, z0: 180, z1: 465 };
+export function creekNear(x, z) {
+  if (x < CREEK_BB.x0 || x > CREEK_BB.x1 || z < CREEK_BB.z0 || z > CREEK_BB.z1) return { d: 1e9, y: 0, s: 0 };
+  let best = 1e9, by = 0, bs = 0, acc = 0;
+  for (let i = 0; i < CREEK.length - 1; i++) { const [ax, az, ay] = CREEK[i], [bx, bz, by2] = CREEK[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, L = Math.sqrt(L2);
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)), d = Math.hypot(x - ax - dx * t, z - az - dz * t);
+    if (d < best) { best = d; by = ay + (by2 - ay) * t; bs = acc + L * t; } acc += L; }
+  return { d: best, y: by, s: bs };
+}
 export const BRIDGE1 = { x: 0, zS: 186, zN: 136 }; // the drawbridge over the gorge, south end (the winch) to north end
 // the two ledge paths up the mountain: angle round the peak, distance from it and height, start to end
 export const RAMP1 = { a0: 1.3, a1: 0.42, r0: PEAK.rLow + 8, r1: PEAK.rShelf - 10, h0: PEAK.lowH, h1: PEAK.shelfH2 + 2, half: 4.6, name: 'the Switchback Road' };
@@ -61,6 +79,7 @@ export const giCamps = () => [CAMP_SPOT, VILLAGE_GI, ...Object.values(TRIBES), .
 // climbing spots: vine-covered rock (a short way up, facing yaw = into the wall)
 export const CLIMBS = [];
 // how far north of the gorge a point is (> 0: north)
+export const gorgeRocks = () => GORGE_ROCKS_AT.map(([x, o, r]) => [x, gorgeZ(x) + o, r]);
 export function gorgeZ(x) { for (let i = 0; i < GORGE.length - 1; i++) { const [ax, az] = GORGE[i], [bx, bz] = GORGE[i + 1]; if (x >= ax && x <= bx) return az + (bz - az) * (x - ax) / (bx - ax); } return 160; }
 // nearest point on a ledge path: its t, the path's height there and how far off its middle
 export function rampNear(R, x, z) {
@@ -94,6 +113,9 @@ export function giShape(x, z, h) {
   const g = distToLine(x, z, GORGE).d;
   if (g < GORGE_W + 60) { h += 14 * (1 - smooth(GORGE_W + 10, GORGE_W + 60, g));
     if (g < GORGE_W + 12) h = Math.min(h, -9 + (h + 9) * smooth(GORGE_W - 1, GORGE_W + 6, g)); }
+  // Brook Run's bed: a rounded channel with soft banks, carved into the ground (never raised)
+  const c = creekNear(x, z);
+  if (c.d < CREEK_W + CREEK_BANK) { const u = Math.min(1, c.d / CREEK_W), bed = c.y - 0.3 + u * u * 0.8, k = 1 - smooth(CREEK_W * 0.7, CREEK_W + CREEK_BANK, c.d); h = Math.min(h, h + (bed - h) * k); }
   return h;
 }
 // north of the gorge the coast is sea cliffs (no landing there from the water)

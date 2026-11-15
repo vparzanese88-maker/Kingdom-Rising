@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32, fbm, smooth, clamp, lerp, hash2, distToLine } from './util.js';
 import { HALF, heightAt, rawHeight, zoneAt, biomeMasks, isWater, roadDist, VILLAGE, SPAWN, RIVER, ROADS, BRIDGES, LAVA_POOLS, CAMPS, PLATEAU, LAKE, VOLCANO, SEA, normalAt, PORT, MOUNT } from './terrain.js';
 import { NODE_TYPES, STATION_SPOTS, GOBLIN_CAMPS } from './data.js';
-import { GI } from './gimap.js';
+import { GI, creekNear, CREEK_W } from './gimap.js';
 import { buildGoblinIsle, giAvoid, beachMaskGI, giTerrain, giLandmarks, giCliffFoot } from './goblinisle.js';
 import { swapScenery } from './gimodels.js';
 import { buildBirdsGI, updateBirdsGI } from './gilife.js';
@@ -812,6 +812,7 @@ export function updateGrass(px, pz, enabled) {
     const zn = zoneAt(x, z); if (biomeMasks(x, z).ash > 0.55) continue;
     if (h > 50 + hx * 10 && biomeMasks(x, z).hl > 0.4) continue;
     if (roadDist(x, z) < 2.6) continue;
+    if (GI && creekNear(x, z).d < CREEK_W + 0.6) continue; // (no grass under the brook's water)
     if (Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < 20 && hx > 0.4) continue;
     const m = biomeMasks(x, z);
     if (m.forest > 0.5 && hx < 0.35) continue;

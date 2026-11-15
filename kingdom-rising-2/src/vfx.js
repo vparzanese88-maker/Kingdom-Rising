@@ -92,6 +92,7 @@ class Trail {
 }
 
 const C = (h) => new THREE.Color(h);
+const FOAM = new THREE.Color('#f4fbff');
 const PAL = {
   fire: [C('#ffe08a'), C('#ff4a10')], ember: [C('#ffb040'), C('#ff2000')], smoke: [C('#5a5450'), C('#2a2828')], frost: [C('#e8fbff'), C('#4ab8ff')], arcane: [C('#ffd0ff'), C('#8a30ff')],
   blood: [C('#c01818'), C('#5a0808')], dust: [C('#b8a888'), C('#8a7a60')], spark: [C('#fff8d0'), C('#ffa020')], heal: [C('#d0ffd0'), C('#40ff60')], lightning: [C('#ffffff'), C('#80b0ff')],
@@ -145,6 +146,26 @@ export const V = {
     }
   },
   emit(kind, p, opt = {}) { this.burst(kind, p, opt.n || 1, opt); },
+  // ---- water (for boats, swimmers, things falling in) ----
+  // V.splash(p, k): a splash where something hits the water at p (on the surface): droplets thrown up, a puff of spray and a
+  //   foam ring. k: size (1 = a person jumping in, 0.3 = a thrown stone, 2-3 = a boat's bow slamming a wave).
+  // V.wake(p, dir, speed, dt): call every frame while a boat moves. p: the stern at the waterline, dir: unit heading
+  //   (THREE.Vector3), speed: m/s. Leaves a V of foam spreading out behind it, plus spray at speed.
+  //   Heights to float things on: seaWaveY(x, z, t) in terrain.js gives the sea surface with the same swells the sea draws.
+  splash(p, k = 1) {
+    this.burst('water', p, Math.round(26 * k), { normal: true, speed: 4.2 * Math.sqrt(k), up: 1.7, size: 0.16 * k, size1: 0.05, life: 0.9, grav: 9, drag: 0.3 });
+    this.burst('water', new THREE.Vector3(p.x, p.y + 0.15, p.z), Math.round(10 * k), { normal: true, speed: 1.1 * k, up: 0.5, size: 0.5 * k, size1: 1.5 * k, life: 1.1, grav: 0.4, a0: 0.4 });
+    for (let i = 0; i < 18 * k; i++) { const a = i / (18 * k) * 6.283, r = 0.3 * k; this.norm.spawn(p.x + Math.cos(a) * r, p.y + 0.04, p.z + Math.sin(a) * r, Math.cos(a) * 1.6 * k, 0, Math.sin(a) * 1.6 * k, 1.4, 0.35 * k, 0.9 * k, FOAM, FOAM, 0.75, 0, 0, 1.6); }
+  },
+  wake(p, dir, speed, dt) {
+    if (!(speed > 0.3)) return;
+    this._wk = (this._wk || 0) + dt * Math.min(40, 6 + speed * 5);
+    const sx = -dir.z, sz = dir.x;
+    while (this._wk > 1) { this._wk--; const side = Math.random() < 0.5 ? -1 : 1, out = 0.6 + Math.random() * 0.5, j = (Math.random() - 0.5) * 0.6;
+      this.norm.spawn(p.x + sx * side * 0.4 + dir.x * j, p.y + 0.05, p.z + sz * side * 0.4 + dir.z * j, sx * side * out * speed * 0.35 - dir.x * speed * 0.2, 0, sz * side * out * speed * 0.35 - dir.z * speed * 0.2,
+        2.2 + Math.random(), 0.35, 1.3 + speed * 0.08, FOAM, FOAM, 0.7, 0, 0, 0.8);
+      if (speed > 4 && Math.random() < 0.3) this.norm.spawn(p.x, p.y + 0.2, p.z, (Math.random() - 0.5) * 1.5 - dir.x * 1.5, 1.5 + Math.random() * 1.5, (Math.random() - 0.5) * 1.5 - dir.z * 1.5, 0.7, 0.12, 0.04, PAL.water[0], PAL.water[1], 0.9, 0, 8, 0.2); }
+  },
   ring(p, radius, color = '#ffb060', dur = 0.5, y = 0.15) {
     if (radius >= 1.8 && !(this.ultUntil > performance.now())) return; // (big ground rings only belong to ultimates: everyday abilities don't paint circles everywhere)
     if (this.fpPos && radius < 3 && Math.hypot(p.x - this.fpPos.x, p.z - this.fpPos.z) < 0.8) return; // (a small ring round your own feet in first person reads as a grey sheet in front of you: skip it)

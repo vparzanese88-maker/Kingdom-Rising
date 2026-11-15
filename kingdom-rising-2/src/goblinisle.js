@@ -11,7 +11,7 @@ import { MOBS, ZONES, NPCS, QUESTS } from './data.js';
 import { dressMob, dressBeast, dressPerson, propAt, tickDress, loadGI } from './gimodels.js';
 import { M } from './audio.js';
 import { count as itemCount, addItem } from './game.js';
-import { GI, PEAK, GORGE, GORGE_W, GORGE_RIM, BRIDGE1, TRIBES, LAIRS, CAMP_SPOT, VILLAGE_GI, RAMP1, RAMP2, rampPoint, rampNear, WORKS, WRECK, BOATYARD, WASH, CLIMBS, FANGS } from './gimap.js';
+import { GI, PEAK, GORGE, GORGE_W, GORGE_RIM, BRIDGE1, TRIBES, LAIRS, CAMP_SPOT, VILLAGE_GI, RAMP1, RAMP2, rampPoint, rampNear, WORKS, WRECK, BOATYARD, WASH, CLIMBS, FANGS, CREEK, CREEK_W, CREEK_ROCKS, creekNear, gorgeRocks } from './gimap.js';
 
 const R = (a, b) => a + Math.random() * (b - a);
 // the zone names shown under the minimap
@@ -99,6 +99,7 @@ export function giAvoid(x, z, pad = 0) {
   for (const Rp of [RAMP1, RAMP2]) if (rampNear(Rp, x, z).d < Rp.half + 4 + pad) return true;
   if (Math.hypot(x - PEAK.x, z - PEAK.z) < PEAK.rSum) return true;
   if (Math.hypot(x - WRECK.x, z - WRECK.z) < 22) return true;
+  if (creekNear(x, z).d < CREEK_W + 3 + pad) return true; // (nothing grows in the brook)
   return false;
 }
 
@@ -109,7 +110,7 @@ export function buildGoblinIsle(scene, helpers) {
   H.barrel = (sc, x, z) => { propAt('barrel', x, heightAt(x, z), z, R(0, 6.28), 1.0); addCircle(x, z, 0.4); };
   H.crate = (sc, x, z, r = 0, s = 0.8) => { propAt('crate', x, heightAt(x, z), z, r, s * 1.1); addBox(x, z, s * 0.55, s * 0.55, r); };
   H.tent = (sc, x, z, rot, m, s = 1) => { propAt(m === M.cloth || m === M.clothBlue ? 'sail_tent' : 'goblin_tent', x, heightAt(x, z), z, rot, 3.2 * s); addCircle(x, z, 1.7 * s); };
-  H.campfire = (g) => { propAt('campfire', 0, 0, 0, R(0, 6.28), 0.9, g); };
+  H.campfire = (g, sc, x, z) => { propAt('campfire', x, heightAt(x, z), z, R(0, 6.28), 0.9); }; // (straight into the scene: the group it used to go in is merged away before the model loads, so the logs and stones never showed)
   M.goblinRed = new THREE.MeshStandardMaterial({ color: '#8a2018', roughness: 0.9, side: THREE.DoubleSide });
   M.mud = new THREE.MeshStandardMaterial({ color: '#4a4a24', roughness: 1, side: THREE.DoubleSide });
   M.boneCloth = new THREE.MeshStandardMaterial({ color: '#d8d0b8', roughness: 0.95, side: THREE.DoubleSide });
@@ -123,11 +124,19 @@ export function buildGoblinIsle(scene, helpers) {
   for (const [id, t] of Object.entries(TRIBES)) buildTribe(scene, id, t);
   for (const l of LAIRS) buildLair(scene, l);
   for (const w of WORKS) buildWork(scene, w);
-  buildClimbs(scene); buildShipParts(scene); buildFort(scene); buildGrowth(scene);
+  buildClimbs(scene); buildShipParts(scene); buildFort(scene); buildGrowth(scene); buildBrook(scene);
   // jungle floor: ferns, mossy logs, mushrooms and bushes (Meshy props), clear of towns, camps and paths
   for (let i = 0, n = 0; i < 4000 && n < 260; i++) { const x = R(-440, 440), z = R(-420, 440), h = heightAt(x, z); if (h < 2.5 || giAvoid(x, z, 4) || Math.hypot(x - PEAK.x, z - PEAK.z) < PEAK.rLow + 10) continue;
     if ([CAMP_SPOT, V, ...Object.values(TRIBES), ...WORKS].some(c => Math.hypot(c.x - x, c.z - z) < c.r + 10)) continue; const k = n % 7, name = ['fern_lo', 'fern_lo', 'bush_lo', 'mossy_log', 'mushrooms', 'fern_lo', 'bush_lo'][k];
     propAt(name, x, h, z, R(0, 6.28), name === 'mossy_log' ? 1.0 : name === 'mushrooms' ? 0.7 : R(0.9, 1.5)); if (name === 'mossy_log') addCircle(x, z, 1.0); n++; }
+}
+// Brook Run's stones (the water is drawn in terrain.js): boulders in the stream that the current foams round, mossy rocks
+// where it springs from the bank, and the gorge's river boulders (tall stacks standing up out of the deep water)
+function buildBrook(scene) {
+  const rock = (name, x, y, z, w, h, rot) => loadGI(name).then(g => { if (!g) return; const o = g.scene.clone(), sz = g.box.getSize(new THREE.Vector3()), c = g.box.getCenter(new THREE.Vector3()), wr = new THREE.Group(); o.position.set(-c.x, -g.minY, -c.z); wr.add(o); wr.scale.set(w / Math.max(0.01, sz.x), h / Math.max(0.01, sz.y), w / Math.max(0.01, sz.z)); wr.position.set(x, y, z); wr.rotation.y = rot; scene.add(wr); });
+  for (const [x, z, r] of CREEK_ROCKS) rock('rock_boulder', x, heightAt(x, z) - 0.25, z, r * 2.1, 0.75 + r * 1.1, x * 1.7);
+  for (const [x, z, s, n] of [[149, 203.8, 3.0, 'rock_cluster'], [145, 206.5, 2.4, 'rock_cluster'], [153, 207, 2.2, 'rock_cluster'], [143, 214, 1.2, 'rock_flat'], [153.5, 219, 1.3, 'rock_flat'], [151.5, 231, 1.0, 'rock_flat'], [140.5, 240, 1.0, 'rock_flat']]) rock(n, x, heightAt(x, z) - 0.3, z, s * 1.4, s, x + z);
+  for (const [x, z, r] of gorgeRocks()) rock('rock_boulder', x, -9.5, z, r * 2.3, 11.5 + r * 0.6, x);
 }
 function buildSailorCamp(scene) {
   const { M, tent, campfire, placeGroup, barrel, crate } = H, c = CAMP_SPOT;

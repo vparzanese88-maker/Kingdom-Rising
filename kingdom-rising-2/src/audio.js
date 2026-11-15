@@ -54,11 +54,15 @@ function makeImpulse(sec, decay) {
   for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay); }
   return b;
 }
+const VOICE_TAKES = { atk: 8, shout: 3, hurt: 6, big: 2, death: 2 };
+const voiceLast = {}, voiceT = {};
 function loadSamples() {
   const base = '../audio/rec/';
   const names = [];
   for (let i = 1; i <= 10; i++) { names.push('swing' + i, 'clash' + i); }
   names.push('wiz_bolt1', 'wiz_bolt2', 'wiz_cast', 'wiz_tele'); /* (the wizard's spells: CC0 recordings, audio/CREDITS.md) */
+  // the warrior's own voice (the owner's recording, cut into takes: deeper, higher, stretched, clipped, louder, softer)
+  for (const [k, n] of Object.entries(VOICE_TAKES)) for (let i = 1; i <= n; i++) fetch('sfx/warrior/' + k + i + '.mp3').then(r => r.ok ? r.arrayBuffer() : null).then(ab => ab && ctx.decodeAudioData(ab)).then(buf => { if (buf) samples['wv_' + k + i] = buf; }).catch(() => {});
   for (const n of names) {
     fetch(base + n + '.mp3').then(r => r.ok ? r.arrayBuffer() : null).then(ab => ab && ctx.decodeAudioData(ab)).then(buf => { if (buf) samples[n] = buf; }).catch(() => {});
   }
@@ -126,6 +130,18 @@ let lastImpact = 0;
 
 // ---------------- SOUND EFFECTS ----------------
 export const S = {
+  // a voice line: a random take (never the same one twice running), its pitch and loudness nudged a little each time.
+  // kind: atk (a grunt on a swing), shout (an ability), hurt, big (a heavy hit or knockdown), death
+  voice(kind, pos, gain = 1) {
+    if (!ctx) return false; const n = VOICE_TAKES[kind]; if (!n) return false; const t = ctx.currentTime;
+    const gap = { atk: 0.7, shout: 0.5, hurt: 0.45, big: 0.9, death: 0 }[kind];
+    if (t - Math.max(voiceT.any || -9, voiceT[kind] || -9) < Math.min(gap, 0.3) || t - (voiceT[kind] || -9) < gap) return false; // (no stacking: one voice at a time)
+    if (kind === 'atk' && Math.random() > 0.55) return false; // (not every swing: a grunt on about half of them)
+    let i = 1 + Math.floor(Math.random() * n); if (n > 1 && i === voiceLast[kind]) i = i % n + 1; voiceLast[kind] = i;
+    const o = out(pos, sfxBus, 0.06), base = { atk: 0.75, shout: 0.95, hurt: 0.8, big: 1, death: 1 }[kind];
+    if (!sample('wv_' + kind + i, o.node, rnd(0.94, 1.06), base * gain * rnd(0.78, 1))) return false;
+    voiceT[kind] = voiceT.any = t; return true;
+  },
   click() { if (!ctx) return; const o = out(null, sfxBus, 0); tone(now(), 0.06, o.node, { type: 'triangle', f: 900, f2: 600, gain: 0.12 }); },
   // ults5.js: the five reworked ultimates write their own sounds with these: fn(N, T) where N(at, dur, opt) is filtered noise and T(at, dur, opt) a tone, at seconds from now
   synth(pos, fn, wet = 0.25, k = 1) { if (!ctx) return; const o = out(pos, sfxBus, wet), t = now(), d = o.node; fn((at, dur, opt) => noise(t + at, dur, d, Object.assign({}, opt, { gain: (opt.gain || 0.5) * k })), (at, dur, opt) => tone(t + at, dur, d, Object.assign({}, opt, { gain: (opt.gain || 0.3) * k }))); },

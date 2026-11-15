@@ -838,6 +838,7 @@ export class Player {
     this.startAtk('heavy', 0.7 / W.speed / Math.sqrt(this.speedMul()), { charge, last: true, held: true }); this.lungeT = 0.16; this.lungeDir = this.fwd(); this.fovKick = Math.max(this.fovKick, 4 + charge * 3);
   }
   startAtk(name, dur, o = {}) {
+    if (this.h.cls === 'warrior' && !this.isBot) S.voice && S.voice('atk', this.pos); // (the warrior grunts as he swings)
     this.atk = Object.assign({ name, t: 0, dur, hit: false }, o);
     const W = this.W;
     if (W && W.kind === 'melee' && !['charge'].includes(name)) { const big = name === 'swing3' || name === 'heavy' || name === 'smash' || name === 'thrust3' || name === 'spin'; this.atk.swingSnd = { k: this.swingKind(name), v: big ? 1.6 : W.hands === 'two' ? 1.3 : this.h.arena && this.h.cls === 'warrior' ? 0.95 : 0.9 }; /* (the owner: the warrior's slashes were a little loud) */ } /* (the warrior's sword swings: a fuller whoosh, the light swish was easy to miss) */
@@ -1221,6 +1222,7 @@ export class Player {
     const isBanner = false; if (isBanner && G.time < (this.bannerT || 0)) { S.error(); G.hooks.toast && G.hooks.toast(`Banners: wait ${Math.ceil(this.bannerT - G.time)} s between plantings`, '⚑', 'bad'); return; }
     if (this.atk) { this.atk = null; this.queued = null; this.trail.active = this.trailL.active = false; } // abilities cut straight through a swing
     if (!this.spend(Math.round(ab.cost * (1 - Game.fxCount(this.h, 'cost') * 0.1)), G.campAb ? ab.res : undefined)) return;
+    if (this.h.cls === 'warrior' && !this.isBot) S.voice && S.voice('shout', this.pos); // (and shouts as he uses an ability)
     this._extK = 1; this.cd[key] = ab.cd * Game.perkCd(Game.perkLvl(this.h, ab.id, 'cd')) * (ab.id === 'ar_mendbanner' ? 1 - 0.1 * Game.arenaPassive(this.h, 'bannerSwift') : 1) * Game.arenaCdAll(this.h) * (1 - Game.fxCount(this.h, 'cd') * 0.08 - Game.fxCount(this.h, 'u_sup') * 0.15); this.abLockT = G.time; if (isBanner) this.bannerT = G.time + 2;
     const ct = this.h.arena ? 0 : /* the arena: cooldowns only, no cast times */ G.campAb && !isSupport(ab) ? 0 : (G.campAb && ab.castT) || CAST_T[ab.id] || ACT_T[ab.id] || (BATTLE && ab.id === 'rally' ? 0.8 : 0), /* campaign: F C Q fire at once and are held back by their cooldowns */ isSpell = !!(CAST_T[ab.id] || (G.newFx && ab.castT));
     if (ct) { this.abCast = { t: 0, dur: ct * (G.newFx && isSpell ? Skills.castK(this.h) : 1), i, name: ab.name, spell: isSpell }; if (isSpell) { if (G.newFx) S.castRise(this.abCast.dur, this.castCol()); else S.charge && S.charge(this.W && this.W.element || 'arcane'); } return; }
@@ -2287,7 +2289,7 @@ export class Player {
     if (this.arcShield > 0 && G.time < this.arcShieldT) { const ab = Math.min(this.arcShield, dmg); this.arcShield -= ab; dmg -= ab; this.arcHitT = G.time; S.cast && S.cast('arcane', this.pos, 0.35); if (dmg <= 0) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Absorbed', 'arcane'); return; } } // (Arcane Shield)
     if (this.buffs.barrier > 0) { const ab = Math.min(this.buffs.barrier, dmg); this.buffs.barrier -= ab; dmg -= ab; V.burst('frost', this.pos.clone().setY(this.pos.y + 1), 10, { speed: 3 }); if (this.buffs.barrier <= 0) { this.buffs.barrierT = 0; S.explode(this.pos, 0.4, 'frost'); } if (dmg <= 0) { V.number(this.pos.clone().setY(this.pos.y + this.eye + 0.3), 'Absorbed', 'frost'); return; } }
     this.hp -= dmg; if (this.buffs.undying > 0 && this.hp < 1) this.hp = 1; this.hurtT = 0.4; this.regenDelay = 4;
-    V.addShake(Math.min(0.5, 0.1 + dmg / this.maxHp)); S.hurt();
+    V.addShake(Math.min(0.5, 0.1 + dmg / this.maxHp)); if (this.h.cls === 'warrior' && !this.isBot && S.voice && this.hp > 0 && S.voice(dmg > this.maxHp * 0.16 || o.knock || o.stun ? 'big' : 'hurt', this.pos)) S.hit && S.hit('flesh', this.pos, 0.6); else S.hurt(); // (the warrior's own voice when hit)
     G.inCombat = 6;
     G.hooks.hurt && G.hooks.hurt(dmg, src);
     this.cancelGather();
@@ -2304,7 +2306,7 @@ export class Player {
     if (type === 'stun') { this.atk = null; this.press = null; this.cancelGather(); }
   }
   knock(v, stun = 0) { if (this.iframes > 0) return; if (stun > 0.3 && this.ch) this.ch.kdLeft = Math.max(this.ch.kdLeft || 0, Math.min(3.0, Math.max(2.7, stun + 1.4))); /* (knocked down) */ this.vel.x += v.x; this.vel.z += v.z; this.vel.y = Math.max(this.vel.y, 3.5); this.onGround = false; this.knockT = 0.35; if (stun) this.debuff('stun', stun); }
-  die() { this.dead = true; this.atk = null; this.press = null; this.lmbHeld = false; this.lmbDown = false; /* (a click held at death does not carry on firing after you come back) */ this.deadT = 0; S.hurt(); G.hooks.died && G.hooks.died(); }
+  die() { if (this.h.cls === 'warrior' && !this.isBot && S.voice) S.voice('death', this.pos); this.dead = true; this.atk = null; this.press = null; this.lmbHeld = false; this.lmbDown = false; /* (a click held at death does not carry on firing after you come back) */ this.deadT = 0; S.hurt(); G.hooks.died && G.hooks.died(); }
 
   // ---------- movement ----------
   // swimming: Space next to a low edge (a boat deck, a pier) climbs you out of the water

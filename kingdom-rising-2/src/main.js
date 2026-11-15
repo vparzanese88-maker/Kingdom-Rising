@@ -177,7 +177,7 @@ function startGame(save) {
   if (G.player) { scene.remove(G.player.ch.root); G.vmCam.remove(G.player.vm.g); }
   for (const m of G.mobs) if (m.dead) m.respawn();
   for (const p of G.projectiles) p.mesh && scene.remove(p.mesh); G.projectiles.length = 0;
-  if (!BATTLE && !YARD && !ARENA) Arena.campHero(h); /* (the campaign: the new classes, levelled from 1) */
+  if (!BATTLE && !YARD && !ARENA) { Arena.campHero(h); Arena.kitHooks(); if (h.cls === 'warrior') Arena.preloadBanners(); } /* (the campaign: the new classes, levelled from 1, with every ability's effect hooked up as in the arena) */
   const p = new Player(h); G.player = p;
   if (GI) p.camDist = p.camDistT = h.camD ?? 0; /* (Goblos plays in first person; V or the mouse wheel steps out behind the hero, and that choice is kept) */
   if (h.pos) p.place(h.pos.x, h.pos.z, h.pos.yaw); else p.place(SPAWN.x, SPAWN.z, Math.atan2(VILLAGE.x - SPAWN.x, VILLAGE.z - SPAWN.z));

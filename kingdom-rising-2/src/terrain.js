@@ -4,7 +4,7 @@ import { settings } from './saves.js';
 import { fbm, ridged, smooth, lerp, clamp, distToLine } from './util.js';
 import { BATTLE, YARD, ARENA, battleHeight, LAYOUT, roadPolylines, WALL_R } from './battlemap.js';
 import { GI, giShape, giCamps, ROADS_GI, northCoast, GORGE, GORGE_W, CREEK, CREEK_W, CREEK_DEPTH, CREEK_ROCKS, creekNear, gorgeRocks } from './gimap.js';
-import { driftHeight } from './driftkey.js';
+import { driftHeight, DRIFT } from './driftkey.js';
 
 export const HALF = 600, SEG = /[?&]mode=arena/.test(location.search) ? 60 : 300, CELL = (HALF * 2) / SEG; // (the arena never shows the ground outside its walls up close)
 export const SEA = 0;
@@ -99,7 +99,9 @@ export function normalAt(x, z) { const e = 1.5; const hx = heightAt(x + e, z) - 
 
 export function zoneAt(x, z) {
   if (BATTLE || YARD || ARENA) return 'meadow';
+  if (GI && Math.hypot(x - DRIFT.x, z - DRIFT.z) < DRIFT.r + 70) return 'drift'; // (Driftwood Key and its reef)
   const [r, R] = isleR(x, z);
+  if (GI && r > R + 45) return 'sea'; // (well out from the shore)
   if (r > R - 70) return z < -250 ? 'north' : 'coast';
   if (Math.hypot(x - MOUNT.x, z - MOUNT.z) < MOUNT.r * 0.62) return 'highlands';
   if (z < -230) return 'north';

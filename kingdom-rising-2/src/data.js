@@ -634,6 +634,8 @@ export const ZONES = [
   { id: 'wood', name: 'Tanglewood Jungle', lv: '5-12', col: '#3f8a3a' },
   { id: 'highlands', name: 'Mount Kelda', lv: '12-20', col: '#a8b8a0' },
   { id: 'north', name: 'Saltmere Fields', lv: '9-15', col: '#c8d890' },
+  { id: 'sea', name: 'The Open Sea', lv: '—', col: '#3a7ab0' }, // (out on the water, away from any shore)
+  { id: 'drift', name: 'Driftwood Key', lv: '1-3', col: '#e8d8a0' }, // (the palm island south of Goblos)
 ];
 
 // ---- Mobs ----

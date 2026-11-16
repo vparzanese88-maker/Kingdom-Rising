@@ -990,9 +990,9 @@ function updateZone(p) {
   if (z !== zoneNow) {
     const prev = zoneNow; zoneNow = z;
     const zn = ZONES.find(x => x.id === z);
-    if (prev && zn && !BATTLE) { UI.banner(zn.name, `Level ${zn.lv}`); S.zone(); }
+    if (prev && zn && !BATTLE && z !== 'sea' && z !== 'drift' && prev !== 'sea') { UI.banner(zn.name, `Level ${zn.lv}`); S.zone(); } // (no banner for putting out to sea; Driftwood Key has its own when first found)
     if (!GI) M.setZone(z);
-    if (G.save) G.save.zone = zn.name;
+    if (G.save && zn) G.save.zone = zn.name;
   }
   const m = biomeMasks(p.pos.x, p.pos.z);
   let sea = Math.max(0, Math.min(1, 1 - (440 - p.pos.z) / 110)) + Math.max(0, Math.min(1, 1 - (500 - p.pos.x) / 90)) * (p.pos.z > -100 ? 1 : 0);

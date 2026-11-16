@@ -11,6 +11,8 @@ import * as Game from './game.js';
 import { BATTLE, ARENA, YARD } from './battlemap.js';
 const HERO_HUD = ARENA || YARD; // (the arena's HUD, also in the Training Yard)
 import * as Icons from './icons.js';
+import { DRIFT } from './driftkey.js';
+import { GI } from './gimap.js';
 import { HALF, heightAt, zoneAt, biomeMasks, VILLAGE, ROADS, RIVER, CAMPS, LAKE, beachMask, MOUNT, PORT } from './terrain.js';
 import { fbm } from './util.js';
 import { pois, known, LORE, villagerNews, smallTalk } from './lore.js';
@@ -333,17 +335,29 @@ function markers(h) {
   for (const n of G.npcs) if (n.def) { const mk = Game.npcMarker(h, n.id); if (mk === '!' || mk === '?') out.push({ x: n.pos.x, z: n.pos.z, t: mk }); }
   return out;
 }
+// Driftwood Key's own little map (it lies beyond the island map's edge), drawn once in the same colours
+const DRIFT_MAP_R = 170; let driftCv = null;
+function driftMap() {
+  if (driftCv) return driftCv; const n = 256; driftCv = document.createElement('canvas'); driftCv.width = driftCv.height = n; const g = driftCv.getContext('2d'), img = g.createImageData(n, n), c = new THREE.Color();
+  const deep = new THREE.Color('#1b4f7a'), shallow = new THREE.Color('#2f8fa8'), reef = new THREE.Color('#5cc2c0'), sand = new THREE.Color('#e2cf98'), grass = new THREE.Color('#7aa84e'), jungle = new THREE.Color('#3f7d34');
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = DRIFT.x - DRIFT_MAP_R + (i + 0.5) / n * DRIFT_MAP_R * 2, z = DRIFT.z - DRIFT_MAP_R + (j + 0.5) / n * DRIFT_MAP_R * 2, h = heightAt(x, z);
+    if (h < 0.2) { const d = Math.min(1, -h / 9); c.copy(reef).lerp(shallow, Math.min(1, d * 2.2)).lerp(deep, Math.max(0, d * 1.4 - 0.4)); if (h > -0.6) c.lerp(new THREE.Color('#e8f4f0'), 0.35); }
+    else if (h < 2.2) c.copy(sand); else c.copy(grass).lerp(jungle, Math.min(1, (h - 2.2) / 6) * 0.6);
+    const k = (j * n + i) * 4; img.data[k] = c.r * 255; img.data[k + 1] = c.g * 255; img.data[k + 2] = c.b * 255; img.data[k + 3] = 255; }
+  g.putImageData(img, 0, 0); return driftCv;
+}
 export function drawMinimap() {
   const cv = $('mini'), g = cv.getContext('2d'), N = cv.width, p = G.player;
   const scale = 2.6; // px per metre on the minimap canvas (canvas is 2x css)
   g.save(); g.clearRect(0, 0, N, N);
   g.beginPath(); g.arc(N / 2, N / 2, N / 2, 0, Math.PI * 2); g.clip();
-  g.fillStyle = '#123'; g.fillRect(0, 0, N, N);
+  g.fillStyle = GI ? '#1b4f7a' : '#123'; g.fillRect(0, 0, N, N); // (Goblos: open sea beyond the map's edge)
   g.translate(N / 2, N / 2); g.rotate(p.yaw + Math.PI);
   const mpp = MAPN / (HALF * 2); // map px per metre
   const [mx, mz] = toMap(p.pos.x, p.pos.z, MAPN);
   g.scale(scale / mpp, scale / mpp);
   g.drawImage(mapCanvas, -mx, -mz);
+  if (GI && Math.hypot(p.pos.x - DRIFT.x, p.pos.z - DRIFT.z) < 700) { const D = driftMap(), [ox, oz] = toMap(DRIFT.x - DRIFT_MAP_R, DRIFT.z - DRIFT_MAP_R, MAPN); g.drawImage(D, ox - mx, oz - mz, DRIFT_MAP_R * 2 * mpp, DRIFT_MAP_R * 2 * mpp); } // (Driftwood Key, out past the edge of the island map)
   if (G.fog && G.fog.canvas) { g.imageSmoothingEnabled = true; g.drawImage(G.fog.canvas, -mx, -mz, MAPN, MAPN); }
   g.restore();
   // markers (rotate positions)

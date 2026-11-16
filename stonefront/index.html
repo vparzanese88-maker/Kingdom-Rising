@@ -1,0 +1,1116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Stonefront</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--ink:#f1e6cc;--dim:#b7a88a;--panel:rgba(18,15,12,.82);--edge:rgba(224,180,76,.45);--gold:#e8b94e;--blue:#3b8ee0;--red:#d64040}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#151210;color:var(--ink);font-family:'EB Garamond',Georgia,serif;user-select:none;-webkit-user-select:none;touch-action:none}
+canvas#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hidden{display:none!important}
+button{font-family:'Cinzel',Georgia,serif;cursor:pointer;background:linear-gradient(#4a3a24,#2c2216);color:var(--ink);border:1px solid var(--edge);border-radius:4px;padding:8px 14px;font-size:14px;letter-spacing:.03em}
+button:hover:not(:disabled){border-color:var(--gold);background:linear-gradient(#634c2c,#3a2d1b)}
+button:disabled{opacity:.4;cursor:default}
+button.on{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold);color:#fff;background:linear-gradient(#7a5a2a,#4a361c)}
+kbd{font-family:inherit;font-size:11px;opacity:.65;margin-left:4px}
+/* HUD */
+#top{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;pointer-events:none}
+#top>*{pointer-events:auto}
+.chip{background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:6px 10px;font-size:16px;white-space:nowrap}
+.chip b{font-family:'Cinzel',serif}
+.gem{display:inline-block;width:11px;height:14px;background:linear-gradient(#d9a6ff,#7b3fc4);clip-path:polygon(50% 0,100% 35%,50% 100%,0 35%);margin-right:6px;vertical-align:-1px}
+#cmds{display:flex;gap:4px}
+#cmds button{padding:7px 10px}
+#bars{display:flex;align-items:center;gap:8px;margin-left:auto}
+.mbar{width:120px;height:12px;background:#2a221a;border:1px solid var(--edge);border-radius:3px;overflow:hidden}
+.mbar i{display:block;height:100%;background:var(--blue);width:100%;transition:width .2s}
+.mbar.enemy i{background:var(--red);margin-left:auto}
+#info{font-family:'Cinzel',serif;font-size:13px;min-width:70px;text-align:center}
+#mini{position:fixed;top:54px;left:50%;transform:translateX(-50%);width:min(420px,calc(100% - 32px));height:20px;background:var(--panel);border:1px solid var(--edge);border-radius:3px;cursor:pointer}
+#mm{width:100%;height:100%;display:block}
+#train{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:6px;padding:8px;flex-wrap:wrap;pointer-events:none}
+.tb{pointer-events:auto;position:relative;width:86px;padding:4px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:0;background:var(--panel);font-family:'EB Garamond',serif}
+.tb canvas{width:48px;height:48px}
+.tb .nm{font-family:'Cinzel',serif;font-size:11px;line-height:1.1;text-align:center}
+.tb .cs{font-size:13px;color:#d9b7ff}
+.tb .q{position:absolute;top:3px;right:5px;font-family:'Cinzel',serif;font-size:13px;color:var(--gold)}
+.tb .k{position:absolute;top:3px;left:5px;font-size:11px;opacity:.6}
+.tb .pr{position:absolute;left:0;bottom:0;height:3px;background:var(--gold);width:0}
+.tb.poor .cs{color:#a06060}
+#tip{position:fixed;bottom:104px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:6px 12px;font-size:15px;max-width:calc(100% - 32px);text-align:center;pointer-events:none}
+#toast{position:fixed;top:90px;left:50%;transform:translateX(-50%);font-family:'Cinzel',serif;font-size:22px;color:var(--gold);text-shadow:0 2px 6px #000;pointer-events:none;text-align:center;transition:opacity .4s}
+#touchCtl{position:fixed;bottom:104px;left:0;right:0;display:flex;justify-content:space-between;padding:0 12px;pointer-events:none}
+#touchCtl div{display:flex;gap:8px}
+#touchCtl button{pointer-events:auto;width:64px;height:64px;font-size:20px;border-radius:50%;background:rgba(30,24,18,.75)}
+#touchCtl button.wide{width:auto;border-radius:32px;padding:0 16px;font-size:14px}
+/* menus */
+#screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(10,8,6,.45),rgba(10,8,6,.9));z-index:10;padding:16px}
+.card{background:linear-gradient(#2b231a,#1c1712);border:1px solid var(--edge);border-radius:8px;padding:26px 30px;max-width:780px;width:100%;max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 10px 60px rgba(0,0,0,.6)}
+.card h1{font-family:'Cinzel',serif;font-weight:800;font-size:clamp(40px,9vw,68px);margin:0;text-align:center;letter-spacing:.08em;color:var(--gold);text-shadow:0 3px 0 #3a2a12}
+.card h2{font-family:'Cinzel',serif;margin:0 0 12px;color:var(--gold);font-size:26px}
+.card p{font-size:18px;line-height:1.45;color:var(--ink);margin:8px 0}
+.sub{text-align:center;color:var(--dim);font-size:18px;margin:4px 0 22px!important}
+.menu{display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto}
+.menu button{font-size:19px;padding:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+.lv{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin:12px 0}
+.lv button{text-align:left;padding:10px 12px;font-family:'EB Garamond',serif;font-size:15px;display:flex;flex-direction:column;gap:2px}
+.lv button b{font-family:'Cinzel',serif;font-size:14px}
+.stars{color:var(--gold);letter-spacing:2px;font-size:15px}
+.stars .off{color:#5a4c38}
+.up{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center;margin:14px 0}
+.up .d{font-size:16px}.up .d b{font-family:'Cinzel',serif;font-size:15px;color:var(--gold)}
+.up .d small{color:var(--dim);display:block}
+.pips{letter-spacing:3px;color:var(--gold)}
+.units{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin:10px 0}
+.units div{background:rgba(0,0,0,.25);border:1px solid rgba(224,180,76,.2);border-radius:4px;padding:8px 10px;font-size:15px;display:flex;gap:8px;align-items:center}
+.units canvas{width:44px;height:44px;flex:none}
+.units b{font-family:'Cinzel',serif;font-size:13px;color:var(--gold)}
+ul.keys{font-size:16px;line-height:1.6;padding-left:20px;margin:6px 0}
+@media (max-width:640px){#train{gap:4px;padding:6px}.tb{width:56px}.tb canvas{width:34px;height:34px}.tb .nm{font-size:9px}.mbar{width:70px}#bars{margin-left:0}#cmds button kbd{display:none}#mini{top:auto;bottom:96px}#tip{bottom:124px}#touchCtl{bottom:124px}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud" class="hidden">
+  <div id="top">
+    <div class="chip"><span class="gem"></span><b id="ore">0</b></div>
+    <div class="chip">Army <b id="pop">0/30</b></div>
+    <div id="cmds">
+      <button data-mode="defend" title="Pull back to guard the mines">Defend<kbd>Z</kbd></button>
+      <button data-mode="hold" title="Hold at the banner. Click the field to move it">Hold<kbd>X</kbd></button>
+      <button data-mode="charge" title="Attack the enemy monument">Charge<kbd>C</kbd></button>
+    </div>
+    <div id="bars" class="chip"><div class="mbar"><i id="hp0"></i></div><span id="info"></span><div class="mbar enemy"><i id="hp1"></i></div></div>
+    <button id="speedBtn" title="Game speed (F)">1×</button>
+    <button id="pauseBtn" title="Pause (P)">❚❚</button>
+  </div>
+  <div id="mini"><canvas id="mm"></canvas></div>
+  <div id="tip" class="hidden"></div>
+  <div id="toast"></div>
+  <div id="touchCtl" class="hidden"><div><button id="tL">◀</button><button id="tR">▶</button></div><div><button id="tX" class="wide">Release</button><button id="tA">⚔</button></div></div>
+  <div id="train"></div>
+</div>
+<div id="screen"></div>
+
+<script>
+'use strict';
+// ===================== constants =====================
+const VH = 560, GROUND = 400, DEPTH = 60, WORLD = 3000;
+const SAVE_KEY = 'stonefront-save-v1';
+const TEAMCOL = ['#3b8ee0', '#d64040'], TEAMDARK = ['#1d4f86', '#7c1f1f'];
+const UT = {
+  worker: { name: 'Delver', role: 'Mines ore for your treasury. Does not fight on its own.', cost: 100, pop: 1, time: 3.5, hp: 90, speed: 72, dmg: 6, range: 22, rate: 1.1 },
+  shield: { name: 'Shieldbearer', role: 'Sturdy front line. Takes half damage from thrown stones.', cost: 150, pop: 1, time: 4, hp: 260, speed: 46, dmg: 13, range: 24, rate: 1.0 },
+  sling:  { name: 'Slinger', role: 'Hurls stones over the front line.', cost: 200, pop: 1, time: 4.5, hp: 95, speed: 54, dmg: 14, range: 240, rate: 1.5, proj: true },
+  lancer: { name: 'Lancer', role: 'Fast runner. The first hit after a long run deals double.', cost: 300, pop: 2, time: 6, hp: 180, speed: 100, dmg: 24, range: 34, rate: 1.1 },
+  mystic: { name: 'Mystic', role: 'Heals wounded allies nearby.', cost: 350, pop: 2, time: 7, hp: 120, speed: 48, dmg: 6, range: 170, rate: 1.4, heal: 22 },
+  golem:  { name: 'Siege Golem', role: 'Slow stone giant. Smashes groups and cracks monuments.', cost: 1000, pop: 5, time: 15, hp: 1600, speed: 30, dmg: 75, range: 46, rate: 2.3, splash: 60, monMul: 2 },
+};
+const ORDER = ['worker', 'shield', 'sling', 'lancer', 'mystic', 'golem'];
+const FORM = { shield: 40, golem: 55, lancer: 15, sling: -55, mystic: -90, worker: 0 };
+const NODE_OFF = [160, 220, 280, 340];
+
+const LEVELS = [
+  { name: 'First Stones', story: 'A Crimson outpost has raised a monument across the valley. Send Delvers to mine ore, train Shieldbearers, then Charge and topple their monument.', unlock: ['worker', 'shield'], ore: 300, par: 360,
+    ai: { mix: { shield: 1 }, workers: 3, trickle: 0, attackAt: 1200, hp: .8, dmg: .8, ore: 100, start: [], mon: .7, pop: 12 } },
+  { name: 'Stones from Afar', story: 'Slingers join your ranks. Keep them behind your Shieldbearers.', unlock: ['worker', 'shield', 'sling'], ore: 350, par: 420,
+    ai: { mix: { shield: 2, sling: 1 }, workers: 4, trickle: 0, attackAt: 1300, hp: .9, dmg: .9, ore: 200, start: ['shield'], mon: .85, pop: 18 } },
+  { name: 'The Long Ridge', story: 'Lancers are fast and hit twice as hard after a long run. Use them to catch Slingers.', unlock: ['worker', 'shield', 'sling', 'lancer'], ore: 400, par: 480,
+    ai: { mix: { shield: 2, sling: 2, lancer: 1 }, workers: 5, trickle: 0, attackAt: 1600, hp: .95, dmg: .95, ore: 250, start: ['shield', 'sling'], mon: .95, pop: 22 } },
+  { name: 'Mystic Spring', story: 'Mystics heal wounded allies. A healed line lasts much longer.', unlock: ['worker', 'shield', 'sling', 'lancer', 'mystic'], ore: 450, par: 540,
+    ai: { mix: { shield: 3, sling: 2, lancer: 1, mystic: 1 }, workers: 5, trickle: .5, attackAt: 1900, hp: 1, dmg: 1, ore: 300, start: ['shield', 'sling'], mon: 1, pop: 26 } },
+  { name: 'Stone Giants', story: 'The quarry has woken a Siege Golem. Build one of your own, and guard it well.', unlock: ORDER, ore: 500, par: 600,
+    ai: { mix: { shield: 3, sling: 2, lancer: 1, mystic: 1, golem: .6 }, workers: 6, trickle: .5, attackAt: 2400, hp: 1, dmg: 1, ore: 300, start: ['shield', 'shield', 'sling'], mon: 1, pop: 30 } },
+  { name: 'The Rush', story: 'Their army is already on the march. Defend first, strike back after.', unlock: ORDER, ore: 700, par: 540,
+    ai: { mix: { shield: 2, lancer: 2, sling: 1 }, workers: 4, trickle: .5, attackAt: 1400, hp: 1, dmg: 1, ore: 0, start: ['shield', 'shield', 'shield', 'lancer', 'lancer', 'sling', 'sling'], mon: 1, pop: 30, rush: true } },
+  { name: 'Shield Wall', story: 'This monument is old and thick, and its keepers rarely leave home. Build up before you strike.', unlock: ORDER, ore: 500, par: 720,
+    ai: { mix: { shield: 4, sling: 3, mystic: 1 }, workers: 7, trickle: 1, attackAt: 3600, hp: 1.05, dmg: 1, ore: 300, start: ['shield', 'shield', 'sling', 'sling'], mon: 1.6, pop: 34 } },
+  { name: 'Twin Giants', story: 'They have learned to raise golems in pairs.', unlock: ORDER, ore: 500, par: 720,
+    ai: { mix: { golem: 2, shield: 2, sling: 1, mystic: 1 }, workers: 7, trickle: 1.5, attackAt: 2800, hp: 1.05, dmg: 1.05, ore: 300, start: ['golem'], mon: 1.1, pop: 34 } },
+  { name: 'Scorched Field', story: 'Only two ore seams survive on your side of the valley. Spend wisely.', unlock: ORDER, ore: 600, par: 720, nodes: 2,
+    ai: { mix: { shield: 3, sling: 2, lancer: 2, mystic: 1, golem: .5 }, workers: 6, trickle: 1, attackAt: 2600, hp: 1.05, dmg: 1.05, ore: 300, start: ['shield', 'sling'], mon: 1.1, pop: 34 } },
+  { name: 'The Last Monument', story: 'The Crimson capital. Everything they have stands between you and victory.', unlock: ORDER, ore: 600, par: 900,
+    ai: { mix: { shield: 3, sling: 3, lancer: 2, mystic: 2, golem: 1 }, workers: 8, trickle: 2.5, attackAt: 3000, hp: 1.15, dmg: 1.1, ore: 400, start: ['shield', 'shield', 'shield', 'sling', 'sling', 'mystic'], mon: 1.3, pop: 40 } },
+];
+const UPGRADES = [
+  { id: 'hp', name: 'Ironwork', desc: '+10% health for all your units per rank.', max: 3 },
+  { id: 'dmg', name: 'Whetstones', desc: '+10% damage and healing per rank.', max: 3 },
+  { id: 'mine', name: 'Deep Picks', desc: '+15% ore per trip per rank.', max: 3 },
+  { id: 'wards', name: 'Monument Wards', desc: '+20% monument health and +25% bolt damage per rank.', max: 3 },
+  { id: 'chest', name: 'War Chest', desc: '+150 starting ore per rank.', max: 3 },
+  { id: 'barracks', name: 'Barracks', desc: '+5 army size per rank.', max: 2 },
+];
+
+// ===================== save =====================
+let save;
+function loadSave() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) {}
+  const d = { stars: {}, spent: 0, up: {}, survivalBest: 0, unlocked: 1 };
+  s = Object.assign(d, s || {});
+  for (const u of UPGRADES) s.up[u.id] = s.up[u.id] || 0;
+  return s;
+}
+function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+save = loadSave();
+function starsEarned() {
+  let n = 0; for (const k in save.stars) n += save.stars[k];
+  return n + Math.min(8, Math.floor(save.survivalBest / 5));
+}
+const starsFree = () => starsEarned() - save.spent;
+
+// ===================== audio =====================
+let actx = null;
+function sfx(kind) {
+  if (!actx) return;
+  const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+  const P = { hit: [140, .08, 'square', .05], sling: [520, .07, 'triangle', .04], ore: [880, .09, 'sine', .04], die: [90, .25, 'sawtooth', .04],
+    horn: [196, .6, 'sawtooth', .06], smash: [55, .35, 'square', .09], heal: [660, .2, 'sine', .035], train: [440, .08, 'triangle', .04], bolt: [300, .1, 'triangle', .035] }[kind];
+  if (!P) return;
+  o.type = P[2]; o.frequency.setValueAtTime(P[0], t);
+  if (kind === 'heal' || kind === 'ore') o.frequency.exponentialRampToValueAtTime(P[0] * 1.5, t + P[1]);
+  else o.frequency.exponentialRampToValueAtTime(Math.max(30, P[0] * .5), t + P[1]);
+  g.gain.setValueAtTime(P[3], t); g.gain.exponentialRampToValueAtTime(.0001, t + P[1]);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + P[1] + .02);
+}
+let sfxBudget = 0;
+function sfxL(kind) { if (sfxBudget > 0) { sfxBudget--; sfx(kind); } }
+function unlockAudio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } else if (actx.state === 'suspended') actx.resume(); }
+addEventListener('pointerdown', unlockAudio); addEventListener('keydown', unlockAudio);
+
+// ===================== canvas =====================
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let dpr = 1, S = 1, viewW = 1000, offY = 0;
+function resize() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+  layout();
+}
+function layout() {
+  const portrait = cv.height > cv.width * 1.1;
+  S = Math.min(cv.height / VH, cv.width / (portrait ? 470 : 680));
+  viewW = cv.width / S;
+  // keep the ground line about 58% down a tall screen so the buttons do not cover the fight
+  offY = portrait ? cv.height * .58 / S - GROUND : cv.height / S - VH;
+}
+addEventListener('resize', resize);
+
+// seeded random for scenery
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+const scen = (() => {
+  const r = rng(7), far = [], near = [], tufts = [], rocks = [];
+  for (let x = -200; x <= WORLD * .3 + 1400; x += 60) far.push([x, 250 - r() * 90]);
+  for (let x = -200; x <= WORLD * .6 + 1400; x += 45) near.push([x, 330 - r() * 50]);
+  for (let i = 0; i < 260; i++) tufts.push([r() * WORLD, r() * (DEPTH + 90), r()]);
+  for (let i = 0; i < 40; i++) rocks.push([r() * WORLD, 20 + r() * (DEPTH + 60), 3 + r() * 7]);
+  return { far, near, tufts, rocks };
+})();
+
+// ===================== game state =====================
+let game = null, units = [], corpses = [], projs = [], parts = [], floats = [], nodes = [], teams = [], mons = [];
+let camX = 0, ctrl = null, paused = false, speed = 1, nextId = 1;
+const keys = {}, touch = { l: false, r: false, a: false };
+
+function makeTeam(i, ore) {
+  return { i, dir: i === 0 ? 1 : -1, ore, mode: 'defend', banner: i === 0 ? 1000 : WORLD - 1000, queue: [], monX: i === 0 ? 100 : WORLD - 100, popCap: 30, kills: 0, mined: 0 };
+}
+function hpMul(team) { return team === 0 ? 1 + .1 * save.up.hp : game.ehp; }
+function dmgMul(team) { return team === 0 ? 1 + .1 * save.up.dmg : game.edmg; }
+
+function spawnUnit(team, type, x) {
+  const T = teams[team], hp = Math.round(UT[type].hp * hpMul(team));
+  const u = { id: nextId++, team, type, x: x != null ? x : T.monX + T.dir * 40, d: 8 + Math.random() * (DEPTH - 16), hp, maxHp: hp,
+    cd: Math.random() * .5, atkT: 0, anim: Math.random() * 10, facing: T.dir, moving: false, carry: 0, mineT: 0, node: null,
+    jit: (Math.random() - .5) * 50, run: 0, hit: 0 };
+  u.homeD = u.d;
+  units.push(u); return u;
+}
+
+function startGame(mode, lvlIndex) {
+  const survival = mode === 'survival';
+  const L = survival ? null : LEVELS[lvlIndex];
+  game = { mode, lvl: lvlIndex, L, time: 0, over: false, ehp: 1, edmg: 1, aiT: 2, sv: null, ai: L ? L.ai : null, stats: { trained: 0 } };
+  units = []; corpses = []; projs = []; parts = []; floats = []; nodes = []; ctrl = null; paused = false; nextId = 1;
+  const startOre = (survival ? 500 : L.ore) + 150 * save.up.chest;
+  teams = [makeTeam(0, startOre), makeTeam(1, survival ? 0 : L.ai.ore)];
+  teams[0].popCap = 30 + 5 * save.up.barracks;
+  const monHp0 = Math.round(3000 * (1 + .2 * save.up.wards));
+  mons = [
+    { isMon: true, team: 0, x: teams[0].monX, d: 30, hp: monHp0, maxHp: monHp0, boltCd: 0, hit: 0, bolt: 16 * (1 + .25 * save.up.wards) },
+    { isMon: true, team: 1, x: teams[1].monX, d: 30, hp: 3000, maxHp: 3000, boltCd: 0, hit: 0, bolt: 16 },
+  ];
+  const nN = L && L.nodes ? L.nodes : 4;
+  for (let t = 0; t < 2; t++) {
+    const n = t === 0 ? nN : 4;
+    for (let k = 0; k < n; k++) nodes.push({ team: t, x: teams[t].monX + teams[t].dir * NODE_OFF[k], d: 10 + (k % 2) * 30, seed: k * 13 + t * 7 });
+  }
+  if (survival) {
+    mons[1].invuln = true; mons[1].hp = mons[1].maxHp = 1;
+    game.sv = { wave: 0, t: 35, active: false, list: [], spawnT: 0 };
+    teams[1].mode = 'charge';
+  } else {
+    const a = L.ai;
+    game.ehp = a.hp; game.edmg = a.dmg; teams[1].popCap = a.pop;
+    mons[1].hp = mons[1].maxHp = Math.round(3000 * a.mon);
+    for (const t of a.start) spawnUnit(1, t, teams[1].monX - 300 - Math.random() * 120);
+    if (a.rush) teams[1].mode = 'charge';
+    spawnUnit(1, 'worker'); spawnUnit(1, 'worker');
+  }
+  spawnUnit(0, 'worker'); spawnUnit(0, 'worker');
+  camX = 0;
+  buildTrainBar();
+  document.getElementById('screen').classList.add('hidden');
+  document.getElementById('hud').classList.remove('hidden');
+  setMode('defend', true);
+  toast(survival ? 'Survive the waves' : L.name);
+  showTip(survival ? 'Waves come from the east. Build Delvers early, then an army.' : 'Train Delvers (1) to mine ore. Click any of your soldiers to fight as them.');
+}
+
+function unlockedTypes() { return game.mode === 'survival' ? ORDER : game.L.unlock; }
+
+// ===================== production =====================
+function popUsed(team) {
+  let p = 0;
+  for (const u of units) if (u.team === team) p += UT[u.type].pop;
+  for (const q of teams[team].queue) p += UT[q.type].pop;
+  return p;
+}
+function tryTrain(team, type) {
+  const T = teams[team], st = UT[type];
+  if (T.queue.length >= 6 || T.ore < st.cost || popUsed(team) + st.pop > T.popCap) return false;
+  T.ore -= st.cost; T.queue.push({ type, t: 0 });
+  if (team === 0) { sfx('train'); game.stats.trained++; }
+  return true;
+}
+function production(T, dt) {
+  const q = T.queue[0]; if (!q) return;
+  q.t += dt;
+  if (q.t >= UT[q.type].time) { T.queue.shift(); spawnUnit(T.i, q.type); }
+}
+
+// ===================== AI =====================
+function armyValue(team, near) {
+  let v = 0;
+  for (const u of units) if (u.team === team && u.type !== 'worker' && (near == null || Math.abs(u.x - near) < 900)) v += UT[u.type].cost * u.hp / u.maxHp;
+  return v;
+}
+function aiUpdate(dt) {
+  const T = teams[1], a = game.ai;
+  T.ore += a.trickle * dt;
+  game.aiT -= dt; if (game.aiT > 0) return;
+  game.aiT = 1;
+  const workers = units.filter(u => u.team === 1 && u.type === 'worker').length + T.queue.filter(q => q.type === 'worker').length;
+  if (workers < a.workers && (workers < 3 || Math.random() < .6)) tryTrain(1, 'worker');
+  else if (T.queue.length < 2) {
+    if (!game.aiPick) game.aiPick = pickWeighted(a.mix);
+    if (tryTrain(1, game.aiPick)) game.aiPick = null;
+    else if (popUsed(1) + UT[game.aiPick].pop > T.popCap) game.aiPick = null;
+  }
+  const mine = armyValue(1), theirs = armyValue(0), threat = armyValue(0, T.monX);
+  if (T.mode === 'charge') {
+    if (mine < theirs * .6 && mine < a.attackAt * .6) T.mode = threat > 0 ? 'defend' : 'hold';
+  } else {
+    if ((mine >= a.attackAt && mine >= theirs * .9) || (mine > theirs * 2 && mine > 600)) { T.mode = 'charge'; if (game.time > 5) toast('The enemy charges!', TEAMCOL[1]); }
+    else if (threat > mine * .5 && threat > 0) T.mode = 'defend';
+    else if (mine >= a.attackAt * .5) { T.mode = 'hold'; T.banner = WORLD * .62; }
+    else T.mode = 'defend';
+  }
+}
+function pickWeighted(mix) {
+  let tot = 0; for (const k in mix) tot += mix[k];
+  let r = Math.random() * tot;
+  for (const k in mix) { r -= mix[k]; if (r <= 0) return k; }
+  return Object.keys(mix)[0];
+}
+
+// ===================== survival =====================
+function survivalUpdate(dt) {
+  const sv = game.sv;
+  sv.t -= dt;
+  if (sv.list.length) { sv.spawnT -= dt; if (sv.spawnT <= 0) { spawnUnit(1, sv.list.shift(), WORLD - 40); sv.spawnT = .8; } }
+  const alive = units.some(u => u.team === 1);
+  if (sv.active && !sv.list.length && !alive) {
+    sv.active = false; sv.t = Math.min(sv.t, 15);
+    const bonus = 150 + 60 * sv.wave; teams[0].ore += bonus;
+    toast('Wave ' + sv.wave + ' cleared  +' + bonus + ' ore');
+  }
+  if (sv.t <= 0) nextWave();
+}
+function nextWave() {
+  const sv = game.sv; sv.wave++; sv.active = true; sv.t = 80;
+  const n = sv.wave, list = [];
+  game.ehp = .8 + .05 * n; game.edmg = .85 + .03 * n;
+  for (let i = 0; i < 2 + n; i++) list.push('shield');
+  for (let i = 0; i < Math.floor(n * .7); i++) list.push('sling');
+  for (let i = 0; i < Math.floor((n - 1) / 2); i++) list.push('lancer');
+  for (let i = 0; i < Math.floor((n - 2) / 3); i++) list.push('mystic');
+  for (let i = 0; i < Math.floor(n / 5); i++) list.push('golem');
+  sv.list = list; sv.spawnT = 0;
+  toast('Wave ' + n, TEAMCOL[1]); sfx('horn');
+}
+
+// ===================== unit logic =====================
+function inZone(T, x) {
+  if (T.mode === 'defend') return Math.abs(x - T.monX) < 820;
+  if (T.mode === 'hold') return Math.abs(x - T.banner) < 330;
+  return true;
+}
+function stepToward(u, x, dt, mul = 1) {
+  const dx = x - u.x;
+  if (Math.abs(dx) < 4) { u.moving = false; return true; }
+  const s = Math.sign(dx), st = UT[u.type];
+  const mv = Math.min(Math.abs(dx), st.speed * mul * dt);
+  u.x += s * mv; u.facing = s; u.moving = true; u.run += mv;
+  return false;
+}
+function updateUnit(u, dt) {
+  u.cd = Math.max(0, u.cd - dt); u.atkT = Math.max(0, u.atkT - dt); u.hit = Math.max(0, u.hit - dt);
+  if (u.moving) u.anim += dt * (UT[u.type].speed / 9);
+  u.d += (u.homeD - u.d) * Math.min(1, dt);
+  if (u === ctrl) return controlUpdate(u, dt);
+  if (u.type === 'worker') return workerUpdate(u, dt);
+  if (u.type === 'mystic') return mysticUpdate(u, dt);
+  combatUpdate(u, dt);
+}
+function workerUpdate(u, dt) {
+  const T = teams[u.team];
+  u.mining = false;
+  if (u.carry > 0) {
+    if (stepToward(u, T.monX + T.dir * 40, dt)) {
+      T.ore += u.carry; T.mined += u.carry;
+      if (u.team === 0) { floats.push({ x: u.x, y: GROUND + u.d - 50, t: 1, txt: '+' + u.carry, c: '#d9b7ff' }); sfxL('ore'); }
+      u.carry = 0;
+    }
+    return;
+  }
+  if (!u.node) {
+    let best = null, bc = 1e9;
+    for (const n of nodes) if (n.team === u.team) {
+      const c = units.filter(w => w.node === n).length * 1000 + Math.abs(n.x - u.x);
+      if (c < bc) { bc = c; best = n; }
+    }
+    u.node = best; if (!best) return;
+  }
+  const wx = u.node.x - T.dir * 16 + (u.id % 2 ? 0 : T.dir * 30);
+  if (stepToward(u, wx, dt)) {
+    u.facing = Math.sign(u.node.x - u.x) || T.dir; u.homeD = u.node.d + 6;
+    u.mining = true; u.mineT += dt;
+    if (u.mineT >= 2.5) {
+      u.mineT = 0;
+      const mul = u.team === 0 ? 1 + .15 * save.up.mine : 1;
+      u.carry = Math.round(30 * mul);
+      parts.push(...Array.from({ length: 4 }, () => ({ x: u.node.x, y: GROUND + u.node.d - 10, vx: (Math.random() - .5) * 60, vy: -40 - Math.random() * 60, t: .6, c: '#b77cff', r: 2 })));
+    }
+  }
+}
+function nearestFoe(u, maxR, zoneT) {
+  let best = null, bd = 1e9;
+  for (const v of units) {
+    if (v.team === u.team || v.hp <= 0) continue;
+    const dx = Math.abs(v.x - u.x);
+    if (dx > maxR && !(zoneT && inZone(zoneT, v.x) && dx < 420)) continue;
+    if (dx < bd) { bd = dx; best = v; }
+  }
+  return best ? [best, bd] : [null, 1e9];
+}
+function combatUpdate(u, dt) {
+  const T = teams[u.team], st = UT[u.type], dir = T.dir, em = mons[1 - u.team];
+  const sight = st.proj ? st.range + 10 : 40;
+  const [tgt, dist] = nearestFoe(u, sight, T);
+  if (tgt) {
+    if (dist <= st.range) tryAttack(u, tgt);
+    else stepToward(u, tgt.x - Math.sign(tgt.x - u.x) * st.range * .7, dt);
+    return;
+  }
+  const mdx = Math.abs(em.x - u.x);
+  if (!em.invuln && mdx <= st.range + 28) { tryAttack(u, em); return; }
+  let rx;
+  if (T.mode === 'charge') rx = em.invuln ? WORLD - 480 + u.jit : em.x - dir * (st.range + 20);
+  else rx = (T.mode === 'defend' ? T.monX + dir * 560 : T.banner) + dir * (FORM[u.type] + u.jit);
+  if (stepToward(u, rx, dt)) u.facing = dir;
+}
+function mysticUpdate(u, dt) {
+  const T = teams[u.team], st = UT.mystic, dir = T.dir;
+  if (u.cd <= 0) {
+    let w = null, wr = .96;
+    for (const v of units) if (v.team === u.team && v.hp > 0 && Math.abs(v.x - u.x) < st.range) { const r = v.hp / v.maxHp; if (r < wr) { wr = r; w = v; } }
+    if (w) { healUnit(w, st.heal * dmgMul(u.team)); u.cd = st.rate; u.atkT = .4; u.facing = Math.sign(w.x - u.x) || u.facing; }
+    else {
+      const [f, d] = nearestFoe(u, 120);
+      if (f) { u.cd = st.rate; u.atkT = .4; u.facing = Math.sign(f.x - u.x); damage(f, st.dmg * dmgMul(u.team), u); spark(f.x, GROUND + f.d - 25, '#ffe680'); }
+    }
+  }
+  let front = null;
+  for (const v of units) if (v.team === u.team && v.type !== 'worker' && v.type !== 'mystic' && (!front || v.x * dir > front.x * dir)) front = v;
+  let rx;
+  if (T.mode === 'charge') rx = front ? front.x - dir * 85 : T.monX + dir * 560;
+  else rx = (T.mode === 'defend' ? T.monX + dir * 560 : T.banner) + dir * (FORM.mystic + u.jit);
+  if (front && (rx - front.x) * dir > -60) rx = front.x - dir * 70;
+  if (stepToward(u, rx, dt)) u.facing = dir;
+}
+function tryAttack(u, t, mult = 1) {
+  u.facing = t.x >= u.x ? 1 : -1; u.moving = false;
+  if (u.cd > 0) return;
+  const st = UT[u.type];
+  u.cd = st.rate * (ctrl === u ? 1 : .9 + Math.random() * .2); u.atkT = .3;
+  let dmg = st.dmg * dmgMul(u.team) * mult;
+  if (u.type === 'lancer' && u.run > 140) { dmg *= 2; spark(t.x, GROUND + (t.d || 30) - 25, '#fff'); }
+  u.run = 0;
+  if (st.proj) { shoot(u, t, dmg); sfxL('sling'); return; }
+  if (st.splash) {
+    if (t.isMon) damage(t, dmg * st.monMul, u);
+    for (const v of units) if (v.team !== u.team && v.hp > 0 && Math.abs(v.x - t.x) < st.splash) damage(v, dmg, u);
+    dust(t.x, GROUND + (t.d || 30), 14); shake = Math.max(shake, 6); sfxL('smash');
+    return;
+  }
+  damage(t, dmg, u); sfxL('hit');
+}
+function shoot(u, t, dmg) {
+  const sx = u.x + u.facing * 10, sy = GROUND + u.d - 34;
+  const tx = t.x + (t.moving ? Math.sign(t.facing) * UT[t.type].speed * .4 : 0), ty = GROUND + (t.d || 30) - (t.isMon ? 80 : 22);
+  const dist = Math.abs(tx - sx), T = .35 + dist / 650;
+  projs.push({ x: sx, y: sy, x0: sx, y0: sy, tx, ty, t: 0, T, team: u.team, dmg, tgt: t, arc: 25 + dist * .28, kind: 'stone' });
+}
+function damage(t, amt, src, ranged) {
+  if (t.hp <= 0) return;
+  if (t.isMon) { if (t.invuln) return; t.hp = Math.max(0, t.hp - amt); t.hit = .15; dust(t.x + (Math.random() - .5) * 30, GROUND + 30 - Math.random() * 120, 3); return; }
+  if (ranged && t.type === 'shield') amt *= .5;
+  t.hp -= amt; t.hit = .12;
+  for (let i = 0; i < 3; i++) parts.push({ x: t.x, y: GROUND + t.d - 25, vx: (Math.random() - .5) * 80, vy: -30 - Math.random() * 60, t: .4, c: t.type === 'golem' ? '#8b8478' : '#5a1010', r: 1.6 });
+  if (t.hp <= 0) {
+    t.hp = 0; t.deathT = 0; corpses.push(t);
+    if (src) teams[src.team].kills++;
+    if (ctrl === t) release();
+    sfxL('die');
+    if (t.type === 'golem') { dust(t.x, GROUND + t.d, 20); shake = 8; }
+  }
+}
+function healUnit(v, amt) { v.hp = Math.min(v.maxHp, v.hp + amt); spark(v.x, GROUND + v.d - 30, '#9dffb0'); sfxL('heal'); }
+function spark(x, y, c) { for (let i = 0; i < 6; i++) parts.push({ x, y, vx: (Math.random() - .5) * 90, vy: (Math.random() - .5) * 90, t: .5, c, r: 2, glow: true }); }
+function dust(x, y, n) { for (let i = 0; i < n; i++) parts.push({ x, y, vx: (Math.random() - .5) * 160, vy: -Math.random() * 90, t: .8, c: '#a89a80', r: 3 + Math.random() * 3, fade: true }); }
+
+// direct control
+function controlUpdate(u, dt) {
+  const st = UT[u.type];
+  let mv = 0;
+  if (keys.KeyA || keys.ArrowLeft || touch.l) mv -= 1;
+  if (keys.KeyD || keys.ArrowRight || touch.r) mv += 1;
+  u.mining = false;
+  if (mv) { const d = mv * st.speed * 1.2 * dt; u.x = Math.max(30, Math.min(WORLD - 30, u.x + d)); u.facing = mv; u.moving = true; u.run += Math.abs(d); }
+  else u.moving = false;
+  if (keys.KeyW || keys.ArrowUp) u.homeD = Math.max(4, u.homeD - 50 * dt);
+  if (keys.KeyS || keys.ArrowDown) u.homeD = Math.min(DEPTH, u.homeD + 50 * dt);
+  if ((keys.Space || touch.a || mouseHeld) && u.cd <= 0) {
+    if (u.type === 'mystic') {
+      let n = 0;
+      for (const v of units) if (v.team === u.team && Math.abs(v.x - u.x) < st.range && v.hp < v.maxHp) { healUnit(v, st.heal * .8 * dmgMul(0)); n++; }
+      u.cd = st.rate; u.atkT = .4;
+      if (!n) { const [f] = nearestFoe(u, 140); if (f) { damage(f, st.dmg * 3 * dmgMul(0), u); spark(f.x, GROUND + f.d - 25, '#ffe680'); } }
+      return;
+    }
+    let best = null, bd = 1e9;
+    for (const v of units) {
+      if (v.team === u.team || v.hp <= 0) continue;
+      const dx = (v.x - u.x) * u.facing;
+      if (dx >= -12 && dx <= st.range + 12 && dx < bd) { bd = dx; best = v; }
+    }
+    const em = mons[1 - u.team];
+    if (!best && !em.invuln && (em.x - u.x) * u.facing > -20 && Math.abs(em.x - u.x) <= st.range + 30) best = em;
+    if (best) { const f = u.facing; tryAttack(u, best, 1.5); u.facing = f; }
+    else {
+      u.cd = st.rate * .6; u.atkT = .3;
+      if (st.proj) { shoot(u, { x: u.x + u.facing * st.range, d: u.d, type: 'shield' }, st.dmg * 1.5 * dmgMul(0)); sfxL('sling'); }
+    }
+  }
+}
+function takeControl(u) {
+  if (!u || u.hp <= 0) return;
+  ctrl = u; u.homeD = u.d;
+  document.getElementById('touchCtl').classList.toggle('hidden', !isTouch);
+  showTip(isTouch ? 'You are the ' + UT[u.type].name + '. Use the buttons to move and strike.' : 'You are the ' + UT[u.type].name + '.  A / D move · W / S step · Space or click to strike · Esc lets go', isTouch ? 3 : 0);
+}
+function release() { ctrl = null; mouseHeld = false; document.getElementById('touchCtl').classList.add('hidden'); hideTip(); }
+
+// ===================== update loop =====================
+let shake = 0;
+function update(dt) {
+  if (game.over) { updateFx(dt); return; }
+  game.time += dt;
+  for (const T of teams) production(T, dt);
+  if (game.mode === 'survival') survivalUpdate(dt); else aiUpdate(dt);
+  for (const u of units) if (u.hp > 0) updateUnit(u, dt);
+  units = units.filter(u => u.hp > 0);
+  // monument bolts
+  for (const m of mons) {
+    m.hit = Math.max(0, m.hit - dt);
+    if (m.invuln) continue;
+    m.boltCd -= dt;
+    if (m.boltCd <= 0) {
+      let best = null, bd = 300;
+      for (const v of units) if (v.team !== m.team && Math.abs(v.x - m.x) < bd) { bd = Math.abs(v.x - m.x); best = v; }
+      if (best) {
+        m.boltCd = 1.3;
+        projs.push({ x: m.x, y: GROUND - 150, x0: m.x, y0: GROUND - 150, tx: best.x, ty: GROUND + best.d - 22, t: 0, T: .35, team: m.team, dmg: m.team === 1 ? m.bolt * game.edmg : m.bolt, tgt: best, arc: 10, kind: 'bolt' });
+        if (m.team === 0) sfxL('bolt');
+      }
+    }
+  }
+  // projectiles
+  for (const p of projs) {
+    p.t += dt; const f = Math.min(1, p.t / p.T);
+    p.px = p.x; p.py = p.y;
+    p.x = p.x0 + (p.tx - p.x0) * f; p.y = p.y0 + (p.ty - p.y0) * f - Math.sin(Math.PI * f) * p.arc;
+    if (f >= 1) {
+      p.done = true;
+      let hit = null;
+      if (p.tgt && p.tgt.hp > 0 && Math.abs(p.tgt.x - p.tx) < 22) hit = p.tgt;
+      if (!hit) for (const v of units) if (v.team !== p.team && v.hp > 0 && Math.abs(v.x - p.tx) < 16) { hit = v; break; }
+      if (!hit) { const m = mons[1 - p.team]; if (Math.abs(m.x - p.tx) < 34) hit = m; }
+      if (hit) damage(hit, p.dmg, { team: p.team }, true);
+      else dust(p.tx, GROUND + 30, 2);
+      if (p.kind === 'bolt') spark(p.tx, p.ty, TEAMCOL[p.team]);
+    }
+  }
+  projs = projs.filter(p => !p.done);
+  updateFx(dt);
+  // end conditions
+  if (mons[0].hp <= 0) endGame(false);
+  else if (mons[1].hp <= 0 && !mons[1].invuln) endGame(true);
+}
+function updateFx(dt) {
+  for (const c of corpses) c.deathT += dt;
+  corpses = corpses.filter(c => c.deathT < 4);
+  for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (!p.glow) p.vy += 220 * dt; }
+  parts = parts.filter(p => p.t > 0);
+  for (const f of floats) { f.t -= dt; f.y -= 25 * dt; }
+  floats = floats.filter(f => f.t > 0);
+  shake = Math.max(0, shake - dt * 20);
+}
+
+function endGame(win) {
+  game.over = true; release();
+  const tm = game.time;
+  let html;
+  if (game.mode === 'survival') {
+    const w = game.sv.wave - (game.sv.active ? 1 : 0);
+    const before = starsEarned();
+    if (w > save.survivalBest) save.survivalBest = w;
+    writeSave();
+    const gained = starsEarned() - before;
+    html = `<h2>The monument has fallen</h2><p>You held out through <b>${w}</b> wave${w === 1 ? '' : 's'}. Best: ${save.survivalBest}.</p>
+      <p>Every 5 waves of your best run earns a star for upgrades.${gained ? ' <b>+' + gained + ' ★</b>' : ''}</p>`;
+  } else if (win) {
+    const hpR = mons[0].hp / mons[0].maxHp;
+    const st = 1 + (hpR >= .6 ? 1 : 0) + (tm <= game.L.par ? 1 : 0);
+    const prev = save.stars[game.lvl] || 0;
+    if (st > prev) save.stars[game.lvl] = st;
+    if (save.unlocked < game.lvl + 2) save.unlocked = Math.min(LEVELS.length, game.lvl + 2);
+    writeSave();
+    html = `<h2>Victory: ${game.L.name}</h2><p class="stars" style="font-size:34px">${starStr(st)}</p>
+      <p>★ Monument toppled<br>${hpR >= .6 ? '★' : '☆'} Your monument kept 60% of its health (${Math.round(hpR * 100)}%)<br>${tm <= game.L.par ? '★' : '☆'} Won within ${fmtTime(game.L.par)} (${fmtTime(tm)})</p>
+      ${st > prev ? `<p>+${st - prev} ★ for upgrades.</p>` : ''}`;
+  } else {
+    html = `<h2>Defeat: ${game.L.name}</h2><p>Your monument has fallen after ${fmtTime(tm)}.</p><p>Try more Delvers early, keep Slingers behind your Shieldbearers, and spend stars on upgrades.</p>`;
+  }
+  const nextBtn = (game.mode === 'campaign' && win && game.lvl + 1 < LEVELS.length) ? `<button id="bNext">Next battle</button>` : '';
+  setTimeout(() => {
+    showScreen(`<div class="card">${html}<div class="row">${nextBtn}<button id="bAgain">Play again</button><button id="bUp">Upgrades (${starsFree()} ★)</button><button id="bMenu">Main menu</button></div></div>`);
+    const lvl = game.lvl, mode = game.mode;
+    on('bNext', () => briefing(lvl + 1));
+    on('bAgain', () => mode === 'survival' ? startGame('survival') : briefing(lvl));
+    on('bUp', () => upgradesScreen(() => mode === 'survival' ? mainMenu() : levelSelect()));
+    on('bMenu', mainMenu);
+  }, 1500);
+}
+const fmtTime = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+const starStr = n => '★'.repeat(n) + `<span class="off">${'★'.repeat(3 - n)}</span>`;
+
+// ===================== drawing =====================
+function drawFigure(c, type, team, x, y, facing, phase, atk, opts = {}) {
+  const col = TEAMCOL[team], dark = TEAMDARK[team];
+  c.save(); c.translate(x, y); c.scale(facing, 1);
+  if (opts.alpha != null) c.globalAlpha = opts.alpha;
+  if (opts.rot) c.rotate(opts.rot);
+  const ink = opts.hit ? '#fff' : '#17130f';
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  if (type === 'golem') { drawGolem(c, team, phase, atk, opts); c.restore(); return; }
+  const walking = opts.moving;
+  const sw = walking ? Math.sin(phase) * .55 : .12;
+  const hipY = -17, neckY = -35;
+  c.strokeStyle = ink; c.lineWidth = 2.8;
+  // legs
+  c.beginPath();
+  c.moveTo(0, hipY); c.lineTo(Math.sin(sw) * 10, hipY + Math.cos(sw) * 9); c.lineTo(Math.sin(sw) * 12 + 2, 0);
+  c.moveTo(0, hipY); c.lineTo(Math.sin(-sw) * 10, hipY + Math.cos(sw) * 9); c.lineTo(Math.sin(-sw) * 12 + 2, 0);
+  c.stroke();
+  // body
+  const lean = walking ? 2 : 0;
+  c.beginPath(); c.moveTo(0, hipY); c.lineTo(lean, neckY); c.stroke();
+  // head
+  c.fillStyle = ink; c.beginPath(); c.arc(lean + .5, neckY - 6, 5.2, 0, 7); c.fill();
+  const p = atk > 0 ? 1 - atk / .3 : 0; // 0..1 attack progress
+  const sh = [lean, neckY + 3];
+  // back arm
+  c.beginPath(); c.moveTo(sh[0], sh[1]); c.lineTo(sh[0] - 6 - (walking ? Math.sin(phase) * 4 : 0), sh[1] + 9); c.lineTo(sh[0] - 4, sh[1] + 17); c.stroke();
+  // headgear in team colour
+  c.fillStyle = col; c.strokeStyle = col; c.lineWidth = 2;
+  if (type === 'worker') { c.fillRect(lean - 5, neckY - 12, 10, 3); }
+  else if (type === 'shield') { c.beginPath(); c.arc(lean + .5, neckY - 7, 5.6, Math.PI, 0); c.fill(); }
+  else if (type === 'sling') { c.beginPath(); c.moveTo(lean - 5, neckY - 8); c.lineTo(lean + 5, neckY - 8); c.stroke(); c.beginPath(); c.moveTo(lean - 5, neckY - 8); c.lineTo(lean - 10, neckY - 4); c.stroke(); }
+  else if (type === 'lancer') { c.beginPath(); c.arc(lean + .5, neckY - 7, 5.6, Math.PI, 0); c.fill(); c.beginPath(); c.moveTo(lean - 2, neckY - 12); c.quadraticCurveTo(lean - 6, neckY - 20, lean - 11, neckY - 15); c.lineWidth = 3; c.stroke(); }
+  else if (type === 'mystic') { c.beginPath(); c.moveTo(lean - 7, neckY - 3); c.lineTo(lean + .5, neckY - 17); c.lineTo(lean + 7, neckY - 3); c.closePath(); c.fill(); }
+  // front arm + weapon
+  c.strokeStyle = ink; c.lineWidth = 2.8;
+  let a; // arm angle (0 = forward, -PI/2 = up)
+  if (type === 'shield') {
+    a = p ? -1.2 + p * 1.8 : .3;
+    const hx = sh[0] + Math.cos(a) * 13, hy = sh[1] + Math.sin(a) * 13;
+    c.beginPath(); c.moveTo(sh[0], sh[1]); c.lineTo(hx, hy); c.stroke();
+    // sword
+    c.strokeStyle = '#cfd3d8'; c.lineWidth = 2.2; c.beginPath(); c.moveTo(hx, hy); c.lineTo(hx + Math.cos(a - .9) * 15, hy + Math.sin(a - .9) * 15); c.stroke();
+    // shield (in front)
+    c.fillStyle = col; c.strokeStyle = dark; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(9, -34); c.lineTo(15, -32); c.lineTo(15, -14); c.lineTo(12, -7); c.lineTo(9, -14); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#e8d9a8'; c.fillRect(11.2, -27, 1.6, 9);
+  } else if (type === 'worker') {
+    a = opts.mining ? -1.4 + Math.abs(Math.sin(opts.t * 2.5)) * 1.9 : (p ? -1.3 + p * 2 : .9);
+    const hx = sh[0] + Math.cos(a) * 13, hy = sh[1] + Math.sin(a) * 13;
+    c.beginPath(); c.moveTo(sh[0], sh[1]); c.lineTo(hx, hy); c.stroke();
+    const ha = a - 1.6, ex = hx + Math.cos(ha) * 14, ey = hy + Math.sin(ha) * 14;
+    c.strokeStyle = '#7a5530'; c.lineWidth = 2; c.beginPath(); c.moveTo(hx, hy); c.lineTo(ex, ey); c.stroke();
+    c.strokeStyle = '#9aa0a6'; c.lineWidth = 2.4; c.beginPath(); c.moveTo(ex + Math.cos(ha + 1.57) * 6, ey + Math.sin(ha + 1.57) * 6); c.quadraticCurveTo(ex + Math.cos(ha) * 3, ey + Math.sin(ha) * 3, ex - Math.cos(ha + 1.57) * 6, ey - Math.sin(ha + 1.57) * 6); c.stroke();
+    if (opts.carry) { c.fillStyle = '#6b4a2b'; c.beginPath(); c.arc(-7, -30, 6, 0, 7); c.fill(); c.fillStyle = '#c38bff'; c.beginPath(); c.moveTo(-7, -40); c.lineTo(-3, -34); c.lineTo(-11, -34); c.fill(); }
+  } else if (type === 'sling') {
+    const spin = p ? p * 9 : opts.t * 3;
+    a = p ? -2 + p * 2.5 : -.2;
+    const hx = sh[0] + Math.cos(a) * 13, hy = sh[1] + Math.sin(a) * 13;
+    c.beginPath(); c.moveTo(sh[0], sh[1]); c.lineTo(hx, hy); c.stroke();
+    c.strokeStyle = '#8a6a44'; c.lineWidth = 1.2;
+    const lx = hx + Math.cos(spin) * 9, ly = hy + Math.sin(spin) * 9;
+    c.beginPath(); c.moveTo(hx, hy); c.lineTo(lx, ly); c.stroke();
+    if (!p || p < .6) { c.fillStyle = '#8f8a80'; c.beginPath(); c.arc(lx, ly, 2.2, 0, 7); c.fill(); }
+    c.fillStyle = col; c.fillRect(-5, -26, 4, 8); // pouch
+  } else if (type === 'lancer') {
+    const thrust = p ? Math.sin(p * Math.PI) * 12 : 0;
+    a = .15;
+    const hx = sh[0] + 11 + thrust * .5, hy = sh[1] + 3;
+    c.beginPath(); c.moveTo(sh[0], sh[1]); c.lineTo(hx, hy); c.stroke();
+    c.strokeStyle = '#7a5530'; c.lineWidth = 2; c.beginPath(); c.moveTo(hx - 20 + thrust, hy + 2); c.lineTo(hx + 22 + thrust, hy - 4); c.stroke();
+    c.fillStyle = '#d4d8dc'; c.beginPath(); c.moveTo(hx + 22 + thrust, hy - 7); c.lineTo(hx + 31 + thrust, hy - 5.3); c.lineTo(hx + 22 + thrust, hy - 1); c.fill();
+    c.fillStyle = col; c.beginPath(); c.moveTo(hx + 16 + thrust, hy - 3); c.lineTo(hx + 12 + thrust, hy - 10); c.lineTo(hx + 19 + thrust, hy - 4); c.fill();
+  } else if (type === 'mystic') {
+    a = p ? -1.1 : -.4;
+    const hx = sh[0] + Math.cos(a) * 12, hy = sh[1] + Math.sin(a) * 12;
+    c.beginPath(); c.moveTo(sh[0], sh[1]); c.lineTo(hx, hy); c.stroke();
+    c.strokeStyle = '#6e4b2a'; c.lineWidth = 2; c.beginPath(); c.moveTo(hx, hy + 16); c.lineTo(hx + 1, hy - 14); c.stroke();
+    c.fillStyle = p ? '#d9ffd8' : '#9dffb0'; c.shadowColor = '#9dffb0'; c.shadowBlur = p ? 14 : 6;
+    c.beginPath(); c.arc(hx + 1, hy - 17, 3.6, 0, 7); c.fill(); c.shadowBlur = 0;
+    // robe
+    c.fillStyle = col; c.globalAlpha *= .85; c.beginPath(); c.moveTo(-1, -30); c.lineTo(3, -30); c.lineTo(7, -10); c.lineTo(-5, -10); c.fill();
+  }
+  c.restore();
+}
+function drawGolem(c, team, phase, atk, opts) {
+  const col = TEAMCOL[team];
+  const stone = opts.hit ? '#e8e2d6' : '#7d776c', stone2 = opts.hit ? '#fff' : '#615c53';
+  const p = atk > 0 ? 1 - atk / .3 : 0;
+  const sw = opts.moving ? Math.sin(phase * .7) : 0;
+  const block = (x, y, w, h, f) => { c.fillStyle = f; c.beginPath(); c.roundRect(x, y, w, h, 6); c.fill(); c.strokeStyle = '#3d3a34'; c.lineWidth = 1.5; c.stroke(); };
+  // legs
+  block(-16 + sw * 4, -30, 14, 30, stone2); block(3 - sw * 4, -30, 14, 30, stone2);
+  // back arm
+  block(-28, -82 + sw * 3, 14, 40, stone2);
+  // body
+  block(-22, -92, 46, 64, stone);
+  c.strokeStyle = '#4c483f'; c.lineWidth = 1; c.beginPath(); c.moveTo(-10, -80); c.lineTo(-4, -66); c.lineTo(-12, -52); c.moveTo(12, -40); c.lineTo(18, -34); c.stroke();
+  // rune
+  c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 10;
+  c.beginPath(); c.moveTo(2, -72); c.lineTo(9, -62); c.lineTo(2, -52); c.lineTo(-5, -62); c.closePath(); c.fill();
+  // head
+  c.shadowBlur = 0; block(-6, -112, 26, 22, stone);
+  c.fillStyle = col; c.shadowBlur = 8; c.fillRect(9, -105, 7, 4); c.shadowBlur = 0;
+  // front arm (swings down when attacking)
+  c.save(); c.translate(20, -84); c.rotate(p ? -2.2 + p * 3 : .25 + sw * .15);
+  block(-7, 0, 15, 44, stone); block(-9, 38, 19, 16, stone2);
+  c.restore();
+}
+function drawMonument(c, m) {
+  const x = m.x, y = GROUND + 34, col = TEAMCOL[m.team];
+  if (m.invuln) { // survival: a dark rift
+    c.save(); c.translate(x, y - 90);
+    const g = c.createRadialGradient(0, 0, 5, 0, 0, 80); g.addColorStop(0, '#2a0808'); g.addColorStop(.5, 'rgba(120,20,20,.6)'); g.addColorStop(1, 'rgba(80,0,0,0)');
+    c.fillStyle = g; c.beginPath(); c.ellipse(0, 0, 40 + Math.sin(game.time * 2) * 4, 95, 0, 0, 7); c.fill(); c.restore(); return;
+  }
+  const r = m.hp / m.maxHp;
+  c.save(); if (m.hit) c.translate((Math.random() - .5) * 3, 0);
+  // base steps
+  c.fillStyle = '#5d564a'; c.fillRect(x - 46, y - 14, 92, 14); c.fillStyle = '#6e665a'; c.fillRect(x - 38, y - 26, 76, 13);
+  // obelisk
+  const g = c.createLinearGradient(x - 28, 0, x + 28, 0); g.addColorStop(0, '#8b8476'); g.addColorStop(.5, '#b0a898'); g.addColorStop(1, '#7a7366');
+  c.fillStyle = g; c.beginPath(); c.moveTo(x - 26, y - 26); c.lineTo(x - 17, y - 190); c.lineTo(x, y - 212); c.lineTo(x + 17, y - 190); c.lineTo(x + 26, y - 26); c.closePath(); c.fill();
+  c.strokeStyle = '#4a453c'; c.lineWidth = 1.5; c.stroke();
+  // carved bands in team colour
+  c.fillStyle = col; c.fillRect(x - 23, y - 60, 46, 5); c.fillRect(x - 20, y - 150, 40, 4);
+  // crystal
+  c.shadowColor = col; c.shadowBlur = 18 * r + 4; c.fillStyle = col;
+  c.beginPath(); c.moveTo(x, y - 140); c.lineTo(x + 9, y - 118); c.lineTo(x, y - 96); c.lineTo(x - 9, y - 118); c.closePath(); c.fill(); c.shadowBlur = 0;
+  // cracks
+  c.strokeStyle = '#2b2722'; c.lineWidth = 1.5;
+  if (r < .75) { c.beginPath(); c.moveTo(x - 12, y - 175); c.lineTo(x - 4, y - 160); c.lineTo(x - 10, y - 140); c.stroke(); }
+  if (r < .5) { c.beginPath(); c.moveTo(x + 14, y - 90); c.lineTo(x + 6, y - 75); c.lineTo(x + 12, y - 62); c.lineTo(x + 3, y - 40); c.stroke(); }
+  if (r < .25) { c.beginPath(); c.moveTo(x - 18, y - 50); c.lineTo(x - 6, y - 35); c.moveTo(x + 3, y - 200); c.lineTo(x + 8, y - 180); c.stroke(); }
+  c.restore();
+  // bar
+  bar(c, x - 40, y - 232, 80, 6, r, col);
+}
+function bar(c, x, y, w, h, r, col) { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x - 1, y - 1, w + 2, h + 2); c.fillStyle = col; c.fillRect(x, y, w * Math.max(0, r), h); }
+function drawNode(c, n) {
+  const x = n.x, y = GROUND + n.d + 8, r = rng(n.seed + 3);
+  c.fillStyle = '#4b4238'; c.beginPath(); c.ellipse(x, y, 24, 7, 0, 0, 7); c.fill();
+  for (let i = 0; i < 5; i++) {
+    const cx = x - 16 + r() * 32, h = 12 + r() * 18, w = 4 + r() * 4, lean = (r() - .5) * .5;
+    c.save(); c.translate(cx, y); c.rotate(lean);
+    c.fillStyle = i % 2 ? '#9a5ce0' : '#c08cff'; c.beginPath(); c.moveTo(-w, 0); c.lineTo(-w * .8, -h); c.lineTo(0, -h - 6); c.lineTo(w * .8, -h); c.lineTo(w, 0); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.35)'; c.fillRect(-w * .5, -h, 1.5, h - 2);
+    c.restore();
+  }
+}
+function drawBackground(c) {
+  const top = -offY;
+  const g = c.createLinearGradient(0, top, 0, GROUND);
+  g.addColorStop(0, '#3e5f86'); g.addColorStop(.6, '#c9a978'); g.addColorStop(1, '#e8c890');
+  c.fillStyle = g; c.fillRect(0, top, viewW, GROUND - top + 1);
+  c.fillStyle = 'rgba(255,240,200,.85)'; c.beginPath(); c.arc(viewW * .7 - camX * .05, 110, 34, 0, 7); c.fill();
+  const layer = (pts, par, col, baseY) => {
+    c.fillStyle = col; c.beginPath(); c.moveTo(-10, baseY);
+    for (const [x, y] of pts) c.lineTo(x - camX * par, y);
+    c.lineTo(viewW + 10, baseY); c.closePath(); c.fill();
+  };
+  layer(scen.far, .2, '#8a7a92', GROUND);
+  layer(scen.near, .5, '#6f7d5a', GROUND);
+  // ground
+  const gg = c.createLinearGradient(0, GROUND - 10, 0, Math.max(VH, cv.height / S - offY));
+  gg.addColorStop(0, '#7f9a4f'); gg.addColorStop(.12, '#6c8640'); gg.addColorStop(.4, '#6a5a3e'); gg.addColorStop(1, '#4a3d2a');
+  c.fillStyle = gg; c.fillRect(0, GROUND - 10, viewW, Math.max(VH, cv.height / S - offY) - GROUND + 20);
+}
+
+function render() {
+  const c = ctx;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  if (!game) { menuBackdrop(); return; }
+  const sx = shake ? (Math.random() - .5) * shake : 0;
+  c.setTransform(S, 0, 0, S, sx * S, offY * S);
+  drawBackground(c);
+  c.save(); c.translate(-camX, 0);
+  // scenery on ground
+  for (const [x, dy, k] of scen.tufts) { if (x < camX - 20 || x > camX + viewW + 20) continue; const y = GROUND - 6 + dy; c.strokeStyle = k > .5 ? '#55702f' : '#8aa255'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x, y); c.lineTo(x - 2, y - 6); c.moveTo(x + 2, y); c.lineTo(x + 3, y - 7); c.stroke(); }
+  for (const [x, dy, r] of scen.rocks) { if (x < camX - 20 || x > camX + viewW + 20) continue; c.fillStyle = '#7d7466'; c.beginPath(); c.ellipse(x, GROUND - 6 + dy, r, r * .6, 0, 0, 7); c.fill(); }
+  // banner
+  if (teams[0].mode === 'hold') drawBanner(c, teams[0].banner, 0);
+  // monuments + nodes
+  for (const m of mons) drawMonument(c, m);
+  for (const n of nodes) drawNode(c, n);
+  // corpses
+  for (const u of corpses) {
+    const k = Math.min(1, u.deathT * 2.5);
+    drawFigure(c, u.type, u.team, u.x, GROUND + u.d, u.facing, 0, 0, { rot: -k * 1.45, alpha: Math.max(0, 1 - Math.max(0, u.deathT - 2.5) / 1.5) });
+  }
+  // units sorted by depth
+  const list = units.slice().sort((a, b) => a.d - b.d);
+  for (const u of list) {
+    if (u.x < camX - 80 || u.x > camX + viewW + 80) continue;
+    const y = GROUND + u.d;
+    c.fillStyle = 'rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(u.x, y + 1, u.type === 'golem' ? 26 : 10, 3, 0, 0, 7); c.fill();
+    if (u === ctrl) { c.strokeStyle = '#ffd860'; c.lineWidth = 2; c.beginPath(); c.ellipse(u.x, y + 1, u.type === 'golem' ? 32 : 15, 5, 0, 0, 7); c.stroke(); }
+    drawFigure(c, u.type, u.team, u.x, y, u.facing, u.anim, u.atkT, { moving: u.moving, carry: u.carry > 0, mining: u.mining, t: game.time + u.id, hit: u.hit > .06 });
+    const h = u.type === 'golem' ? 120 : 52;
+    if (u.hp < u.maxHp) bar(c, u.x - 12, y - h, 24, 3, u.hp / u.maxHp, u.team ? '#e05050' : '#5fb0ff');
+    if (u === ctrl) { c.fillStyle = '#ffd860'; c.beginPath(); c.moveTo(u.x, y - h - 4); c.lineTo(u.x - 6, y - h - 14); c.lineTo(u.x + 6, y - h - 14); c.fill(); }
+  }
+  // projectiles
+  for (const p of projs) {
+    if (p.kind === 'bolt') { c.strokeStyle = TEAMCOL[p.team]; c.lineWidth = 3; c.shadowColor = TEAMCOL[p.team]; c.shadowBlur = 10; c.beginPath(); c.moveTo(p.px ?? p.x, p.py ?? p.y); c.lineTo(p.x, p.y); c.stroke(); c.shadowBlur = 0; }
+    else { c.fillStyle = '#5c574e'; c.beginPath(); c.arc(p.x, p.y, 2.6, 0, 7); c.fill(); }
+  }
+  for (const p of parts) {
+    c.globalAlpha = Math.min(1, p.t * 2) * (p.fade ? .6 : 1);
+    c.fillStyle = p.c; c.beginPath(); c.arc(p.x, p.y, p.r, 0, 7); c.fill();
+  }
+  c.globalAlpha = 1;
+  c.font = '600 13px "Cinzel", serif'; c.textAlign = 'center';
+  for (const f of floats) { c.globalAlpha = Math.min(1, f.t * 2); c.fillStyle = f.c; c.fillText(f.txt, f.x, f.y); }
+  c.globalAlpha = 1;
+  c.restore();
+  drawMinimap();
+}
+function drawBanner(c, x, team) {
+  const y = GROUND + 20;
+  c.strokeStyle = '#3a2c1c'; c.lineWidth = 3; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - 90); c.stroke();
+  const w = Math.sin(performance.now() / 300) * 3;
+  c.fillStyle = TEAMCOL[team]; c.beginPath(); c.moveTo(x, y - 88); c.quadraticCurveTo(x + 18, y - 84 + w, x + 34, y - 86); c.lineTo(x + 30, y - 72); c.lineTo(x + 34, y - 58); c.quadraticCurveTo(x + 18, y - 60 + w, x, y - 62); c.fill();
+  c.fillStyle = '#e8d9a8'; c.beginPath(); c.arc(x + 15, y - 74, 4, 0, 7); c.fill();
+}
+function drawMinimap() {
+  const mm = document.getElementById('mm');
+  const cw = Math.round(mm.clientWidth * dpr), ch = Math.round(mm.clientHeight * dpr);
+  if (mm.width !== cw || mm.height !== ch) { mm.width = cw; mm.height = ch; }
+  const m = mm.getContext('2d'), w = mm.width, h = mm.height;
+  m.clearRect(0, 0, w, h);
+  const k = w / WORLD;
+  m.fillStyle = 'rgba(255,255,255,.12)'; m.fillRect(camX * k, 0, viewW * k, h);
+  m.strokeStyle = 'rgba(255,220,120,.6)'; m.lineWidth = dpr; m.strokeRect(camX * k + .5, .5, viewW * k - 1, h - 1);
+  for (const u of units) { m.fillStyle = TEAMCOL[u.team]; const s = u.type === 'golem' ? 4 : 2; m.fillRect(u.x * k - s / 2 * dpr, h * .3 + (u.d / DEPTH) * h * .5, s * dpr, s * dpr); }
+  for (const mo of mons) { m.fillStyle = mo.invuln ? '#600' : TEAMCOL[mo.team]; m.fillRect(mo.x * k - 2 * dpr, 2 * dpr, 4 * dpr, h - 4 * dpr); }
+}
+// title backdrop: a small skirmish frozen in time
+function menuBackdrop() {
+  const c = ctx;
+  layout();
+  c.setTransform(S, 0, 0, S, 0, offY * S);
+  const sv = camX; camX = 300 + Math.sin(performance.now() / 9000) * 200;
+  drawBackground(c);
+  camX = sv;
+}
+
+// ===================== HUD =====================
+const $ = id => document.getElementById(id);
+function on(id, fn) { const e = $(id); if (e) e.onclick = fn; }
+function setMode(m, quiet) {
+  const T = teams[0]; T.mode = m;
+  if (m === 'hold' && (T.banner < 300 || T.banner > WORLD - 300)) T.banner = 1000;
+  document.querySelectorAll('#cmds button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  if (!quiet) {
+    if (m === 'charge') { sfx('horn'); toast('Charge!'); }
+    if (m === 'hold') showTip('Holding at the banner. Click the field to move it.', 3);
+  }
+}
+document.querySelectorAll('#cmds button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+function buildTrainBar() {
+  const bar = $('train'); bar.innerHTML = '';
+  const list = unlockedTypes();
+  ORDER.forEach((t, i) => {
+    if (!list.includes(t)) return;
+    const b = document.createElement('button'); b.className = 'tb'; b.dataset.type = t;
+    b.title = UT[t].name + ': ' + UT[t].role;
+    b.innerHTML = `<span class="k">${i + 1}</span><span class="q"></span><canvas width="96" height="96"></canvas><span class="nm">${UT[t].name}</span><span class="cs">${UT[t].cost}</span><span class="pr"></span>`;
+    iconFor(b.querySelector('canvas'), t);
+    b.onclick = () => { if (!tryTrain(0, t)) why(t); };
+    bar.appendChild(b);
+  });
+}
+function why(t) {
+  const T = teams[0], st = UT[t];
+  if (T.ore < st.cost) toast('Not enough ore', '#c08cff');
+  else if (popUsed(0) + st.pop > T.popCap) toast('Army is full', '#e0a060');
+  else if (T.queue.length >= 6) toast('Training queue is full', '#e0a060');
+}
+function iconFor(cnv, t, team = 0) {
+  const c = cnv.getContext('2d'); c.clearRect(0, 0, cnv.width, cnv.height);
+  const k = cnv.width / 48;
+  c.setTransform(k * (t === 'golem' ? .36 : .82), 0, 0, k * (t === 'golem' ? .36 : .82), 0, 0);
+  const sc = t === 'golem' ? .36 : .82;
+  drawFigure(c, t, team, 48 / sc / 2 - (t === 'golem' ? 0 : 2), 48 / sc - 3, 1, 0, 0, { t: 0 });
+}
+let hudT = 0;
+function updateHud(dt) {
+  hudT -= dt; if (hudT > 0) return; hudT = .1;
+  const T = teams[0];
+  $('ore').textContent = Math.floor(T.ore);
+  $('pop').textContent = popUsed(0) + '/' + T.popCap;
+  $('hp0').style.width = (100 * mons[0].hp / mons[0].maxHp) + '%';
+  $('hp1').style.width = mons[1].invuln ? '0%' : (100 * mons[1].hp / mons[1].maxHp) + '%';
+  if (game.mode === 'survival') { const sv = game.sv; $('info').textContent = sv.active ? 'Wave ' + sv.wave : 'Wave ' + (sv.wave + 1) + ' in ' + Math.ceil(sv.t); }
+  else $('info').textContent = fmtTime(game.time);
+  const counts = {}; for (const q of T.queue) counts[q.type] = (counts[q.type] || 0) + 1;
+  document.querySelectorAll('.tb').forEach(b => {
+    const t = b.dataset.type;
+    b.querySelector('.q').textContent = counts[t] ? '×' + counts[t] : '';
+    b.classList.toggle('poor', T.ore < UT[t].cost);
+    const q0 = T.queue[0];
+    b.querySelector('.pr').style.width = q0 && q0.type === t ? (100 * q0.t / UT[t].time) + '%' : '0';
+  });
+}
+let toastTimer = 0;
+function toast(msg, col) { const e = $('toast'); e.textContent = msg; e.style.color = col || ''; e.style.opacity = 1; clearTimeout(toastTimer); toastTimer = setTimeout(() => e.style.opacity = 0, 2200); }
+let tipTimer = 0;
+function showTip(msg, secs) { const e = $('tip'); e.textContent = msg; e.classList.remove('hidden'); clearTimeout(tipTimer); if (secs !== 0) tipTimer = setTimeout(() => { if (!ctrl || secs) e.classList.add('hidden'); }, (secs || 7) * 1000); }
+function hideTip() { $('tip').classList.add('hidden'); }
+$('speedBtn').onclick = () => toggleSpeed();
+$('pauseBtn').onclick = () => togglePause();
+function toggleSpeed() { speed = speed === 1 ? 2 : speed === 2 ? 3 : 1; $('speedBtn').textContent = speed + '×'; }
+function togglePause() {
+  if (!game || game.over) return;
+  paused = !paused;
+  if (paused) {
+    showScreen(`<div class="card"><h2>Paused</h2><div class="menu"><button id="pR">Resume</button><button id="pH">How to play</button><button id="pQ">Leave battle</button></div></div>`);
+    on('pR', togglePause); on('pH', () => howTo(() => { paused = false; togglePause(); }));
+    on('pQ', () => { paused = false; game = null; $('hud').classList.add('hidden'); mainMenu(); });
+  } else $('screen').classList.add('hidden');
+}
+
+// ===================== input =====================
+const isTouch = matchMedia('(pointer:coarse)').matches;
+let mouseHeld = false, drag = null, mouseX = -1, mouseY = -1;
+function toWorld(cx, cy) { return [cx * dpr / S + camX, cy * dpr / S - offY]; }
+cv.addEventListener('pointerdown', e => {
+  if (!game || game.over || paused) return;
+  cv.setPointerCapture(e.pointerId);
+  if (ctrl && !isTouch) { mouseHeld = true; return; }
+  drag = { x: e.clientX, cam: camX, moved: false };
+});
+cv.addEventListener('pointermove', e => {
+  mouseX = e.clientX; mouseY = e.clientY;
+  if (drag) { const dx = e.clientX - drag.x; if (Math.abs(dx) > 8) drag.moved = true; if (drag.moved && !ctrl) camX = clampCam(drag.cam - dx * dpr / S); }
+});
+cv.addEventListener('pointerleave', () => { mouseX = -1; });
+addEventListener('pointerup', e => {
+  mouseHeld = false;
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.moved || !game || game.over) return;
+  const [wx, wy] = toWorld(e.clientX, e.clientY);
+  // pick one of your units
+  let best = null, bd = 1e9;
+  for (const u of units) {
+    if (u.team !== 0) continue;
+    const y = GROUND + u.d, h = u.type === 'golem' ? 115 : 50, w = u.type === 'golem' ? 30 : 16;
+    if (Math.abs(wx - u.x) < w && wy < y + 8 && wy > y - h) { const dd = Math.abs(wx - u.x) + Math.abs(wy - (y - h / 2)) * .3; if (dd < bd) { bd = dd; best = u; } }
+  }
+  if (best) { if (best === ctrl) release(); else takeControl(best); return; }
+  if (ctrl) return;
+  if (wy > GROUND - 60) { teams[0].banner = Math.max(300, Math.min(WORLD - 300, wx)); setMode('hold', teams[0].mode === 'hold'); }
+});
+$('mini').addEventListener('pointerdown', e => {
+  const r = $('mini').getBoundingClientRect();
+  const f = (e.clientX - r.left) / r.width;
+  if (ctrl) release();
+  camX = clampCam(f * WORLD - viewW / 2);
+  e.stopPropagation();
+});
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  keys[e.code] = true;
+  if (!game || game.over) return;
+  if (e.code === 'Escape') { if (ctrl) release(); else togglePause(); e.preventDefault(); return; }
+  if (e.code === 'KeyP') { togglePause(); return; }
+  if (paused) return;
+  if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+  const n = 'Digit1 Digit2 Digit3 Digit4 Digit5 Digit6'.split(' ').indexOf(e.code);
+  if (n >= 0) { const t = ORDER[n]; if (unlockedTypes().includes(t) && !tryTrain(0, t)) why(t); }
+  if (e.code === 'KeyZ') setMode('defend');
+  if (e.code === 'KeyX') setMode('hold');
+  if (e.code === 'KeyC') setMode('charge');
+  if (e.code === 'KeyF') toggleSpeed();
+  if (e.code === 'KeyV' || e.code === 'Tab') {
+    e.preventDefault();
+    // take the front-most soldier, or cycle
+    const army = units.filter(u => u.team === 0 && u.type !== 'worker').sort((a, b) => b.x - a.x);
+    if (!army.length) { toast('No soldiers yet'); return; }
+    const i = ctrl ? army.indexOf(ctrl) : -1;
+    takeControl(army[(i + 1) % army.length]);
+  }
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const holdBtn = (id, k) => { const b = $(id); b.addEventListener('pointerdown', e => { touch[k] = true; e.preventDefault(); }); for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => touch[k] = false); };
+holdBtn('tL', 'l'); holdBtn('tR', 'r'); holdBtn('tA', 'a');
+$('tX').onclick = () => release();
+function clampCam(x) { return Math.max(-40, Math.min(WORLD - viewW + 40, x)); }
+function updateCamera(dt) {
+  if (ctrl) { const want = ctrl.x - viewW * (ctrl.facing > 0 ? .4 : .6); camX += (clampCam(want) - camX) * Math.min(1, dt * 4); return; }
+  let v = 0;
+  if (keys.KeyA || keys.ArrowLeft) v -= 1;
+  if (keys.KeyD || keys.ArrowRight) v += 1;
+  if (!isTouch && mouseX >= 0 && !drag && mouseY > 100 && mouseY < innerHeight - 110) { if (mouseX < 24) v -= 1; else if (mouseX > innerWidth - 24) v += 1; }
+  camX = clampCam(camX + v * 900 * dt);
+}
+
+// ===================== menus =====================
+function showScreen(html) { const s = $('screen'); s.innerHTML = html; s.classList.remove('hidden'); }
+function mainMenu() {
+  game = null; $('hud').classList.add('hidden');
+  showScreen(`<div class="card"><h1>Stonefront</h1><p class="sub">Mine the ore. Raise an army. Topple their monument.</p>
+    <div class="menu"><button id="mC">Campaign</button><button id="mS">Survival</button><button id="mU">Upgrades <span class="stars">${starsFree()} ★</span></button><button id="mH">How to play</button></div>
+    <p class="sub" style="margin-top:18px!important;font-size:15px">${starsEarned()} stars earned · best survival: ${save.survivalBest} waves</p></div>`);
+  on('mC', levelSelect); on('mS', () => startGame('survival')); on('mU', () => upgradesScreen(mainMenu)); on('mH', () => howTo(mainMenu));
+}
+function levelSelect() {
+  const items = LEVELS.map((L, i) => {
+    const locked = i >= save.unlocked, s = save.stars[i] || 0;
+    return `<button data-l="${i}" ${locked ? 'disabled' : ''}><b>${i + 1}. ${L.name}</b><span class="stars">${locked ? '🔒' : starStr(s)}</span></button>`;
+  }).join('');
+  showScreen(`<div class="card"><h2>Campaign</h2><p>Ten battles across the valley. Each one gives up to three stars to spend on upgrades.</p><div class="lv">${items}</div><div class="row"><button id="bU">Upgrades (${starsFree()} ★)</button><button id="bB">Back</button></div></div>`);
+  document.querySelectorAll('.lv button').forEach(b => b.onclick = () => briefing(+b.dataset.l));
+  on('bB', mainMenu); on('bU', () => upgradesScreen(levelSelect));
+}
+function briefing(i) {
+  const L = LEVELS[i], prev = i > 0 ? LEVELS[i - 1].unlock : [];
+  const fresh = L.unlock.filter(t => !prev.includes(t));
+  const newHtml = fresh.length && i > 0 ? `<div class="units">${fresh.map(t => `<div><canvas width="88" height="88" data-u="${t}"></canvas><span><b>New: ${UT[t].name}</b><br>${UT[t].role}</span></div>`).join('')}</div>` : '';
+  showScreen(`<div class="card"><h2>${i + 1}. ${L.name}</h2><p>${L.story}</p>${newHtml}
+    <p style="color:var(--dim);font-size:16px">Stars: win · keep 60% of your monument · win within ${fmtTime(L.par)}</p>
+    <div class="row"><button id="bGo">Begin battle</button><button id="bBack">Back</button></div></div>`);
+  document.querySelectorAll('canvas[data-u]').forEach(c => iconFor(c, c.dataset.u));
+  on('bGo', () => startGame('campaign', i)); on('bBack', levelSelect);
+}
+function upgradesScreen(back) {
+  const rows = UPGRADES.map(u => {
+    const r = save.up[u.id], cost = r + 1, maxed = r >= u.max;
+    return `<div class="d"><b>${u.name}</b> <span class="pips">${'●'.repeat(r)}${'○'.repeat(u.max - r)}</span><small>${u.desc}</small></div>
+      <button data-u="${u.id}" ${maxed || starsFree() < cost ? 'disabled' : ''}>${maxed ? 'Max' : cost + ' ★'}</button>`;
+  }).join('');
+  showScreen(`<div class="card"><h2>Upgrades</h2><p>You have <b class="stars">${starsFree()} ★</b> to spend. Earn stars in campaign battles, and one for every 5 waves of your best survival run.</p>
+    <div class="up">${rows}</div><div class="row"><button id="bReset">Refund all</button><button id="bBack">Done</button></div></div>`);
+  document.querySelectorAll('.up button').forEach(b => b.onclick = () => {
+    const u = UPGRADES.find(x => x.id === b.dataset.u), cost = save.up[u.id] + 1;
+    if (starsFree() >= cost && save.up[u.id] < u.max) { save.up[u.id]++; save.spent += cost; writeSave(); upgradesScreen(back); }
+  });
+  on('bReset', () => { for (const u of UPGRADES) save.up[u.id] = 0; save.spent = 0; writeSave(); upgradesScreen(back); });
+  on('bBack', back);
+}
+function howTo(back) {
+  showScreen(`<div class="card"><h2>How to play</h2>
+    <p>Each side has a stone monument. Destroy theirs before they destroy yours. Monuments shoot bolts at nearby enemies.</p>
+    <div class="units">${ORDER.map((t, i) => `<div><canvas width="88" height="88" data-u="${t}"></canvas><span><b>${i + 1} · ${UT[t].name}</b> (${UT[t].cost} ore)<br>${UT[t].role}</span></div>`).join('')}</div>
+    <ul class="keys">
+      <li><b>1–6</b> or the buttons at the bottom: train units. Delvers mine ore by themselves.</li>
+      <li><b>Z Defend</b>: guard the mines. <b>X Hold</b>: stand at the banner (click the field to move it). <b>C Charge</b>: march on the enemy monument.</li>
+      <li><b>Click a soldier</b> (or press <b>V</b>, again to cycle) to fight as it: <b>A / D</b> move, <b>W / S</b> step, <b>Space</b> or click to strike for 50% extra damage. <b>Esc</b> lets go.</li>
+      <li>Scroll the field with <b>A / D</b>, the arrow keys, dragging, the screen edges, or the strip at the top.</li>
+      <li><b>F</b> game speed, <b>P</b> pause.</li>
+    </ul><div class="row"><button id="bBack">Back</button></div></div>`);
+  document.querySelectorAll('canvas[data-u]').forEach(c => iconFor(c, c.dataset.u));
+  on('bBack', back);
+}
+
+// ===================== main loop =====================
+let last = performance.now(), acc = 0;
+const STEP = 1 / 60;
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  if (game && !paused) {
+    sfxBudget = 6;
+    acc += dt * speed;
+    let n = 0;
+    while (acc >= STEP && n < 12) { update(STEP); acc -= STEP; n++; }
+    if (n >= 12) acc = 0;
+    updateCamera(dt);
+    updateHud(dt);
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+resize();
+mainMenu();
+requestAnimationFrame(frame);
+// test hook
+window.SF = { get game() { return game; }, get units() { return units; }, teams: () => teams, mons: () => mons, startGame, update, setMode, tryTrain, takeControl };
+</script>
+</body>
+</html>

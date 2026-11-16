@@ -30,6 +30,7 @@ End every reply that creates or changes a game with its GitHub Pages link, so it
 - Kingdom Rising II Training Yard (every class at top level, every weapon, practice dummies and a DPS meter; Y switches class or weapon): https://vparzanese88-maker.github.io/Kingdom-Rising/kingdom-rising-2/?mode=yard
 - Kingdom Rising II Play Online (title screen's Play Online button: Host a game gives an invite link to send; friends open it and land in the lobby; K in a match changes class or team): https://vparzanese88-maker.github.io/Kingdom-Rising/kingdom-rising-2/?mode=arena&host=1
 - Kingdom Rising II Kingdom Arena (hero team fights in the Ruins of Aldermere, a fantasy town map with three routes; set up from the title screen's Kingdom Arena button, runs at `?mode=arena`; online: one player presses Host online on the arena setup screen, friends type the code there and press Join; `&net=loop` tests two tabs on one computer): https://vparzanese88-maker.github.io/Kingdom-Rising/kingdom-rising-2/?mode=arena
+- Stonefront (stickman battle strategy: mine ore, train an army, topple the enemy monument; 10-battle campaign, survival, upgrades; lives in `stonefront/`, one file): https://vparzanese88-maker.github.io/Kingdom-Rising/stonefront/
 - Castle Wars (online: one player presses Multiplayer → Host Online Game and sends the invite link): https://vparzanese88-maker.github.io/Kingdom-Rising/castle-wars/
 
 When a new game is added, add its link to this list and to `arcade.html`.

@@ -13,6 +13,9 @@ const chasm = (span, o) => ({ t: 'chasm', len: 13.2 + span, rise: 0, ...o });
 const glide = (span, o) => ({ t: 'glide', len: 21.2 + span, rise: 0, depth: 12, ...o });
 const camp = o => ({ t: 'camp', len: 28, rise: 0, w: 8, ...o });
 const ramp = (len, rise, o) => ({ t: 'ramp', len, rise, w: 6, ...o });
+const logs = (n, o) => ({ t: 'logs', n, len: 12 + n * 6, rise: 1, ...o });
+const rockfall = (n, o) => ({ t: 'rockfall', n, len: 13 + n * 2.7, rise: 1, ...o });
+const bridge = (span, o) => { const n = Math.floor(span / 1.8); return { t: 'gap', n, g: 0.25, size: 1.55, style: 'bridge', len: 13.2 + n * 1.55 + (n + 1) * 0.25, rise: 0, depth: 11, ...o }; };
 const traps = (kind, n, o) => ({ t: 'traps', kind, n, len: 12 + n * 7, rise: 1, coins: 0, ...o });
 
 const hilda = () => M.biped({ shirt: 0x9aa0aa, pants: 0x5a5f6a, hair: 0xb5332a, helm: 0x9aa0aa, cape: 0x3b6fb5 });
@@ -48,7 +51,7 @@ export const HUB_STORY = {
 
 const L1 = [
   path(44, 2, { name: 'Greenfoot Trailhead', npcs: [{ name: H, model: hilda, a: 14, lines: say(H, 'Oh good, it is you. I am just catching my breath. For the third time.', 'The trail winds round and round the mountain. Fall off the edge and you land on the loop below. Ask me how I know.', 'SHIFT to sprint, SPACE to jump, SPACE again in the air to jump again. Off you go!') }], tip: 'WASD to move, mouse to look, SHIFT to sprint. SPACE jumps, and SPACE again in the air is a double jump.' }),
-  gap(3, 2.6, 3.2, 'stone', { tip: 'Mind the gap. If you fall in, the near wall is covered in vines: walk into them and hold W to climb out.' }),
+  gap(3, 2.4, 3.6, 'stone', { tip: 'A ravine. Hop across the rock pinnacles. If you fall in, the near wall is hung with vines: walk into them and hold W to climb out.' }),
   path(38, 3, { mobs: [['grunt', 0.65]], tip: 'A goblin! Jump on its head to bonk it. Goblins cannot hurt you, but they will happily shove you off the mountain.' }),
   climb(7, { tip: 'Vines. Walk into them and hold W to climb. SPACE springs you off the wall.' }),
   path(34, 2, { chest: 'whip', bark: [C, '(a horn blares from far above) OI! HERO! THE PRINCESS IS MINE. TURN ROUND, OR I WILL... ROLL THINGS AT YOU. BIG ROUND THINGS.'] }),
@@ -58,12 +61,13 @@ const L1 = [
   camp({ name: 'Mossy Rest', npcs: [shopKeeper(g => say(N, 'Nib\'s Travelling Emporium! I got up here by the goblin lift. No, you cannot use it. Union rules.'))] }),
   ramp(54, 9, { tip: 'Boulders! Step aside, or jump clean over them.', bark: [C, 'ROLL THE ROCKS! NO, NOT AT ME, GRUBB. DOWN. DOWNHILL. THE OTHER DOWN.'] }),
   crawl({ tip: 'Hold C to crouch and crawl through. Tap C while sprinting to slide.' }),
-  gap(4, 3.4, 2.4, 'pillar', { zig: 0.8, jewel: { a: 16, lat: 0 } }),
+  logs(4, { tip: 'Fallen trees. Jump the low ones; crawl (hold C) or slide under the high ones.' }),
+  gap(2, 3, 3.4, 'stone', { jewel: { a: 14, lat: 0 } }),
   path(42, 3, { mobs: [['boar', 0.5]], bark: [LETTER, 'Dear Hero. The food up here is turnips. Every meal. Please hurry. Yours impatiently, Princess Wrenna.'] }),
   traps('spikes', 3, { tip: 'Spikes pop up in a rhythm. Wait for them to drop, then go.' }),
   path(36, 3, { mobs: [['slinger', 0.7, -3]], rollers: 1 }),
   climb(10),
-  gap(3, 3, 3, 'moving'),
+  bridge(17, { tip: 'A goblin rope bridge. The dark planks are rotten: do not stand on them for long.' }),
   path(34, 2, { chest: 'boots', npcs: [{ name: H, model: hilda, a: 8, lines: say(H, 'You again! I took a shortcut. It was not shorter.', 'There is a chest just there. I could not open it. It is stuck. Or locked. Or I was pulling the hinge side.') }] }),
   stairs(4, 3.4, 2.6, 2.3, { tip: 'Tall steps. A triple jump makes short work of them.' }),
   camp({ name: 'Halfway Stump', npcs: [shopKeeper(g => say(N, 'Halfway! Technically. Vertically. Do not think about the spiral.'))] }),
@@ -72,7 +76,7 @@ const L1 = [
   swing(3, { jewel: { a: 22, lat: 6.5, up: 7, abs: 1, plat: 1 } }),
   path(40, 3, { mobs: [['boar', 0.4], ['slinger', 0.8, -3]], bark: [C, 'WHO LEFT ALL THESE VINES EVERYWHERE? THE HERO KEEPS CLIMBING THEM! ...WHAT DO YOU MEAN, "THEY GROW THERE"?'] }),
   traps('logs', 3, { tip: 'Swinging logs. Run through just after one passes.' }),
-  gap(4, 3.2, 2.2, 'crumble', { tip: 'These planks do not last. Keep moving.' }),
+  rockfall(4, { tip: 'A rockslide. Scramble over it: jump at a rock just below its top and you will pull yourself up.' }),
   climb(12),
   path(44, 3, { rollers: 2, mobs: [['grunt', 0.5], ['grunt', 0.75]], jewel: { a: 22, lat: 14, up: 3.5, abs: 1, plat: 1, steps: 2 } }),
   traps('darts', 4),
@@ -80,7 +84,8 @@ const L1 = [
   camp({ name: 'Last Green Ledge', npcs: [shopKeeper(g => say(N, 'Nearly at the top of the green bit. After this it gets rocky. Then it gets cold. I sell neither coats nor rocks.'))] }),
   crawl(),
   ramp(60, 10, { every: 2.8, mobs: [['boar', 0.25]] }),
-  gap(5, 3.6, 2.4, 'pillar'),
+  logs(5),
+  gap(3, 3, 3.2, 'stone'),
   path(30, 2, { mobs: [['brute', 0.5]], bark: [C, 'HE IS AT THE GATE ALREADY? WHO IS GUARDING THE GATE? ...KEVIN? WE HAVE A KEVIN?'] }),
   { t: 'goal', len: 30, rise: 0, w: 8 },
 ];
@@ -90,7 +95,7 @@ const L2 = [
   cliff(11, { tip: 'Look at a blue ring and RIGHT CLICK (or Q). The hook hauls you up.' }),
   path(34, 2, { mobs: [['grunt', 0.5], ['slinger', 0.8, -3]] }),
   chasm(16, { tip: 'Blue rings work across gaps too.' }),
-  gap(4, 3.6, 2.4, 'pillar', { mobs: [['bat', 0.5]], tip: 'Gloomwings swoop at anything in the air. A whip crack sorts them out.' }),
+  logs(5, { mobs: [['bat', 0.5]], tip: 'Gloomwings swoop at anything in the air. A whip crack sorts them out.' }),
   path(36, 3, { geysers: 2, tip: 'Geysers! Stand on one when it blows for a free ride up.', bark: [C, 'WELCOME TO MY GORGE, HERO. I DUG IT MYSELF. WITH A SPOON. IT TOOK AGES.'] }),
   climb(9),
   beam(2, 11),
@@ -100,7 +105,7 @@ const L2 = [
   path(38, 3, { mobs: [['troll', 0.55]], tip: 'A rock troll. When it lifts its club, get ready to jump the shockwave.' }),
   cliff(14),
   traps('mix', 4),
-  gap(4, 3.2, 3, 'moving', { mobs: [['bat', 0.4], ['bat', 0.7]] }),
+  bridge(22, { mobs: [['bat', 0.5]] }),
   path(34, 2, { chest: 'glider', bark: [LETTER, 'Dear Hero. The Chieftain sings in the bath. He only knows one song and it is about himself. I can see you from the window. You are very small. Climb faster. W.'] }),
   glide(40, { tip: 'Climb the tower, jump, then HOLD SPACE to glide. Steer into the white columns of rising air.' }),
   path(30, 2, { mobs: [['boar', 0.5], ['slinger', 0.3, -3]], rollers: 2 }),
@@ -109,7 +114,7 @@ const L2 = [
   camp({ name: 'Rumbling Shelf', npcs: [shopKeeper(g => say(N, 'I have a silk sail for that glider of yours. Spun by a very reasonable spider.')), { name: H, model: hilda, a: 20, lat: -5, lines: say(H, 'I rode the river down twice today. The second time on purpose. I am telling people it was on purpose.') }] }),
   chasm(20),
   ramp(60, 11, { every: 2.8, mobs: [['grunt', 0.35], ['grunt', 0.6]] }),
-  gap(4, 3.4, 2.2, 'crumble', { mobs: [['bat', 0.5]] }),
+  rockfall(5, { high: 3 }),
   path(40, 3, { geysers: 3, mobs: [['troll', 0.6]], jewel: { a: 20, lat: 13, up: 9, abs: 1, plat: 1 } }),
   beam(3, 9),
   cliff(16),
@@ -130,7 +135,7 @@ const L3 = [
   path(40, 2, { name: 'The Frostfang Stair', chest: 'cannon', npcs: [{ name: H, model: hilda, a: 30, lines: say(H, 'Brrr. This is as far as I have ever got. Mostly because of the ice.', 'Ice has no grip at all. Do not try to stop on it. Do not try to do anything on it.', 'There is a chest there with some kind of goblin contraption in it. Points at things. Goes BANG. You will love it.') }] }),
   cliff(22, { tip: 'The hand cannon reaches twice as far, and it will grab any surface: aim at the lip of a cliff and RIGHT CLICK.' }),
   path(38, 2, { ice: 1, mobs: [['ram', 0.6]], tip: 'Ice! You will slide. Start turning early.' }),
-  gap(4, 3.6, 2.6, 'pillar', { mobs: [['bat', 0.5]] }),
+  rockfall(5, { high: 3, mobs: [['bat', 0.5]] }),
   path(36, 3, { mobs: [['yeti', 0.75, -3]], tip: 'Yetis lob huge snowballs. Keep moving and they miss.', bark: [C, 'YOU AGAIN! DO YOU KNOW HOW MANY BOULDERS I HAVE GOT THROUGH? WE ARE DOWN TO THE SQUARE ONES.'] }),
   chasm(34, { tip: 'Too far to jump, too far for the old hook. Not too far for the cannon.' }),
   climb(12),
@@ -146,12 +151,12 @@ const L3 = [
   beam(2, 12, { tip: 'An icy log would be cruel. This one is merely long.' }),
   cliff(26),
   camp({ name: 'Windy Gap', npcs: [shopKeeper(g => say(N, 'Last stop before the fortress. Spend it now. You cannot take it with you. Well, you can. But spend it.')), { name: H, model: hilda, a: 20, lat: -5, lines: say(H, 'I MADE IT. Higher than ever! I used the goblin lift. Nib says I owe him forty coins and a formal apology to the union.') }] }),
-  gap(4, 3.4, 3, 'moving', { mobs: [['bat', 0.3], ['bat', 0.7]] }),
+  bridge(26, { mobs: [['bat', 0.5]] }),
   ramp(60, 11, { every: 2.6, mobs: [['brute', 0.3]] }),
   chasm(44, { jewel: { a: 28, lat: 0 } }),
   path(36, 2, { ice: 1, mobs: [['yeti', 0.5, -3], ['ram', 0.8]], geysers: 2 }),
   traps('logs', 5),
-  gap(4, 3.2, 2.2, 'crumble', { mobs: [['bat', 0.5]] }),
+  logs(6, { mobs: [['bat', 0.5]] }),
   glide(64, { bark: [C, 'STOP FLYING! IT IS NOT FAIR! GOBLINS DO NOT FLY! WE TRIED. ONCE. POOR GRUBB.'] }),
   climb(14),
   path(40, 3, { mobs: [['troll', 0.5], ['slinger', 0.85, -3]], rollers: 3, jewel: { a: 20, lat: 15, up: 5, abs: 1, plat: 1, steps: 2 } }),

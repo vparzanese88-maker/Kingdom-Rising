@@ -94,9 +94,35 @@ export function gate(c = 0xb5332a, w = 5) {
   const g = new THREE.Group(); g.add(box(0x8a8378, 1.1, 6, 1.1, -w, 3, 0), box(0x8a8378, 1.1, 6, 1.1, w, 3, 0), box(0x6b4a2a, w * 2 + 2.4, 0.8, 1.3, 0, 6.2, 0), box(c, 2.2, 2.6, 0.08, 0, 4.4, 0), cone(0x8a8378, 0.9, 1.2, -w, 6.6 + 0.6, 0), cone(0x8a8378, 0.9, 1.2, w, 6.6 + 0.6, 0));
   return g;
 }
-export function whipPost(h = 7.5) {
-  const g = new THREE.Group(); g.add(cyl(0x6b4a2a, 0.22, h + 1, -2.6, (h + 1) / 2 - 1, 0), box(0x6b4a2a, 3.2, 0.24, 0.24, -1.1, h + 0.3, 0));
-  const r = part(torG, 0xe2b33a, 0.3, 0.3, 0.3, 0, h, 0, { e: 0x6a4a00 }); g.add(r); const br = box(0x6b4a2a, 1.6, 0.14, 0.14, -2.0, h - 0.5, 0); br.rotation.z = 0.7; g.add(br); return g;
+// An old leaning tree with one long branch over the drop; the gold ring hangs from it on a vine.
+export function whipPost(h = 7.5, down = 1) {
+  const g = new THREE.Group(), tr = cyl(0x5a3c22, 0.34, h + 2.5 + down, -3.1, (h + 2.5 - down) / 2, 0); tr.rotation.z = -0.06; g.add(tr);
+  const br = cyl(0x5a3c22, 0.17, 4.2, -1.2, h + 1.25, 0); br.rotation.z = 1.42; g.add(br); const b2 = cyl(0x5a3c22, 0.1, 2, -2.4, h + 2.6, 0.5); b2.rotation.z = 0.8; b2.rotation.x = 0.5; g.add(b2);
+  g.add(cone(0x2f7a36, 1.7, 2.6, -3.2, h + 4.2, 0, { flat: 1 }), cone(0x3f9a44, 1.2, 2, -3.2, h + 5.6, 0, { flat: 1 }), ball(0x2f7a36, 0.8, -0.2, h + 1.7, 0, { flat: 1 }), cyl(0x3f8a3a, 0.035, 1.0, 0, h + 0.75, 0));
+  g.add(part(torG, 0xe2b33a, 0.3, 0.3, 0.3, 0, h, 0, { e: 0x6a4a00 })); return g;
+}
+// A fallen tree trunk lying along local X: length len, radius r, with a root plate and a few broken branches.
+export function fallenTree(len, r, leafy) {
+  const g = new THREE.Group(), t = cyl(0x6b4a2a, r, len, 0, 0, 0); t.rotation.z = Math.PI / 2; g.add(t);
+  const rp = cyl(0x4a3020, r * 2.1, 0.3, -len / 2, 0, 0, { flat: 1 }); rp.rotation.z = Math.PI / 2; g.add(rp);
+  for (let i = 0; i < 4; i++) { const b = cyl(0x5a3c22, r * 0.25, r * 2.6, -len / 2 + len * (0.25 + i * 0.2), r * 0.9, (i % 2 ? 1 : -1) * r * 0.5); b.rotation.x = (i % 2 ? 1 : -1) * 0.7; b.rotation.z = 0.3 * (i - 1.5); g.add(b); }
+  if (leafy) g.add(cone(leafy, r * 3, r * 6, len / 2 + r * 1.5, 0, 0, { flat: 1 })).children[g.children.length - 1].rotation.z = -Math.PI / 2;
+  return g;
+}
+function jitter(geo, seed, side, topCol, rockCol) {
+  const p = geo.attributes.position, col = new Float32Array(p.count * 3), c = new THREE.Color(), h = (x, y, z, k) => { const v = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719 + k * 4.17 + seed * 9.1) * 43758.5453; return v - Math.floor(v); };
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), top = y > 0.49, q = top ? 0.03 : side, bulge = top ? 1 : 1 + Math.sin((y + 0.5) * 2.6 + seed) * 0.05;
+    p.setXYZ(i, x * bulge * (1 + (h(x, y, z, 1) - 0.5) * q * 2), top ? y : y + (h(x, y, z, 3) - 0.5) * 0.02, z * bulge * (1 + (h(x, y, z, 2) - 0.5) * q * 2));
+    c.set(y > 0.42 ? topCol : rockCol).multiplyScalar(0.82 + h(x, y, z, 5) * 0.3); col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.computeVertexNormals(); return geo;
+}
+// Craggy stand-ins for a unit box and a unit pillar: flat mossy (or snowy) tops, rough rock sides.
+export function rockGeos(topCol, rockCol) {
+  const boxes = [], spires = [];
+  for (let k = 0; k < 4; k++) { boxes.push(jitter(new THREE.BoxGeometry(1, 1, 1, 5, 6, 5), k + 1, 0.07, topCol, rockCol)); spires.push(jitter(new THREE.CylinderGeometry(1.04, 1.3 + k * 0.08, 1, 9, 5), k + 11, 0.1, topCol, rockCol)); }
+  return { boxes, spires };
 }
 export function grappleRing() { const g = new THREE.Group(); const r = part(torG, 0x54d6ff, 0.55, 0.55, 0.55, 0, 0, 0, { e: 0x1a7fb0 }); g.add(r, ball(0xffffff, 0.16, 0, 0, 0, { e: 0x9adfff })); return g; }
 export function mushroom() { const g = new THREE.Group(); g.add(cyl(0xf0e6cf, 0.45, 0.7, 0, 0.35, 0)); const c = ball(0xd8362c, 1.3, 0, 0.7, 0); c.scale.y = 0.55; g.add(c); for (let i = 0; i < 6; i++) g.add(ball(0xffffff, 0.16, Math.cos(i * 1.05) * 0.8, 1.12, Math.sin(i * 1.05) * 0.8)); return g; }

@@ -28,7 +28,7 @@ export class Mob {
   hit(n, fx, fz) {
     if (this.dead) return; const G = this.W.G; this.hp -= n; this.stunT = 0.9; this.state = 'idle'; G.audio.sfx('bonk'); this.W.puff(this.x, this.y + this.k.h * 0.6, this.z, 0xffffff, 6);
     const dx = this.x - fx, dz = this.z - fz, l = Math.hypot(dx, dz) || 1; if (!this.k.thrower && !this.k.slam) this.move(dx / l * 1.2, dz / l * 1.2);
-    if (this.hp <= 0) { this.dead = true; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y + 0.8, this.z, 0x9be06a, 14); G.addCoins(this.k.coins); G.audio.sfx('poof'); G.stat('bonked'); }
+    if (this.hp <= 0) { this.dead = true; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y + 0.8, this.z, 0x9be06a, 14); this.W.dropCoins(this.x, this.y + 1, this.z, this.k.coins); G.audio.sfx('poof'); G.stat('bonked'); }
   }
   move(mx, mz) {
     const W = this.W, sp = W.spiral; let nx = this.x + mx, nz = this.z + mz;

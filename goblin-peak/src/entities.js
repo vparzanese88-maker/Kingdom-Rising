@@ -126,9 +126,11 @@ export class Boulder {
 
 // A goblin who shoves boulders: down the trail (sec given) or off the ledge above (free).
 export class Roller {
-  constructor(W, x, z, o) { this.W = W; this.x = x; this.z = z; this.o = o; this.cd = 1.5; this.mesh = M.goblin({ hat: 0x6a5acd }); this.y = W.T.hAt(x, z); this.mesh.position.set(x, this.y, z); W.scene.add(this.mesh); this.t = 0; this.pile = M.boulderMesh(0.9); this.pile.position.set(x + (o.px || 0), this.y + 0.9, z + (o.pz || 0)); W.scene.add(this.pile); }
+  constructor(W, x, z, o) { this.W = W; this.x = x; this.z = z; this.o = o; this.cd = 1.5; this.mesh = M.goblin({ hat: 0x6a5acd }); this.y = W.T.hAt(x, z); this.mesh.position.set(x, this.y, z); W.scene.add(this.mesh); this.t = 0; this.pile = M.boulderMesh(0.9); this.pile.position.set(x + (o.px || 0), this.y + 0.9, z + (o.pz || 0)); W.scene.add(this.pile); this.hittable = true; this.r = 0.5; this.h = 1.3; this.name = 'Boulder Goblin'; }
+  hit() { if (this.dead) return; const W = this.W, G = W.G; this.dead = true; W.scene.remove(this.mesh); W.puff(this.x, this.y + 0.8, this.z, 0x9be06a, 14); W.dropCoins(this.x, this.y + 1, this.z, 5); G.audio.sfx('bonk'); G.audio.sfx('poof'); G.stat('bonked'); G.ui.toast('No more boulders from that one.', 3); }
   update(dt) {
-    const W = this.W, p = W.G.player.pos, d = Math.hypot(p.x - this.x, p.z - this.z); this.t += dt; this.cd -= dt;
+    const W = this.W, P = W.G.player, p = P.pos, d = Math.hypot(p.x - this.x, p.z - this.z); this.t += dt; this.cd -= dt;
+    if (d < 0.95 && p.y - this.y > 0.6 && p.y - this.y < 2 && P.vel.y < -2) { this.hit(); P.vel.y = 10.5; P.jumps = 1; return; }
     face(this.mesh, p.x - this.x, p.z - this.z); M.animBiped(this.mesh, this.t * 3, 0, this.cd < 0.5 ? 'cheer' : 'idle'); this.mesh.position.y = this.y;
     if (d < (this.o.range || 60) && d > 6 && this.cd <= 0 && !W.G.locked) { this.cd = this.o.every || 3.4; W.G.audio.sfx('rumble', clamp(1 - d / 60, 0.15, 1)); W.add(new Boulder(W, this.o.make())); }
   }
@@ -136,7 +138,7 @@ export class Roller {
 
 export class Spikes {
   constructor(W, sec, a, ph) {
-    this.W = W; this.f = sec.at(a, 0, 0); this.w = (sec.w || 5) - 0.4; this.ph = ph; this.g = new THREE.Group(); const f = this.f;
+    this.W = W; this.f = sec.at(a, 0, 0); this.w = (sec.w || 5) + 1.2; this.ph = ph; this.g = new THREE.Group(); const f = this.f;
     this.g.add(M.box(0x4a4a52, this.w * 2, 0.08, 2.2, 0, 0.04, 0)); this.sp = new THREE.Group(); for (let i = 0; i < 12; i++) for (let j = 0; j < 3; j++) this.sp.add(M.cone(0xc8c8d0, 0.12, 0.9, -this.w + 0.5 + i * (this.w * 2 - 1) / 11, 0.45, -0.7 + j * 0.7)); this.g.add(this.sp);
     this.g.position.set(f.x, f.y, f.z); this.g.rotation.y = f.yaw; W.scene.add(this.g); this.up = 0;
   }

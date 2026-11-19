@@ -107,6 +107,7 @@ export class World {
   common(s) {
     const sp = this.spiral, G = this.G;
     if (s.ice) this.iceR.push([s.p0, s.p1]);
+    if (s.t === 'logs' || s.t === 'rockfall' || s.t === 'traps' || s.t === 'crawl') this.benchWall(s);
     if ((s.t === 'path' || s.t === 'ramp' || s.t === 'traps') && s.coins !== 0) this.coinLine(s, 2, s.len - 2, a => Math.sin(a * 0.16 + s.idx) * (s.w - 2.2), 1, Math.floor(s.len / 4.5));
     for (const m of s.mobs || []) { const f = s.at(m[1] * s.len, m[2] || 0, 0); this.add(new Mob(this, m[0], f.x, f.z, { range: m[3] || Math.min(16, s.len / 2) })); }
     if (s.chest) { const f = s.at(s.len / 2, -s.w + 2, 0); this.add(new Chest(this, f.x, f.z, s.chest, f.yaw + Math.PI / 2)); }
@@ -125,6 +126,15 @@ export class World {
       if (Math.abs(sp.groundY(phi) - sp.trailY(phi)) < 0.5) this.add(new Roller(this, f.x, f.z, { every: 4.2 + i, range: 75, px: f.nx * 1.4, pz: f.nz * 1.4, make: () => ({ x: e.x, z: e.z, vx: e.nx * 5, vz: e.nz * 5, r: 1.15 }) }));
     }
     for (let i = 0; i < (s.geysers || 0); i++) { const f = s.at(s.len * (i + 1) / (s.geysers + 1), Math.sin(i * 2.4) * (s.w - 2.5), 0); this.add(new Geyser(this, f.x, f.z, i * 1.3)); }
+  }
+  // Rock buttresses that fill the flat shelf on the uphill side of an obstacle, so it cannot simply be walked round.
+  benchWall(s) {
+    const sp = this.spiral, n = Math.max(1, Math.ceil((s.len - 2) / 10)), seg = (s.len - 2) / n;
+    for (let i = 0; i < n; i++) {
+      const a = 1 + seg * (i + 0.5), phi = s.p0 + a / s.len * (s.p1 - s.p0); let Wi = Math.min(sp.width(phi + TAU), 30), Wo = Math.min(s.w, 30); if (Wi + Wo > sp.P - 6) { if (Wi > Wo) Wi = sp.P - 6 - Wo; else Wo = sp.P - 6 - Wi; }
+      const avail = sp.P - Wi - Wo, cw = clamp(Math.abs(sp.groundY(phi + TAU) - sp.groundY(phi)) / 1.6, 1.5, avail), bench = avail - cw; if (bench < 0.8) continue;
+      const hw = (bench + 3) / 2, hgt = 7.5 + (i % 3) * 1.2; this.sb(s, a, -s.w - 0.2 - hw, hgt / 2 - 1, hw, hgt / 2 + 1, seg / 2 + 0.6, ROCK, { noGrab: true });
+    }
   }
   // Pit walls: the near wall is covered in vines so a fall into the pit costs only the climb back out.
   pit(s, o = {}) {

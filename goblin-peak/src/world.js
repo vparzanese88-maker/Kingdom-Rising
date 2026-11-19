@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { TAU, clamp, rng, vnoise } from './util.js';
 import { Spiral, Meadow } from './terrain.js';
 import * as M from './models.js';
-import { Bomb, Mob, Boulder, Roller, Spikes, Pendulum, DartTotem, Chest, Camp, NPC, Jewel, Gate, Geyser, Boss, Gong, RockRain, Wind, ZipLine, Ambush, Chase } from './entities.js';
+import { Pike, Bomb, Mob, Boulder, Roller, Spikes, Pendulum, DartTotem, Chest, Camp, NPC, Jewel, Gate, Geyser, Boss, Gong, RockRain, Wind, ZipLine, Ambush, Chase } from './entities.js';
 
 export const THEMES = {
   meadow: { sky: [0x3f8fe0, 0xcfe9f7], fog: [0xcfe9f7, 120, 520], ground: [0.38, 0.66, 0.27], ground2: [0.5, 0.72, 0.3], rock: [0.5, 0.46, 0.4], trail: [0.72, 0.6, 0.42], bed: [0.3, 0.42, 0.45], tree: [0x2f7a36, 0x3f9a44], trunk: 0x6b4a2a, sun: 0xfff2d8, music: 'town1', rockCol: 0x8a8378 },
@@ -47,6 +47,7 @@ export class World {
     this.scatter();
     const cg = new THREE.CylinderGeometry(0.36, 0.36, 0.07, 14); cg.rotateX(Math.PI / 2);
     this.coinMesh = new THREE.InstancedMesh(cg, new THREE.MeshLambertMaterial({ color: 0xffd23a, emissive: 0x7a5200 }), Math.max(1, this.coins.length)); this.coinMesh.frustumCulled = false; this.scene.add(this.coinMesh); this.dummy = new THREE.Object3D();
+    if (def.hub) { const hc = G.save.hubCoins = G.save.hubCoins || {}; this.coins.forEach((c, i) => { if (hc[i]) { c.got = true; this.dummy.position.set(0, -999, 0); this.dummy.updateMatrix(); this.coinMesh.setMatrixAt(i, this.dummy.matrix); } }); }
   }
   add(e) { this.ents.push(e); return e; }
   // A hanging curtain of vines and leaves for climbable rock faces.
@@ -236,12 +237,13 @@ export class World {
   }
   b_river(s) {
     const ac = s.ac = (s.cross - s.p0) / (s.p1 - s.p0) * s.len, st = s.style || 'stones';
-    if (st === 'stones') [-8, -5.4, -2.8, 0, 2.8, 5.4, 8].forEach((o, i) => { const f = s.at(ac + o, i % 2 ? 0.7 : -0.7, -2.4); this.addCyl(f.x, f.y, f.z, 0.95, 2.2, ROCK); this.coin(f.x, f.y + 3.4, f.z); });
-    else if (st === 'log') { this.sb(s, ac, 0, -0.3, 0.55, 0.3, 9.6, LOG, { beam: true }); this.coinLine(s, ac - 7, ac + 7, 0, 1.1); }
+    if (st === 'stones') [-7.6, -3.9, 0, 3.9, 7.6].forEach((o, i) => { const f = s.at(ac + o, i % 2 ? 1.7 : -1.7, -2.4), sink = i % 2 === 1; this.addCyl(f.x, f.y, f.z, sink ? 0.8 : 0.95, 2.2, ROCK, sink ? { crumble: true, noGrab: true } : {}); this.coin(f.x, f.y + 3.4, f.z); });
+    else if (st === 'log') { this.sb(s, ac - 5.6, 0.8, -0.3, 0.42, 0.3, 4.2, LOG, { beam: true }); this.sb(s, ac + 5.6, -0.8, -0.3, 0.42, 0.3, 4.2, LOG, { beam: true }); this.coinLine(s, ac - 7, ac + 7, 0, 1.1); }
     else if (st === 'swing') for (const o of [-4.6, 4.6]) { this.anchors.push(Object.assign(s.at(ac + o, 0, 8.45), { kind: 'whip' })); this.deco(s, ac + o, 0, 0, M.whipPost(7.5, 3)); this.slimb(s, ac + o, -3.6, 8.15, ac + o, 1.9, 8.75); this.coinLine(s, ac + o - 3, ac + o + 3, 0, q => 0.8 - Math.sin(q * Math.PI) * 1.2, 4); }
     else if (st === 'raft') { const f = s.at(ac, 0, -1.1); this.addBox(f.x, f.y, f.z, 1.6, 0.25, 1.6, f.th, PLANK, { mover: (t, b) => { const q = Math.sin(t * 0.7) * 7.6; b.x = f.x + f.tx * q; b.z = f.z + f.tz * q; } }); }
     else if (st === 'hook') { for (const l of [-1.5, 1.5]) { this.anchor(s, ac + 8.6, l, 3.3, 'grapple'); this.deco(s, ac + 10.4, l, 1.6, M.cyl(0x5a3c22, 0.2, 3.2, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 3, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, ac + 9.1, l, 3.3, br); this.slimb(s, ac + 7.6, l, 3.3, ac + 10.6, l, 3.3); this.slimb(s, ac + 10.4, l, 0, ac + 10.4, l, 3.2); } }
     else if (st === 'planks') [-7.8, -5.2, -2.6, 0, 2.6, 5.2, 7.8].forEach(o => this.sb(s, ac + o, 0, -0.2, 1.2, 0.18, 1.2, PLANK, { crumble: true, noGrab: true }));
+    this.add(new Pike(this, s, ac));
     const sg = M.sign(); this.deco(s, ac - 11, -s.w + 1, 0, sg, Math.PI / 2); sg.position.y = this.T.hAt(sg.position.x, sg.position.z);
   }
   b_camp(s) {
@@ -283,7 +285,7 @@ export class World {
       const L = lv[i], S = G.save, lockd = i > 0 && !S.done[lv[i - 1].id];
       for (let k = 0; k < 10; k++) { const sd = k % 2 ? 1 : -1, along = 7 + (k >> 1) * 2.2 + this.rnd() * 2, back = this.rnd() * 9 - 2, px = x + Math.cos(yaw) * sd * along - Math.sin(yaw) * -back * (yaw === 0 ? 0 : 1) + (yaw === 0 ? 0 : 0), pz = z + (yaw === 0 ? -back : sd * along), qx = yaw === 0 ? x + sd * along : x + Math.sign(x) * back, sc = 0.8 + this.rnd() * 0.9;
         const m = i === 0 ? M.cone(0x2a6e33, 2 * sc, 6 * sc, 0, 3 * sc, 0, { flat: 1 }) : i === 1 ? M.cone(0xb5683f, 1.6 * sc, 5 * sc, 0, 2.5 * sc, 0, { flat: 1 }) : k % 3 ? M.cone(0xbfe6ff, 1.1 * sc, 4.5 * sc, 0, 2.2 * sc, 0, { flat: 1, e: 0x224455 }) : M.ball(0xf4f8ff, 2.4 * sc, 0, 0.3, 0, { flat: 1 }); const g2 = new THREE.Group(); g2.add(m); put(g2, qx, pz); }
-      this.add(new Gate(this, x, z, yaw, { title: `${i + 1}. ${L.name}`, sub: S.done[L.id] ? 'CLEARED  \u2714  walk through' : 'OPEN: walk through', lockSub: i > 0 && S.done[lv[i - 1].id] ? `GOBLIN TOLL: ${L.toll} coins` : `LOCKED: clear trail ${i} first`, col: L.col, go: g => g.loadLevel(L.id), pay: g => { if (i === 0 || !g.save.done[lv[i - 1].id] || g.save.coins < L.toll) return false; g.save.coins -= L.toll; g.save.toll[L.id] = 1; g.audio.sfx('buy'); g.saveNow(); return true; }, locked: g => i > 0 && (!g.save.done[lv[i - 1].id] || !g.save.toll[L.id]), lockName: g => 'Gate', lockText: g => !g.save.done[lv[Math.max(0, i - 1)].id] ? `That trail starts where ${lv[Math.max(0, i - 1)].name} ends. Climb that first.` : `The goblins on this gate want a toll of ${L.toll} coins. You have ${g.save.coins}. Coins come from the trails: goblins, jewels, and everything lying about.` }));
+      this.add(new Gate(this, x, z, yaw, { title: `${i + 1}. ${L.name}`, sub: S.done[L.id] ? 'CLEARED  \u2714  walk through' : 'OPEN: walk through', lockSub: `LOCKED: clear trail ${i} first`, col: L.col, go: g => g.loadLevel(L.id), locked: g => i > 0 && !g.save.done[lv[i - 1].id], lockName: g => 'Gate', lockText: g => `That trail starts where ${lv[Math.max(0, i - 1)].name} ends. Climb that first.` }));
       const sx = x - Math.sin(yaw) * 0 + Math.cos(yaw) * 6.5, sz = z + Math.sin(yaw) * 6.5 * 0 + (yaw === 0 ? 0 : 0); const sg = put(M.sign(), x + (yaw === 0 ? 6.5 : 0), z + (yaw === 0 ? 0 : 6.5), yaw + Math.PI);
       this.add(new NPC(this, sg.position.x, sg.position.z, { name: 'the sign', model: new THREE.Group(), prompt: 'Read the sign', lines: g => [{ who: 'Trail sign', text: `${L.name}. ${L.blurb}` }] }));
     });
@@ -382,7 +384,7 @@ export class World {
     const mag = 1.3 + (G.save.upg.magnet || 0) * 2.2, d = this.dummy; let got = 0;
     for (let i = 0; i < this.coins.length; i++) {
       const c = this.coins[i]; if (c.got) continue; const dx = p.x - c.x, dy = p.y + 0.9 - c.y, dz = p.z - c.z;
-      if (Math.abs(dx) < 60 && Math.abs(dz) < 60) { if (dx * dx + dy * dy + dz * dz < mag * mag) { c.got = true; got++; d.position.set(0, -999, 0); d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); continue; } d.position.set(c.x, c.y + Math.sin(t * 3 + i) * 0.12, c.z); d.rotation.y = t * 3 + i; d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); }
+      if (Math.abs(dx) < 60 && Math.abs(dz) < 60) { if (dx * dx + dy * dy + dz * dz < mag * mag) { c.got = true; got++; if (this.def.hub) G.save.hubCoins[i] = 1; d.position.set(0, -999, 0); d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); continue; } d.position.set(c.x, c.y + Math.sin(t * 3 + i) * 0.12, c.z); d.rotation.y = t * 3 + i; d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); }
       else if (!c.init) { c.init = true; d.position.set(c.x, c.y, c.z); d.rotation.y = i; d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); }
     }
     this.coinMesh.instanceMatrix.needsUpdate = true;

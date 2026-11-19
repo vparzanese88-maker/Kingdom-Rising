@@ -103,7 +103,7 @@ export class Player {
       else { const tx = -c.nz, tz = c.nx, side = (cy * tx - sy * tz) * s, ft = -sy * tx - cy * tz, cs = 1 + (S.upg.grip || 0) * 0.35, along = (side * 2.8 + f * ft * 3.4) * cs; v.set(tx * along - c.nx * 1.2, f * (1 - Math.abs(ft)) * 3.8 * cs, tz * along - c.nz * 1.2); if (wasGrounded && f < 0) { this.climb = null; this.climbCd = 0.3; } }
     } else if (this.swim) {
       T.current(p.x, p.z, cur); const k = Math.min(1, 5 * dt);
-      v.x += (cur.x + wx * 3.3 - v.x) * k; v.z += (cur.z + wz * 3.3 - v.z) * k; if (Math.hypot(v.x, v.z) < 1.2 && Math.hypot(cur.x, cur.z) > 2) { v.x -= cur.z * 0.5; v.z += cur.x * 0.5; } v.y = clamp((wY - 0.6 - p.y) * 6, -6, 4); this.jumps = 0; this.glide = false; this.crouch = false; this.slideT = 0;
+      v.x += (cur.x + wx * 2.7 - v.x) * k; v.z += (cur.z + wz * 2.7 - v.z) * k; if (Math.hypot(v.x, v.z) < 1.2 && Math.hypot(cur.x, cur.z) > 2) { v.x -= cur.z * 0.5; v.z += cur.x * 0.5; } v.y = clamp((wY - 0.6 - p.y) * 6, -6, 4); this.jumps = 0; this.glide = false; this.crouch = false; this.slideT = 0;
     } else {
       // crouch, crawl and slide
       if (crouchHeld && !this.crouch) { this.crouch = true; if (this.grounded && Math.hypot(v.x, v.z) > 6.2) { this.slideT = 1.0; const b = 1.18; v.x *= b; v.z *= b; G.audio.sfx('slide'); } }

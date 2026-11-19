@@ -104,7 +104,7 @@ export class Spiral {
     const rv = this.river, r = Math.hypot(x, z); out.x = 0; out.z = 0;
     if (!rv || r >= rv.lakeR - 12) return out;
     const c = Math.cos(rv.th), s = Math.sin(rv.th), drop = this.hAt(c * r, s * r) - this.hAt(c * (r + 2), s * (r + 2));
-    const sp = 4.6 + clamp(drop * 4, 0, 11); out.x = c * sp; out.z = s * sp; return out;
+    const sp = 6.4 + clamp(drop * 4, 0, 11); out.x = c * sp; out.z = s * sp; return out;
   }
   mesh(theme) {
     const n = this.n, st = this.step, g = this.grid, cnt = (n + 1) * (n + 1);

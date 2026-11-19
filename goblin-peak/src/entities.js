@@ -345,3 +345,15 @@ export class Chase {
     if (this.b && !this.b.dead && (G.frame % 40) === 0) { G.audio.sfx('rumble', 0.6); G.player.shake = Math.max(G.player.shake, 0.12); }
   }
 }
+
+// River pike: big fish that leap across the crossing where you are about to step and knock you into the current.
+export class Pike {
+  constructor(W, sec, ac) { this.W = W; this.s = sec; this.ac = ac; this.cd = 1.5; this.j = null; this.mesh = new THREE.Group(); this.mesh.add(M.box(0x4a7a8a, 0.45, 0.5, 1.5, 0, 0, 0), M.cone(0x4a7a8a, 0.3, 0.6, 0, 0, -1.0), M.box(0x2f5a6a, 0.08, 0.55, 0.5, 0, 0, 0.95), M.box(0xf4f0d8, 0.3, 0.12, 0.3, 0, -0.18, -0.8)); this.mesh.children[1].rotation.x = -Math.PI / 2; this.mesh.visible = false; W.scene.add(this.mesh); }
+  update(dt) {
+    const W = this.W, G = W.G, P = G.player, p = P.pos, s = this.s, rt = W.route; if (!rt) return; const a = (rt.phi - s.p0) / (s.p1 - s.p0) * s.len, near = Math.abs(a - this.ac) < 10.5 && Math.abs(rt.lat) < s.w + 2 && !P.swim; this.cd -= dt;
+    if (!this.j && near && this.cd <= 0 && !G.locked) { const lead = Math.hypot(P.vel.x, P.vel.z) > 1 ? 2.2 : 0, dir = (P.vel.x * -Math.sin(rt.phi) + P.vel.z * Math.cos(rt.phi)) >= 0 ? 1 : -1, ja = Math.max(this.ac - 8, Math.min(this.ac + 8, a + dir * lead)); this.j = { a: ja, t: -0.65 }; const f = s.at(ja, -3.5, -1); W.puff(f.x, f.y, f.z, 0x9fd8ff, 8); G.audio.sfx('splash', 0.5); }
+    if (this.j) { const j = this.j; j.t += dt; if (j.t < 0) return; const q = j.t / 0.75, f = s.at(j.a, -3.5 + q * 7, -1 + Math.sin(q * Math.PI) * 3.1); this.mesh.visible = true; this.mesh.position.set(f.x, f.y, f.z); this.mesh.rotation.set(0, 0, 0); this.mesh.rotation.y = Math.atan2(-f.nx, -f.nz); this.mesh.rotation.x = (0.5 - q) * 1.8;
+      if (Math.hypot(p.x - f.x, p.y + 0.9 - f.y, p.z - f.z) < 1.25 && P.inv <= 0) { if (P.knock(f.nx, f.nz, 9, 4)) { G.stat('knocked'); G.ui.toast('A river pike! Time your steps between its leaps.', 3); } }
+      if (q >= 1) { this.j = null; this.mesh.visible = false; this.cd = 1.3 + Math.random() * 1.2; W.puff(f.x, f.y, f.z, 0x9fd8ff, 6); } }
+  }
+}

@@ -337,9 +337,9 @@ export class Ambush {
 }
 // The Chieftain's favourite: one enormous boulder set rolling behind you on a downhill stretch.
 export class Chase {
-  constructor(W, sec) { this.W = W; this.s = sec; this.b = null; this.cool = 0; const f = sec.at(1.5, -3, 0); this.gob = M.goblin({ hat: 0xb5332a }); this.gob.position.set(f.x, W.T.hAt(f.x, f.z), f.z); W.scene.add(this.gob); this.t = 0; }
+  constructor(W, sec) { this.W = W; this.s = sec; this.b = null; this.cool = 0; const f = sec.at(1.5, -3, 0); this.gob = M.goblin({ hat: 0xb5332a }); this.gy = W.T.hAt(f.x, f.z); this.gob.position.set(f.x, this.gy, f.z); W.scene.add(this.gob); this.t = 0; }
   update(dt) {
-    const W = this.W, G = W.G, s = this.s, rt = W.route; this.t += dt; this.cool -= dt; M.animBiped(this.gob, this.t * 4, 0, this.b && !this.b.dead ? 'cheer' : 'idle'); if (!rt) return;
+    const W = this.W, G = W.G, s = this.s, rt = W.route; this.t += dt; this.cool -= dt; M.animBiped(this.gob, this.t * 4, 0, this.b && !this.b.dead ? 'cheer' : 'idle'); this.gob.position.y = this.gy; if (!rt) return;
     const a = (rt.phi - s.p0) / (s.p1 - s.p0) * s.len;
     if ((!this.b || this.b.dead) && this.cool <= 0 && a > 9 && a < s.len - 14 && Math.abs(rt.lat) < s.w + 2 && !G.locked) { this.b = W.add(new Boulder(W, { sec: s, a: 0.5, dir: 1, sp: 8, r: 2.5, end: s.len - 2, wob: 0.5, col: 0x6f6a62 })); this.cool = 22; G.ui.bark('Chieftain Grizzlegut', 'RELEASE THE BIG ONE!'); G.ui.toast('RUN! Sprint (SHIFT) and jump the logs!', 4); }
     if (this.b && !this.b.dead && (G.frame % 40) === 0) { G.audio.sfx('rumble', 0.6); G.player.shake = Math.max(G.player.shake, 0.12); }

@@ -230,14 +230,15 @@ export class Player {
     if (this.third) {
       m.position.copy(p); if (sp > 0.6 && !this.climb) this.faceYaw = Math.atan2(-this.vel.x, -this.vel.z); else if (this.climb) this.faceYaw = Math.atan2(this.climb.nx, this.climb.nz); else if (G.locked !== true) this.faceYaw = this.yaw;
       let dy = this.faceYaw - m.rotation.y; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; m.rotation.y += dy * Math.min(1, 14 * dt);
-      const mode = this.swim ? 'swim' : this.climb ? 'climb' : this.swing || this.zip ? 'swing' : this.glide ? 'glide' : this.crouch ? 'crouch' : !this.grounded ? 'air' : sp > 0.6 ? 'run' : 'idle';
+      const mode = this.swim ? 'swim' : this.climb ? 'climb' : this.swing || this.zip ? 'swing' : this.glide ? 'glide' : this.slideT > 0 ? 'slide' : this.crouch ? 'crouch' : this.airT > 0.2 ? 'air' : sp > 0.6 ? 'run' : 'idle';
       this.animT += dt * (mode === 'climb' ? Math.abs(this.vel.y) * 2.2 + Math.abs(this.vel.x) : mode === 'run' || mode === 'crouch' ? sp * 1.6 : 6);
-      const body = m; animBiped(body, this.animT, sp, mode); m.position.y = p.y + (mode === 'crouch' ? -0.0 : 0); this.gl.visible = this.glide;
+      animBiped(m, this.animT, sp, mode); m.position.y += p.y; const bk = m.userData.back || 0; m.position.x += Math.sin(m.rotation.y) * bk; m.position.z += Math.cos(m.rotation.y) * bk; this.gl.visible = this.glide;
       m.visible = !(this.inv > 0 && this.stun <= 0 && (G.time * 12 | 0) % 2 === 0 && this.inv < 1.3);
     } else {
-      const h = this.hands.userData, sw = this.whipAnim > 0 ? Math.sin((0.3 - this.whipAnim) / 0.3 * Math.PI) : 0, bob = this.grounded ? Math.sin(G.time * (sp > 6 ? 13 : 9)) * Math.min(1, sp / 5) * 0.012 : 0;
-      h.r.rotation.x = 0.2 - sw * 1.3 + (this.swing ? -0.9 : 0) + (this.climb ? -0.7 + Math.sin(G.time * 7) * 0.2 * Math.sign(this.vel.y) : 0); h.r.position.y = -0.3 + bob + (this.glide ? 0.2 : 0);
-      h.l.rotation.x = 0.2 + (this.zip ? -0.5 : 0) + (this.climb ? -0.7 - Math.sin(G.time * 7) * 0.2 * Math.sign(this.vel.y) : 0); h.l.position.y = -0.3 - bob + (this.glide ? 0.2 : 0);
+      const h = this.hands.userData, sw = this.whipAnim > 0 ? Math.sin((0.3 - this.whipAnim) / 0.3 * Math.PI) : 0, bobT = this.airT < 0.2 ? 1 : 0, bob = (this.bobK = (this.bobK || 0) + (bobT - (this.bobK || 0)) * 0.15) * Math.sin(G.time * (sp > 6 ? 12 : 8.5)) * Math.min(1, sp / 5) * 0.014;
+      const run = (this.bobK || 0) * Math.min(1, sp / 8.4), pump = Math.sin(G.time * (sp > 6 ? 12 : 8.5)) * run, air = this.airT > 0.2 && !this.climb && !this.swing && !this.zip ? 1 : 0, ck = Math.sin(G.time * 7) * 0.2 * Math.sign(this.vel.y), E = (o, a, v, k) => { o[a] += (v - o[a]) * (k || 0.22); };
+      E(h.r.rotation, 'x', 0.2 - sw * 1.3 + (this.swing ? -0.9 : 0) + (this.climb ? -0.7 + ck : 0) + pump * 0.22 - air * 0.25, sw > 0 ? 0.6 : 0.22); E(h.r.position, 'y', -0.3 + bob + (this.glide ? 0.2 : 0) + air * 0.03); E(h.r.position, 'z', -0.55 - pump * 0.05);
+      E(h.l.rotation, 'x', 0.2 + (this.zip ? -0.5 : 0) + (this.climb ? -0.7 - ck : 0) - pump * 0.22 - air * 0.25); E(h.l.position, 'y', -0.3 - bob + (this.glide ? 0.2 : 0) + air * 0.03); E(h.l.position, 'z', -0.55 + pump * 0.05);
       h.whip.visible = !!G.save.items.whip; h.coil.visible = !this.swing && this.whipAnim <= 0; h.hook.visible = !!G.save.items.hook && !G.save.items.cannon; h.cannon.visible = !!G.save.items.cannon;
     }
     // the whip lash (a tapering leather thong that arcs out and cracks) or the hook rope

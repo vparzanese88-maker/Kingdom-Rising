@@ -42,20 +42,23 @@ export function biped(o = {}) {
   g.userData.h = 1.8 * (o.scale || 1);
   return g;
 }
-// mode: 'run' | 'idle' | 'air' | 'climb' | 'glide' | 'crouch' | 'swing' | 'swim' | 'cheer'
+// mode: 'run' | 'idle' | 'air' | 'climb' | 'glide' | 'crouch' (on all fours) | 'slide' | 'swing' | 'swim' | 'cheer'
+// Limbs ease toward each pose, so a one-frame change of mode cannot make them snap about.
 export function animBiped(g, t, speed, mode) {
   const P = g.userData.parts, sw = Math.sin(t) * Math.min(1, speed / 5) * 0.9;
-  let aL = sw, aR = -sw, lL = -sw, lR = sw, az = 0, lean = 0;
-  if (mode === 'air') { aL = -2.4; aR = -2.4; lL = 0.5; lR = -0.3; az = 0.4; }
+  let aL = sw, aR = -sw, lL = -sw, lR = sw, az = 0, lean = 0, head = 0, y = 0;
+  if (mode === 'air') { aL = -2.2; aR = -2.2; lL = 0.5; lR = -0.3; az = 0.45; }
   else if (mode === 'climb') { aL = -2.6 + Math.sin(t) * 0.5; aR = -2.6 - Math.sin(t) * 0.5; lL = -0.6 - Math.sin(t) * 0.4; lR = -0.6 + Math.sin(t) * 0.4; }
-  else if (mode === 'glide') { aL = -3.0; aR = -3.0; lL = 0.9; lR = 0.9; az = 0.5; lean = 1.0; }
+  else if (mode === 'glide') { aL = -3.0; aR = -3.0; lL = 0.9; lR = 0.9; az = 0.5; lean = 1.0; head = 0.7; }
   else if (mode === 'swing') { aL = -3.0; aR = -3.0; lL = 0.4; lR = 0.2; }
-  else if (mode === 'swim') { aL = -2.8 + Math.sin(t) * 0.8; aR = -2.8 - Math.sin(t) * 0.8; lL = 0.9 + Math.sin(t * 2) * 0.3; lR = 0.9 - Math.sin(t * 2) * 0.3; lean = 1.2; }
-  else if (mode === 'crouch') { lL = -1.2 + sw * 0.4; lR = -1.2 - sw * 0.4; lean = 0.7; aL = -0.5 + sw; aR = -0.5 - sw; }
+  else if (mode === 'swim') { aL = -2.8 + Math.sin(t) * 0.8; aR = -2.8 - Math.sin(t) * 0.8; lL = 0.9 + Math.sin(t * 2) * 0.3; lR = 0.9 - Math.sin(t * 2) * 0.3; lean = 1.2; head = 0.8; }
+  else if (mode === 'crouch') { const c = Math.sin(t) * Math.min(1, speed / 2) * 0.45; lean = 1.25; y = 0.33; head = 1.0; aL = -1.25 + c; aR = -1.25 - c; lL = -0.95 - c; lR = -0.95 + c; }
+  else if (mode === 'slide') { lean = -0.95; y = -0.05; aL = 0.9; aR = 0.9; az = 0.3; lL = -1.25; lR = -0.9; head = -0.5; }
   else if (mode === 'cheer') { aL = -2.8 + Math.sin(t * 2) * 0.3; aR = -2.8 - Math.sin(t * 2) * 0.3; }
   else if (mode === 'idle') { aL = Math.sin(t * 0.4) * 0.05; aR = -aL; lL = lR = 0; }
-  P.armL.rotation.x = aL; P.armR.rotation.x = aR; P.armL.rotation.z = -az; P.armR.rotation.z = az; P.legL.rotation.x = lL; P.legR.rotation.x = lR;
-  g.rotation.x = -lean; g.position.y = mode === 'crouch' ? -0.35 : 0;
+  const k = 0.3, e = (o, a, v) => { o[a] += (v - o[a]) * k; };
+  e(P.armL.rotation, 'x', aL); e(P.armR.rotation, 'x', aR); e(P.armL.rotation, 'z', -az); e(P.armR.rotation, 'z', az); e(P.legL.rotation, 'x', lL); e(P.legR.rotation, 'x', lR); e(P.head.rotation, 'x', head); e(g.rotation, 'x', -lean);
+  const u = g.userData; u.py = (u.py || 0) + (y - (u.py || 0)) * k; u.back = (u.back || 0) + ((mode === 'crouch' ? 0.6 : mode === 'slide' ? -0.3 : 0) - (u.back || 0)) * k; g.position.y = u.py;
 }
 
 export const hero = () => biped({ skin: 0xe9b98c, shirt: 0x2f8f4e, sleeve: 0xf0e6cf, pants: 0x6a4d2e, hair: 0x6b3d1c, belt: 0x3a2a1c, cape: 0xb5332a, hat: 0x2f8f4e });

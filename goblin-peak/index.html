@@ -82,21 +82,38 @@ button{font:inherit;cursor:pointer}
 .small{font-size:13px;opacity:.75}
 #fade{position:fixed;inset:0;background:#fff4d6;opacity:1;pointer-events:none;transition:opacity .5s;z-index:9}
 @media (max-width:760px){#map .card{flex-direction:column}#tools{display:none}}
+/* keep the middle of the screen clear: messages sit in a small stack at the bottom */
+#msgs{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;width:min(560px,70vw)}
+#msgs>#toast,#msgs>#bark,#msgs>#state{position:static;transform:none;max-width:100%;font-size:14px;padding:5px 12px;border-width:2px;border-radius:10px}
+#msgs>#toast{background:rgba(255,244,214,.86)}
+#msgs>#bark{background:rgba(43,28,14,.72)}
+#msgs>#bark b{display:inline;font-size:12px;margin-right:6px}
+#objective{top:8px;font-size:13px;padding:3px 12px;border-width:1px;background:rgba(43,28,14,.55);max-width:min(520px,46vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#objective:before{font-size:11px}
+#area{top:15%;font-size:clamp(20px,3vw,30px);text-shadow:2px 2px 0 var(--ink)}
+#guide b{font-size:20px}
+#guide span{font-size:12px;padding:0 6px;background:rgba(43,28,14,.5)}
+#tools span{font-size:12px;padding:2px 8px;background:rgba(43,28,14,.45)}
+#prompt{top:64%;font-size:15px;padding:4px 12px;border-width:2px}
+.pill{font-size:17px;padding:4px 13px}
+#jewelBox{top:48px}
+#heightBox{font-size:14px}
+body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heightBox,body.clean #msgs>#toast{display:none!important}
 </style>
 <script type="importmap">
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795123131",
-"./src/entities.js": "./src/entities.js?v=1795123131",
-"./src/levels.js": "./src/levels.js?v=1795123131",
-"./src/main.js": "./src/main.js?v=1795123131",
-"./src/models.js": "./src/models.js?v=1795123131",
-"./src/player.js": "./src/player.js?v=1795123131",
-"./src/terrain.js": "./src/terrain.js?v=1795123131",
-"./src/ui.js": "./src/ui.js?v=1795123131",
-"./src/util.js": "./src/util.js?v=1795123131",
-"./src/world.js": "./src/world.js?v=1795123131"
+"./src/audio.js": "./src/audio.js?v=1795123608",
+"./src/entities.js": "./src/entities.js?v=1795123608",
+"./src/levels.js": "./src/levels.js?v=1795123608",
+"./src/main.js": "./src/main.js?v=1795123608",
+"./src/models.js": "./src/models.js?v=1795123608",
+"./src/player.js": "./src/player.js?v=1795123608",
+"./src/terrain.js": "./src/terrain.js?v=1795123608",
+"./src/ui.js": "./src/ui.js?v=1795123608",
+"./src/util.js": "./src/util.js?v=1795123608",
+"./src/world.js": "./src/world.js?v=1795123608"
 }
 }
 </script>
@@ -109,14 +126,12 @@ button{font:inherit;cursor:pointer}
   <div id="jewelBox" class="pill"><i>◆</i><span id="jewels">0/3</span></div>
   <div id="heightBox" class="pill">▲ <span id="height">0 m</span></div>
   <div id="cross"></div><div id="pips"></div>
-  <div id="state" hidden></div>
   <div id="prompt" hidden><b>E</b><span id="promptText"></span></div>
-  <div id="toast" hidden></div>
   <div id="area" hidden></div>
-  <div id="bark" hidden><b id="barkWho"></b><span id="barkText"></span></div>
   <div id="balance" hidden><div id="balDot"></div></div>
   <div id="objective" hidden></div>
   <div id="guide" hidden><b id="guideArrow">▼</b><span id="guideText"></span></div>
+  <div id="msgs"><div id="bark" hidden><b id="barkWho"></b><span id="barkText"></span></div><div id="toast" hidden></div><div id="state" hidden></div></div>
   <div id="tools"></div>
 </div>
 
@@ -133,7 +148,8 @@ button{font:inherit;cursor:pointer}
   <button class="btn alt" id="btnCamp">Go back to my last campfire</button>
   <button class="btn plain" id="btnVillage">Return to the village</button>
   <p>Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p>
-  <p class="small">V first / third person · M map · N music · P pause</p>
+  <button class="btn plain" id="btnFull">Full screen (F)</button>
+  <p class="small">F full screen · H hide the on-screen hints · V or mouse wheel: first / third person · M map · N music · P pause</p>
 </div></div>
 
 <div id="title" class="screen"><div class="card">
@@ -150,11 +166,12 @@ button{font:inherit;cursor:pointer}
     <b>Right click / Q</b><span>Grappling hook, later the hand cannon</span>
     <b>E</b><span>Talk, open, read</span>
     <b>M · V · P</b><span>Map · first or third person · pause</span>
+    <b>F · H</b><span>Full screen · hide the on-screen hints</span>
   </div>
   <p class="small">You cannot die. But if you fall, you walk back up.</p>
 </div></div>
 
 <div id="fade"></div>
-<script type="module" src="./src/main.js?v=1795123131"></script>
+<script type="module" src="./src/main.js?v=1795123608"></script>
 </body>
 </html>

@@ -13,8 +13,8 @@ export class UI {
   }
   set(id, v) { if (this.last[id] !== v) { this.last[id] = v; $(id).textContent = v; } }
   show(id, on) { const k = 's_' + id; if (this.last[k] !== on) { this.last[k] = on; $(id).hidden = !on; } }
-  toast(text, secs = 5) { $('toast').textContent = text; this.toastT = secs; this.show('toast', true); }
-  area(name) { $('area').textContent = name; this.areaT = 3.5; this.show('area', true); }
+  toast(text, secs = 5) { secs = Math.min(secs, 6); $('toast').textContent = text; this.toastT = secs; this.show('toast', true); }
+  area(name) { $('area').textContent = name; this.areaT = 2.5; this.show('area', true); }
   bark(who, text) { this.barkQ.push([who, text]); }
   prompt(text) { this.show('prompt', !!text); if (text) this.set('promptText', text); }
   dialog(lines, cb) { if (!lines || !lines.length) { if (cb) cb(); return; } this.dlg = { lines, i: 0, n: 0, cb }; this.G.locked = true; this.show('dialog', true); this.line(); }
@@ -74,7 +74,7 @@ export class UI {
     const G = this.G, S = G.save, I = G.input, P = G.player, W = G.world;
     if (this.toastT > 0 && (this.toastT -= dt) <= 0) this.show('toast', false);
     if (this.areaT > 0 && (this.areaT -= dt) <= 0) this.show('area', false);
-    if (this.barkT > 0) { if ((this.barkT -= dt) <= 0) this.show('bark', false); } else if (this.barkQ.length && !this.dlg) { const [who, text] = this.barkQ.shift(); $('barkWho').textContent = who; $('barkText').textContent = text; this.barkT = 3.5 + text.length * 0.055; this.show('bark', true); G.audio.sfx('talk'); }
+    if (this.barkT > 0) { if ((this.barkT -= dt) <= 0) this.show('bark', false); } else if (this.barkQ.length && !this.dlg) { const [who, text] = this.barkQ.shift(); $('barkWho').textContent = who; $('barkText').textContent = text; this.barkT = 2.5 + text.length * 0.045; this.show('bark', true); G.audio.sfx('talk'); }
     if (this.dlg) { const d = this.dlg, l = d.lines[d.i]; if (d.n < l.text.length) { const n0 = Math.floor(d.n); d.n = Math.min(l.text.length, d.n + dt * 55); if (Math.floor(d.n) !== n0) { $('dlgText').textContent = l.text.slice(0, Math.floor(d.n)); if (Math.floor(d.n) % 3 === 0) G.audio.sfx('talk'); } } if (I.hit('KeyE') || I.hit('Space') || I.hit('Enter')) this.advance(); }
     else if (this.shopOpen) { for (let i = 0; i < 5; i++) if (I.hit('Digit' + (i + 1))) this.buy(i); if (I.hit('KeyE') || I.hit('Escape') || I.hit('Enter')) this.closeShop(); }
     else if (this.doneCb) { if (I.hit('KeyE') || I.hit('Enter') || I.hit('Space')) this.closeDone(); }
@@ -88,7 +88,7 @@ export class UI {
       const offs = behind || Math.abs(x) > 0.9 || Math.abs(y) > 0.8; if (behind) { const m = Math.max(Math.abs(x), 0.001); x = x / m * 0.9; y = -0.6; }
       x = Math.max(-0.9, Math.min(0.9, x)); y = Math.max(-0.7, Math.min(0.72, y));
       const el = $('guide'); el.style.left = ((x * 0.5 + 0.5) * 100).toFixed(1) + '%'; el.style.top = ((-y * 0.5 + 0.5) * 100).toFixed(1) + '%';
-      this.set('guideArrow', !offs ? '▼' : behind ? (x < 0 ? '◀ turn round' : 'turn round ▶') : x < -0.85 ? '◀' : x > 0.85 ? '▶' : y > 0 ? '▲' : '▼'); this.set('guideText', gd.label + ' · ' + Math.round(d) + ' m');
+      this.set('guideArrow', !offs ? '▼' : behind ? (x < 0 ? '◀ turn round' : 'turn round ▶') : x < -0.85 ? '◀' : x > 0.85 ? '▶' : y > 0 ? '▲' : '▼'); this.set('guideText', Math.round(d) + ' m');
     }
     this.set('coins', S.coins); const id = W.def.id;
     this.show('jewelBox', !W.def.hub); if (!W.def.hub) { this.set('jewels', (S.jewels[id] || []).filter(Boolean).length + '/3'); this.set('height', Math.max(0, Math.round(P.pos.y)) + ' m / ' + Math.round(W.spiral.Ytop) + ' m'); }

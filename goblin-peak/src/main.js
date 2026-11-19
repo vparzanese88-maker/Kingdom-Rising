@@ -39,6 +39,8 @@ class Game {
       if (!this.playing) return;
       if (e.code === 'KeyV' && !this.locked) { this.player.third = this.save.third = !this.player.third; if (this.player.third && this.player.camDist < 2.5) this.player.camDist = 6.2; }
       if (e.code === 'KeyP' || e.code === 'Escape' && !document.pointerLockElement && !this.ui.shopOpen) this.pause(!this.paused);
+      if (e.code === 'KeyF') this.fullscreen();
+      if (e.code === 'KeyH') { this.save.clean = !this.save.clean; document.body.classList.toggle('clean', !!this.save.clean); this.ui.toast(this.save.clean ? 'Hints hidden. H brings them back.' : 'Hints shown.', 2); }
       if (e.code === 'KeyN' && !this.locked) this.ui.toast(this.audio.toggleMusic() ? 'Music on' : 'Music off', 2);
     });
     addEventListener('keyup', e => { I.k[e.code] = false; });
@@ -51,13 +53,15 @@ class Game {
     $('btnNew').onclick = () => { this.audio.unlock(); if (this.save.played && !confirm('Start again from the beginning? Your saved climb will be erased.')) return; this.save = fresh(); this.player.third = false; this.begin('hub'); };
     $('btnContinue').onclick = () => { this.audio.unlock(); this.begin(this.save.cur || 'hub'); };
     $('btnResume').onclick = () => this.pause(false);
+    $('btnFull').onclick = () => this.fullscreen();
     $('btnVillage').onclick = () => { this.pause(false); if (!this.world.def.hub) this.loadLevel('hub'); };
     $('btnCamp').onclick = () => { this.pause(false); this.toCamp(); };
     $('sens').oninput = e => { this.save.sens = +e.target.value; };
     $('doneBtn').onclick = () => { this.ui.closeDone(); this.canvas.requestPointerLock(); };
     $('shop').onclick = e => { const r = e.target.closest('.row'); if (r) this.ui.buy([...r.parentNode.children].indexOf(r)); };
   }
-  begin(id) { this.playing = true; $('title').hidden = true; $('hud').hidden = false; this.save.played = 1; this.loadLevel(id); this.pause(false); }
+  fullscreen(on) { const d = document; try { if (!d.fullscreenElement) { const p = d.documentElement.requestFullscreen({ navigationUI: 'hide' }); if (p && p.catch) p.catch(() => { }); } else if (on === undefined) d.exitFullscreen(); } catch (e) { } }
+  begin(id) { if (!this.testing && !this.debug) this.fullscreen(true); document.body.classList.toggle('clean', !!this.save.clean); this.playing = true; $('title').hidden = true; $('hud').hidden = false; this.save.played = 1; this.loadLevel(id); this.pause(false); }
   pause(on) {
     this.paused = on; $('pause').hidden = !on || !this.playing; if (on) { if (document.pointerLockElement) document.exitPointerLock(); $('sens').value = this.save.sens; $('btnVillage').hidden = this.world.def.hub; $('btnCamp').hidden = this.world.def.hub; this.saveNow(); }
     else if (this.playing && !this.testing) { try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { }); } catch (e) { } }

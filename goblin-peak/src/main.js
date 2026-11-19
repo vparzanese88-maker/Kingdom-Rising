@@ -7,7 +7,7 @@ import { Audio } from './audio.js';
 import { LEVELS, ORDER, ITEMS } from './levels.js';
 
 const $ = id => document.getElementById(id), KEY = 'goblin-peak-save-1';
-const fresh = () => ({ coins: 0, items: {}, upg: {}, done: {}, jewels: {}, camp: {}, seen: {}, best: {}, stats: {}, sens: 1, third: false, won: false, cur: 'hub', played: 0 });
+const fresh = () => ({ coins: 0, items: {}, upg: {}, done: {}, toll: {}, bombs: 0, jewels: {}, camp: {}, seen: {}, best: {}, stats: {}, sens: 1, third: false, won: false, cur: 'hub', played: 0 });
 
 class Input {
   constructor() { this.k = {}; this.h = {}; this.mx = 0; this.my = 0; this.lmbHit = false; this.rmbHit = false; }
@@ -78,7 +78,7 @@ class Game {
   // Back to the last campfire you lit on this map (or the trailhead).
   toCamp(silent) { const W = this.world, n = this.save.camp[W.def.id] || 0, c = n && W.camps[n - 1]; let s = W.start; if (c) { const f = c.sec.spawn; s = { x: f.x, y: f.y, z: f.z, yaw: Math.atan2(-f.tx, -f.tz) }; } this.player.spawn(s.x, s.y + 0.1, s.z, s.yaw); if (!silent) this.ui.toast('Back at camp.', 2); }
   addCoins(n, quiet) { this.save.coins += n; this.audio.sfx('coin'); this.stat('coins', n); $('coinBox').classList.remove('pop'); void $('coinBox').offsetWidth; $('coinBox').classList.add('pop'); }
-  loseCoins() { const n = Math.min(this.save.coins, this.save.upg.purse ? 2 : 5); if (n > 0) { this.save.coins -= n; const p = this.player.pos; this.world.dropCoins(p.x, p.y + 1.2, p.z, n); } }
+  loseCoins() { const n = Math.min(this.save.coins, Math.max(5, Math.round(this.save.coins * 0.12)) >> (this.save.upg.purse ? 1 : 0), 30); if (n > 0) { this.save.coins -= n; const p = this.player.pos; this.world.dropCoins(p.x, p.y + 1.2, p.z, n); } }
   give(item) { this.save.items[item] = 1; this.saveNow(); this.audio.sfx('item'); const it = ITEMS[item]; this.ui.dialog([{ who: 'You found', text: it.name + '!' }, { who: it.name, text: it.text }]); }
   gotJewel(idx) { const id = this.world.def.id, a = this.save.jewels[id] = this.save.jewels[id] || []; a[idx] = 1; this.audio.sfx('jewel'); this.addCoins(25, true); this.saveNow(); this.ui.toast(`One of the Princess's jewels! (${a.filter(Boolean).length}/3 on this trail)  +25 coins`, 5); }
   stat(k, n = 1) { this.save.stats[k] = (this.save.stats[k] || 0) + n; }

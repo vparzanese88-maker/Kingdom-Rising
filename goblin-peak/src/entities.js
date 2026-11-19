@@ -7,13 +7,18 @@ const rt = { phi: 0, lat: 0, on: false }, nrm = { x: 0, y: 1, z: 0 };
 const face = (m, dx, dz) => { m.rotation.y = Math.atan2(-dx, -dz); };
 
 export const KINDS = {
-  grunt: { name: 'Goblin Grunt', hp: 1, sp: 5.0, r: 0.5, h: 1.3, knock: 11, sight: 15, coins: 3, model: () => M.goblin({ club: 1 }) },
-  brute: { name: 'Goblin Brute', hp: 2, sp: 4.3, r: 0.65, h: 1.7, knock: 14, sight: 15, coins: 6, model: () => M.goblin({ scale: 0.98, helm: 0x777f88, skin: 0x5c9a38, club: 1, wide: 1.3, shirt: 0x4a4a52 }) },
+  grunt: { name: 'Goblin Grunt', hp: 1, sp: 5.7, r: 0.5, h: 1.3, knock: 11, sight: 19, coins: 3, model: () => M.goblin({ club: 1 }) },
+  brute: { name: 'Goblin Brute', hp: 3, sp: 4.8, r: 0.65, h: 1.7, knock: 14, sight: 15, coins: 6, model: () => M.goblin({ scale: 0.98, helm: 0x777f88, skin: 0x5c9a38, club: 1, wide: 1.3, shirt: 0x4a4a52 }) },
   boar: { name: 'Tuskboar', hp: 2, sp: 10, r: 0.75, h: 1.1, knock: 15, sight: 18, coins: 5, charge: 1, model: () => M.boar() },
   ram: { name: 'Summit Ram', hp: 2, sp: 11, r: 0.75, h: 1.1, knock: 16, sight: 20, coins: 6, charge: 1, model: () => M.boar(0xe8e4dc) },
   slinger: { name: 'Goblin Slinger', hp: 1, sp: 0, r: 0.5, h: 1.3, knock: 8, sight: 26, coins: 4, thrower: 1, model: () => M.goblin({ hat: 0xb5332a, shirt: 0x8a6a3a }) },
   yeti: { name: 'Yeti', hp: 3, sp: 0, r: 0.9, h: 3, knock: 13, sight: 30, coins: 10, thrower: 2, model: () => M.yeti() },
   bat: { name: 'Gloomwing', hp: 1, sp: 7.5, r: 0.5, h: 0.6, knock: 6, sight: 17, coins: 2, fly: 1, model: () => M.bat() },
+  shield: { name: 'Goblin Bulwark', hp: 2, sp: 4.6, r: 0.6, h: 1.5, knock: 13, sight: 18, coins: 7, shield: 1, model: () => { const g = M.goblin({ scale: 0.86, helm: 0x8a8a92, shirt: 0x3b4a6a, wide: 1.2 }); g.userData.parts.armL.add(M.box(0x8a6238, 0.75, 0.95, 0.08, 0, -0.45, -0.3), M.box(0xc8c8d0, 0.2, 0.2, 0.1, 0, -0.45, -0.34)); return g; } },
+  bomber: { name: 'Goblin Bomber', hp: 1, sp: 0, r: 0.5, h: 1.3, knock: 14, sight: 24, coins: 6, thrower: 3, rate: 3.4, model: () => M.goblin({ hat: 0x222222, shirt: 0x5a2a2a }) },
+  tugger: { name: 'Lasso Goblin', hp: 1, sp: 0, r: 0.5, h: 1.3, knock: 0, sight: 19, coins: 6, thrower: 4, rate: 4.2, model: () => M.goblin({ hat: 0xc9a25a, shirt: 0x6a5a2a }) },
+  shaman: { name: 'Goblin Hexer', hp: 1, sp: 0, r: 0.5, h: 1.3, knock: 0, sight: 26, coins: 8, thrower: 5, rate: 5, model: () => { const g = M.goblin({ hat: 0x7a3ab5, shirt: 0x4a2a6a }); g.userData.parts.armR.add(M.cyl(0x5a3c22, 0.03, 1.3, 0, -0.5, -0.1), M.ball(0xc77dff, 0.11, 0, 0.2, -0.1, { e: 0x7a3ab5 })); return g; } },
+  harpy: { name: 'Harpy', hp: 2, sp: 9.5, r: 0.8, h: 1.1, knock: 0, sight: 24, coins: 8, fly: 1, grab: 1, model: () => { const g = M.bat(); g.scale.setScalar(1.9); return g; } },
   troll: { name: 'Rock Troll', hp: 3, sp: 2.7, r: 1.1, h: 3.6, knock: 13, sight: 18, coins: 12, slam: 1, model: () => M.troll() },
 };
 
@@ -25,8 +30,10 @@ export class Mob {
     if (k.fly && W.spiral && !this.arena) { this.y = this.hy = Math.max(this.y, W.spiral.trailY(this.phi) + 3.5); }
     this.mesh = k.model(); this.mesh.position.set(x, this.y, z); W.scene.add(this.mesh);
   }
-  hit(n, fx, fz) {
-    if (this.dead) return; const G = this.W.G; this.hp -= n; this.stunT = 0.9; this.state = 'idle'; G.audio.sfx('bonk'); this.W.puff(this.x, this.y + this.k.h * 0.6, this.z, 0xffffff, 6);
+  hit(n, fx, fz, how) {
+    if (this.dead) return; const G = this.W.G;
+    if (this.k.shield && !how && n < 3) { G.audio.sfx('spike'); this.W.puff(this.x, this.y + 1, this.z, 0xfff2c0, 3); if (!this.told) { this.told = true; G.ui.toast('Its shield turns the whip aside. Jump on its head instead.', 4); } return; }
+    this.hp -= n; this.stunT = 0.9; this.state = 'idle'; G.audio.sfx('bonk'); this.W.puff(this.x, this.y + this.k.h * 0.6, this.z, 0xffffff, 6);
     const dx = this.x - fx, dz = this.z - fz, l = Math.hypot(dx, dz) || 1; if (!this.k.thrower && !this.k.slam) this.move(dx / l * 1.2, dz / l * 1.2);
     if (this.hp <= 0) { this.dead = true; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y + 0.8, this.z, 0x9be06a, 14); this.W.dropCoins(this.x, this.y + 1, this.z, this.k.coins); G.audio.sfx('poof'); G.stat('bonked'); }
   }
@@ -39,6 +46,14 @@ export class Mob {
   }
   update(dt) {
     const W = this.W, P = W.G.player, k = this.k, p = P.pos; this.t += dt; this.stunT -= dt; this.cd -= dt;
+    if (this.carry) { // a harpy hauling the hero out over the drop
+      const c = this.carry, I = W.G.input, r = Math.hypot(this.x, this.z) || 1, ox = this.arena ? Math.cos(this.t) : this.x / r, oz = this.arena ? Math.sin(this.t) : this.z / r; c.t += dt;
+      this.x += ox * 5.5 * dt; this.z += oz * 5.5 * dt; this.y += 2.6 * dt; this.mesh.position.set(this.x, this.y, this.z); const fl = Math.sin(this.t * 22) * 0.9; this.mesh.userData.parts.wL.rotation.z = fl; this.mesh.userData.parts.wR.rotation.z = -fl;
+      p.set(this.x, this.y - 2.1, this.z); P.vel.set(0, 0, 0); P.stun = 0.12; P.grounded = false; if (I.hit('Space')) c.mash++;
+      const whip = I.lmbHit && W.G.save.items.whip; if (whip) { W.G.audio.sfx('whip'); this.hit(1, p.x, p.z, 'stomp'); }
+      if (c.t > 2.4 || c.mash >= 4 || whip || this.dead) { this.carry = null; P.vel.set(ox * 3, 3, oz * 3); P.stun = 0; P.jumps = 1; this.state = 'back'; this.cd = 4; }
+      return;
+    }
     let dx = p.x - this.x, dz = p.z - this.z; const d = Math.hypot(dx, dz) || 0.01, dy = p.y - this.y; dx /= d; dz /= d;
     const sees = d < k.sight && Math.abs(dy) < (k.fly || k.thrower ? 12 : 4) && !W.G.locked; let sp = 0;
     if (this.stunT > 0) { this.mesh.rotation.z = Math.sin(this.t * 30) * 0.15; }
@@ -48,8 +63,8 @@ export class Mob {
       else { const tx = this.hx + Math.cos(this.t * 0.9) * 3, tz = this.hz + Math.sin(this.t * 0.9) * 3, ty = this.hy + Math.sin(this.t * 2) * 0.6, k2 = Math.min(1, 2.5 * dt); this.x += (tx - this.x) * k2; this.z += (tz - this.z) * k2; this.y += (ty - this.y) * k2; if (this.state === 'back' && Math.hypot(tx - this.x, tz - this.z) < 1.5) { this.state = 'idle'; this.cd = 1.5; } if (this.state === 'idle' && sees && this.cd <= 0) { this.state = 'swoop'; this.cd = 0; W.G.audio.sfx('screech'); } face(this.mesh, -Math.sin(this.t * 0.9), Math.cos(this.t * 0.9)); }
       const fl = Math.sin(this.t * 16) * 0.8; this.mesh.userData.parts.wL.rotation.z = fl; this.mesh.userData.parts.wR.rotation.z = -fl;
     } else if (k.thrower) {
-      this.mesh.rotation.z = 0; if (sees) { face(this.mesh, dx, dz); if (this.cd <= 0 && d > 3) { this.cd = k.thrower === 2 ? 3.2 : 2.5; this.throwT = 0.35; } }
-      if (this.throwT > 0) { this.throwT -= dt; if (this.throwT <= 0) { const big = k.thrower === 2, T = clamp(d / 15, 0.5, 1.6), sy = this.y + k.h * 0.9; W.add(new Rock(W, this.x, sy, this.z, (p.x + P.vel.x * T * 0.5 - this.x) / T, (p.y + 1 - sy + 7 * T * T) / T, (p.z + P.vel.z * T * 0.5 - this.z) / T, big ? 0.55 : 0.25, big ? 0xf4f8ff : 0x8a8378, k.knock)); W.G.audio.sfx('throw'); } }
+      this.mesh.rotation.z = 0; if (sees) { face(this.mesh, dx, dz); if (this.cd <= 0 && d > 3) { this.cd = k.rate || (k.thrower === 2 ? 3.0 : 2.1); this.throwT = 0.35; } }
+      if (this.throwT > 0) { this.throwT -= dt; if (this.throwT <= 0) { const big = k.thrower === 2, T = clamp(d / 15, 0.5, 1.6), sy = this.y + k.h * 0.9; const vx = (p.x + P.vel.x * T * 0.5 - this.x) / T, vy = (p.y + 1 - sy + 7 * T * T) / T, vz = (p.z + P.vel.z * T * 0.5 - this.z) / T; if (k.thrower === 3) W.add(new Bomb(W, this.x, sy, this.z, vx, vy, vz, false)); else if (k.thrower === 4) W.add(new Lasso(W, this, sy)); else if (k.thrower === 5) W.add(new Orb(W, this.x, sy + 0.6, this.z)); else W.add(new Rock(W, this.x, sy, this.z, vx, vy, vz, big ? 0.55 : 0.25, big ? 0xf4f8ff : 0x8a8378, k.knock)); W.G.audio.sfx('throw'); } }
     } else if (k.slam) {
       this.mesh.rotation.z = 0;
       if (this.state === 'wind') { this.cd -= 0; this.windT -= dt; if (this.windT <= 0) { this.state = 'idle'; this.cd = 3.4; W.add(new Shock(W, this.x, this.y, this.z, k.knock)); W.G.audio.sfx('slam'); W.G.player.shake = Math.max(W.G.player.shake, d < 14 ? 0.3 : 0); } }
@@ -72,7 +87,8 @@ export class Mob {
     else if (parts.legs) parts.legs.forEach((l, i) => l.rotation.x = Math.sin(this.t * 14 + i * 1.6) * Math.min(1, sp / 3) * 0.7);
     // touching the hero
     if (d < k.r + 0.45 && dy < k.h && dy > -1.9 && this.stunT <= 0) {
-      if (P.vel.y < -2 && dy > k.h * 0.5) { this.hit(1, p.x, p.z); P.vel.y = 10.5; P.jumps = 1; }
+      if (P.vel.y < -2 && dy > k.h * 0.5) { this.hit(1, p.x, p.z, 'stomp'); P.vel.y = 10.5; P.jumps = 1; }
+      else if (k.grab) { if (P.inv <= 0 && !this.carry) { this.carry = { t: 0, mash: 0 }; P.inv = 3.2; P.detach(); W.G.audio.sfx('screech'); W.G.ui.toast('A harpy has you! Mash SPACE or crack the whip to break free!', 3); W.G.stat('knocked'); } }
       else if (P.inv <= 0) { let kx = dx, kz = dz; if (W.spiral && !this.arena) { const r = Math.hypot(p.x, p.z) || 1; kx = dx * 0.8 + p.x / r * 0.35; kz = dz * 0.8 + p.z / r * 0.35; } if (P.knock(kx, kz, k.knock, 7)) { if (this.state === 'swoop') this.state = 'back'; if (this.state === 'charge') { this.state = 'idle'; this.cd = 1.6; } W.G.stat('knocked'); } }
     }
   }
@@ -88,6 +104,39 @@ export class Rock {
   end() { this.dead = true; this.W.scene.remove(this.mesh); this.W.puff(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z, 0xcfc8ba, 5); }
 }
 
+// A fused bomb: lands, fizzes for a moment, then blows. Goblin ones flatten the hero; the hero's own squibs flatten goblins.
+export class Bomb {
+  constructor(W, x, y, z, vx, vy, vz, mine) { this.W = W; this.v = new THREE.Vector3(vx, vy, vz); this.mine = mine; this.mesh = M.ball(mine ? 0xd8362c : 0x222222, 0.3, x, y, z, { e: 0x331100 }); W.scene.add(this.mesh); this.t = 0; this.fuse = -1; }
+  update(dt) {
+    const m = this.mesh.position, W = this.W, G = W.G, P = G.player; this.t += dt;
+    if (this.fuse < 0) { this.v.y -= 14 * dt; m.addScaledVector(this.v, dt); const gy = W.T.hAt(m.x, m.z) + 0.3; if (m.y < gy || this.t > 5) { m.y = Math.max(m.y, gy); this.fuse = this.mine ? 0.15 : 0.95; } }
+    else { this.fuse -= dt; this.mesh.scale.setScalar(0.3 + Math.sin(this.t * 40) * 0.06); this.mesh.material = M.mat((this.t * 12 | 0) % 2 ? 0xffe27a : 0x222222, { e: 0x662200 });
+      if (this.fuse <= 0) { this.dead = true; W.scene.remove(this.mesh); W.puff(m.x, m.y + 0.5, m.z, 0xffb040, 18); W.puff(m.x, m.y + 0.5, m.z, 0x555555, 10); G.audio.sfx('cannon'); const R = this.mine ? 5 : 3.6;
+        if (this.mine) { for (const e of W.ents) if (!e.dead && (e.mob || e.hittable) && Math.hypot(e.x - m.x, e.y - m.y, e.z - m.z) < R + (e.k ? e.k.r : 1)) e.hit(3, m.x, m.z, 'bomb'); }
+        else if (Math.hypot(P.pos.x - m.x, P.pos.y - m.y, P.pos.z - m.z) < R) { if (P.knock(P.pos.x - m.x, P.pos.z - m.z, 14, 9)) G.stat('flattened'); }
+        if (Math.hypot(P.pos.x - m.x, P.pos.z - m.z) < 14) P.shake = Math.max(P.shake, 0.3); } }
+  }
+}
+// A thrown loop of rope: if it lands, the goblin hauls you toward itself (it stands by the drop for a reason).
+export class Lasso {
+  constructor(W, from, sy) { this.W = W; this.from = from; const p = W.G.player.pos; this.pos = new THREE.Vector3(from.x, sy, from.z); this.v = new THREE.Vector3(p.x - from.x, p.y + 1 - sy, p.z - from.z).normalize().multiplyScalar(21); this.mesh = new THREE.Mesh(M.GEO.torG, M.mat(0xc9a25a)); this.mesh.scale.setScalar(0.5); W.scene.add(this.mesh); this.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([this.pos.clone(), this.pos.clone()]), new THREE.LineBasicMaterial({ color: 0xc9a25a })); this.line.frustumCulled = false; W.scene.add(this.line); this.t = 0; }
+  update(dt) {
+    const W = this.W, P = W.G.player, p = P.pos; this.t += dt; this.pos.addScaledVector(this.v, dt); this.mesh.position.copy(this.pos); this.mesh.rotation.x += dt * 9; const a = this.line.geometry.attributes.position; a.setXYZ(0, this.from.x, this.from.y + 1.1, this.from.z); a.setXYZ(1, this.pos.x, this.pos.y, this.pos.z); a.needsUpdate = true;
+    if (Math.hypot(p.x - this.pos.x, p.y + 0.9 - this.pos.y, p.z - this.pos.z) < 1.0 && P.inv <= 0 && !this.from.dead) { const dx = this.from.x - p.x, dz = this.from.z - p.z; if (P.knock(dx, dz, 13, 5)) { W.G.ui.toast('Lassoed! It is dragging you toward the edge.', 3); W.G.stat('knocked'); } this.end(); }
+    else if (this.t > 0.95 || this.pos.y < W.T.hAt(this.pos.x, this.pos.z) || this.from.dead) this.end();
+  }
+  end() { this.dead = true; this.W.scene.remove(this.mesh, this.line); }
+}
+// A slow purple hex that follows you. Whip it out of the air, or outrun it.
+export class Orb {
+  constructor(W, x, y, z) { this.W = W; this.x = x; this.y = y; this.z = z; this.t = 0; this.hittable = true; this.r = 0.6; this.h = 0.2; this.mesh = M.ball(0xc77dff, 0.38, x, y, z, { e: 0x7a3ab5 }); this.mesh.castShadow = false; W.scene.add(this.mesh); }
+  hit() { this.end(); this.W.G.audio.sfx('bonk'); }
+  update(dt) {
+    const W = this.W, P = W.G.player, p = P.pos, dx = p.x - this.x, dy = p.y + 1 - this.y, dz = p.z - this.z, d = Math.hypot(dx, dy, dz) || 1; this.t += dt; const sp = 6.2; this.x += dx / d * sp * dt; this.y += dy / d * sp * dt; this.z += dz / d * sp * dt; this.mesh.position.set(this.x, this.y, this.z); this.mesh.scale.setScalar(0.38 + Math.sin(this.t * 9) * 0.06);
+    if (d < 0.9) { P.hex = 5; W.G.audio.sfx('nope'); W.G.ui.toast('Hexed! Your legs feel like lead for a few seconds.', 3); this.end(); } else if (this.t > 7) this.end();
+  }
+  end() { this.dead = true; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y, this.z, 0xc77dff, 6); }
+}
 export class Shock {
   constructor(W, x, y, z, knock) { this.W = W; this.x = x; this.y = y; this.z = z; this.R = 0.5; this.knock = knock; this.mesh = new THREE.Mesh(M.GEO.torG, M.mat(0xfff2c0, { e: 0xaa8833, op: 0.8 })); this.mesh.rotation.x = Math.PI / 2; this.mesh.position.set(x, y + 0.25, z); W.scene.add(this.mesh); }
   update(dt) {
@@ -103,10 +152,10 @@ export class Boulder {
     this.W = W; this.r = o.r || 1.25; this.o = o; this.t = 0; this.v = new THREE.Vector3(o.vx || 0, 0, o.vz || 0); this.mode = o.sec ? 'trail' : 'free'; this.a = o.a; this.x = o.x || 0; this.z = o.z || 0; this.y = 0;
     this.mesh = M.boulderMesh(this.r, o.col); W.scene.add(this.mesh); this.ph = Math.random() * 6; if (this.mode === 'trail') this.place(); else this.y = W.T.hAt(this.x, this.z) + this.r; this.mesh.position.set(this.x, this.y, this.z);
   }
-  place() { const s = this.o.sec, lat = Math.sin(this.a * 0.22 + this.ph) * 1.8, f = s.at(this.a, lat, 0); this.x = f.x; this.z = f.z; this.y = this.W.T.hAt(f.x, f.z) + this.r; this.tx = -f.tx; this.tz = -f.tz; this.nx = f.nx; this.nz = f.nz; }
+  place() { const s = this.o.sec, dir = this.o.dir || -1, lat = Math.sin(this.a * 0.22 + this.ph) * (this.o.wob === undefined ? 1.8 : this.o.wob), f = s.at(this.a, lat, 0); this.x = f.x; this.z = f.z; this.y = this.W.T.hAt(f.x, f.z) + this.r; this.tx = f.tx * dir; this.tz = f.tz * dir; this.nx = f.nx; this.nz = f.nz; }
   update(dt) {
     const W = this.W, T = W.T, P = W.G.player, p = P.pos; this.t += dt; const ox = this.x, oz = this.z;
-    if (this.mode === 'trail') { this.a -= (this.o.sp || 9) * dt; this.place(); if (this.a <= (this.o.end || 2)) { this.mode = 'free'; this.v.set(this.tx * 6 + this.nx * 5, 0, this.tz * 6 + this.nz * 5); } }
+    if (this.mode === 'trail') { const dir = this.o.dir || -1; this.a += dir * (this.o.sp || 9) * dt; this.place(); if (dir < 0 ? this.a <= (this.o.end || 2) : this.a >= this.o.end) { this.mode = 'free'; this.v.set(this.tx * 6 + this.nx * 5, 0, this.tz * 6 + this.nz * 5); } }
     else {
       T.normalAt(this.x, this.z, nrm); this.v.x += nrm.x * 22 * dt; this.v.z += nrm.z * 22 * dt; const sp = Math.hypot(this.v.x, this.v.z), cap = 24; if (sp > cap) { this.v.x *= cap / sp; this.v.z *= cap / sp; }
       const fr = Math.max(0, 1 - 0.25 * dt); this.v.x *= fr; this.v.z *= fr; this.x += this.v.x * dt; this.z += this.v.z * dt;
@@ -117,7 +166,7 @@ export class Boulder {
     this.mesh.position.set(this.x, this.y, this.z);
     if (Math.hypot(p.x - this.x, p.y + 0.9 - this.y, p.z - this.z) < this.r + 0.55 && P.inv <= 0) {
       let kx = mx / (ml || 1), kz = mz / (ml || 1); if (W.spiral) { const r = Math.hypot(p.x, p.z) || 1; kx = kx * 0.9 + p.x / r * 0.25; kz = kz * 0.9 + p.z / r * 0.25; }
-      if (P.knock(kx, kz, 15, 8)) W.G.stat('flattened');
+      if (P.knock(kx, kz, this.o.dir > 0 ? 19 : 15, 8)) W.G.stat('flattened');
     }
     for (const e of W.ents) if (e.mob && !e.dead && !e.arena && !e.k.fly && Math.hypot(e.x - this.x, e.z - this.z) < this.r + e.k.r && Math.abs(e.y - this.y) < 2.5) e.hit(3, this.x, this.z);
   }
@@ -192,7 +241,7 @@ export class Gate { // walk through to travel
     if (o.title) { this.mesh.children[3].visible = false; const sub = locked ? o.lockSub || 'LOCKED' : o.sub || 'Walk through'; for (const sd of [1, -1]) { const b = M.signBoard(o.title, sub, locked ? '#8a8378' : '#' + new THREE.Color(o.col).getHexString(), 10.5, 3.45); b.position.set(0, 8.6, sd * 0.72); b.rotation.y = sd > 0 ? 0 : Math.PI; this.mesh.add(b); } }
     if (locked) { this.door = new THREE.Group(); for (let i = 0; i < 5; i++) { const l = M.cyl(0x5a3c22, 0.3, w * 2 - 0.6, 0, 0.5 + i * 1.1, 0); l.rotation.z = Math.PI / 2 + (i % 2 ? 0.05 : -0.05); this.door.add(l); } for (const sd of [-1, 1]) { const l = M.cyl(0x4a3020, 0.22, 7.6, 0, 2.9, 0.4); l.rotation.z = sd * 0.9; this.door.add(l); } this.mesh.add(this.door); this.col = W.addBox(x, this.y + 3, z, w, 3, 0.5, -yaw, null); }
     else { this.glow = new THREE.Mesh(new THREE.PlaneGeometry(w * 2 - 1.1, 5.6), new THREE.MeshBasicMaterial({ color: o.col, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false })); this.glow.position.y = 2.9; this.mesh.add(this.glow); } }
-  update(dt) { this.cd -= dt; if (this.glow) this.glow.material.opacity = 0.24 + Math.sin(this.W.G.time * 3) * 0.1; const p = this.W.G.player.pos, d = Math.hypot(p.x - this.x, p.z - this.z); if (d < 2.6 && Math.abs(p.y - this.y) < 4 && this.cd <= 0 && !this.W.G.locked) { this.cd = 3; if (this.door) this.W.G.ui.bark(this.o.lockName || 'Gate', this.o.lockText || 'Locked.'); else this.o.go(this.W.G); } }
+  update(dt) { this.cd -= dt; if (this.glow) this.glow.material.opacity = 0.24 + Math.sin(this.W.G.time * 3) * 0.1; const p = this.W.G.player.pos, d = Math.hypot(p.x - this.x, p.z - this.z); if (d < 2.6 && Math.abs(p.y - this.y) < 4 && this.cd <= 0 && !this.W.G.locked) { this.cd = 3; if (this.door && this.o.pay && this.o.pay(this.W.G)) this.o.go(this.W.G); else if (this.door) { const t = typeof this.o.lockText === 'function' ? this.o.lockText(this.W.G) : this.o.lockText; this.W.G.ui.bark('The gate', t || 'Locked.'); } else this.o.go(this.W.G); } }
 }
 export class Geyser {
   constructor(W, x, z, ph) { this.W = W; this.x = x; this.z = z; this.y = W.T.hAt(x, z); this.ph = ph; this.m = M.cyl(0x77726a, 1.1, 0.3, x, this.y + 0.1, z); this.jet = M.cyl(0xcfeeff, 0.7, 1, x, this.y, z, { e: 0x7fb8d8, op: 0.55 }); this.jet.castShadow = false; W.scene.add(this.m, this.jet); }
@@ -241,4 +290,58 @@ export class Gong extends Near {
   constructor(W, x, y, z, boss) { super(); this.W = W; this.x = x; this.y = y; this.z = z; this.boss = boss; this.mesh = M.gong(); this.mesh.position.set(x, y, z); face(this.mesh, -x, -z); W.scene.add(this.mesh); this.hittable = true; this.r = 1.2; this.h = 3; }
   update() { if (!this.rung) this.mesh.userData.disc.rotation.z = Math.sin(this.W.G.time * 2) * 0.05; }
   hit() { this.boss.gong(this); }
+}
+
+// Rocks (or icicles) that drop out of the cliff above onto the trail. A shadow on the ground gives a second's warning.
+export class RockRain {
+  constructor(W, sec, rate) { this.W = W; this.s = sec; this.rate = rate || 0.5; this.cd = 0; this.d = []; this.ice = W.def.theme === 'snow'; }
+  update(dt) {
+    const W = this.W, G = W.G, P = G.player, p = P.pos, s = this.s, sp = W.spiral, rt = W.route; if (!rt) return;
+    const a = (rt.phi - s.p0) / (s.p1 - s.p0) * s.len, inside = a > -6 && a < s.len + 2 && Math.abs(rt.lat) < s.w + 4 && Math.abs(p.y - sp.trailY(rt.phi)) < 8; this.cd -= dt;
+    if (inside && this.cd <= 0 && !G.locked) {
+      this.cd = this.rate * (0.6 + Math.random() * 0.8); const f = s.at(Math.max(1, Math.min(s.len - 1, a + Math.random() * 11 - 2)), (Math.random() * 2 - 1) * (s.w - 0.6), 0), y = W.T.hAt(f.x, f.z);
+      const sh = M.cyl(0x000000, 1.5, 0.04, f.x, y + 0.06, f.z, { op: 0.35 }); sh.castShadow = false; const m = this.ice ? M.cone(0xcfeeff, 0.6, 2.4, f.x, y + 26, f.z, { flat: 1, e: 0x335566 }) : M.boulderMesh(0.8 + Math.random() * 0.4); if (this.ice) m.rotation.x = Math.PI; m.position.set(f.x, y + 26, f.z); W.scene.add(sh, m); this.d.push({ x: f.x, y, z: f.z, t: 0, sh, m });
+    }
+    for (const d of this.d) {
+      d.t += dt; const q = d.t / 1.05; d.sh.scale.set(0.4 + q * 1.2, 0.04, 0.4 + q * 1.2); d.m.position.y = d.y + 26 * (1 - q * q) + 0.6; d.m.rotation.z += dt * 3;
+      if (q >= 1) { d.dead = true; W.scene.remove(d.sh, d.m); W.puff(d.x, d.y + 0.5, d.z, this.ice ? 0xdff4ff : 0xcfc8ba, 9); const dd = Math.hypot(p.x - d.x, p.z - d.z); if (dd < 16) G.audio.sfx('slam', 0.45); if (dd < 1.9 && Math.abs(p.y - d.y) < 3) { if (P.knock(p.x - d.x + P.vel.x * 0.1, p.z - d.z + P.vel.z * 0.1, 9, 7)) G.stat('flattened'); } }
+    }
+    if (this.d.some(d => d.dead)) this.d = this.d.filter(d => !d.dead);
+  }
+}
+// Gusts that shove you toward the drop unless you crouch.
+export class Wind {
+  constructor(W, sec) { this.W = W; this.s = sec; this.ph = sec.idx; }
+  update(dt) {
+    const W = this.W, G = W.G, P = G.player, p = P.pos, s = this.s, rt = W.route; if (!rt || rt.phi < s.p0 || rt.phi > s.p1 || Math.abs(rt.lat) > s.w + 3) return;
+    const t = (G.time + this.ph) % 5.5, r = Math.hypot(p.x, p.z) || 1;
+    if (t > 3.3 && t < 3.3 + dt * 1.5) { G.audio.sfx('slide'); G.ui.toast('Wind! Crouch (hold C) or it will carry you off.', 2.5); }
+    if (t > 3.9) { if (Math.random() < 0.5) W.puff(p.x - p.x / r * 6 + (Math.random() - 0.5) * 8, p.y + Math.random() * 3, p.z - p.z / r * 6 + (Math.random() - 0.5) * 8, 0xffffff, 1); if (!P.crouch && !P.climb && !G.locked && !G.save.upg.cloak) { const k = (P.grounded ? 34 : 14) * dt; P.vel.x += p.x / r * k; P.vel.z += p.z / r * k; if (P.grounded) { p.x += p.x / r * 3.2 * dt; p.z += p.z / r * 3.2 * dt; } } }
+  }
+}
+// A rope slung across a long drop: press E at the post to ride it.
+export class ZipLine extends Near {
+  constructor(W, a, b) { super(); this.W = W; this.x = a.x; this.y = a.y - 3.2; this.z = a.z; this.b = b; this.prompt = 'Ride the zip line'; W.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a.x, a.y, a.z), new THREE.Vector3(b.x, b.y, b.z)]), new THREE.LineBasicMaterial({ color: 0x8a6238 }))); }
+  update() { this.canUse = this.near(2.8) && !this.W.G.player.zip; }
+  use() { const P = this.W.G.player, b = this.b; P.climb = P.swing = null; P.pos.y += 0.3; P.zip = { x: b.x, y: b.y - 0.4, z: b.z, t: 0, last: 1e9, stuck: 0, sp: 19, pop: 4, sx: b.x, sy: b.y, sz: b.z }; P.grounded = false; this.W.G.audio.sfx('hook'); }
+}
+// A goblin barricade that only comes down once every goblin guarding it has been bonked.
+export class Ambush {
+  constructor(W, sec, box, mesh, mobs) { this.W = W; this.s = sec; this.box = box; this.mesh = mesh; this.mobs = mobs; this.open = false; this.said = false; }
+  update(dt) {
+    const W = this.W, G = W.G, rt = W.route;
+    if (!this.said && rt && rt.phi > this.s.p0 + 6 / W.spiral.R(this.s.p0) && rt.phi < this.s.p1) { this.said = true; G.ui.bark('Chieftain Grizzlegut', "AMBUSH! GET 'IM, LADS! NOBODY OPENS THAT GATE TILL HE IS FLAT!"); G.ui.toast('Beat every goblin here to bring the barricade down.', 5); }
+    if (!this.open && this.mobs.every(m => m.dead)) { this.open = true; this.box.solid = false; G.audio.sfx('crumble'); G.audio.sfx('camp'); G.ui.toast('The barricade is down!', 3); W.dropCoins(this.box.x, this.box.y, this.box.z, 8); W.puff(this.box.x, this.box.y, this.box.z, 0xcfc8ba, 16); }
+    if (this.open && this.mesh.position.y > -20) { this.mesh.position.y -= 9 * dt; this.mesh.rotation.x += dt * 0.6; }
+  }
+}
+// The Chieftain's favourite: one enormous boulder set rolling behind you on a downhill stretch.
+export class Chase {
+  constructor(W, sec) { this.W = W; this.s = sec; this.b = null; this.cool = 0; const f = sec.at(1.5, -3, 0); this.gob = M.goblin({ hat: 0xb5332a }); this.gob.position.set(f.x, W.T.hAt(f.x, f.z), f.z); W.scene.add(this.gob); this.t = 0; }
+  update(dt) {
+    const W = this.W, G = W.G, s = this.s, rt = W.route; this.t += dt; this.cool -= dt; M.animBiped(this.gob, this.t * 4, 0, this.b && !this.b.dead ? 'cheer' : 'idle'); if (!rt) return;
+    const a = (rt.phi - s.p0) / (s.p1 - s.p0) * s.len;
+    if ((!this.b || this.b.dead) && this.cool <= 0 && a > 9 && a < s.len - 14 && Math.abs(rt.lat) < s.w + 2 && !G.locked) { this.b = W.add(new Boulder(W, { sec: s, a: 0.5, dir: 1, sp: 8, r: 2.5, end: s.len - 2, wob: 0.5, col: 0x6f6a62 })); this.cool = 22; G.ui.bark('Chieftain Grizzlegut', 'RELEASE THE BIG ONE!'); G.ui.toast('RUN! Sprint (SHIFT) and jump the logs!', 4); }
+    if (this.b && !this.b.dead && (G.frame % 40) === 0) { G.audio.sfx('rumble', 0.6); G.player.shake = Math.max(G.player.shake, 0.12); }
+  }
 }

@@ -70,7 +70,9 @@ button{font:inherit;cursor:pointer}
 #mapObj li{padding:5px 0;border-bottom:2px dashed rgba(43,28,14,.2)}
 #mapObj li.ok{color:#2f7a36;font-weight:600}
 #mapObj li.key{font-size:13px;border:0}
-#shop .card{width:min(600px,94vw)}
+#shop .card{width:min(640px,94vw);max-height:94vh;overflow:auto}
+#shop .row{margin:4px 0;padding:4px 10px}
+#shop .row>div{font-size:13.5px}
 .row{display:flex;gap:12px;align-items:center;padding:8px 10px;border:3px solid var(--ink);border-radius:14px;margin:8px 0;background:#fff;cursor:pointer}
 .row>b{background:var(--ink);color:#fff;border-radius:8px;padding:2px 10px}
 .row>div{flex:1;font-size:15px}
@@ -104,16 +106,16 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795124574",
-"./src/entities.js": "./src/entities.js?v=1795124574",
-"./src/levels.js": "./src/levels.js?v=1795124574",
-"./src/main.js": "./src/main.js?v=1795124574",
-"./src/models.js": "./src/models.js?v=1795124574",
-"./src/player.js": "./src/player.js?v=1795124574",
-"./src/terrain.js": "./src/terrain.js?v=1795124574",
-"./src/ui.js": "./src/ui.js?v=1795124574",
-"./src/util.js": "./src/util.js?v=1795124574",
-"./src/world.js": "./src/world.js?v=1795124574"
+"./src/audio.js": "./src/audio.js?v=1795126110",
+"./src/entities.js": "./src/entities.js?v=1795126110",
+"./src/levels.js": "./src/levels.js?v=1795126110",
+"./src/main.js": "./src/main.js?v=1795126110",
+"./src/models.js": "./src/models.js?v=1795126110",
+"./src/player.js": "./src/player.js?v=1795126110",
+"./src/terrain.js": "./src/terrain.js?v=1795126110",
+"./src/ui.js": "./src/ui.js?v=1795126110",
+"./src/util.js": "./src/util.js?v=1795126110",
+"./src/world.js": "./src/world.js?v=1795126110"
 }
 }
 </script>
@@ -139,7 +141,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 
 <div id="map" class="screen" hidden><div class="card"><canvas id="mapCv" width="600" height="610"></canvas><div><h2 id="mapTitle">Map</h2><ul id="mapObj"></ul><p class="small">M closes the map.</p></div></div></div>
 
-<div id="shop" class="screen" hidden><div class="card"><h2>Nib's Emporium</h2><p>Your coins: <b id="shopCoins">0</b>. Press a number to buy, E to leave.</p><div id="shopList"></div></div></div>
+<div id="shop" class="screen" hidden><div class="card"><h2>Nib's Emporium</h2><p>Your coins: <b id="shopCoins">0</b>. Press a number (or click) to buy, E to leave.</p><div id="shopList"></div></div></div>
 
 <div id="done" class="screen" hidden><div class="card"><h2 id="doneTitle"></h2><div id="doneBody"></div><button class="btn" id="doneBtn">Onward (E)</button></div></div>
 
@@ -154,7 +156,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 
 <div id="title" class="screen"><div class="card">
   <h1>Goblin Peak</h1>
-  <p class="sub">Chieftain Grizzlegut has carried Princess Wrenna to the top of the mountain. Jump, climb, swing, glide, crawl and balance your way up to bring her home.</p>
+  <p class="sub">Chieftain Grizzlegut has carried Princess Wrenna to the top of the mountain. Jump, climb, swing, glide, crawl and zip-line your way up to bring her home.</p>
   <button class="btn" id="btnContinue" hidden>Continue the climb</button>
   <button class="btn alt" id="btnNew">Start the climb</button>
   <div class="keys">
@@ -172,6 +174,6 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 </div></div>
 
 <div id="fade"></div>
-<script type="module" src="./src/main.js?v=1795124574"></script>
+<script type="module" src="./src/main.js?v=1795126110"></script>
 </body>
 </html>

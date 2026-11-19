@@ -27,10 +27,10 @@ export class UI {
   shop() { this.shopOpen = true; this.G.locked = true; this.show('shop', true); this.drawShop(); this.G.save.seen.nib = 1; }
   drawShop() {
     const S = this.G.save; let h = '';
-    SHOP.forEach((it, i) => { const lv = S.upg[it.id] || 0, max = lv >= it.cost.length, lock = it.needs && !S.items[it.needs], c = it.cost[lv]; h += `<div class="row ${max || lock || S.coins < c ? 'dim' : ''}"><b>${i + 1}</b><div><strong>${it.name}</strong> <i>${'★'.repeat(lv)}${'☆'.repeat(it.cost.length - lv)}</i><br>${lock ? 'You do not have anything to fit this to yet.' : it.text}</div><span>${max ? 'Sold out' : lock ? '-' : c + ' coins'}</span></div>`; });
+    SHOP.forEach((it, i) => { const lv = it.stock ? 0 : S.upg[it.id] || 0, max = lv >= it.cost.length, lock = it.needs && !S.items[it.needs], c = it.cost[lv]; h += `<div class="row ${max || lock || S.coins < c ? 'dim' : ''}"><b>${(i + 1) % 10}</b><div><strong>${it.name}</strong> <i>${it.stock ? 'you have ' + (S.bombs || 0) : '★'.repeat(lv) + '☆'.repeat(it.cost.length - lv)}</i><br>${lock ? 'You do not have anything to fit this to yet.' : it.text}</div><span>${max ? 'Sold out' : lock ? '-' : c + ' coins'}</span></div>`; });
     $('shopList').innerHTML = h; $('shopCoins').textContent = S.coins;
   }
-  buy(i) { const S = this.G.save, it = SHOP[i]; if (!it) return; const lv = S.upg[it.id] || 0, c = it.cost[lv]; if (lv >= it.cost.length || (it.needs && !S.items[it.needs]) || S.coins < c) { this.G.audio.sfx('nope'); return; } S.coins -= c; S.upg[it.id] = lv + 1; this.G.audio.sfx('buy'); this.G.saveNow(); this.drawShop(); }
+  buy(i) { const S = this.G.save, it = SHOP[i]; if (!it) return; const lv = it.stock ? 0 : S.upg[it.id] || 0, c = it.cost[lv]; if (lv >= it.cost.length || (it.needs && !S.items[it.needs]) || S.coins < c) { this.G.audio.sfx('nope'); return; } S.coins -= c; if (it.stock) S.bombs = (S.bombs || 0) + 3; else S.upg[it.id] = lv + 1; this.G.audio.sfx('buy'); this.G.saveNow(); this.drawShop(); }
   closeShop() { this.shopOpen = false; this.show('shop', false); this.G.locked = false; this.G.input.clear(); }
   toggleMap(force) { this.mapOpen = force === undefined ? !this.mapOpen : force; this.show('map', this.mapOpen); if (this.mapOpen) this.drawMap(); }
   drawMap() {
@@ -76,7 +76,7 @@ export class UI {
     if (this.areaT > 0 && (this.areaT -= dt) <= 0) this.show('area', false);
     if (this.barkT > 0) { if ((this.barkT -= dt) <= 0) this.show('bark', false); } else if (this.barkQ.length && !this.dlg) { const [who, text] = this.barkQ.shift(); $('barkWho').textContent = who; $('barkText').textContent = text; this.barkT = 2.5 + text.length * 0.045; this.show('bark', true); G.audio.sfx('talk'); }
     if (this.dlg) { const d = this.dlg, l = d.lines[d.i]; if (d.n < l.text.length) { const n0 = Math.floor(d.n); d.n = Math.min(l.text.length, d.n + dt * 55); if (Math.floor(d.n) !== n0) { $('dlgText').textContent = l.text.slice(0, Math.floor(d.n)); if (Math.floor(d.n) % 3 === 0) G.audio.sfx('talk'); } } if (I.hit('KeyE') || I.hit('Space') || I.hit('Enter')) this.advance(); }
-    else if (this.shopOpen) { for (let i = 0; i < 5; i++) if (I.hit('Digit' + (i + 1))) this.buy(i); if (I.hit('KeyE') || I.hit('Escape') || I.hit('Enter')) this.closeShop(); }
+    else if (this.shopOpen) { for (let i = 0; i < 10; i++) if (I.hit('Digit' + ((i + 1) % 10))) this.buy(i); if (I.hit('KeyE') || I.hit('Escape') || I.hit('Enter')) this.closeShop(); }
     else if (this.doneCb) { if (I.hit('KeyE') || I.hit('Enter') || I.hit('Space')) this.closeDone(); }
     else if (I.hit('KeyM')) this.toggleMap();
     if (this.mapOpen && (G.frame & 15) === 0) this.drawMap();
@@ -93,7 +93,7 @@ export class UI {
     this.set('coins', S.coins); const id = W.def.id;
     this.show('jewelBox', !W.def.hub); if (!W.def.hub) { this.set('jewels', (S.jewels[id] || []).filter(Boolean).length + '/3'); this.set('height', Math.max(0, Math.round(P.pos.y)) + ' m / ' + Math.round(W.spiral.Ytop) + ' m'); }
     this.show('heightBox', !W.def.hub);
-    const tools = (S.items.whip ? '<span><b>LMB</b> Whip</span>' : '') + (S.items.hook ? `<span><b>RMB</b> ${S.items.cannon ? 'Hand cannon' : 'Hook'}</span>` : '') + (S.items.glider ? '<span><b>Hold SPACE</b> Glide</span>' : '') + `<span><b>SPACE</b> Jump ×${S.items.boots ? 3 : 2}</span><span><b>M</b> Map</span>`;
+    const tools = (S.items.whip ? '<span><b>LMB</b> Whip</span>' : '') + (S.items.hook ? `<span><b>RMB</b> ${S.items.cannon ? 'Hand cannon' : 'Hook'}</span>` : '') + (S.items.glider ? '<span><b>Hold SPACE</b> Glide</span>' : '') + (S.bombs > 0 ? `<span><b>G</b> Squibs ×${S.bombs}</span>` : '') + `<span><b>SPACE</b> Jump ×${S.items.boots ? 3 : 2}</span><span><b>M</b> Map</span>`;
     if (this.last.tools !== tools) { this.last.tools = tools; $('tools').innerHTML = tools; }
     const bal = !!P.onBeam; this.show('balance', bal); if (bal) $('balDot').style.left = (50 + P.lean * 46) + '%';
     const st = P.swim ? 'Swimming: head for the bank!' : P.climb ? 'Climbing  ·  W/S up and down  ·  SPACE jump off' : P.swing ? 'Swinging  ·  SPACE let go' : P.glide ? 'Gliding' : P.steep ? 'Sliding!' : '';

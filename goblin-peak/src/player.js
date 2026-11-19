@@ -21,7 +21,7 @@ export class Player {
   detach() { this.climb = null; this.swing = null; this.zip = null; }
   knock(dx, dz, power, up = 7) {
     if (this.inv > 0) return false;
-    const l = Math.hypot(dx, dz) || 1; this.vel.set(dx / l * power, up, dz / l * power); this.stun = 0.5; this.inv = 1.4; this.detach(); this.grounded = false; this.pos.y += 0.06; this.shake = 0.35; this.slideT = 0;
+    const l = Math.hypot(dx, dz) || 1; power *= 1 - (this.G.save.upg.hide || 0) * 0.17; this.vel.set(dx / l * power, up, dz / l * power); this.stun = 0.5; this.inv = 1.4; this.detach(); this.grounded = false; this.pos.y += 0.06; this.shake = 0.35; this.slideT = 0;
     this.G.loseCoins(); this.G.audio.sfx('hit'); return true;
   }
   canStand() {
@@ -51,6 +51,7 @@ export class Player {
   // Where a hook (rock, wood, cliff edges) or a cannon spike (anything at all) would bite along the line of sight.
   aimSurface(range, any) {
     const W = this.G.world, L = this.look, h = W.raycast(this.pos.x, this.pos.y + this.eye, this.pos.z, L.x, L.y, L.z, range); if (!h) return null;
+    if (h.b && h.b.noHook) return null;
     if (!any && !h.b) { W.T.normalAt(h.x, h.z, nrm); if (nrm.y > 0.8) return null; }
     let y = h.y + 1.0; if (h.b) { const top = h.b.y + h.b.hy; if (top - h.y < 3.2) y = top + 0.5; }
     return { x: h.x - L.x * 0.5, y, z: h.z - L.z * 0.5, surf: 1, sx: h.x, sy: h.y, sz: h.z };
@@ -65,12 +66,13 @@ export class Player {
     const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     let wx = -sy * f + cy * s, wz = -cy * f - sy * s; const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
     const jumpHit = ctrl && I.hit('Space'), jumpHeld = ctrl && I.down('Space'), crouchHeld = ctrl && (I.down('KeyC') || I.down('ControlLeft')), sprint = I.down('ShiftLeft') || I.down('ShiftRight');
-    const maxJumps = S.items.boots ? 3 : 2, jb = 1 + (S.upg.spring || 0) * 0.06;
+    this.hex = (this.hex || 0) - dt; const hexed = this.hex > 0, maxJumps = S.items.boots ? 3 : 2, jb = (1 + (S.upg.spring || 0) * 0.06) * (hexed ? 0.72 : 1);
+    if (ctrl && I.hit('KeyG')) W.throwBomb(this);
     if (this.grounded && this.ground && this.ground.mover) { p.x += this.ground.dx; p.y += this.ground.dy; p.z += this.ground.dz; }
     const wasGrounded = this.grounded; let ice = false;
     // ---- tools
     this.aimWhip = S.items.whip ? this.aimLimb(13 + (S.upg.whip || 0) * 2.5, this.swing && this.swing.a) : null;
-    const hr = S.items.cannon ? 62 : 27; this.aimHook = S.items.hook ? (this.aimLimb(hr) || this.aimSurface(hr, !!S.items.cannon)) : null;
+    const hr = S.items.cannon ? 62 : 27; this.aimHook = S.items.hook ? (this.aimLimb(hr) || this.aimSurface(hr, !!S.items.cannon)) : null; this.hookDenied = false; if (this.aimHook && !W.hookOk(p, this.aimHook)) { this.aimHook = null; this.hookDenied = true; }
     if (ctrl && I.lmbHit && S.items.whip && this.whipCd <= 0 && !this.swim) {
       this.whipCd = 0.4; this.whipAnim = 0.3;
       const hitMob = W.whipHit(this, 5.5 + (S.upg.whip || 0)); G.audio.sfx('whip');
@@ -80,7 +82,7 @@ export class Player {
     if (ctrl && (I.rmbHit || I.hit('KeyQ')) && S.items.hook && !this.swim) {
       let t = this.aimHook; const sp = S.items.cannon ? 38 : 27;
       if (t) { this.climb = this.swing = null; this.zip = { x: t.x, y: t.y, z: t.z, t: 0, last: 1e9, stuck: 0, sp, pop: t.surf ? 11.5 : 8.8, sx: t.sx === undefined ? t.x : t.sx, sy: t.sy === undefined ? t.y : t.sy, sz: t.sz === undefined ? t.z : t.sz }; this.grounded = false; G.audio.sfx(S.items.cannon ? 'cannon' : 'hook'); if (S.items.cannon) W.cannonBlast(t); }
-      else G.audio.sfx('miss');
+      else { G.audio.sfx('miss'); if (this.hookDenied) G.ui.toast('That face is too sheer and loose: the hook rips straight out. You will have to take the trail.', 4); }
     }
     // ---- water
     const wY = T.waterY(p.x, p.z), inWater = p.y < wY - 0.35;
@@ -98,7 +100,7 @@ export class Player {
       if (!ctrl) this.climb = null;
       else if (jumpHit) { v.set(c.nx * 6.5, 9.2, c.nz * 6.5); this.climb = null; this.climbCd = 0.3; this.jumps = 1; this.sinceJump = 0; G.audio.sfx('jump'); }
       else if (I.hit('KeyC') || I.hit('ControlLeft')) { this.climb = null; this.climbCd = 0.45; }
-      else { const tx = -c.nz, tz = c.nx, side = (cy * tx - sy * tz) * s; v.set(tx * side * 2.8 - c.nx * 1.2, f * 3.8, tz * side * 2.8 - c.nz * 1.2); if (wasGrounded && f < 0) { this.climb = null; this.climbCd = 0.3; } }
+      else { const tx = -c.nz, tz = c.nx, side = (cy * tx - sy * tz) * s, ft = -sy * tx - cy * tz, cs = 1 + (S.upg.grip || 0) * 0.35, along = (side * 2.8 + f * ft * 3.4) * cs; v.set(tx * along - c.nx * 1.2, f * (1 - Math.abs(ft)) * 3.8 * cs, tz * along - c.nz * 1.2); if (wasGrounded && f < 0) { this.climb = null; this.climbCd = 0.3; } }
     } else if (this.swim) {
       T.current(p.x, p.z, cur); const k = Math.min(1, 5 * dt);
       v.x += (cur.x + wx * 3.3 - v.x) * k; v.z += (cur.z + wz * 3.3 - v.z) * k; if (Math.hypot(v.x, v.z) < 1.2 && Math.hypot(cur.x, cur.z) > 2) { v.x -= cur.z * 0.5; v.z += cur.x * 0.5; } v.y = clamp((wY - 0.6 - p.y) * 6, -6, 4); this.jumps = 0; this.glide = false; this.crouch = false; this.slideT = 0;
@@ -106,8 +108,8 @@ export class Player {
       // crouch, crawl and slide
       if (crouchHeld && !this.crouch) { this.crouch = true; if (this.grounded && Math.hypot(v.x, v.z) > 6.2) { this.slideT = 1.0; const b = 1.18; v.x *= b; v.z *= b; G.audio.sfx('slide'); } }
       if (!crouchHeld && this.crouch && this.canStand()) { this.crouch = false; this.slideT = 0; }
-      const beam = this.grounded && this.ground && this.ground.beam ? this.ground : null;
-      let maxSp = this.crouch ? 2.5 : sprint ? 8.4 : 5.4; if (beam) maxSp = sprint ? 4.4 : 2.9;
+      const beam = null;
+      let maxSp = (this.crouch ? 2.5 : sprint ? 8.4 : 5.4) * (hexed ? 0.55 : 1); if (beam) maxSp = sprint ? 4.4 : 2.9;
       if (this.grounded) {
         ice = this.ground ? !!this.ground.ice : W.iceAt(p.x, p.z);
         if (this.slideT > 0) {
@@ -142,7 +144,7 @@ export class Player {
       v.y = Math.max(v.y - G_ * dt, -46);
     }
     // ---- balance beams
-    if (this.grounded && this.ground && this.ground.beam && !this.climb) {
+    if (false) {
       const b = this.ground, sp = Math.hypot(v.x, v.z), tt = G.time, amp = 0.35 + sp * 0.13;
       this.lean += (0.5 * this.lean + (Math.sin(tt * 1.3 + b.x) * 0.6 + Math.sin(tt * 2.9 + b.z) * 0.4) * amp - s * 1.9) * dt;
       const lat = (p.x - b.x) * b.ax + (p.z - b.z) * b.az, k = Math.min(1, 7 * dt); p.x -= b.ax * lat * k; p.z -= b.az * lat * k; this.onBeam = b;
@@ -190,8 +192,8 @@ export class Player {
         if (!wasGrounded && !this.climb && !this.zip && !b.beam && !b.noGrab && ctrl && top - p.y < 1.4 && v.y < 9 && v.y > -16 && wx * nx + wz * nz < -0.3) { p.x -= nx * 0.55; p.z -= nz * 0.55; p.y = top + 0.02; v.y = 0; this.grounded = true; this.ground = b; this.swing = null; if (b.crumble && !b.crT) b.crT = 0.001; this.mantleT = 0.25; G.audio.sfx('land'); continue; }
         const vn = v.x * nx + v.z * nz; if (vn < 0 && !this.climb) { v.x -= nx * vn; v.z -= nz * vn; }
         if (b.climb) {
-          if (this.climb && this.climb.b === b) { touchedClimb = true; this.climb.nx = nx; this.climb.nz = nz; }
-          else if (!this.climb && this.climbCd <= 0 && ctrl && !this.zip && !this.swing && (wx * nx + wz * nz < -0.3 || !wasGrounded && vn < -1)) { this.climb = { b, nx, nz }; touchedClimb = true; this.jumps = 1; this.glide = false; v.set(0, 0, 0); }
+          if (this.climb && this.climb.b === b) { if (nx * this.climb.fx + nz * this.climb.fz > 0.9) { touchedClimb = true; this.climb.nx = nx; this.climb.nz = nz; } }
+          else if (!this.climb && this.climbCd <= 0 && ctrl && !this.zip && !this.swing && (wx * nx + wz * nz < -0.3 || !wasGrounded && vn < -1)) { this.climb = { b, nx, nz, fx: nx, fz: nz }; touchedClimb = true; this.jumps = 1; this.glide = false; v.set(0, 0, 0); }
         }
       }
     }

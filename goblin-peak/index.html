@@ -39,14 +39,20 @@ button{font:inherit;cursor:pointer}
 #tools{position:absolute;right:16px;bottom:14px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:70vw}
 #tools span{background:rgba(43,28,14,.6);color:#fff;border-radius:10px;padding:4px 10px;font-size:14px}
 #tools b{color:var(--gold)}
+#objective{position:absolute;left:50%;top:14px;transform:translateX(-50%);max-width:min(620px,56vw);background:rgba(43,28,14,.78);color:#fff;border:2px solid var(--gold);border-radius:14px;padding:6px 16px;font-size:16px;font-weight:500;text-align:center}
+#objective:before{content:"GOAL  ";color:var(--gold);font-weight:700;font-size:13px;letter-spacing:.08em}
+#guide{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;color:var(--gold);font-weight:700;text-shadow:0 2px 0 var(--ink),0 0 6px #000;white-space:nowrap;pointer-events:none}
+#guide b{font-size:30px;line-height:1;animation:bobg 1s infinite}
+#guide span{font-size:14px;background:rgba(43,28,14,.7);border-radius:8px;padding:1px 8px;color:#fff;text-shadow:none}
+@keyframes bobg{50%{transform:translateY(5px)}}
 #cross{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
 #pips{position:absolute;left:50%;top:calc(50% + 16px);transform:translateX(-50%);color:#fff;font-size:13px;letter-spacing:3px;text-shadow:0 1px 2px #000}
 #state{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);background:rgba(43,28,14,.6);color:#fff;border-radius:10px;padding:4px 14px;font-size:15px;white-space:nowrap}
 #prompt{position:absolute;left:50%;top:60%;transform:translateX(-50%);background:var(--paper);border:3px solid var(--ink);border-radius:14px;padding:6px 16px;font-weight:600;white-space:nowrap}
 #prompt b{background:var(--ink);color:#fff;border-radius:6px;padding:1px 8px;margin-right:6px}
-#toast{position:absolute;left:50%;top:86px;transform:translateX(-50%);max-width:min(640px,90vw);background:rgba(255,244,214,.95);border:3px solid var(--ink);border-radius:16px;padding:9px 18px;text-align:center;font-weight:500}
-#area{position:absolute;left:50%;top:30%;transform:translateX(-50%);color:#fff;font-size:clamp(28px,5vw,48px);font-weight:700;text-shadow:3px 3px 0 var(--ink);white-space:nowrap}
-#bark{position:absolute;left:50%;top:150px;transform:translateX(-50%);max-width:min(680px,92vw);background:rgba(43,28,14,.82);color:#fff;border-radius:16px;padding:10px 18px}
+#toast{position:absolute;left:50%;top:96px;transform:translateX(-50%);max-width:min(640px,90vw);background:rgba(255,244,214,.95);border:3px solid var(--ink);border-radius:16px;padding:9px 18px;text-align:center;font-weight:500}
+#area{position:absolute;left:50%;top:40%;transform:translateX(-50%);color:#fff;font-size:clamp(28px,5vw,48px);font-weight:700;text-shadow:3px 3px 0 var(--ink);white-space:nowrap}
+#bark{position:absolute;left:50%;top:170px;transform:translateX(-50%);max-width:min(680px,92vw);background:rgba(43,28,14,.82);color:#fff;border-radius:16px;padding:10px 18px}
 #bark b{color:var(--gold);display:block;font-size:14px;letter-spacing:.04em;text-transform:uppercase}
 #balance{position:absolute;left:50%;top:66%;transform:translateX(-50%);width:260px;height:20px;background:linear-gradient(90deg,var(--red),#f0c040 25%,#7fd06a 50%,#f0c040 75%,var(--red));border:3px solid var(--ink);border-radius:999px}
 #balance:before{content:"A  ◄  keep it in the middle  ►  D";position:absolute;left:50%;top:22px;transform:translateX(-50%);white-space:nowrap;color:#fff;font-size:14px;text-shadow:0 1px 2px #000}
@@ -81,16 +87,16 @@ button{font:inherit;cursor:pointer}
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795119032",
-"./src/entities.js": "./src/entities.js?v=1795119032",
-"./src/levels.js": "./src/levels.js?v=1795119032",
-"./src/main.js": "./src/main.js?v=1795119032",
-"./src/models.js": "./src/models.js?v=1795119032",
-"./src/player.js": "./src/player.js?v=1795119032",
-"./src/terrain.js": "./src/terrain.js?v=1795119032",
-"./src/ui.js": "./src/ui.js?v=1795119032",
-"./src/util.js": "./src/util.js?v=1795119032",
-"./src/world.js": "./src/world.js?v=1795119032"
+"./src/audio.js": "./src/audio.js?v=1795121957",
+"./src/entities.js": "./src/entities.js?v=1795121957",
+"./src/levels.js": "./src/levels.js?v=1795121957",
+"./src/main.js": "./src/main.js?v=1795121957",
+"./src/models.js": "./src/models.js?v=1795121957",
+"./src/player.js": "./src/player.js?v=1795121957",
+"./src/terrain.js": "./src/terrain.js?v=1795121957",
+"./src/ui.js": "./src/ui.js?v=1795121957",
+"./src/util.js": "./src/util.js?v=1795121957",
+"./src/world.js": "./src/world.js?v=1795121957"
 }
 }
 </script>
@@ -109,6 +115,8 @@ button{font:inherit;cursor:pointer}
   <div id="area" hidden></div>
   <div id="bark" hidden><b id="barkWho"></b><span id="barkText"></span></div>
   <div id="balance" hidden><div id="balDot"></div></div>
+  <div id="objective" hidden></div>
+  <div id="guide" hidden><b id="guideArrow">▼</b><span id="guideText"></span></div>
   <div id="tools"></div>
 </div>
 
@@ -147,6 +155,6 @@ button{font:inherit;cursor:pointer}
 </div></div>
 
 <div id="fade"></div>
-<script type="module" src="./src/main.js?v=1795119032"></script>
+<script type="module" src="./src/main.js?v=1795121957"></script>
 </body>
 </html>

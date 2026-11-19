@@ -66,6 +66,7 @@ class Game {
     if (this.world) { this.world.scene.traverse(o => { if (o.isInstancedMesh) o.dispose(); if (o.geometry && o.geometry.index && o.geometry.index.count > 2000) o.geometry.dispose(); }); this.renderer.renderLists.dispose(); }
     const W = this.world = new World(this, def); W.scene.add(this.player.model, this.player.rope, this.camera);
     this.save.cur = def.id; this.levelT = 0; this.locked = false; this.toCamp(true);
+    if (def.hub) { const g = W.guide(), p = this.player; if (g) p.yaw = Math.atan2(-(g.x - p.pos.x), -(g.z - p.pos.z)); }
     this.audio.music(W.theme.music); if (!quiet) { this.ui.area(def.name); this.saveNow(); }
     setTimeout(() => { $('fade').style.opacity = 0; }, 150);
   }

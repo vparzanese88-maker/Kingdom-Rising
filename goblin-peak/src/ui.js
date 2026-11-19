@@ -1,4 +1,5 @@
 // Everything drawn over the 3D view: HUD, speech boxes, the map, the shop and the menus.
+import * as THREE from 'three';
 import { TAU } from './util.js';
 import { LEVELS, ORDER, SHOP } from './levels.js';
 
@@ -79,6 +80,16 @@ export class UI {
     else if (this.doneCb) { if (I.hit('KeyE') || I.hit('Enter') || I.hit('Space')) this.closeDone(); }
     else if (I.hit('KeyM')) this.toggleMap();
     if (this.mapOpen && (G.frame & 15) === 0) this.drawMap();
+    // objective line and the gold marker that points the way
+    const gd = G.locked || this.mapOpen ? null : W.guide(); this.show('objective', !!gd); this.show('guide', !!gd);
+    if (gd) {
+      this.set('objective', gd.text); const v = (this.gv = this.gv || new THREE.Vector3()).set(gd.x, gd.y, gd.z).project(G.camera), d = Math.hypot(gd.x - P.pos.x, gd.z - P.pos.z);
+      let x = v.x, y = v.y; const behind = v.z > 1; if (behind) { x = -x; y = -y; }
+      const offs = behind || Math.abs(x) > 0.9 || Math.abs(y) > 0.8; if (behind) { const m = Math.max(Math.abs(x), 0.001); x = x / m * 0.9; y = -0.6; }
+      x = Math.max(-0.9, Math.min(0.9, x)); y = Math.max(-0.7, Math.min(0.72, y));
+      const el = $('guide'); el.style.left = ((x * 0.5 + 0.5) * 100).toFixed(1) + '%'; el.style.top = ((-y * 0.5 + 0.5) * 100).toFixed(1) + '%';
+      this.set('guideArrow', !offs ? '▼' : behind ? (x < 0 ? '◀ turn round' : 'turn round ▶') : x < -0.85 ? '◀' : x > 0.85 ? '▶' : y > 0 ? '▲' : '▼'); this.set('guideText', gd.label + ' · ' + Math.round(d) + ' m');
+    }
     this.set('coins', S.coins); const id = W.def.id;
     this.show('jewelBox', !W.def.hub); if (!W.def.hub) { this.set('jewels', (S.jewels[id] || []).filter(Boolean).length + '/3'); this.set('height', Math.max(0, Math.round(P.pos.y)) + ' m / ' + Math.round(W.spiral.Ytop) + ' m'); }
     this.show('heightBox', !W.def.hub);

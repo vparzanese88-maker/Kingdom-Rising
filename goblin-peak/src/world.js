@@ -254,6 +254,22 @@ export class World {
     mk(M.GEO.icoG, th.rockCol, rocks, (d, p) => { d.position.set(p[0], p[1] + 0.3, p[2]); d.scale.set(1.2 * p[3], 0.9 * p[3], 1.1 * p[3]); d.rotation.set(p[4], p[4] * 2, 0); });
   }
 
+  // Where should the player head next? Village: the first gate not yet cleared. Mountain: a point a little way up the trail.
+  guide() {
+    const G = this.G, S = G.save, p = G.player.pos, sp = this.spiral;
+    if (!sp) {
+      const lv = this.def.levels, i = lv.findIndex(L => !S.done[L.id]) < 0 || S.won ? -1 : lv.findIndex(L => !S.done[L.id]); if (i < 0) return null;
+      const g = [[-46, -30], [0, -62], [46, -30]][i]; return { x: g[0], y: 3, z: g[1], label: lv[i].name, text: `Walk through the ${['west', 'north', 'east'][i]} gate to ${lv[i].name}` };
+    }
+    sp.toRoute(p.x, p.z, rt); const phi = clamp(rt.phi, 0, sp.PHI), R = sp.R(phi);
+    let nc = null; for (const c of this.camps) if (c.sec.p0 > phi + 4 / R) { nc = c; break; }
+    const endName = this.boss ? 'the summit' : 'the top gate', toPhi = nc ? nc.sec.p0 : sp.PHI, dist = Math.round((toPhi - phi) * (sp.R(phi) + sp.R(toPhi)) / 2);
+    const text = `Follow the trail up the mountain  ·  ${nc ? 'next camp, ' + nc.sec.name : endName}: ${Math.max(0, dist)} m`;
+    if (sp.PHI - phi < 34 / R) { if (this.boss) return this.boss.phase >= 5 ? { x: -7, y: sp.Ytop + 2, z: 0, label: 'Princess', text: 'Talk to the Princess' } : { x: 0, y: sp.Ytop + 3, z: 0, label: 'Chieftain', text: 'Ring the three gongs around the throne with your whip, then whip the Chieftain' }; const g = this.goalAt; return { x: g.x, y: g.y + 3, z: g.z, label: 'Gate', text: 'Walk through the gate' }; }
+    const off = Math.abs(rt.lat) > sp.width(phi) + 3 || Math.abs(p.y - sp.trailY(phi)) > 12, f = sp.frame(Math.min(sp.PHI, phi + (off ? 4 : 32) / R), 0, 1.6);
+    return { x: f.x, y: f.y, z: f.z, label: off ? 'Trail' : 'This way', text: off ? 'Get back onto the trail and follow it up. Lit camps have a rope net up the cliff.' : text };
+  }
+
   // ------------------------------------------------------------------ queries
   inNet(x, z) { for (const n of this.nets) { if (!n || !n.active) continue; const dx = x - n.x, dz = z - n.z; if (Math.abs(dx * n.ax + dz * n.az) < n.hx && Math.abs(-dx * n.az + dz * n.ax) < n.hz) return true; } return false; }
   iceAt(x, z) { if (!this.iceR.length) return false; this.spiral.toRoute(x, z, rt); for (const r of this.iceR) if (rt.phi >= r[0] && rt.phi <= r[1]) return true; return false; }

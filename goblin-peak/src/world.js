@@ -25,7 +25,7 @@ const PROFILE = {
 export class World {
   constructor(G, def) {
     this.G = G; this.def = def; const th = this.theme = THEMES[def.theme]; this.scene = new THREE.Scene();
-    this.loose = []; this.boxes = []; this.ents = []; this.anchors = []; this.drafts = []; this.nets = []; this.iceR = []; this.coins = []; this.triggers = []; this.secs = []; this.movers = []; this.jewels = []; this.camps = []; this.spiral = null;
+    this.limbs = []; this.loose = []; this.boxes = []; this.ents = []; this.anchors = []; this.drafts = []; this.nets = []; this.iceR = []; this.coins = []; this.triggers = []; this.secs = []; this.movers = []; this.jewels = []; this.camps = []; this.spiral = null;
     this.rnd = rng(def.seed || 7); this.rockMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }); this.rg = M.rockGeos(new THREE.Color(...th.ground).getHex(), th.rockCol); this.rk = 0;
     this.scene.fog = new THREE.Fog(th.fog[0], th.fog[1], th.fog[2]); this.scene.background = new THREE.Color(th.fog[0]);
     const sg = new THREE.SphereGeometry(900, 24, 12), sc = new Float32Array(sg.attributes.position.count * 3), top = new THREE.Color(th.sky[0]), bot = new THREE.Color(th.sky[1]), c = new THREE.Color();
@@ -60,6 +60,7 @@ export class World {
   addBox(x, y, z, hx, hy, hz, th, color, f = {}) {
     const b = Object.assign({ x, y, z, hx, hy, hz, ax: Math.cos(th), az: Math.sin(th), rad: Math.hypot(hx, hz), solid: true, dx: 0, dy: 0, dz: 0 }, f);
     if (color !== null) { const rock = color === ROCK; color = this.color(color); let m; if (b.beam) { m = M.fallenTree(Math.max(hx, hz) * 2 + 1.2, 0.34); m.rotation.y = -th + (hz > hx ? Math.PI / 2 : 0); m.position.set(x, y - 0.08, z); } else if (b.log) { m = M.fallenTree(hx * 2, hy, b.log === 2 ? this.theme.tree[0] : 0); m.rotation.y = -th; m.position.set(x, y, z); } else { m = new THREE.Mesh(rock ? this.rg.boxes[this.rk++ % 4] : M.GEO.boxG, typeof color === 'object' ? color : M.mat(color, { flat: 1 })); m.scale.set(hx * 2, hy * 2, hz * 2); m.position.set(x, y, z); m.rotation.y = -th; } m.castShadow = m.receiveShadow = true; this.scene.add(m); b.mesh = m; }
+    if (b.log || b.beam) { const lx = b.beam && hz > hx ? -b.az * hz : b.ax * hx, lz = b.beam && hz > hx ? b.ax * hz : b.az * hx; this.limb(x - lx, y, z - lz, x + lx, y, z + lz); }
     this.boxes.push(b); if (b.mover) this.movers.push(b); return b;
   }
   addCyl(x, y, z, r, hy, color, f = {}) {
@@ -72,7 +73,10 @@ export class World {
   ground(s, a, l) { const fr = s.at(a, l, 0); fr.y = this.T.hAt(fr.x, fr.z); return fr; }
   coin(x, y, z) { this.coins.push({ x, y, z, got: false }); }
   coinLine(s, a0, a1, lat = 0, up = 1, n) { n = n || Math.max(2, Math.round(Math.abs(a1 - a0) / 2.6)); for (let i = 0; i < n; i++) { const a = a0 + (a1 - a0) * (n === 1 ? 0.5 : i / (n - 1)), f = s.at(a, typeof lat === 'function' ? lat(a) : lat, typeof up === 'function' ? up(i / Math.max(1, n - 1)) : up); this.coin(f.x, f.y, f.z); } }
-  anchor(s, a, l, u, kind) { const f = s.at(a, l, u), an = { x: f.x, y: f.y, z: f.z, kind, fx: f.tx, fz: f.tz }; this.anchors.push(an); if (kind === 'grapple') { const g = M.grappleRing(); g.position.set(f.x, f.y, f.z); g.rotation.y = f.yaw + Math.PI / 2; this.scene.add(g); } return f; }
+  // Anything a whip can wrap round or a hook can catch: branches, trunks, logs, posts.
+  limb(ax, ay, az, bx, by, bz) { this.limbs.push({ ax, ay, az, bx, by, bz, len: Math.hypot(bx - ax, by - ay, bz - az) || 0.01 }); }
+  slimb(s, a1, l1, u1, a2, l2, u2) { const f = s.at(a1, l1, u1), g = s.at(a2, l2, u2); this.limb(f.x, f.y, f.z, g.x, g.y, g.z); }
+  anchor(s, a, l, u, kind) { const f = s.at(a, l, u); this.anchors.push({ x: f.x, y: f.y, z: f.z, kind }); return f; }
 
   // ------------------------------------------------------------------ mountain stages
   buildMountain() {
@@ -173,15 +177,15 @@ export class World {
   }
   b_cliff(s) {
     const w = s.w + 1.5, r = s.rise; { const f = s.at(6, 0, 0); this.addBox(f.x, s.y0 + (r - 1) / 2 + 0.015, f.z, w, (r + 1) / 2, 2.4, f.th, ROCK); }
-    for (const l of [-2.5, 2.5]) { this.anchor(s, 2.5, l, r + 2.9, 'grapple'); this.deco(s, 4.4, l, r + 1.6, M.cyl(0x6b4a2a, 0.14, 3.2, 0, 0, 0)); this.deco(s, 3.4, l, r + 3.1, M.box(0x6b4a2a, 0.16, 0.16, 2.4, 0, 0, 0)); }
+    for (const l of [-2.5, 2.5]) { this.anchor(s, 2.5, l, r + 3.1, 'grapple'); this.deco(s, 4.4, l, r + 1.6, M.cyl(0x5a3c22, 0.2, 3.2, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 3, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, 3.2, l, r + 3.1, br); this.slimb(s, 1.8, l, r + 3.1, 4.6, l, r + 3.1); this.slimb(s, 4.4, l, r, 4.4, l, r + 3.2); }
   }
   b_chasm(s) {
-    const { a0, a1 } = this.pit(s); for (const l of [-2, 2]) { this.anchor(s, a1 - 0.9, l, 3.2, 'grapple'); this.deco(s, a1 + 0.9, l, 1.7, M.cyl(0x6b4a2a, 0.14, 3.4, 0, 0, 0)); this.deco(s, a1, l, 3.4, M.box(0x6b4a2a, 0.16, 0.16, 2.2, 0, 0, 0)); }
+    const { a0, a1 } = this.pit(s); for (const l of [-2, 2]) { this.anchor(s, a1 - 0.9, l, 3.4, 'grapple'); this.deco(s, a1 + 0.9, l, 1.7, M.cyl(0x5a3c22, 0.2, 3.4, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 2.8, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, a1 - 0.2, l, 3.4, br); this.slimb(s, a1 - 1.6, l, 3.4, a1 + 1.2, l, 3.4); this.slimb(s, a1 + 0.9, l, 0, a1 + 0.9, l, 3.4); }
     this.coinLine(s, a0 + 3, a1 - 3, 0, 2.2);
   }
   b_swing(s) {
     const { a0, d } = this.pit(s);
-    for (let i = 0; i < s.n; i++) { const a = a0 + 5.5 + i * 11; this.anchors.push(Object.assign(s.at(a, 0, 7.5), { kind: 'whip' })); this.deco(s, a, 0, 0, M.whipPost(7.5, d)); this.coinLine(s, a - 3, a + 3, 0, q => 0.6 - Math.sin(q * Math.PI) * 1.2, 4); }
+    for (let i = 0; i < s.n; i++) { const a = a0 + 5.5 + i * 11; this.anchors.push(Object.assign(s.at(a, 0, 8.45), { kind: 'whip' })); this.deco(s, a, 0, 0, M.whipPost(7.5, d)); this.slimb(s, a, -3.6, 8.15, a, 1.9, 8.75); this.coinLine(s, a - 3, a + 3, 0, q => 0.6 - Math.sin(q * Math.PI) * 1.2, 4); }
   }
   b_beam(s) {
     const { a0, d } = this.pit(s), L = s.L;
@@ -203,9 +207,9 @@ export class World {
     const ac = s.ac = (s.cross - s.p0) / (s.p1 - s.p0) * s.len, st = s.style || 'stones';
     if (st === 'stones') [-8, -5.4, -2.8, 0, 2.8, 5.4, 8].forEach((o, i) => { const f = s.at(ac + o, i % 2 ? 0.7 : -0.7, -2.4); this.addCyl(f.x, f.y, f.z, 0.95, 2.2, ROCK); this.coin(f.x, f.y + 3.4, f.z); });
     else if (st === 'log') { this.sb(s, ac, 0, -0.25, 0.32, 0.25, 9.6, LOG, { beam: true }); this.coinLine(s, ac - 7, ac + 7, 0, 1.1); }
-    else if (st === 'swing') for (const o of [-4.6, 4.6]) { this.anchors.push(Object.assign(s.at(ac + o, 0, 7.5), { kind: 'whip' })); this.deco(s, ac + o, 0, 0, M.whipPost(7.5, 3)); this.coinLine(s, ac + o - 3, ac + o + 3, 0, q => 0.8 - Math.sin(q * Math.PI) * 1.2, 4); }
+    else if (st === 'swing') for (const o of [-4.6, 4.6]) { this.anchors.push(Object.assign(s.at(ac + o, 0, 8.45), { kind: 'whip' })); this.deco(s, ac + o, 0, 0, M.whipPost(7.5, 3)); this.slimb(s, ac + o, -3.6, 8.15, ac + o, 1.9, 8.75); this.coinLine(s, ac + o - 3, ac + o + 3, 0, q => 0.8 - Math.sin(q * Math.PI) * 1.2, 4); }
     else if (st === 'raft') { const f = s.at(ac, 0, -1.1); this.addBox(f.x, f.y, f.z, 1.6, 0.25, 1.6, f.th, PLANK, { mover: (t, b) => { const q = Math.sin(t * 0.7) * 7.6; b.x = f.x + f.tx * q; b.z = f.z + f.tz * q; } }); }
-    else if (st === 'hook') { for (const l of [-1.5, 1.5]) { this.anchor(s, ac + 8.6, l, 3.4, 'grapple'); this.deco(s, ac + 10.4, l, 1.6, M.cyl(0x6b4a2a, 0.12, 3.2, 0, 0, 0)); } }
+    else if (st === 'hook') { for (const l of [-1.5, 1.5]) { this.anchor(s, ac + 8.6, l, 3.3, 'grapple'); this.deco(s, ac + 10.4, l, 1.6, M.cyl(0x5a3c22, 0.2, 3.2, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 3, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, ac + 9.1, l, 3.3, br); this.slimb(s, ac + 7.6, l, 3.3, ac + 10.6, l, 3.3); this.slimb(s, ac + 10.4, l, 0, ac + 10.4, l, 3.2); } }
     else if (st === 'planks') [-7.8, -5.2, -2.6, 0, 2.6, 5.2, 7.8].forEach(o => this.sb(s, ac + o, 0, -0.2, 1.2, 0.18, 1.2, PLANK, { crumble: true, noGrab: true }));
     const sg = M.sign(); this.deco(s, ac - 11, -s.w + 1, 0, sg, Math.PI / 2); sg.position.y = this.T.hAt(sg.position.x, sg.position.z);
   }
@@ -229,7 +233,7 @@ export class World {
     [[0.9, 'climb'], [3.0, 'hook'], [5.1, 'bounce']].forEach(([ang, how]) => {
       const x = Math.cos(ang) * 24, z = Math.sin(ang) * 24; this.addBox(x, y + 3, z, 2.4, 3, 2.4, ang, ROCK, { climb: how === 'climb' });
       if (how === 'climb') { const v = this.vines(4.4, 6); v.position.set(x - Math.cos(ang) * 2.6, y + 3, z - Math.sin(ang) * 2.6); v.rotation.y = -ang + Math.PI / 2; this.scene.add(v); }
-      if (how === 'hook') { const an = { x: x - Math.cos(ang) * 3.3, y: y + 8.8, z: z - Math.sin(ang) * 3.3, kind: 'grapple', fx: Math.cos(ang), fz: Math.sin(ang) }; this.anchors.push(an); const g = M.grappleRing(); g.position.set(an.x, an.y, an.z); this.scene.add(g); this.scene.add(M.cyl(0x6b4a2a, 0.14, 3, x - Math.cos(ang) * 1.8, y + 7.5, z - Math.sin(ang) * 1.8)); }
+      if (how === 'hook') { const ax = x - Math.cos(ang) * 3.4, az = z - Math.sin(ang) * 3.4, bx2 = x - Math.cos(ang) * 1.6, bz2 = z - Math.sin(ang) * 1.6; this.anchors.push({ x: ax, y: y + 8.8, z: az, kind: 'grapple' }); this.scene.add(M.cyl(0x5a3c22, 0.2, 3, bx2, y + 7.5, bz2)); const br = M.cyl(0x5a3c22, 0.13, 2.4, (ax + bx2) / 2, y + 8.8, (az + bz2) / 2); br.rotation.z = Math.PI / 2; br.rotation.y = -ang; this.scene.add(br); this.limb(ax, y + 8.8, az, bx2, y + 8.8, bz2); this.limb(bx2, y + 6, bz2, bx2, y + 9, bz2); }
       if (how === 'bounce') { const mx = x - Math.cos(ang) * 5, mz = z - Math.sin(ang) * 5; this.addCyl(mx, y + 0.92, mz, 1.3, 0.5, null, { bounce: 17 }); const m = M.mushroom(); m.position.set(mx, y, mz); this.scene.add(m); }
       const g = this.add(new Gong(this, x + Math.cos(ang) * 1.5, y + 6, z + Math.sin(ang) * 1.5, boss)); boss.gongs.push(g);
     });
@@ -264,7 +268,7 @@ export class World {
     let px = 22, pz = 22; for (let i = 0; i < 5; i++) { this.addBox(px + i * 4.6, 0.5 + i * 0.55, pz + (i % 2) * 1.5, 1.3, 0.5 + i * 0.55, 1.3, 0, ROCK); this.coin(px + i * 4.6, 2.2 + i * 1.1, pz + (i % 2) * 1.5); }
     this.addBox(48, 4, 23, 2.5, 4, 2.5, 0, ROCK, { climb: true }); const vv = this.vines(4.6, 8); vv.position.set(45.4, 4, 23); vv.rotation.y = Math.PI / 2; this.scene.add(vv); for (let i = 0; i < 4; i++) this.coin(48 + (i % 2), 9.2, 22 + i * 0.6);
     this.addBox(-34, -0.35, 30, 0.3, 0.25, 15.5, 0, LOG, { beam: true }); for (let i = 0; i < 6; i++) this.coin(-34, 1, 20 + i * 4);
-    this.anchors.push({ x: 30, y: 8, z: 40, kind: 'whip' }); put(M.whipPost(8), 30, 40);
+    put(M.whipPost(8), 30, 40); this.limb(26.4, 8.65, 40, 31.9, 9.25, 40);
     this.addBox(22, 1, 40, 2, 1, 2, 0, ROCK); this.addBox(38, 1, 40, 2, 1, 2, 0, ROCK); for (let i = 0; i < 5; i++) this.coin(26 + i * 2, 1.2 + Math.abs(i - 2) * 0.6, 40);
     for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; this.coin(Math.cos(a) * 16, 1, Math.sin(a) * 16 - 4); }
     // the mountain itself, looming to the north
@@ -279,6 +283,7 @@ export class World {
       else { if (Math.hypot(x, z) < 34 || Math.abs(x) < 5 && z < 10 && z > -66 || Math.abs(z + 30) < 5 && Math.abs(x) < 50 || x > 16 && x < 54 && z > 16 && z < 46) continue; }
       (r() < 0.82 ? pts : rocks).push([x, y, z, 0.7 + r() * 0.8, r() * 6]);
     }
+    for (const p of pts) this.limb(p[0], p[1] + 2.2 * p[3], p[2], p[0], p[1] + 6.2 * p[3], p[2]);
     const mk = (geo, color, list, fn) => { const im = new THREE.InstancedMesh(geo, M.mat(color, { flat: 1 }), list.length); const d = new THREE.Object3D(); list.forEach((p, i) => { fn(d, p); d.updateMatrix(); im.setMatrixAt(i, d.matrix); }); im.castShadow = true; im.receiveShadow = true; this.scene.add(im); };
     const dead = this.def.theme === 'gorge';
     mk(M.GEO.cylG, th.trunk, pts, (d, p) => { d.position.set(p[0], p[1] + 1.2 * p[3], p[2]); d.scale.set(0.28 * p[3], 2.6 * p[3], 0.28 * p[3]); d.rotation.set(0, 0, 0); });
@@ -309,8 +314,8 @@ export class World {
   updraftAt(x, y, z) { for (const d of this.drafts) if (y > d.y0 && y < d.y1 && (x - d.x) * (x - d.x) + (z - d.z) * (z - d.z) < d.r * d.r) return d.str; return 0; }
   raycast(x, y, z, dx, dy, dz, max) {
     for (let t = 1; t < max; t += 0.25) {
-      const px = x + dx * t, py = y + dy * t, pz = z + dz * t; if (py < this.T.hAt(px, pz)) return { x: px, y: py, z: pz };
-      for (const b of this.boxes) { if (!b.solid || Math.abs(py - b.y) > b.hy) continue; const ex = px - b.x, ez = pz - b.z; if (b.r ? ex * ex + ez * ez < b.r * b.r : Math.abs(ex * b.ax + ez * b.az) < b.hx && Math.abs(-ex * b.az + ez * b.ax) < b.hz) return { x: px, y: py, z: pz }; }
+      const px = x + dx * t, py = y + dy * t, pz = z + dz * t; if (py < this.T.hAt(px, pz)) return { x: px, y: py, z: pz, b: null };
+      for (const b of this.boxes) { if (!b.solid || Math.abs(py - b.y) > b.hy) continue; const ex = px - b.x, ez = pz - b.z; if (b.r ? ex * ex + ez * ez < b.r * b.r : Math.abs(ex * b.ax + ez * b.az) < b.hx && Math.abs(-ex * b.az + ez * b.ax) < b.hz) return { x: px, y: py, z: pz, b }; }
     }
     return null;
   }

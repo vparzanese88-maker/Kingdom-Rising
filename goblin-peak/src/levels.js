@@ -25,15 +25,15 @@ const H = 'Dame Hilda', N = 'Nib', C = 'Chieftain Grizzlegut', PR = 'Princess Wr
 const shopKeeper = lines => ({ name: N, model: nib, stall: 1, lines, after: g => g.ui.shop() });
 
 export const ITEMS = {
-  whip: { name: 'The Old Bullwhip', text: 'LEFT CLICK cracks it at goblins. Look at a GOLDEN RING and LEFT CLICK to swing from it; SPACE lets go.' },
+  whip: { name: 'The Old Bullwhip', text: 'LEFT CLICK cracks it at goblins. It wraps round anything a whip can grip: look at a BRANCH, a tree or a log and LEFT CLICK to swing from it; SPACE lets go.' },
   boots: { name: 'Spring-Heeled Boots', text: 'You can now TRIPLE JUMP. Press SPACE a third time in the air for the biggest jump of all.' },
-  hook: { name: 'The Grappling Hook', text: 'Look at a BLUE RING and RIGHT CLICK (or Q). The hook pulls you straight to it.' },
+  hook: { name: 'The Grappling Hook', text: 'RIGHT CLICK (or Q) throws it. It catches on rock, cliff edges, branches, logs and posts, and pulls you there. It will not hold in grass or snow.' },
   glider: { name: 'The Leaf Glider', text: 'HOLD SPACE while falling to glide. White columns of rising air will carry you higher.' },
-  cannon: { name: 'The Grapple Hand Cannon', text: 'RIGHT CLICK (or Q) now fires a hook at ANYTHING you can see, twice as far: cliffs, walls, pillars. It also bonks goblins it lands near.' },
+  cannon: { name: 'The Grapple Hand Cannon', text: 'RIGHT CLICK (or Q) now fires a steel spike that sticks into ANYTHING you can see, twice as far, and hauls you to it. It also bonks goblins it lands near.' },
 };
 export const SHOP = [
   { id: 'spring', name: 'Springier Soles', text: 'Every jump goes a little higher.', cost: [40, 90, 160] },
-  { id: 'whip', name: 'Longer Lash', text: 'The whip reaches further, for rings and goblins.', cost: [50, 110] },
+  { id: 'whip', name: 'Longer Lash', text: 'The whip reaches further, for branches and goblins.', cost: [50, 110] },
   { id: 'magnet', name: 'Lucky Lodestone', text: 'Coins fly to you from further away.', cost: [35, 80] },
   { id: 'silk', name: 'Spider-silk Sail', text: 'The glider falls more slowly.', cost: [70, 140], needs: 'glider' },
   { id: 'purse', name: 'Buttoned Purse', text: 'You drop fewer coins when something knocks you about.', cost: [60] },
@@ -55,8 +55,8 @@ const L1 = [
   path(38, 3, { mobs: [['grunt', 0.65]], tip: 'A goblin! Jump on its head to bonk it. Goblins cannot hurt you, but they will happily shove you off the mountain.' }),
   climb(7, { tip: 'Vines. Walk into them and hold W to climb. SPACE springs you off the wall.' }),
   path(34, 2, { chest: 'whip', bark: [C, '(a horn blares from far above) OI! HERO! THE PRINCESS IS MINE. TURN ROUND, OR I WILL... ROLL THINGS AT YOU. BIG ROUND THINGS.'] }),
-  swing(2, { tip: 'Look at a golden ring and LEFT CLICK to whip it and swing. LEFT CLICK the next ring mid-swing, or SPACE to let go.' }),
-  path(30, 2, { mobs: [['grunt', 0.4], ['grunt', 0.75]], tip: 'LEFT CLICK with no ring in sight cracks the whip. Goblins hate that.' }),
+  swing(2, { tip: 'Look at a branch of the old tree over the ravine and LEFT CLICK: the whip wraps round it and you swing. LEFT CLICK the next branch mid-swing, or SPACE to let go.' }),
+  path(30, 2, { mobs: [['grunt', 0.4], ['grunt', 0.75]], tip: 'LEFT CLICK near a goblin cracks the whip at it. Goblins hate that.' }),
   beam(1, 12, { tip: 'A log bridge. Go steady. When you start to tip, press A or D to lean back the other way.' }),
   camp({ name: 'Mossy Rest', npcs: [shopKeeper(g => say(N, 'Nib\'s Travelling Emporium! I got up here by the goblin lift. No, you cannot use it. Union rules.'))] }),
   ramp(54, 9, { tip: 'Boulders! Step aside, or jump clean over them.', bark: [C, 'ROLL THE ROCKS! NO, NOT AT ME, GRUBB. DOWN. DOWNHILL. THE OTHER DOWN.'] }),
@@ -92,9 +92,9 @@ const L1 = [
 
 const L2 = [
   path(40, 2, { name: 'Thunder Gorge', chest: 'hook', npcs: [{ name: H, model: hilda, a: 30, lines: say(H, 'Welcome to Thunder Gorge. It is called that because of the noise I made falling into it.', 'The river here runs straight down the mountain. Fall in and it carries you all the way to the lake at the bottom.', 'If that happens, swim for the bank where the water slows. Or enjoy the ride.') }] }),
-  cliff(11, { tip: 'Look at a blue ring and RIGHT CLICK (or Q). The hook hauls you up.' }),
+  cliff(11, { tip: 'Look at the top edge of the cliff, or the dead branch sticking out above it, and RIGHT CLICK (or Q). The hook hauls you up.' }),
   path(34, 2, { mobs: [['grunt', 0.5], ['slinger', 0.8, -3]] }),
-  chasm(16, { tip: 'Blue rings work across gaps too.' }),
+  chasm(16, { tip: 'The hook works across gaps too: aim at the far edge or the branch over it.' }),
   logs(5, { mobs: [['bat', 0.5]], tip: 'Gloomwings swoop at anything in the air. A whip crack sorts them out.' }),
   path(36, 3, { geysers: 2, tip: 'Geysers! Stand on one when it blows for a free ride up.', bark: [C, 'WELCOME TO MY GORGE, HERO. I DUG IT MYSELF. WITH A SPOON. IT TOOK AGES.'] }),
   climb(9),
@@ -133,7 +133,7 @@ const L2 = [
 
 const L3 = [
   path(40, 2, { name: 'The Frostfang Stair', chest: 'cannon', npcs: [{ name: H, model: hilda, a: 30, lines: say(H, 'Brrr. This is as far as I have ever got. Mostly because of the ice.', 'Ice has no grip at all. Do not try to stop on it. Do not try to do anything on it.', 'There is a chest there with some kind of goblin contraption in it. Points at things. Goes BANG. You will love it.') }] }),
-  cliff(22, { tip: 'The hand cannon reaches twice as far, and it will grab any surface: aim at the lip of a cliff and RIGHT CLICK.' }),
+  cliff(22, { tip: 'The hand cannon reaches twice as far and its spike sticks into anything: aim near the top of the cliff and RIGHT CLICK.' }),
   path(38, 2, { ice: 1, mobs: [['ram', 0.6]], tip: 'Ice! You will slide. Start turning early.' }),
   rockfall(5, { high: 3, mobs: [['bat', 0.5]] }),
   path(36, 3, { mobs: [['yeti', 0.75, -3]], tip: 'Yetis lob huge snowballs. Keep moving and they miss.', bark: [C, 'YOU AGAIN! DO YOU KNOW HOW MANY BOULDERS I HAVE GOT THROUGH? WE ARE DOWN TO THE SQUARE ONES.'] }),

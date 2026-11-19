@@ -97,9 +97,9 @@ export function gate(c = 0xb5332a, w = 5) {
 // An old leaning tree with one long branch over the drop; the gold ring hangs from it on a vine.
 export function whipPost(h = 7.5, down = 1) {
   const g = new THREE.Group(), tr = cyl(0x5a3c22, 0.34, h + 2.5 + down, -3.1, (h + 2.5 - down) / 2, 0); tr.rotation.z = -0.06; g.add(tr);
-  const br = cyl(0x5a3c22, 0.17, 4.2, -1.2, h + 1.25, 0); br.rotation.z = 1.42; g.add(br); const b2 = cyl(0x5a3c22, 0.1, 2, -2.4, h + 2.6, 0.5); b2.rotation.z = 0.8; b2.rotation.x = 0.5; g.add(b2);
-  g.add(cone(0x2f7a36, 1.7, 2.6, -3.2, h + 4.2, 0, { flat: 1 }), cone(0x3f9a44, 1.2, 2, -3.2, h + 5.6, 0, { flat: 1 }), ball(0x2f7a36, 0.8, -0.2, h + 1.7, 0, { flat: 1 }), cyl(0x3f8a3a, 0.035, 1.0, 0, h + 0.75, 0));
-  g.add(part(torG, 0xe2b33a, 0.3, 0.3, 0.3, 0, h, 0, { e: 0x6a4a00 })); return g;
+  const br = cyl(0x5a3c22, 0.19, 5.8, -0.85, h + 0.95, 0); br.rotation.z = Math.PI / 2 - 0.11; g.add(br); const b2 = cyl(0x5a3c22, 0.1, 2, -2.4, h + 2.6, 0.5); b2.rotation.z = 0.8; b2.rotation.x = 0.5; g.add(b2);
+  g.add(cone(0x2f7a36, 1.7, 2.6, -3.2, h + 4.2, 0, { flat: 1 }), cone(0x3f9a44, 1.2, 2, -3.2, h + 5.6, 0, { flat: 1 }), ball(0x2f7a36, 0.7, 1.9, h + 1.5, 0, { flat: 1 }), ball(0x3f9a44, 0.5, 0.4, h + 1.5, 0.3, { flat: 1 }));
+  return g;
 }
 // A fallen tree trunk lying along local X: length len, radius r, with a root plate and a few broken branches.
 export function fallenTree(len, r, leafy) {

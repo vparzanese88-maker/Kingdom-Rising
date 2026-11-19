@@ -35,14 +35,25 @@ export class Player {
     }
     return true;
   }
-  findAnchor(kind, range, skip) {
-    const ex = this.pos.x, ey = this.pos.y + this.eye, ez = this.pos.z, L = this.look; let best = null, bd = this.grounded ? 0.9 : 0.8;
-    for (const a of this.G.world.anchors) {
-      if (a.kind !== kind || a === skip || a.off) continue;
-      const dx = a.x - ex, dy = a.y - ey, dz = a.z - ez, d = Math.hypot(dx, dy, dz); if (d > range || d < 1.5) continue;
-      const dot = (dx * L.x + dy * L.y + dz * L.z) / d; if (dot > bd) { bd = dot; best = a; }
+  // The point on any branch, trunk, log or post that the aim passes closest to (within reach), or null.
+  aimLimb(range, skip) {
+    const ex = this.pos.x, ey = this.pos.y + this.eye, ez = this.pos.z, L = this.look, loose = this.grounded ? 1 : 1.6; let best = null, bs = 1;
+    for (const m of this.G.world.limbs) {
+      const wx = ex - m.ax, wy = ey - m.ay, wz = ez - m.az; if (Math.abs(wx) > range + m.len || Math.abs(wz) > range + m.len) continue;
+      const vx = m.bx - m.ax, vy = m.by - m.ay, vz = m.bz - m.az, b = L.x * vx + L.y * vy + L.z * vz, c = m.len * m.len, d = L.x * wx + L.y * wy + L.z * wz, e = vx * wx + vy * wy + vz * wz, den = c - b * b;
+      let q = den < 1e-6 ? 0.5 : clamp((e - b * d) / den, 0, 1), t = clamp(b * q - d, 0, range); q = clamp((b * t + e) / c, 0, 1); t = clamp(b * q - d, 0, range); if (t < 1.6) continue;
+      const px = m.ax + vx * q, py = m.ay + vy * q, pz = m.az + vz * q, miss = Math.hypot(ex + L.x * t - px, ey + L.y * t - py, ez + L.z * t - pz), tol = (0.45 + t * 0.055) * loose; if (miss > tol || Math.hypot(px - ex, py - ey, pz - ez) > range) continue;
+      if (skip && Math.hypot(px - skip.x, py - skip.y, pz - skip.z) < 3) continue;
+      const sc = miss / tol; if (sc < bs) { bs = sc; best = this._al = this._al || {}; best.x = px; best.y = py; best.z = pz; }
     }
-    return best;
+    return best ? { x: best.x, y: best.y, z: best.z } : null;
+  }
+  // Where a hook (rock, wood, cliff edges) or a cannon spike (anything at all) would bite along the line of sight.
+  aimSurface(range, any) {
+    const W = this.G.world, L = this.look, h = W.raycast(this.pos.x, this.pos.y + this.eye, this.pos.z, L.x, L.y, L.z, range); if (!h) return null;
+    if (!any && !h.b) { W.T.normalAt(h.x, h.z, nrm); if (nrm.y > 0.8) return null; }
+    let y = h.y + 1.0; if (h.b) { const top = h.b.y + h.b.hy; if (top - h.y < 3.2) y = top + 0.5; }
+    return { x: h.x - L.x * 0.5, y, z: h.z - L.z * 0.5, surf: 1, sx: h.x, sy: h.y, sz: h.z };
   }
   update(dt) {
     const G = this.G, I = G.input, W = G.world, T = W.T, S = G.save, p = this.pos, v = this.vel;
@@ -58,17 +69,17 @@ export class Player {
     if (this.grounded && this.ground && this.ground.mover) { p.x += this.ground.dx; p.y += this.ground.dy; p.z += this.ground.dz; }
     const wasGrounded = this.grounded; let ice = false;
     // ---- tools
-    this.aimWhip = S.items.whip ? this.findAnchor('whip', 13 + (S.upg.whip || 0) * 2.5, this.swing && this.swing.a) : null;
-    this.aimHook = S.items.hook ? this.findAnchor('grapple', S.items.cannon ? 62 : 27) : null;
+    this.aimWhip = S.items.whip ? this.aimLimb(13 + (S.upg.whip || 0) * 2.5, this.swing && this.swing.a) : null;
+    const hr = S.items.cannon ? 62 : 27; this.aimHook = S.items.hook ? (this.aimLimb(hr) || this.aimSurface(hr, !!S.items.cannon)) : null;
     if (ctrl && I.lmbHit && S.items.whip && this.whipCd <= 0 && !this.swim) {
       this.whipCd = 0.4; this.whipAnim = 0.3;
-      if (this.aimWhip) { const a = this.aimWhip, L = clamp(Math.hypot(a.x - p.x, a.y - p.y - 1.5, a.z - p.z), 2.5, 16); this.climb = this.zip = null; this.swing = { a, L, Lmin: clamp(L * 0.8, 2.5, 6.6), t: 0 }; this.grounded = false; this.jumps = 1; G.audio.sfx('whip'); }
-      else { if (this.swing) { this.swing = null; this.jumps = 1; } G.audio.sfx('whip'); W.whipHit(this, 5.5 + (S.upg.whip || 0)); }
+      const hitMob = W.whipHit(this, 5.5 + (S.upg.whip || 0)); G.audio.sfx('whip');
+      if (!hitMob && this.aimWhip) { const a = this.aimWhip, L = clamp(Math.hypot(a.x - p.x, a.y - p.y - 1.5, a.z - p.z), 2.5, 16); this.climb = this.zip = null; this.swing = { a, L, Lmin: clamp(L * 0.8, 2.5, 6.6), t: 0 }; this.grounded = false; this.jumps = 1;  }
+      else if (this.swing && !hitMob) { this.swing = null; this.jumps = 1; }
     }
     if (ctrl && (I.rmbHit || I.hit('KeyQ')) && S.items.hook && !this.swim) {
       let t = this.aimHook; const sp = S.items.cannon ? 38 : 27;
-      if (!t && S.items.cannon) { const hpt = W.raycast(p.x, p.y + this.eye, p.z, this.look.x, this.look.y, this.look.z, 62); if (hpt) t = { x: hpt.x - this.look.x * 0.5, y: hpt.y + 1.0, z: hpt.z - this.look.z * 0.5, surf: 1 }; }
-      if (t) { this.climb = this.swing = null; this.zip = { x: t.x, y: t.y, z: t.z, t: 0, last: 1e9, stuck: 0, sp, pop: t.surf ? 11.5 : 8.8, fx: t.fx, fz: t.fz }; this.grounded = false; G.audio.sfx(S.items.cannon ? 'cannon' : 'hook'); if (S.items.cannon) W.cannonBlast(t); }
+      if (t) { this.climb = this.swing = null; this.zip = { x: t.x, y: t.y, z: t.z, t: 0, last: 1e9, stuck: 0, sp, pop: t.surf ? 11.5 : 8.8, sx: t.sx === undefined ? t.x : t.sx, sy: t.sy === undefined ? t.y : t.sy, sz: t.sz === undefined ? t.z : t.sz }; this.grounded = false; G.audio.sfx(S.items.cannon ? 'cannon' : 'hook'); if (S.items.cannon) W.cannonBlast(t); }
       else G.audio.sfx('miss');
     }
     // ---- water
@@ -80,7 +91,7 @@ export class Player {
       const z = this.zip, dx = z.x - p.x, dy = z.y - (p.y + 1.2), dz = z.z - p.z, d = Math.hypot(dx, dy, dz); z.t += dt;
       if (d > z.last - z.sp * dt * 0.3) z.stuck += dt; else z.stuck = 0; z.last = d;
       if (jumpHit) { this.zip = null; v.multiplyScalar(0.55); v.y = Math.max(v.y, 7); this.jumps = 1; }
-      else if (d < 1.4 || z.t > 3 || z.stuck > 0.18) { this.zip = null; const hl = Math.hypot(dx, dz) || 1; if (z.fx !== undefined) v.set(z.fx * 6, z.pop, z.fz * 6); else v.set(dx / hl * 5.5, z.pop, dz / hl * 5.5); this.jumps = 1; this.sinceJump = 0; }
+      else if (d < 1.4 || z.t > 3 || z.stuck > 0.18) { this.zip = null; const hl = Math.hypot(dx, dz) || 1; if (wl > 0.1) v.set(wx / wl * 6.5, z.pop, wz / wl * 6.5); else v.set(dx / hl * 5.5, z.pop, dz / hl * 5.5); this.jumps = 1; this.sinceJump = 0; }
       else v.set(dx / d * z.sp, dy / d * z.sp, dz / d * z.sp);
     } else if (this.climb) {
       const c = this.climb;
@@ -232,7 +243,7 @@ export class Player {
     if (this.rope.visible) {
       const side = this.zip ? -0.3 : 0.3, cy = Math.cos(this.yaw), sy = Math.sin(this.yaw), L = this.look, a = this.va, b = this.vb, c = this.vc;
       if (this.third) a.set(p.x + cy * side, p.y + 1.25, p.z - sy * side); else a.set(p.x + cy * side * 0.8 + L.x * 0.45, p.y + this.eye - 0.3 + L.y * 0.45, p.z - sy * side * 0.8 + L.z * 0.45);
-      if (t) { b.set(t.x, t.y, t.z); const sag = this.zip ? 0 : Math.max(0, 0.5 - this.swing.t) * 3; c.set((a.x + b.x) / 2, (a.y + b.y) / 2 - sag, (a.z + b.z) / 2); }
+      if (t) { if (this.zip) b.set(t.sx, t.sy, t.sz); else b.set(t.x, t.y, t.z); const sag = this.zip ? 0 : Math.max(0, 0.5 - this.swing.t) * 3; c.set((a.x + b.x) / 2, (a.y + b.y) / 2 - sag, (a.z + b.z) / 2); }
       else { const u = 1 - this.whipAnim / 0.3, reach = (5.5 + (G.save.upg.whip || 0)) * Math.min(1, u * 1.7), back = 1 - Math.min(1, u * 1.5); b.set(a.x + L.x * reach - L.x * back * 2, a.y + L.y * reach + back * 1.6 - (1 - back) * 0.2, a.z + L.z * reach - L.z * back * 2); c.set(a.x + L.x * reach * 0.45 + cy * (0.9 - u * 1.4), a.y + L.y * reach * 0.45 + 1.7 * (1 - u) + 0.25, a.z + L.z * reach * 0.45 - sy * (0.9 - u * 1.4)); }
       const n = this.segs.length, mt = this.lashMat[this.zip ? 1 : 0]; let px = a.x, py = a.y, pz = a.z;
       for (let i = 0; i < n; i++) { const q = (i + 1) / n, w0 = (1 - q) * (1 - q), w1 = 2 * q * (1 - q), w2 = q * q, x = a.x * w0 + c.x * w1 + b.x * w2, y = a.y * w0 + c.y * w1 + b.y * w2, z = a.z * w0 + c.z * w1 + b.z * w2, m = this.segs[i], dx = x - px, dy = y - py, dz = z - pz, len = Math.hypot(dx, dy, dz) || 0.001, r = this.zip ? 0.018 : 0.034 - 0.024 * q; m.material = mt; m.position.set((x + px) / 2, (y + py) / 2, (z + pz) / 2); m.scale.set(r, len, r); m.quaternion.setFromUnitVectors(this.up, this.vc2 = (this.vc2 || new THREE.Vector3()).set(dx / len, dy / len, dz / len)); px = x; py = y; pz = z; }

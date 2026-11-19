@@ -65,7 +65,7 @@ export class Player {
     let f = 0, s = 0; if (ctrl) { f = (I.down('KeyW') || I.down('ArrowUp') ? 1 : 0) - (I.down('KeyS') || I.down('ArrowDown') ? 1 : 0); s = (I.down('KeyD') || I.down('ArrowRight') ? 1 : 0) - (I.down('KeyA') || I.down('ArrowLeft') ? 1 : 0); }
     const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     let wx = -sy * f + cy * s, wz = -cy * f - sy * s; const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
-    const jumpHit = ctrl && I.hit('Space'), jumpHeld = ctrl && I.down('Space'), crouchHeld = ctrl && (I.down('KeyC') || I.down('ControlLeft')), sprint = I.down('ShiftLeft') || I.down('ShiftRight');
+    const jumpHit = ctrl && I.hit('Space'), jumpHeld = ctrl && I.down('Space'), crouchHeld = ctrl && I.down('KeyC'), sprint = I.down('ShiftLeft') || I.down('ShiftRight');
     this.hex = (this.hex || 0) - dt; const hexed = this.hex > 0, maxJumps = S.items.boots ? 3 : 2, jb = (1 + (S.upg.spring || 0) * 0.06) * (hexed ? 0.72 : 1);
     if (ctrl && I.hit('KeyG')) W.throwBomb(this);
     if (this.grounded && this.ground && this.ground.mover) { p.x += this.ground.dx; p.y += this.ground.dy; p.z += this.ground.dz; }
@@ -99,7 +99,7 @@ export class Player {
       const c = this.climb;
       if (!ctrl) this.climb = null;
       else if (jumpHit) { v.set(c.nx * 6.5, 9.2, c.nz * 6.5); this.climb = null; this.climbCd = 0.3; this.jumps = 1; this.sinceJump = 0; G.audio.sfx('jump'); }
-      else if (I.hit('KeyC') || I.hit('ControlLeft')) { this.climb = null; this.climbCd = 0.45; }
+      else if (I.hit('KeyC')) { this.climb = null; this.climbCd = 0.45; }
       else { const tx = -c.nz, tz = c.nx, side = (cy * tx - sy * tz) * s, ft = -sy * tx - cy * tz, cs = 1 + (S.upg.grip || 0) * 0.35, along = (side * 2.8 + f * ft * 3.4) * cs; v.set(tx * along - c.nx * 1.2, f * (1 - Math.abs(ft)) * 3.8 * cs, tz * along - c.nz * 1.2); if (wasGrounded && f < 0) { this.climb = null; this.climbCd = 0.3; } }
     } else if (this.swim) {
       T.current(p.x, p.z, cur); const k = Math.min(1, 5 * dt);

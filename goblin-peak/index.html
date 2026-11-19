@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goblin Peak</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap">
+<style>
+:root{--ink:#2b1c0e;--paper:#fff4d6;--gold:#ffd23a;--red:#d8362c;--blue:#2f7fd8;--f:"Fredoka","Trebuchet MS",system-ui,sans-serif}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:#9fd0f0;color:var(--ink);font:17px/1.35 var(--f);user-select:none;-webkit-user-select:none}
+canvas#game{position:fixed;inset:0;width:100%;height:100%;display:block}
+button{font:inherit;cursor:pointer}
+.btn{display:block;width:100%;margin:10px 0;padding:13px 22px;font-weight:700;font-size:21px;color:#fff;background:var(--red);border:3px solid var(--ink);border-radius:16px;box-shadow:0 5px 0 var(--ink);transition:transform .08s}
+.btn:hover{transform:translateY(-2px)}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
+.btn.alt{background:var(--blue)}
+.btn.plain{background:var(--paper);color:var(--ink)}
+.card{background:var(--paper);border:4px solid var(--ink);border-radius:22px;box-shadow:0 8px 0 rgba(43,28,14,.55);padding:22px 26px}
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
+#title{background:linear-gradient(rgba(20,40,70,.15),rgba(20,30,50,.55))}
+#title .card{max-width:560px;width:100%;text-align:center;max-height:96vh;overflow:auto}
+#title h1{margin:0;font-size:clamp(44px,9vw,76px);line-height:.95;color:var(--red);text-shadow:3px 3px 0 var(--gold),6px 6px 0 var(--ink);letter-spacing:.01em}
+#title .sub{margin:14px 0 16px;font-size:18px}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;text-align:left;font-size:15px;margin:14px 0 0;padding:12px 14px;background:rgba(43,28,14,.08);border-radius:12px}
+.keys b{white-space:nowrap}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+.pill{position:absolute;background:rgba(43,28,14,.72);color:#fff;border-radius:999px;padding:6px 16px;font-weight:600;font-size:20px;display:flex;align-items:center;gap:8px}
+#coinBox{left:16px;top:14px}
+#coinBox i{width:20px;height:20px;border-radius:50%;background:var(--gold);border:3px solid #b8860b;display:inline-block}
+#coinBox.pop{animation:pop .25s}
+@keyframes pop{50%{transform:scale(1.18)}}
+#jewelBox{left:16px;top:58px}
+#jewelBox i{color:#ff6fb5;font-style:normal}
+#heightBox{right:16px;top:14px;font-size:17px}
+#tools{position:absolute;right:16px;bottom:14px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:70vw}
+#tools span{background:rgba(43,28,14,.6);color:#fff;border-radius:10px;padding:4px 10px;font-size:14px}
+#tools b{color:var(--gold)}
+#cross{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+#pips{position:absolute;left:50%;top:calc(50% + 16px);transform:translateX(-50%);color:#fff;font-size:13px;letter-spacing:3px;text-shadow:0 1px 2px #000}
+#state{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);background:rgba(43,28,14,.6);color:#fff;border-radius:10px;padding:4px 14px;font-size:15px;white-space:nowrap}
+#prompt{position:absolute;left:50%;top:60%;transform:translateX(-50%);background:var(--paper);border:3px solid var(--ink);border-radius:14px;padding:6px 16px;font-weight:600;white-space:nowrap}
+#prompt b{background:var(--ink);color:#fff;border-radius:6px;padding:1px 8px;margin-right:6px}
+#toast{position:absolute;left:50%;top:86px;transform:translateX(-50%);max-width:min(640px,90vw);background:rgba(255,244,214,.95);border:3px solid var(--ink);border-radius:16px;padding:9px 18px;text-align:center;font-weight:500}
+#area{position:absolute;left:50%;top:30%;transform:translateX(-50%);color:#fff;font-size:clamp(28px,5vw,48px);font-weight:700;text-shadow:3px 3px 0 var(--ink);white-space:nowrap}
+#bark{position:absolute;left:50%;top:150px;transform:translateX(-50%);max-width:min(680px,92vw);background:rgba(43,28,14,.82);color:#fff;border-radius:16px;padding:10px 18px}
+#bark b{color:var(--gold);display:block;font-size:14px;letter-spacing:.04em;text-transform:uppercase}
+#balance{position:absolute;left:50%;top:66%;transform:translateX(-50%);width:260px;height:20px;background:linear-gradient(90deg,var(--red),#f0c040 25%,#7fd06a 50%,#f0c040 75%,var(--red));border:3px solid var(--ink);border-radius:999px}
+#balance:before{content:"A  ◄  keep it in the middle  ►  D";position:absolute;left:50%;top:22px;transform:translateX(-50%);white-space:nowrap;color:#fff;font-size:14px;text-shadow:0 1px 2px #000}
+#balDot{position:absolute;top:-7px;width:14px;height:28px;margin-left:-7px;background:#fff;border:3px solid var(--ink);border-radius:6px}
+#dialog{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);width:min(760px,94vw);z-index:4;cursor:pointer}
+#dialog .card{padding:16px 22px 14px;min-height:118px}
+#dlgWho{position:absolute;top:-18px;left:22px;background:var(--red);color:#fff;font-weight:700;border:3px solid var(--ink);border-radius:12px;padding:2px 14px}
+#dlgText{font-size:20px;min-height:54px}
+#dialog .next{text-align:right;font-size:14px;opacity:.7}
+#map,#shop,#pause,#done{background:rgba(20,30,50,.45)}
+#map .card{display:flex;gap:18px;align-items:flex-start;max-width:96vw;max-height:96vh}
+#mapCv{width:min(600px,60vh,56vw);height:auto;border:3px solid var(--ink);border-radius:12px}
+#map h2,#shop h2,#pause h2,#done h2{margin:0 0 8px;font-size:30px;color:var(--red)}
+#mapObj{list-style:none;padding:0;margin:0;min-width:230px;max-width:300px}
+#mapObj li{padding:5px 0;border-bottom:2px dashed rgba(43,28,14,.2)}
+#mapObj li.ok{color:#2f7a36;font-weight:600}
+#mapObj li.key{font-size:13px;border:0}
+#shop .card{width:min(600px,94vw)}
+.row{display:flex;gap:12px;align-items:center;padding:8px 10px;border:3px solid var(--ink);border-radius:14px;margin:8px 0;background:#fff;cursor:pointer}
+.row>b{background:var(--ink);color:#fff;border-radius:8px;padding:2px 10px}
+.row>div{flex:1;font-size:15px}
+.row>span{font-weight:700;white-space:nowrap}
+.row.dim{opacity:.5}
+.row i{color:#c98a00;font-style:normal}
+#pause .card,#done .card{width:min(440px,94vw);text-align:center}
+#done p{margin:6px 0}
+.small{font-size:13px;opacity:.75}
+#fade{position:fixed;inset:0;background:#fff4d6;opacity:1;pointer-events:none;transition:opacity .5s;z-index:9}
+@media (max-width:760px){#map .card{flex-direction:column}#tools{display:none}}
+</style>
+<script type="importmap">
+{
+"imports": {
+"three": "./vendor/three.module.min.js",
+"./src/audio.js": "./src/audio.js?v=1795119032",
+"./src/entities.js": "./src/entities.js?v=1795119032",
+"./src/levels.js": "./src/levels.js?v=1795119032",
+"./src/main.js": "./src/main.js?v=1795119032",
+"./src/models.js": "./src/models.js?v=1795119032",
+"./src/player.js": "./src/player.js?v=1795119032",
+"./src/terrain.js": "./src/terrain.js?v=1795119032",
+"./src/ui.js": "./src/ui.js?v=1795119032",
+"./src/util.js": "./src/util.js?v=1795119032",
+"./src/world.js": "./src/world.js?v=1795119032"
+}
+}
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" hidden>
+  <div id="coinBox" class="pill"><i></i><span id="coins">0</span></div>
+  <div id="jewelBox" class="pill"><i>◆</i><span id="jewels">0/3</span></div>
+  <div id="heightBox" class="pill">▲ <span id="height">0 m</span></div>
+  <div id="cross"></div><div id="pips"></div>
+  <div id="state" hidden></div>
+  <div id="prompt" hidden><b>E</b><span id="promptText"></span></div>
+  <div id="toast" hidden></div>
+  <div id="area" hidden></div>
+  <div id="bark" hidden><b id="barkWho"></b><span id="barkText"></span></div>
+  <div id="balance" hidden><div id="balDot"></div></div>
+  <div id="tools"></div>
+</div>
+
+<div id="dialog" hidden><div class="card"><div id="dlgWho"></div><div id="dlgText"></div><div class="next">E / click ▶</div></div></div>
+
+<div id="map" class="screen" hidden><div class="card"><canvas id="mapCv" width="600" height="610"></canvas><div><h2 id="mapTitle">Map</h2><ul id="mapObj"></ul><p class="small">M closes the map.</p></div></div></div>
+
+<div id="shop" class="screen" hidden><div class="card"><h2>Nib's Emporium</h2><p>Your coins: <b id="shopCoins">0</b>. Press a number to buy, E to leave.</p><div id="shopList"></div></div></div>
+
+<div id="done" class="screen" hidden><div class="card"><h2 id="doneTitle"></h2><div id="doneBody"></div><button class="btn" id="doneBtn">Onward (E)</button></div></div>
+
+<div id="pause" class="screen" hidden><div class="card"><h2>Paused</h2>
+  <button class="btn" id="btnResume">Keep climbing</button>
+  <button class="btn alt" id="btnCamp">Go back to my last campfire</button>
+  <button class="btn plain" id="btnVillage">Return to the village</button>
+  <p>Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p>
+  <p class="small">V first / third person · M map · N music · P pause</p>
+</div></div>
+
+<div id="title" class="screen"><div class="card">
+  <h1>Goblin Peak</h1>
+  <p class="sub">Chieftain Grizzlegut has carried Princess Wrenna to the top of the mountain. Jump, climb, swing, glide, crawl and balance your way up to bring her home.</p>
+  <button class="btn" id="btnContinue" hidden>Continue the climb</button>
+  <button class="btn alt" id="btnNew">Start the climb</button>
+  <div class="keys">
+    <b>W A S D</b><span>Move (mouse looks)</span>
+    <b>Space</b><span>Jump, double jump, triple jump; hold to glide</span>
+    <b>Shift</b><span>Sprint</span>
+    <b>C</b><span>Crouch and crawl; tap while sprinting to slide</span>
+    <b>Left click</b><span>Whip: crack it at goblins, or swing from gold rings</span>
+    <b>Right click / Q</b><span>Grappling hook, later the hand cannon</span>
+    <b>E</b><span>Talk, open, read</span>
+    <b>M · V · P</b><span>Map · first or third person · pause</span>
+  </div>
+  <p class="small">You cannot die. But if you fall, you walk back up.</p>
+</div></div>
+
+<div id="fade"></div>
+<script type="module" src="./src/main.js?v=1795119032"></script>
+</body>
+</html>

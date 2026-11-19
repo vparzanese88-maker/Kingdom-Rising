@@ -14,6 +14,9 @@ Run `python3 omaha/tools/stamp.py` before committing Omaha 1944 changes, so play
 ## Kingdom Rising II (kingdom-rising-2/): stamp before committing
 Run `python3 kingdom-rising-2/tools/stamp.py` before committing changes in `kingdom-rising-2/`, so players' browsers load the new code instead of a cached copy.
 
+## Goblin Peak (goblin-peak/): stamp before committing
+Run `python3 goblin-peak/tools/stamp.py` before committing changes in `goblin-peak/`, so players' browsers load the new code instead of a cached copy.
+
 ## Kingdom Rising II: keep ability text, icons and perks in step
 Every time a class ability is added, replaced or changed in `kingdom-rising-2/`, update its entry in `src/kitinfo.js` in the same change (short description, an icon that shows what it does, ultimate flag), check its perk-tree column and any class perks that mention it still make sense, and check the left-click label in `lmbAttack` (arena.js) matches the weapon the class holds. No class has pet or summon abilities, except the shaman's Spirit Wolf (the owner asked for it: it hunts for 6 s and leaves).
 
@@ -31,6 +34,7 @@ End every reply that creates or changes a game with its GitHub Pages link, so it
 - Kingdom Rising II Play Online (title screen's Play Online button: Host a game gives an invite link to send; friends open it and land in the lobby; K in a match changes class or team): https://vparzanese88-maker.github.io/Kingdom-Rising/kingdom-rising-2/?mode=arena&host=1
 - Kingdom Rising II Kingdom Arena (hero team fights in the Ruins of Aldermere, a fantasy town map with three routes; set up from the title screen's Kingdom Arena button, runs at `?mode=arena`; online: one player presses Host online on the arena setup screen, friends type the code there and press Join; `&net=loop` tests two tabs on one computer): https://vparzanese88-maker.github.io/Kingdom-Rising/kingdom-rising-2/?mode=arena
 - Stonefront (stickman battle strategy: mine ore, train an army, topple the enemy monument; 10-battle campaign, survival, upgrades; lives in `stonefront/`, one file): https://vparzanese88-maker.github.io/Kingdom-Rising/stonefront/
+- Goblin Peak (first/third-person adventure platformer: climb the mountain to rescue Princess Wrenna from Chieftain Grizzlegut; village hub with three trail gates, Greenfoot Slopes, Thunder Gorge, the Frostfang Stair; whip, grappling hook, glider, hand cannon; `?level=l1|l2|l3` jumps straight to a stage for testing; lives in `goblin-peak/`): https://vparzanese88-maker.github.io/Kingdom-Rising/goblin-peak/
 - Castle Wars (online: one player presses Multiplayer → Host Online Game and sends the invite link): https://vparzanese88-maker.github.io/Kingdom-Rising/castle-wars/
 
 When a new game is added, add its link to this list and to `arcade.html`.

@@ -133,14 +133,24 @@ export function stall() { const g = new THREE.Group(); g.add(box(0x7a4a22, 2.6, 
 export function hut(c = 0xb5652a) { const g = new THREE.Group(); g.add(box(0xe6d8b8, 5, 3, 4.4, 0, 1.5, 0), box(0x4a3020, 1, 1.9, 0.1, 0, 0.95, -2.22), box(0x8fd0f0, 0.8, 0.8, 0.1, 1.5, 1.8, -2.22)); const r = new THREE.Mesh(new THREE.ConeGeometry(4.3, 2.4, 4), mat(c, { flat: 1 })); r.position.y = 4.2; r.rotation.y = 0.785; r.castShadow = true; g.add(r); return g; }
 export function glider() { const g = new THREE.Group(); const w = new THREE.Mesh(new THREE.ConeGeometry(1.9, 0.5, 3), mat(0xf0e6cf, { flat: 1 })); w.scale.z = 0.7; w.position.y = 2.25; g.add(w, box(0xb5332a, 0.2, 0.06, 1.2, 0, 2.2, 0.1), cyl(0x6b4a2a, 0.03, 0.5, -0.3, 1.95, 0), cyl(0x6b4a2a, 0.03, 0.5, 0.3, 1.95, 0)); return g; }
 // First-person hands: whip in the right, hook or hand cannon in the left.
+// A painted wooden board with two lines of text.
+export function signBoard(title, sub, col, w, h) {
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 168; const g = cv.getContext('2d');
+  g.fillStyle = '#5a3c1c'; g.fillRect(0, 0, 512, 168); g.fillStyle = '#f1e2bd'; g.fillRect(8, 8, 496, 152); g.fillStyle = col; g.fillRect(8, 8, 496, 16); g.fillRect(8, 144, 496, 16);
+  g.textAlign = 'center'; g.fillStyle = '#2b1c0e'; let fs = 58; g.font = `bold ${fs}px Fredoka, Trebuchet MS, sans-serif`; while (g.measureText(title).width > 470 && fs > 24) { fs -= 3; g.font = `bold ${fs}px Fredoka, Trebuchet MS, sans-serif`; } g.fillText(title, 256, 84);
+  g.font = 'bold 30px Fredoka, Trebuchet MS, sans-serif'; g.fillStyle = '#7a3a1a'; g.fillText(sub, 256, 128);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t })); m.userData.cv = cv; return m;
+}
+// First-person arms and hands. The right hand carries the whip (handle, wrist loop and coiled lash), the left the hook or cannon.
 export function viewHands() {
-  const g = new THREE.Group();
-  const r = grp(box(0xf0e6cf, 0.09, 0.09, 0.4, 0, 0, 0.1), box(0xe9b98c, 0.08, 0.08, 0.12, 0, 0, -0.14), cyl(0x4a2c16, 0.025, 0.2, 0, 0.02, -0.2)); r.position.set(0.32, -0.3, -0.55); r.rotation.set(0.2, -0.25, 0); r.children[2].rotation.x = 1.2;
-  const coil = part(torG, 0x4a2c16, 0.07, 0.07, 0.07, 0, -0.08, -0.2); r.add(coil);
-  const l = grp(box(0xf0e6cf, 0.09, 0.09, 0.4, 0, 0, 0.1), box(0xe9b98c, 0.08, 0.08, 0.12, 0, 0, -0.14)); l.position.set(-0.32, -0.3, -0.55); l.rotation.set(0.2, 0.25, 0);
-  const hook = grp(cyl(0x8a8a92, 0.02, 0.2, 0, 0.02, -0.26), cone(0xc8c8d0, 0.04, 0.1, 0, 0.02, -0.38)); hook.children[0].rotation.x = 1.57; hook.children[1].rotation.x = -1.57;
-  const cannon = grp(cyl(0x3a3a44, 0.06, 0.34, 0, 0.03, -0.3), cyl(0xe2b33a, 0.068, 0.04, 0, 0.03, -0.44), cone(0xc8c8d0, 0.04, 0.12, 0, 0.03, -0.52)); cannon.children[0].rotation.x = 1.57; cannon.children[1].rotation.x = 1.57; cannon.children[2].rotation.x = -1.57;
-  l.add(hook, cannon); g.add(r, l); g.scale.setScalar(0.62); g.position.set(0, -0.06, -0.12); g.userData = { r, l, hook, cannon }; g.traverse(m => { m.castShadow = false; });
+  const g = new THREE.Group(), SK = 0xe9b98c, SL = 0xf0e6cf;
+  const arm = sd => { const a = grp(box(SL, 0.1, 0.1, 0.42, 0, 0, 0.12), box(0x6a4d2e, 0.11, 0.11, 0.05, 0, 0, -0.1), box(SK, 0.09, 0.075, 0.13, 0, 0, -0.18), box(SK, 0.085, 0.05, 0.07, 0, -0.035, -0.26), box(SK, 0.03, 0.05, 0.07, sd * -0.05, 0.0, -0.21)); a.position.set(sd * 0.34, -0.3, -0.55); a.rotation.set(0.2, sd * -0.22, 0); return a; };
+  const r = arm(1), l = arm(-1);
+  const whip = new THREE.Group(), hd = cyl(0x2a1a0e, 0.022, 0.26, 0, -0.01, -0.25), kn = ball(0x1a1008, 0.032, 0, 0.09, -0.2), tp = cyl(0x4a2c16, 0.016, 0.1, 0, -0.14, -0.3); hd.rotation.x = 0.9; tp.rotation.x = 0.9; whip.add(hd, kn, tp);
+  const coil = new THREE.Group(); for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.TorusGeometry(0.085 - i * 0.008, 0.011, 6, 18), mat(0x3a2414)); c.position.set(0.012 * i, -0.24 - i * 0.004, -0.33); c.rotation.set(0.25 + i * 0.07, 1.57, 0.1 * i); coil.add(c); } whip.add(coil); r.add(whip);
+  const hook = grp(cyl(0x8a8a92, 0.02, 0.2, 0, 0.02, -0.3), cone(0xc8c8d0, 0.04, 0.1, 0, 0.02, -0.42)); hook.children[0].rotation.x = 1.57; hook.children[1].rotation.x = -1.57;
+  const cannon = grp(cyl(0x3a3a44, 0.06, 0.34, 0, 0.03, -0.34), cyl(0xe2b33a, 0.068, 0.04, 0, 0.03, -0.48), cone(0xc8c8d0, 0.04, 0.12, 0, 0.03, -0.56)); cannon.children[0].rotation.x = 1.57; cannon.children[1].rotation.x = 1.57; cannon.children[2].rotation.x = -1.57;
+  l.add(hook, cannon); g.add(r, l); g.scale.setScalar(0.62); g.position.set(0, -0.06, -0.12); g.userData = { r, l, hook, cannon, whip, coil }; g.traverse(m => { m.castShadow = false; });
   return g;
 }
 export function boulderMesh(r, c = 0x8a8378) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat(c, { flat: 1 })); m.castShadow = true; return m; }

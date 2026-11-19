@@ -22,7 +22,7 @@ class Game {
     this.load();
     const r = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' }); r.setPixelRatio(Math.min(devicePixelRatio, 1.5)); r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     this.camera = new THREE.PerspectiveCamera(78, 1, 0.1, 1600);
-    this.player = new Player(this); this.player.third = !!this.save.third; this.camera.add(this.player.hands);
+    this.player = new Player(this); this.player.third = !!this.save.third; if (this.save.camDist) this.player.camDist = this.save.camDist; this.camera.add(this.player.hands);
     this.ui = new UI(this); this.bind(); this.resize(); addEventListener('resize', () => this.resize());
     $('btnContinue').hidden = !this.save.played; $('btnNew').textContent = this.save.played ? 'New game' : 'Start the climb';
     this.last = performance.now(); requestAnimationFrame(t => this.loop(t));
@@ -37,7 +37,7 @@ class Game {
     addEventListener('keydown', e => {
       if (e.code === 'Tab' || e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault(); if (!e.repeat) I.h[e.code] = true; I.k[e.code] = true;
       if (!this.playing) return;
-      if (e.code === 'KeyV' && !this.locked) { this.player.third = this.save.third = !this.player.third; }
+      if (e.code === 'KeyV' && !this.locked) { this.player.third = this.save.third = !this.player.third; if (this.player.third && this.player.camDist < 2.5) this.player.camDist = 6.2; }
       if (e.code === 'KeyP' || e.code === 'Escape' && !document.pointerLockElement && !this.ui.shopOpen) this.pause(!this.paused);
       if (e.code === 'KeyN' && !this.locked) this.ui.toast(this.audio.toggleMusic() ? 'Music on' : 'Music off', 2);
     });
@@ -45,6 +45,7 @@ class Game {
     addEventListener('blur', () => { I.k = {}; });
     c.addEventListener('mousedown', e => { this.audio.unlock(); if (!this.playing || this.paused) return; if (document.pointerLockElement !== c && !this.testing) { c.requestPointerLock(); return; } if (this.ui.dlg) { this.ui.advance(); return; } if (e.button === 0) I.lmbHit = true; if (e.button === 2) I.rmbHit = true; });
     c.addEventListener('contextmenu', e => e.preventDefault());
+    addEventListener('wheel', e => { if (!this.playing || this.paused || this.ui.mapOpen) return; const P = this.player; let d = (P.third ? P.camDist : 0) + Math.sign(e.deltaY) * 1.1; if (d > 0 && d < 2.5) d = e.deltaY > 0 ? 2.5 : 0; d = Math.max(0, Math.min(14, d)); P.third = this.save.third = d >= 2.5; if (P.third) P.camDist = this.save.camDist = d; }, { passive: true });
     addEventListener('mousemove', e => { if (document.pointerLockElement === c && !this.paused) { I.mx += e.movementX; I.my += e.movementY; } });
     document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== c && this.playing && !this.paused && !this.testing && !this.ui.doneCb) this.pause(true); });
     $('btnNew').onclick = () => { this.audio.unlock(); if (this.save.played && !confirm('Start again from the beginning? Your saved climb will be erased.')) return; this.save = fresh(); this.player.third = false; this.begin('hub'); };

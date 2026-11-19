@@ -1,7 +1,7 @@
 // The hero: running, triple jumps, sliding, crawling, climbing, balancing, swimming, whip swings, grapple zips, gliding.
 import * as THREE from 'three';
 import { clamp, approach } from './util.js';
-import { hero, animBiped, glider, viewHands } from './models.js';
+import { hero, animBiped, glider, viewHands, GEO, mat } from './models.js';
 
 const G_ = 27, J1 = 9.6, J2 = 9.2, J3 = 11, RAD = 0.4;
 const nrm = { x: 0, y: 1, z: 0 }, cur = { x: 0, z: 0 };
@@ -14,7 +14,7 @@ export class Player {
     this.lean = 0; this.onBeam = null; this.noBeamT = 0; this.stun = 0; this.inv = 0; this.whipCd = 0; this.whipAnim = 0; this.climbCd = 0; this.third = false; this.shake = 0; this.airT = 0;
     this.model = hero(); this.gl = glider(); this.gl.visible = false; this.model.add(this.gl); this.animT = 0; this.faceYaw = 0;
     this.hands = viewHands();
-    this.rope = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x4a2c16 })); this.rope.frustumCulled = false; this.rope.visible = false;
+    this.rope = new THREE.Group(); this.segs = []; this.lashMat = [mat(0x3a2414), mat(0xb8b8c4)]; for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(GEO.cylG, this.lashMat[0]); m.frustumCulled = false; this.rope.add(m); this.segs.push(m); } this.rope.visible = false; this.camDist = 6.2; this.va = new THREE.Vector3(); this.vb = new THREE.Vector3(); this.vc = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0);
     this.aimWhip = null; this.aimHook = null; this.tmp = new THREE.Vector3(); this.look = new THREE.Vector3();
   }
   spawn(x, y, z, yaw = 0) { this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = 0; this.climb = this.swing = this.zip = null; this.crouch = false; this.swim = false; this.H = 1.8; this.stun = 0; this.inv = 1; this.lean = 0; }
@@ -208,8 +208,8 @@ export class Player {
     cam.rotation.order = 'YXZ';
     if (!this.third) { cam.position.set(p.x + (Math.random() - 0.5) * sh, p.y + this.eye + (Math.random() - 0.5) * sh, p.z); cam.rotation.set(this.pitch, this.yaw, -roll); }
     else {
-      const tx = p.x, ty = p.y + this.eye * 0.95, tz = p.z, L = this.look; let dist = 6.2;
-      for (let i = 1; i <= 8; i++) { const q = i / 8 * 6.2, cx = tx - L.x * q, cz = tz - L.z * q, cyy = ty - L.y * q + 0.5; if (cyy < T.hAt(cx, cz) + 0.35) { dist = Math.max(1.2, q - 0.8); break; } }
+      const tx = p.x, ty = p.y + this.eye * 0.95, tz = p.z, L = this.look; let dist = this.camDist;
+      for (let i = 1; i <= 8; i++) { const q = i / 8 * this.camDist, cx = tx - L.x * q, cz = tz - L.z * q, cyy = ty - L.y * q + 0.5; if (cyy < T.hAt(cx, cz) + 0.35) { dist = Math.max(1.2, q - 0.8); break; } }
       cam.position.set(tx - L.x * dist, ty - L.y * dist + 0.5 + sh, tz - L.z * dist); cam.rotation.set(this.pitch, this.yaw, -roll * 0.5);
     }
     // the body
@@ -225,14 +225,17 @@ export class Player {
       const h = this.hands.userData, sw = this.whipAnim > 0 ? Math.sin((0.3 - this.whipAnim) / 0.3 * Math.PI) : 0, bob = this.grounded ? Math.sin(G.time * (sp > 6 ? 13 : 9)) * Math.min(1, sp / 5) * 0.012 : 0;
       h.r.rotation.x = 0.2 - sw * 1.3 + (this.swing ? -0.9 : 0) + (this.climb ? -0.7 + Math.sin(G.time * 7) * 0.2 * Math.sign(this.vel.y) : 0); h.r.position.y = -0.3 + bob + (this.glide ? 0.2 : 0);
       h.l.rotation.x = 0.2 + (this.zip ? -0.5 : 0) + (this.climb ? -0.7 - Math.sin(G.time * 7) * 0.2 * Math.sign(this.vel.y) : 0); h.l.position.y = -0.3 - bob + (this.glide ? 0.2 : 0);
-      h.r.visible = !!G.save.items.whip || !!this.climb; h.l.visible = !!G.save.items.hook || !!this.climb; h.hook.visible = !!G.save.items.hook && !G.save.items.cannon; h.cannon.visible = !!G.save.items.cannon;
+      h.whip.visible = !!G.save.items.whip; h.coil.visible = !this.swing && this.whipAnim <= 0; h.hook.visible = !!G.save.items.hook && !G.save.items.cannon; h.cannon.visible = !!G.save.items.cannon;
     }
-    // rope or whip line
-    const t = this.swing ? this.swing.a : this.zip; this.rope.visible = !!t;
-    if (t) {
-      const a = this.rope.geometry.attributes.position, side = this.swing ? 0.3 : -0.3;
-      if (this.third) a.setXYZ(0, p.x, p.y + 1.5, p.z); else a.setXYZ(0, p.x + Math.cos(this.yaw) * side, p.y + this.eye - 0.3, p.z - Math.sin(this.yaw) * side);
-      a.setXYZ(1, t.x, t.y, t.z); a.needsUpdate = true; this.rope.material.color.set(this.swing ? 0x4a2c16 : 0xb8b8c4);
+    // the whip lash (a tapering leather thong that arcs out and cracks) or the hook rope
+    const t = this.swing ? this.swing.a : this.zip, crack = !t && this.whipAnim > 0 && !!G.save.items.whip; this.rope.visible = !!t || crack;
+    if (this.rope.visible) {
+      const side = this.zip ? -0.3 : 0.3, cy = Math.cos(this.yaw), sy = Math.sin(this.yaw), L = this.look, a = this.va, b = this.vb, c = this.vc;
+      if (this.third) a.set(p.x + cy * side, p.y + 1.25, p.z - sy * side); else a.set(p.x + cy * side * 0.8 + L.x * 0.45, p.y + this.eye - 0.3 + L.y * 0.45, p.z - sy * side * 0.8 + L.z * 0.45);
+      if (t) { b.set(t.x, t.y, t.z); const sag = this.zip ? 0 : Math.max(0, 0.5 - this.swing.t) * 3; c.set((a.x + b.x) / 2, (a.y + b.y) / 2 - sag, (a.z + b.z) / 2); }
+      else { const u = 1 - this.whipAnim / 0.3, reach = (5.5 + (G.save.upg.whip || 0)) * Math.min(1, u * 1.7), back = 1 - Math.min(1, u * 1.5); b.set(a.x + L.x * reach - L.x * back * 2, a.y + L.y * reach + back * 1.6 - (1 - back) * 0.2, a.z + L.z * reach - L.z * back * 2); c.set(a.x + L.x * reach * 0.45 + cy * (0.9 - u * 1.4), a.y + L.y * reach * 0.45 + 1.7 * (1 - u) + 0.25, a.z + L.z * reach * 0.45 - sy * (0.9 - u * 1.4)); }
+      const n = this.segs.length, mt = this.lashMat[this.zip ? 1 : 0]; let px = a.x, py = a.y, pz = a.z;
+      for (let i = 0; i < n; i++) { const q = (i + 1) / n, w0 = (1 - q) * (1 - q), w1 = 2 * q * (1 - q), w2 = q * q, x = a.x * w0 + c.x * w1 + b.x * w2, y = a.y * w0 + c.y * w1 + b.y * w2, z = a.z * w0 + c.z * w1 + b.z * w2, m = this.segs[i], dx = x - px, dy = y - py, dz = z - pz, len = Math.hypot(dx, dy, dz) || 0.001, r = this.zip ? 0.018 : 0.034 - 0.024 * q; m.material = mt; m.position.set((x + px) / 2, (y + py) / 2, (z + pz) / 2); m.scale.set(r, len, r); m.quaternion.setFromUnitVectors(this.up, this.vc2 = (this.vc2 || new THREE.Vector3()).set(dx / len, dy / len, dz / len)); px = x; py = y; pz = z; }
     }
   }
 }

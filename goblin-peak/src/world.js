@@ -98,7 +98,7 @@ export class World {
     for (const s of this.secs) { if (this[`b_${s.t}`]) this[`b_${s.t}`](s); this.common(s); }
     const f = this.secs[0].at(3, 0, 0); this.start = { x: f.x, y: f.y, z: f.z, yaw: Math.atan2(-f.tx, -f.tz) };
     // a gate back to the village behind the trailhead
-    const b = this.secs[0].at(-6, 0, 0); this.add(new Gate(this, b.x, b.z, b.yaw, { col: 0x3f8a3a, go: G => G.loadLevel('hub') }));
+    const b = this.secs[0].at(-6, 0, 0); this.add(new Gate(this, b.x, b.z, b.yaw, { title: 'Back to the village', sub: 'Walk through', col: 0x3f8a3a, go: G => G.loadLevel('hub') }));
   }
   common(s) {
     const sp = this.spiral, G = this.G;
@@ -222,7 +222,7 @@ export class World {
   netMat() { if (this._nm) return this._nm; const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); g.strokeStyle = '#8a6238'; g.lineWidth = 7; g.strokeRect(0, 0, 64, 64); g.beginPath(); g.moveTo(0, 0); g.lineTo(64, 64); g.moveTo(64, 0); g.lineTo(0, 64); g.lineWidth = 3; g.stroke(); const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return this._nm = new THREE.MeshLambertMaterial({ map: t, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }); }
   b_ramp(s) { const f = this.ground(s, s.len - 3, -2.6); this.add(new Roller(this, f.x, f.z, { every: s.every || 3.6, range: s.len + 25, px: -f.tx * 1.5, pz: -f.tz * 1.5, make: () => ({ sec: s, a: s.len - 6, end: 2.5, sp: s.bsp || 9.5 }) })); }
   b_traps(s) { for (let i = 0; i < s.n; i++) { const a = 7 + i * 7, k = s.kind === 'mix' ? ['spikes', 'logs', 'darts'][i % 3] : s.kind; this.add(k === 'spikes' ? new Spikes(this, s, a, i * 0.7) : k === 'logs' ? new Pendulum(this, s, a, i * 1.1) : new DartTotem(this, s, a, i * 0.55)); } }
-  b_goal(s) { const f = this.ground(s, s.len - 5, 0); this.add(new Gate(this, f.x, f.z, f.yaw, { col: 0xe2b33a, w: 4, go: G => G.completeLevel() })); this.goalAt = f; }
+  b_goal(s) { const f = this.ground(s, s.len - 5, 0); this.add(new Gate(this, f.x, f.z, f.yaw, { title: 'The top of ' + this.def.name, sub: 'Walk through to finish', col: 0xe2b33a, w: 4, go: G => G.completeLevel() })); this.goalAt = f; }
   b_arena(s) {
     const y = this.spiral.Ytop, boss = this.boss = this.add(new Boss(this, y, this.def.story));
     // three gong towers: one to climb, one to grapple, one to bounce up to
@@ -240,12 +240,15 @@ export class World {
     const T = this.T = new Meadow(), G = this.G, st = this.def.story; this.scene.add(T.mesh(this.theme)); for (const m of T.waterMeshes(this.waterMat)) this.scene.add(m);
     this.start = { x: 0, y: 0, z: 6, yaw: 0 };
     const put = (m, x, z, yaw = 0) => { m.position.set(x, T.hAt(x, z), z); m.rotation.y = yaw; this.scene.add(m); return m; };
-    [[-14, 14, 0.5, 0xb5652a], [14, 16, -0.4, 0x8a4a6a], [-20, -8, 1.4, 0x3f7a8a], [20, -10, -1.4, 0xb5652a], [0, 26, 0, 0x6a8a3a]].forEach(([x, z, yaw, c]) => { put(M.hut(c), x, z, yaw); this.addBox(x, T.hAt(x, z) + 1.5, z, 2.5, 1.6, 2.2, -yaw, null); });
+    [[-14, 14, 0.5, 0xb5652a], [14, 16, -0.4, 0x8a4a6a], [-20, -8, 1.4, 0x3f7a8a], [20, -10, -1.4, 0xb5652a], [0, 26, 0, 0x6a8a3a]].forEach(([x, z, yaw, c]) => { put(M.hut(c), x, z, yaw); const hy = T.hAt(x, z); this.addBox(x, hy + 1.5, z, 2.5, 1.5, 2.2, -yaw, null); for (let i = 0; i < 6; i++) { const q = 3.04 * (1 - i / 6) + 0.1; this.addBox(x, hy + 3.2 + i * 0.4, z, q, 0.2, q, -yaw, null); } });
     put(M.cyl(0x8a8378, 1.6, 0.9, 0, 0, 0), 0, -4).position.y += 0.45; this.addCyl(0, 0.45, -4, 1.6, 0.5, null); const wr = M.cyl(0x6b4a2a, 0.1, 2.4, 0, 0, 0); put(wr, 1.4, -4).position.y += 1.2; const wr2 = wr.clone(); put(wr2, -1.4, -4).position.y += 1.2; const roof = M.cone(0xb5332a, 2.2, 1, 0, 0, 0); put(roof, 0, -4).position.y += 2.9;
     // the three trailheads
     const lv = this.def.levels;
     [[-46, -30, Math.PI / 2, 0], [0, -62, 0, 1], [46, -30, -Math.PI / 2, 2]].forEach(([x, z, yaw, i]) => {
-      const L = lv[i]; this.add(new Gate(this, x, z, yaw, { col: L.col, go: g => g.loadLevel(L.id), locked: g => i > 0 && !g.save.done[lv[i - 1].id], lockName: 'Old Barnaby', lockText: `That trail starts where ${lv[Math.max(0, i - 1)].name} ends, lad. Climb that first.` }));
+      const L = lv[i], S = G.save, lockd = i > 0 && !S.done[lv[i - 1].id];
+      for (let k = 0; k < 10; k++) { const sd = k % 2 ? 1 : -1, along = 7 + (k >> 1) * 2.2 + this.rnd() * 2, back = this.rnd() * 9 - 2, px = x + Math.cos(yaw) * sd * along - Math.sin(yaw) * -back * (yaw === 0 ? 0 : 1) + (yaw === 0 ? 0 : 0), pz = z + (yaw === 0 ? -back : sd * along), qx = yaw === 0 ? x + sd * along : x + Math.sign(x) * back, sc = 0.8 + this.rnd() * 0.9;
+        const m = i === 0 ? M.cone(0x2a6e33, 2 * sc, 6 * sc, 0, 3 * sc, 0, { flat: 1 }) : i === 1 ? M.cone(0xb5683f, 1.6 * sc, 5 * sc, 0, 2.5 * sc, 0, { flat: 1 }) : k % 3 ? M.cone(0xbfe6ff, 1.1 * sc, 4.5 * sc, 0, 2.2 * sc, 0, { flat: 1, e: 0x224455 }) : M.ball(0xf4f8ff, 2.4 * sc, 0, 0.3, 0, { flat: 1 }); const g2 = new THREE.Group(); g2.add(m); put(g2, qx, pz); }
+      this.add(new Gate(this, x, z, yaw, { title: `${i + 1}. ${L.name}`, sub: S.done[L.id] ? 'CLEARED  \u2714  walk through' : 'OPEN: walk through', lockSub: `LOCKED: clear trail ${i} first`, col: L.col, go: g => g.loadLevel(L.id), locked: g => i > 0 && !g.save.done[lv[i - 1].id], lockName: 'Old Barnaby', lockText: `That trail starts where ${lv[Math.max(0, i - 1)].name} ends, lad. Climb that first.` }));
       const sx = x - Math.sin(yaw) * 0 + Math.cos(yaw) * 6.5, sz = z + Math.sin(yaw) * 6.5 * 0 + (yaw === 0 ? 0 : 0); const sg = put(M.sign(), x + (yaw === 0 ? 6.5 : 0), z + (yaw === 0 ? 0 : 6.5), yaw + Math.PI);
       this.add(new NPC(this, sg.position.x, sg.position.z, { name: 'the sign', model: new THREE.Group(), prompt: 'Read the sign', lines: g => [{ who: 'Trail sign', text: `${L.name}. ${L.blurb}` }] }));
     });

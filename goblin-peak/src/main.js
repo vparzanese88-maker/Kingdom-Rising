@@ -119,6 +119,16 @@ class Game {
   loseCoins() { const n = Math.min(this.save.coins, Math.max(5, Math.round(this.save.coins * 0.12)) >> (this.save.upg.purse ? 1 : 0), 30); if (n > 0) { this.save.coins -= n; const p = this.player.pos; this.world.dropCoins(p.x, p.y + 1.2, p.z, n); } }
   give(item) { this.net.send({ t: 'item', k: item }); this.save.items[item] = 1; this.saveNow(); this.audio.sfx('item'); const it = ITEMS[item]; this.ui.dialog([{ who: 'You found', text: it.name + '!' }, { who: it.name, text: it.text }]); }
   gotJewel(idx) { this.net.send({ t: 'relic', r: this.world.def.id, i: idx }); const id = this.world.def.id, a = this.save.jewels[id] = this.save.jewels[id] || []; a[idx] = 1; const r = (RELICS[id] || [])[idx]; if (r) this.save.relics[r.id] = 1; this.audio.sfx('jewel'); this.saveNow(); this.ui.dialog([{ who: 'You found a relic', text: (r ? r.name : 'A relic') + `!  (${a.filter(Boolean).length} of 3 on this trail)` }, { who: r ? r.name : 'Relic', text: r ? r.text : '' }]); }
+  // Online with a partner, three knocks in quick succession leave you dizzy on the ground until a friend helps you up.
+  dazed() { const P = this.player, N = this.net; if (N.count() < 2 || P.down > 0) return; P.daze = (P.daze || 0) + 1; P.dazeT = 9; if (P.daze >= 3) { P.daze = 0; P.down = 16; this.ui.toast('You are seeing stars. A friend can help you up (E beside you), or wait it out.', 6); N.call(true); } }
+  // Nib's lucky line: fall off the trail and, for a price, be hauled back to where you last stood.
+  lucky(dt) {
+    const P = this.player, S = this.save, W = this.world; if (P.dazeT > 0 && (P.dazeT -= dt) <= 0) P.daze = 0; if (this.callMark) this.callMark.t -= dt;
+    if (!this.fall) { const sf = P.safe; if (sf && sf.r === W.def.id && !W.def.hub && P.pos.y < sf.y - 9 && !this.locked) { this.fall = { x: sf.x, y: sf.y, z: sf.z, yaw: sf.yaw, r: sf.r, t: 9 }; this.audio.sfx('nope'); } return; }
+    const f = this.fall, cost = Math.min(90, 30 + (this.lineUses || 0) * 10); f.t -= dt; if (f.t <= 0 || f.r !== W.def.id) { this.fall = null; P.safe = null; this.ui.show('lucky', false); return; }
+    this.ui.show('lucky', true); this.ui.set('luckyT', S.coins >= cost ? `Press R: Nib's lucky line hauls you back up (${cost} coins)  ·  ${Math.ceil(f.t)}` : `Nib's lucky line costs ${cost} coins. You have ${S.coins}. It is a long walk back.`);
+    if (this.input.hit('KeyR') && S.coins >= cost && !this.locked) { S.coins -= cost; this.lineUses = (this.lineUses || 0) + 1; const yaw = f.yaw; P.spawn(f.x, f.y + 0.3, f.z, yaw); P.inv = 2; this.fall = null; this.ui.show('lucky', false); this.audio.sfx('hook'); this.audio.sfx('buy'); this.ui.toast('Hauled back up. Nib says the next one costs more.', 3); }
+  }
   // One of the hundred lowland adventures done.
   act(id, name, coins, x, y, z) { const S = this.save; if (S.acts[id]) return; this.net.send({ t: 'act', id, name }); S.acts[id] = 1; const n = Object.keys(S.acts).length; this.audio.sfx('jewel'); if (coins) this.world.dropCoins(x, y, z, Math.min(40, coins)); this.ui.toast(`${name}!  Lowland adventures: ${n} of ${ACT_TOTAL}` + (n === ACT_TOTAL ? '. Every single one. The stones were right about you.' : ''), 5); this.saveNow(); }
   stat(k, n = 1) { this.save.stats[k] = (this.save.stats[k] || 0) + n; }
@@ -134,12 +144,12 @@ class Game {
   }
   step(dt) {
     this.time += dt; this.frame++; this.levelT += dt; this.save.played += dt; { const S = this.save, id = this.world.def.id; S.run = S.run || {}; if (!this.world.def.hub && !this.locked) S.run[id] = (S.run[id] || 0) + dt; }
-    this.world.update(dt); this.player.update(dt); if (this.regions) this.handoff(); this.net.update(dt); this.ui.update(dt);
+    this.world.update(dt); this.player.update(dt); if (this.regions) this.handoff(); this.lucky(dt); this.net.update(dt); this.ui.update(dt);
     if (this.frame % 600 === 0) this.saveNow();
   }
   loop(t) {
     requestAnimationFrame(tt => this.loop(tt)); const dt = Math.min(0.033, (t - this.last) / 1000); this.last = t;
-    if (this.playing && !this.paused) this.step(dt); else if (!this.playing) { this.time += dt; const p = this.player; p.yaw += dt * 0.08; p.pos.set(Math.sin(this.time * 0.05) * 20, 14, 30); }
+    if (this.hitstop > 0) { this.hitstop -= dt; } else if (this.playing && !this.paused) this.step(dt); else if (!this.playing) { this.time += dt; const p = this.player; p.yaw += dt * 0.08; p.pos.set(Math.sin(this.time * 0.05) * 20, 14, 30); }
     this.player.updateCamera(dt, this.camera); if (!this.playing) { this.player.model.visible = false; this.player.hands.visible = false; this.camera.position.y = 16; this.camera.rotation.set(-0.15, this.player.yaw, 0); }
     this.input.end(); this.renderer.render(this.root || this.world.scene, this.camera);
   }

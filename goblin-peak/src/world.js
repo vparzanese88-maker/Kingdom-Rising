@@ -104,8 +104,8 @@ export class World {
     for (const s0 of list) {
       const s = Object.assign({}, s0);
       if (rv && crossN < rv.loops) {
-        const cross = rv.th + TAU * crossN, start = cross - 12 / sp.R(cross);
-        if (sp.PHI + s.len / sp.R(sp.PHI) > start) { const fill = (start - sp.PHI) * sp.R(sp.PHI); if (fill > 1.5) lay({ t: 'path', len: fill, rise: fill * 0.03 }); lay({ t: 'river', len: 24, rise: 0, w: 6, style: def.river.styles[crossN], cross }); crossN++; }
+        const cross = rv.th + TAU * crossN, start = cross - 17 / sp.R(cross);
+        if (sp.PHI + s.len / sp.R(sp.PHI) > start) { const fill = (start - sp.PHI) * sp.R(sp.PHI); if (fill > 1.5) lay({ t: 'path', len: fill, rise: fill * 0.03 }); lay({ t: 'river', len: 34, rise: 0, w: 6, style: def.river.styles[crossN], cross }); crossN++; }
       }
       lay(s);
     }
@@ -267,14 +267,14 @@ export class World {
   }
   b_river(s) {
     const ac = s.ac = (s.cross - s.p0) / (s.p1 - s.p0) * s.len, st = s.style || 'stones';
-    if (st === 'stones') [-7.6, -3.9, 0, 3.9, 7.6].forEach((o, i) => { const f = s.at(ac + o, i % 2 ? 1.7 : -1.7, -2.4), sink = i % 2 === 1; this.addCyl(f.x, f.y, f.z, sink ? 0.8 : 0.95, 2.2, ROCK, sink ? { crumble: true, noGrab: true } : {}); this.coin(f.x, f.y + 3.4, f.z); });
-    else if (st === 'log') { this.sb(s, ac - 5.6, 0.8, -0.3, 0.42, 0.3, 4.2, LOG, { beam: true }); this.sb(s, ac + 5.6, -0.8, -0.3, 0.42, 0.3, 4.2, LOG, { beam: true }); this.coinLine(s, ac - 7, ac + 7, 0, 1.1); }
-    else if (st === 'swing') for (const o of [-4.6, 4.6]) { this.anchors.push(Object.assign(s.at(ac + o, 0, 8.45), { kind: 'whip' })); this.deco(s, ac + o, 0, 0, M.whipPost(7.5, 3)); this.slimb(s, ac + o, -3.6, 8.15, ac + o, 1.9, 8.75); this.coinLine(s, ac + o - 3, ac + o + 3, 0, q => 0.8 - Math.sin(q * Math.PI) * 1.2, 4); }
-    else if (st === 'raft') { const f = s.at(ac, 0, -1.1); this.addBox(f.x, f.y, f.z, 1.6, 0.25, 1.6, f.th, PLANK, { mover: (t, b) => { const q = Math.sin(t * 0.7) * 7.6; b.x = f.x + f.tx * q; b.z = f.z + f.tz * q; } }); }
-    else if (st === 'hook') { for (const l of [-1.5, 1.5]) { this.anchor(s, ac + 8.6, l, 3.3, 'grapple'); this.deco(s, ac + 10.4, l, 1.6, M.cyl(0x5a3c22, 0.2, 3.2, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 3, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, ac + 9.1, l, 3.3, br); this.slimb(s, ac + 7.6, l, 3.3, ac + 10.6, l, 3.3); this.slimb(s, ac + 10.4, l, 0, ac + 10.4, l, 3.2); } }
-    else if (st === 'planks') [-7.8, -5.2, -2.6, 0, 2.6, 5.2, 7.8].forEach(o => this.sb(s, ac + o, 0, -0.2, 1.2, 0.18, 1.2, PLANK, { crumble: true, noGrab: true }));
+    if (st === 'stones') [-11.4, -7.6, -3.8, 0, 3.8, 7.6, 11.4].forEach((o, i) => { const f = s.at(ac + o, i % 2 ? 1.7 : -1.7, -2.4), sink = i % 2 === 1; this.addCyl(f.x, f.y, f.z, sink ? 0.8 : 0.95, 2.2, ROCK, sink ? { crumble: true, noGrab: true } : {}); this.coin(f.x, f.y + 3.4, f.z); });
+    else if (st === 'log') { for (const [o, l] of [[-8.7, 0.9], [0, -0.9], [8.7, 0.9]]) this.sb(s, ac + o, l, -0.3, 0.42, 0.3, 3.1, LOG, { beam: true }); this.coinLine(s, ac - 10, ac + 10, 0, 1.1); }
+    else if (st === 'swing') for (const o of [-9.6, 0, 9.6]) { this.anchors.push(Object.assign(s.at(ac + o, 0, 8.45), { kind: 'whip' })); this.deco(s, ac + o, 0, 0, M.whipPost(7.5, 3)); this.slimb(s, ac + o, -3.6, 8.15, ac + o, 1.9, 8.75); this.coinLine(s, ac + o - 3, ac + o + 3, 0, q => 0.8 - Math.sin(q * Math.PI) * 1.2, 4); }
+    else if (st === 'raft') { const f = s.at(ac, 0, -1.1); this.addBox(f.x, f.y, f.z, 1.6, 0.25, 1.6, f.th, PLANK, { mover: (t, b) => { const q = Math.sin(t * 0.5) * 11.6; b.x = f.x + f.tx * q; b.z = f.z + f.tz * q; } }); }
+    else if (st === 'hook') { for (const l of [-1.5, 1.5]) { this.anchor(s, ac + 12.2, l, 3.3, 'grapple'); this.deco(s, ac + 14, l, 1.6, M.cyl(0x5a3c22, 0.2, 3.2, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 3, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, ac + 12.7, l, 3.3, br); this.slimb(s, ac + 11.2, l, 3.3, ac + 14.2, l, 3.3); this.slimb(s, ac + 14, l, 0, ac + 14, l, 3.2); } }
+    else if (st === 'planks') for (let o = -10.4; o <= 10.5; o += 2.6) this.sb(s, ac + o, 0, -0.2, 1.2, 0.18, 1.2, PLANK, { crumble: true, noGrab: true });
     this.add(new Pike(this, s, ac));
-    const sg = M.sign(); this.deco(s, ac - 11, -s.w + 1, 0, sg, Math.PI / 2); sg.position.y = this.T.hAt(sg.position.x, sg.position.z);
+    const sg = M.sign(); this.deco(s, ac - 15.5, -s.w + 1, 0, sg, Math.PI / 2); sg.position.y = this.T.hAt(sg.position.x, sg.position.z);
   }
   b_camp(s) {
     const sp = this.spiral, idx = ++this.campN, f = this.ground(s, 9, -2.5); const cmp = this.add(new Camp(this, f.x, f.z, idx)); cmp.sec = s; this.camps.push(cmp);
@@ -287,7 +287,7 @@ export class World {
     s.spawn = this.ground(s, 5, 0);
   }
   netMat() { if (this._nm) return this._nm; const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); g.strokeStyle = '#8a6238'; g.lineWidth = 7; g.strokeRect(0, 0, 64, 64); g.beginPath(); g.moveTo(0, 0); g.lineTo(64, 64); g.moveTo(64, 0); g.lineTo(0, 64); g.lineWidth = 3; g.stroke(); const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return this._nm = new THREE.MeshLambertMaterial({ map: t, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }); }
-  b_ramp(s) { const f = this.ground(s, s.len - 3, -2.6); this.add(new Roller(this, f.x, f.z, { every: s.every || 3.6, range: s.len + 25, px: -f.tx * 1.5, pz: -f.tz * 1.5, make: () => ({ sec: s, a: s.len - 6, end: 2.5, sp: s.bsp || 9.5 }) })); }
+  b_ramp(s) { const f = this.ground(s, s.len - 3, -2.6); this.add(new Roller(this, f.x, f.z, { every: s.every || 3.6, range: s.len + 25, px: -f.tx * 1.5, pz: -f.tz * 1.5, make: () => ({ sec: s, a: s.len - 6, end: 2.5, sp: s.bsp || 11 }) })); }
   b_traps(s) { for (let i = 0; i < s.n; i++) { const a = 7 + i * 7, k = s.kind === 'mix' ? ['spikes', 'logs', 'darts'][i % 3] : s.kind; this.add(k === 'spikes' ? new Spikes(this, s, a, i * 0.7) : k === 'logs' ? new Pendulum(this, s, a, i * 1.1) : new DartTotem(this, s, a, i * 0.55)); } }
   b_goal(s) { const f = this.ground(s, s.len - 5, 0); this.add(new Gate(this, f.x, f.z, f.yaw, { title: 'The top of ' + this.def.name, sub: 'Walk through to finish', col: 0xe2b33a, w: 4, go: G => G.completeLevel() })); this.goalAt = f; }
   b_arena(s) {
@@ -356,7 +356,7 @@ export class World {
 
   // Where should the player head next? Village: the first gate not yet cleared. Mountain: a point a little way up the trail.
   guide() {
-    const G = this.G, S = G.save, p = G.player.pos, sp = this.spiral;
+    const G = this.G, S = G.save, p = G.player.pos, sp = this.spiral; if (G.callMark && G.callMark.t > 0 && G.callMark.r === this.def.id) return { x: G.callMark.x, y: G.callMark.y + 2.2, z: G.callMark.z, label: G.callMark.n, text: G.callMark.n + ' needs help: follow the arrow to them' };
     if (!sp) {
       const lv = this.def.levels, i = lv.findIndex(L => !S.done[L.id]) < 0 || S.won ? -1 : lv.findIndex(L => !S.done[L.id]); if (i < 0) return null;
       const g = G.trailhead ? G.trailhead(i) : [[-46, -30], [0, -62], [46, -30]][i]; return { x: g[0], y: 3, z: g[1], label: lv[i].name, text: G.trailhead ? `Head ${['west', 'north', 'east'][i]} to the foot of ${lv[i].name}` : `Walk through the ${['west', 'north', 'east'][i]} gate to ${lv[i].name}` };
@@ -400,9 +400,10 @@ export class World {
   }
   throwBomb(P) { const S = this.G.save; if (!(S.bombs > 0)) { this.G.audio.sfx('nope'); this.G.ui.toast('No squibs. Nib sells them.', 2); return; } S.bombs--; const L = P.look; this.add(new Bomb(this, P.pos.x + L.x, P.pos.y + P.eye, P.pos.z + L.z, L.x * 15 + P.vel.x * 0.5, L.y * 15 + 5, L.z * 15 + P.vel.z * 0.5, true)); this.G.audio.sfx('throw'); }
   // A two-handed shove at whatever is right in front: friends always, goblins too until you have the whip.
+  // A punch at whatever is right in front. It always lands on friends (as a shove); on goblins until you have the whip.
   pushHit(P, mobs) {
     const p = P.pos, fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); let any = this.G.net.pushFriend(P, fx, fz);
-    if (mobs) for (const e of this.ents) { if (!e.mob || e.dead || e.k.slam) continue; const dx = e.x - p.x, dz = e.z - p.z, d = Math.hypot(dx, dz); if (d < 2.3 + e.k.r && Math.abs(e.y - p.y) < 2.5 && (dx * fx + dz * fz) / (d || 1) > 0.4) { e.stunT = 1.1; e.state = 'idle'; e.carry = null; e.move(fx * 2.6, fz * 2.6); this.puff(e.x, e.y + 1, e.z, 0xffffff, 4); any = true; } }
+    if (mobs) for (const e of this.ents) { if (!(e.mob || e.hittable) || e.dead) continue; const r = e.k ? e.k.r : e.r, dx = e.x - p.x, dz = e.z - p.z, d = Math.hypot(dx, dz); if (d < 2.2 + r && Math.abs(e.y - p.y) < 2.6 && (dx * fx + dz * fz) / (d || 1) > 0.4) { any = true; this.puff(e.x - fx * r, e.y + 1.1, e.z - fz * r, 0xfff2c0, 7); if (e.mob) { e.hit(0.5, p.x, p.z); if (!e.dead && !e.k.slam && !e.k.thrower) e.move(fx * 1.6, fz * 1.6); } else e.hit(1, p.x, p.z); } }
     return any;
   }
   cannonBlast(t) { for (const e of this.ents) if (e.mob && !e.dead && Math.hypot(e.x - t.x, e.y - t.y, e.z - t.z) < 3.5) e.hit(1, t.x, t.z); }
@@ -439,7 +440,7 @@ export class World {
     if (got) G.addCoins(got, true);
     // story triggers along the trail
     if (this.spiral) {
-      const sp = this.spiral; sp.toRoute(p.x, p.z, rt); this.route = rt; if (P.grounded && !P.steep && rt.phi >= -0.3 && rt.phi <= sp.PHI + 0.3 && Math.abs(p.y - sp.groundY(rt.phi)) < 4.5 && Math.abs(rt.lat) < sp.width(rt.phi) + 0.8 && !this.inNet(p.x, p.z)) P.routePhi = rt.phi;
+      const sp = this.spiral; sp.toRoute(p.x, p.z, rt); this.route = rt; if (P.grounded && !P.steep && rt.phi >= -0.3 && rt.phi <= sp.PHI + 0.3 && Math.abs(p.y - sp.groundY(rt.phi)) < 4.5 && Math.abs(rt.lat) < sp.width(rt.phi) + 0.8 && !this.inNet(p.x, p.z)) { P.routePhi = rt.phi; if (Math.abs(p.y - sp.trailY(rt.phi)) < 1.2 && Math.abs(rt.lat) < sp.width(rt.phi) - 1.2 && !G.fall) { const sf = P.safe = P.safe || {}; sf.x = p.x; sf.y = p.y; sf.z = p.z; sf.r = this.def.id; sf.yaw = P.yaw; } }
       if (Math.abs(rt.lat) < 9 && Math.abs(p.y - sp.trailY(rt.phi)) < 7) for (const tr of this.triggers) {
         if (rt.phi < tr.p0 || rt.phi > tr.p1) continue; if (tr.key) { if (G.save.seen[tr.key]) continue; G.save.seen[tr.key] = 1; } else { if (tr.last && t - tr.last < tr.repeat) continue; tr.last = t; } tr.fn();
       }

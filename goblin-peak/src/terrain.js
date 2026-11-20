@@ -9,7 +9,7 @@ export class Spiral {
     this.Y = []; this.G = []; this.W = []; this.PHI = 0; this.Ytop = 0;
     this.river = o.river || null; this.openFrom = 1e9;      // { th, loops, rw }
     this.rim = this.R0 + 85; this.S = this.R0 + 118; if (o.realm) { this.S = this.R0 + 150; this.noRim = true; this.clipR = this.R0 + 86; }
-    if (this.river) { this.river.rw = this.river.rw || 4.5; this.river.rSrc = this.R(this.river.th + TAU * (this.river.loops - 1)) - 9; this.river.lakeR = this.R0 + 48; }
+    if (this.river) { this.river.rw = this.river.rw || 8; this.river.rSrc = this.R(this.river.th + TAU * (this.river.loops - 1)) - 9; this.river.lakeR = this.R0 + 48; }
     this.info = { kind: 0, phi: 0, lat: 0 };
   }
   R(p) { return this.R0 - this.k * p; }

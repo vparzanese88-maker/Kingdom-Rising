@@ -7,13 +7,13 @@ const rt = { phi: 0, lat: 0, on: false }, nrm = { x: 0, y: 1, z: 0 };
 const face = (m, dx, dz) => { m.rotation.y = Math.atan2(-dx, -dz); };
 
 export const KINDS = {
-  grunt: { name: 'Goblin Grunt', hp: 1, sp: 5.7, r: 0.5, h: 1.3, knock: 11, sight: 19, coins: 3, model: () => M.goblin({ club: 1 }) },
-  brute: { name: 'Goblin Brute', hp: 3, sp: 4.8, r: 0.65, h: 1.7, knock: 14, sight: 15, coins: 6, model: () => M.goblin({ scale: 0.98, helm: 0x777f88, skin: 0x5c9a38, club: 1, wide: 1.3, shirt: 0x4a4a52 }) },
-  boar: { name: 'Tuskboar', hp: 2, sp: 10, r: 0.75, h: 1.1, knock: 15, sight: 18, coins: 5, charge: 1, model: () => M.boar() },
+  grunt: { name: 'Goblin Grunt', hp: 1, sp: 6.4, r: 0.5, h: 1.3, knock: 11, sight: 19, coins: 3, model: () => M.goblin({ club: 1 }) },
+  brute: { name: 'Goblin Brute', hp: 3, sp: 5.5, r: 0.65, h: 1.7, knock: 14, sight: 15, coins: 6, model: () => M.goblin({ scale: 0.98, helm: 0x777f88, skin: 0x5c9a38, club: 1, wide: 1.3, shirt: 0x4a4a52 }) },
+  boar: { name: 'Tuskboar', hp: 2, sp: 11.2, r: 0.75, h: 1.1, knock: 15, sight: 18, coins: 5, charge: 1, model: () => M.boar() },
   ram: { name: 'Summit Ram', hp: 2, sp: 11, r: 0.75, h: 1.1, knock: 16, sight: 20, coins: 6, charge: 1, model: () => M.boar(0xe8e4dc) },
   slinger: { name: 'Goblin Slinger', hp: 1, sp: 0, r: 0.5, h: 1.3, knock: 8, sight: 26, coins: 4, thrower: 1, model: () => M.goblin({ hat: 0xb5332a, shirt: 0x8a6a3a }) },
   yeti: { name: 'Yeti', hp: 3, sp: 0, r: 0.9, h: 3, knock: 13, sight: 30, coins: 10, thrower: 2, model: () => M.yeti() },
-  bat: { name: 'Gloomwing', hp: 1, sp: 7.5, r: 0.5, h: 0.6, knock: 6, sight: 17, coins: 2, fly: 1, model: () => M.bat() },
+  bat: { name: 'Gloomwing', hp: 1, sp: 8.8, r: 0.5, h: 0.6, knock: 6, sight: 17, coins: 2, fly: 1, model: () => M.bat() },
   shield: { name: 'Goblin Bulwark', hp: 2, sp: 4.6, r: 0.6, h: 1.5, knock: 13, sight: 18, coins: 7, shield: 1, model: () => { const g = M.goblin({ scale: 0.86, helm: 0x8a8a92, shirt: 0x3b4a6a, wide: 1.2 }); g.userData.parts.armL.add(M.box(0x8a6238, 0.75, 0.95, 0.08, 0, -0.45, -0.3), M.box(0xc8c8d0, 0.2, 0.2, 0.1, 0, -0.45, -0.34)); return g; } },
   bomber: { name: 'Goblin Bomber', hp: 1, sp: 0, r: 0.5, h: 1.3, knock: 14, sight: 24, coins: 6, thrower: 3, rate: 3.4, model: () => M.goblin({ hat: 0x222222, shirt: 0x5a2a2a }) },
   tugger: { name: 'Lasso Goblin', hp: 1, sp: 0, r: 0.5, h: 1.3, knock: 0, sight: 19, coins: 6, thrower: 4, rate: 4.2, model: () => M.goblin({ hat: 0xc9a25a, shirt: 0x6a5a2a }) },
@@ -106,7 +106,7 @@ export class Mob {
     if (d < k.r + 0.45 && dy < k.h && dy > -1.9 && this.stunT <= 0) {
       if (P.vel.y < -2 && dy > k.h * 0.5) { this.hit(1, p.x, p.z, 'stomp'); P.vel.y = 10.5; P.jumps = 1; }
       else if (k.grab) { if (P.inv <= 0 && !this.carry) { this.carry = { t: 0, mash: 0 }; P.inv = 3.2; P.detach(); W.G.audio.sfx('screech'); W.G.ui.toast('A harpy has you! Mash SPACE or crack the whip to break free!', 3); W.G.stat('knocked'); } }
-      else if (P.inv <= 0) { let kx = dx, kz = dz; if (W.spiral && !this.arena) { const r = Math.hypot(p.x, p.z) || 1; kx = dx * 0.8 + p.x / r * 0.35; kz = dz * 0.8 + p.z / r * 0.35; } if (P.knock(kx, kz, k.knock, 7)) { if (this.state === 'swoop') this.state = 'back'; if (this.state === 'charge') { this.state = 'idle'; this.cd = 1.6; } W.G.stat('knocked'); } }
+      else if (P.inv <= 0) { let kx = dx, kz = dz; if (W.spiral && !this.arena) { const r = Math.hypot(p.x, p.z) || 1; kx = dx * 0.75 + p.x / r * 0.55; kz = dz * 0.75 + p.z / r * 0.55; } if (P.knock(kx, kz, k.knock * 1.2, 7.5)) { if (this.state === 'swoop') this.state = 'back'; if (this.state === 'charge') { this.state = 'idle'; this.cd = 1.6; } W.G.stat('knocked'); } }
     }
   }
   throwAt(P) {
@@ -213,8 +213,8 @@ export class Spikes {
     this.g.position.set(f.x, f.y, f.z); this.g.rotation.y = f.yaw; W.scene.add(this.g); this.up = 0;
   }
   update(dt) {
-    const G = this.W.G, t = (G.time + this.ph) % 2.6, tgt = t < 1.0 ? 1 : 0, P = G.player, p = P.pos, f = this.f; if (tgt && this.up < 0.1 && Math.hypot(p.x - f.x, p.z - f.z) < 25) G.audio.sfx('spike', 0.4);
-    this.up += (tgt - this.up) * Math.min(1, 18 * dt); this.sp.position.y = -0.95 + this.up * 0.95; this.sp.visible = this.up > 0.03 || t > 2.2; if (t > 2.2) this.sp.position.y = -0.8;
+    const G = this.W.G, t = (G.time + this.ph) % 2.1, tgt = t < 1.0 ? 1 : 0, P = G.player, p = P.pos, f = this.f; if (tgt && this.up < 0.1 && Math.hypot(p.x - f.x, p.z - f.z) < 25) G.audio.sfx('spike', 0.4);
+    this.up += (tgt - this.up) * Math.min(1, 18 * dt); this.sp.position.y = -0.95 + this.up * 0.95; this.sp.visible = this.up > 0.03 || t > 1.75; if (t > 1.75) this.sp.position.y = -0.8;
     const dx = p.x - f.x, dz = p.z - f.z, la = dx * f.nx + dz * f.nz, al = dx * f.tx + dz * f.tz;
     if (this.up > 0.5 && Math.abs(la) < this.w && Math.abs(al) < 1.2 && p.y - f.y < 0.7 && p.y - f.y > -1) { const sg = Math.sign(al) || -1; P.knock(f.tx * sg, f.tz * sg, 6, 10); }
   }
@@ -222,7 +222,7 @@ export class Spikes {
 export class Pendulum {
   constructor(W, sec, a, ph) { this.W = W; this.f = sec.at(a, 0, 7); this.ph = ph; this.L = 5.6; this.g = new THREE.Group(); const f = this.f; this.arm = new THREE.Group(); this.arm.add(M.cyl(0x4a2c16, 0.06, this.L, 0, -this.L / 2, 0)); const lg = M.cyl(0x6b4a2a, 0.75, 2.6, 0, -this.L, 0); lg.rotation.x = Math.PI / 2; this.arm.add(lg); this.g.add(this.arm, M.box(0x6b4a2a, 12, 0.3, 0.3, 0, 0.15, 0), M.cyl(0x6b4a2a, 0.2, 9, -6, -4, 0), M.cyl(0x6b4a2a, 0.2, 9, 6, -4, 0)); this.g.position.set(f.x, f.y, f.z); this.g.rotation.y = f.yaw; W.scene.add(this.g); }
   update() {
-    const G = this.W.G, w = 1.75, ang = Math.sin(G.time * w + this.ph) * 1.05, f = this.f, P = G.player, p = P.pos; this.arm.rotation.z = ang;
+    const G = this.W.G, w = 2.1, ang = Math.sin(G.time * w + this.ph) * 1.05, f = this.f, P = G.player, p = P.pos; this.arm.rotation.z = ang;
     const lx = Math.sin(ang) * this.L, ly = -Math.cos(ang) * this.L, bx = f.x + f.nx * lx, bz = f.z + f.nz * lx, by = f.y + ly;
     if (Math.hypot(p.x - bx, p.z - bz) < 1.25 && p.y < by + 0.9 && p.y + P.H > by - 0.9) { const dir = Math.sign(Math.cos(G.time * w + this.ph)) || 1; P.knock(f.nx * dir, f.nz * dir, 13, 6); }
   }
@@ -230,7 +230,7 @@ export class Pendulum {
 export class DartTotem {
   constructor(W, sec, a, ph) { this.W = W; this.ph = ph; this.w = sec.w || 5; this.f = sec.at(a, -this.w + 0.6, 0); const f = this.f; this.g = M.totem(); this.g.position.set(f.x, f.y, f.z); this.g.rotation.y = Math.atan2(-f.nx, -f.nz); W.scene.add(this.g); this.d = M.box(0xd8362c, 0.12, 0.12, 0.9, 0, 0, 0, { e: 0x661000 }); this.d.rotation.y = this.g.rotation.y; this.d.visible = false; W.scene.add(this.d); this.q = -1; }
   update(dt) {
-    const G = this.W.G, t = (G.time + this.ph) % 2.0, f = this.f, P = G.player, p = P.pos; if (t < dt * 1.5 && this.q < 0) { this.q = 0.5; if (Math.hypot(p.x - f.x, p.z - f.z) < 22) G.audio.sfx('dart', 0.5); }
+    const G = this.W.G, t = (G.time + this.ph) % 1.5, f = this.f, P = G.player, p = P.pos; if (t < dt * 1.5 && this.q < 0) { this.q = 0.5; if (Math.hypot(p.x - f.x, p.z - f.z) < 22) G.audio.sfx('dart', 0.5); }
     if (this.q >= 0) { this.q += 15 * dt; const x = f.x + f.nx * this.q, z = f.z + f.nz * this.q; this.d.visible = true; this.d.position.set(x, f.y + 1.3, z); if (Math.hypot(p.x - x, p.z - z) < 0.75 && p.y < f.y + 1.6 && p.y + P.H > f.y + 1.0) { P.knock(f.nx, f.nz, 8, 5); this.q = -1; } if (this.q > this.w * 2 + 3) this.q = -1; } else this.d.visible = false;
   }
 }
@@ -241,7 +241,7 @@ class Near { // shared "walk up and press E" behaviour
 export class Chest extends Near {
   constructor(W, x, z, item, yaw) { super(); this.W = W; this.x = x; this.z = z; this.y = W.T.hAt(x, z); this.item = item; this.mesh = M.chest(); this.mesh.position.set(x, this.y, z); this.mesh.rotation.y = yaw || 0; W.scene.add(this.mesh); this.open = !!W.G.save.items[item]; this.prompt = 'Open chest'; this.beam = M.cyl(0xffe27a, 0.5, 30, x, this.y + 15, z, { e: 0xffc020, op: 0.25 }); this.beam.castShadow = false; W.scene.add(this.beam); }
   update(dt) { const lid = this.mesh.userData.lid; lid.rotation.x += ((this.open ? 1.9 : 0) - lid.rotation.x) * Math.min(1, 6 * dt); this.beam.visible = !this.open; this.canUse = !this.open && this.near(); }
-  use() { this.open = true; this.W.G.give(this.item); }
+  use() { const G = this.W.G, N = G.net; if (N.count() > 1 && ![...N.peers.values()].some(q => q.r === this.W.def.id && Math.hypot(q.x - this.x, q.z - this.z) < 6)) { G.audio.sfx('nope'); G.ui.toast('The lid is far too heavy for one. Get a friend to stand beside it with you (press B to call them).', 5); return; } this.open = true; G.give(this.item); }
 }
 export class Camp extends Near {
   constructor(W, x, z, idx) { super(); this.W = W; this.x = x; this.z = z; this.y = W.T.hAt(x, z); this.idx = idx; this.mesh = M.campfire(); this.mesh.position.set(x, this.y, z); W.scene.add(this.mesh); this.lit = false; this.light = new THREE.PointLight(0xff8a30, 0, 16); this.light.position.set(x, this.y + 1.2, z); W.scene.add(this.light); if ((W.G.save.camp[W.def.id] || 0) >= idx) this.setLit(true); }
@@ -338,7 +338,7 @@ export class Wind {
     const W = this.W, G = W.G, P = G.player, p = P.pos, s = this.s, rt = W.route; if (!rt || rt.phi < s.p0 || rt.phi > s.p1 || Math.abs(rt.lat) > s.w + 3) return;
     const t = (G.time + this.ph) % 5.5, r = Math.hypot(p.x, p.z) || 1;
     if (t > 3.3 && t < 3.3 + dt * 1.5) { G.audio.sfx('slide'); G.ui.toast('Wind! Crouch (hold C) or it will carry you off.', 2.5); }
-    if (t > 3.9) { if (Math.random() < 0.5) W.puff(p.x - p.x / r * 6 + (Math.random() - 0.5) * 8, p.y + Math.random() * 3, p.z - p.z / r * 6 + (Math.random() - 0.5) * 8, 0xffffff, 1); if (!P.crouch && !P.climb && !G.locked && !G.save.upg.cloak) { const k = (P.grounded ? 34 : 14) * dt; P.vel.x += p.x / r * k; P.vel.z += p.z / r * k; if (P.grounded) { p.x += p.x / r * 3.2 * dt; p.z += p.z / r * 3.2 * dt; } } }
+    if (t > 3.9) { if (Math.random() < 0.5) W.puff(p.x - p.x / r * 6 + (Math.random() - 0.5) * 8, p.y + Math.random() * 3, p.z - p.z / r * 6 + (Math.random() - 0.5) * 8, 0xffffff, 1); if (!P.crouch && !P.climb && !G.locked && !G.save.upg.cloak) { const k = (P.grounded ? 44 : 18) * dt; P.vel.x += p.x / r * k; P.vel.z += p.z / r * k; if (P.grounded) { p.x += p.x / r * 3.2 * dt; p.z += p.z / r * 3.2 * dt; } } }
   }
 }
 // A rope slung across a long drop: press E at the post to ride it.
@@ -372,8 +372,11 @@ export class Chase {
 export class Pike {
   constructor(W, sec, ac) { this.W = W; this.s = sec; this.ac = ac; this.cd = 1.5; this.j = null; this.mesh = new THREE.Group(); this.mesh.add(M.box(0x4a7a8a, 0.45, 0.5, 1.5, 0, 0, 0), M.cone(0x4a7a8a, 0.3, 0.6, 0, 0, -1.0), M.box(0x2f5a6a, 0.08, 0.55, 0.5, 0, 0, 0.95), M.box(0xf4f0d8, 0.3, 0.12, 0.3, 0, -0.18, -0.8)); this.mesh.children[1].rotation.x = -Math.PI / 2; this.mesh.visible = false; W.scene.add(this.mesh); }
   update(dt) {
-    const W = this.W, G = W.G, P = G.player, p = P.pos, s = this.s, rt = W.route; if (!rt) return; const a = (rt.phi - s.p0) / (s.p1 - s.p0) * s.len, near = Math.abs(a - this.ac) < 10.5 && Math.abs(rt.lat) < s.w + 2 && !P.swim; this.cd -= dt;
-    if (!this.j && near && this.cd <= 0 && !G.locked) { const lead = Math.hypot(P.vel.x, P.vel.z) > 1 ? 2.2 : 0, dir = (P.vel.x * -Math.sin(rt.phi) + P.vel.z * Math.cos(rt.phi)) >= 0 ? 1 : -1, ja = Math.max(this.ac - 8, Math.min(this.ac + 8, a + dir * lead)); this.j = { a: ja, t: -0.65 }; const f = s.at(ja, -3.5, -1); W.puff(f.x, f.y, f.z, 0x9fd8ff, 8); G.audio.sfx('splash', 0.5); }
+    const W = this.W, G = W.G, P = G.player, p = P.pos, s = this.s, rt = W.route; if (!rt) return; const a = (rt.phi - s.p0) / (s.p1 - s.p0) * s.len, near = Math.abs(a - this.ac) < 14.5 && Math.abs(rt.lat) < s.w + 2 && !P.swim; this.cd -= dt; this.sn = (this.sn || 0) - dt;
+    if (near && this.sn <= 0 && Math.abs(a - this.ac) < 8.4 && !P.grounded && !P.swing && !P.zip && !P.climb && p.y > W.T.waterY(p.x, p.z) && (this.ow = (this.ow || 0) + dt) > 0.86) { this.ow = 0; this.sn = 1.6; const f = s.at(a, rt.lat, 0); this.j = null; this.mesh.visible = true; this.mesh.position.set(p.x, p.y + 0.2, p.z); this.mesh.rotation.set(-1.2, 0, 0); this.snT = 0.5; W.puff(p.x, p.y, p.z, 0x9fd8ff, 14); G.audio.sfx('splash'); if (P.knock(f.nx, f.nz, 4, -13)) { P.glide = false; G.stat('knocked'); G.ui.toast('A pike leapt up and dragged you down! Nothing stays in the air over this river for long: cross it in short hops, one foothold at a time.', 5); } }
+    if (P.grounded || P.swing || P.zip || P.climb || P.swim || Math.abs(a - this.ac) >= 8.4) this.ow = 0;
+    if (this.snT > 0) { this.snT -= dt; this.mesh.position.y -= 14 * dt; if (this.snT <= 0) this.mesh.visible = false; return; }
+    if (!this.j && near && this.cd <= 0 && !G.locked) { const lead = Math.hypot(P.vel.x, P.vel.z) > 1 ? 2.2 : 0, dir = (P.vel.x * -Math.sin(rt.phi) + P.vel.z * Math.cos(rt.phi)) >= 0 ? 1 : -1, ja = Math.max(this.ac - 12, Math.min(this.ac + 12, a + dir * lead)); this.j = { a: ja, t: -0.65 }; const f = s.at(ja, -3.5, -1); W.puff(f.x, f.y, f.z, 0x9fd8ff, 8); G.audio.sfx('splash', 0.5); }
     if (this.j) { const j = this.j; j.t += dt; if (j.t < 0) return; const q = j.t / 0.75, f = s.at(j.a, -3.5 + q * 7, -1 + Math.sin(q * Math.PI) * 3.1); this.mesh.visible = true; this.mesh.position.set(f.x, f.y, f.z); this.mesh.rotation.set(0, 0, 0); this.mesh.rotation.y = Math.atan2(-f.nx, -f.nz); this.mesh.rotation.x = (0.5 - q) * 1.8;
       if (Math.hypot(p.x - f.x, p.y + 0.9 - f.y, p.z - f.z) < 1.25 && P.inv <= 0) { if (P.knock(f.nx, f.nz, 9, 4)) { G.stat('knocked'); G.ui.toast('A river pike! Time your steps between its leaps.', 3); } }
       if (q >= 1) { this.j = null; this.mesh.visible = false; this.cd = 1.3 + Math.random() * 1.2; W.puff(f.x, f.y, f.z, 0x9fd8ff, 6); } }

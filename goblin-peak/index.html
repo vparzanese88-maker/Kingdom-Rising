@@ -115,24 +115,25 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 #board td:first-child,#board th:first-child{text-align:left;font-weight:600}
 #board b{color:#2f7a36}
 #board i{font-style:normal;opacity:.75}
+#lucky{position:absolute;left:50%;top:38%;transform:translateX(-50%);background:var(--gold);color:var(--ink);border:3px solid var(--ink);border-radius:14px;padding:8px 18px;font-weight:700;font-size:18px;white-space:nowrap;box-shadow:0 4px 0 var(--ink)}
 </style>
 <script type="importmap">
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795158851",
-"./src/entities.js": "./src/entities.js?v=1795158851",
-"./src/levels.js": "./src/levels.js?v=1795158851",
-"./src/lowland.js": "./src/lowland.js?v=1795158851",
-"./src/main.js": "./src/main.js?v=1795158851",
-"./src/models.js": "./src/models.js?v=1795158851",
-"./src/net.js": "./src/net.js?v=1795158851",
-"./src/player.js": "./src/player.js?v=1795158851",
-"./src/terrain.js": "./src/terrain.js?v=1795158851",
-"./src/ui.js": "./src/ui.js?v=1795158851",
-"./src/util.js": "./src/util.js?v=1795158851",
-"./src/village.js": "./src/village.js?v=1795158851",
-"./src/world.js": "./src/world.js?v=1795158851"
+"./src/audio.js": "./src/audio.js?v=1795159314",
+"./src/entities.js": "./src/entities.js?v=1795159314",
+"./src/levels.js": "./src/levels.js?v=1795159314",
+"./src/lowland.js": "./src/lowland.js?v=1795159314",
+"./src/main.js": "./src/main.js?v=1795159314",
+"./src/models.js": "./src/models.js?v=1795159314",
+"./src/net.js": "./src/net.js?v=1795159314",
+"./src/player.js": "./src/player.js?v=1795159314",
+"./src/terrain.js": "./src/terrain.js?v=1795159314",
+"./src/ui.js": "./src/ui.js?v=1795159314",
+"./src/util.js": "./src/util.js?v=1795159314",
+"./src/village.js": "./src/village.js?v=1795159314",
+"./src/world.js": "./src/world.js?v=1795159314"
 }
 }
 </script>
@@ -151,6 +152,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
   <div id="objective" hidden></div>
   <div id="guide" hidden><b id="guideArrow">▼</b><span id="guideText"></span></div>
   <div id="msgs"><div id="bark" hidden><b id="barkWho"></b><span id="barkText"></span></div><div id="toast" hidden></div><div id="state" hidden></div></div>
+  <div id="lucky" hidden><span id="luckyT"></span></div>
   <div id="tools"></div>
 </div>
 
@@ -179,7 +181,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
   <p class="sub">Chieftain Grizzlegut has carried Princess Wrenna to the top of the mountain. Jump, climb, swing, glide, crawl and zip-line your way up to bring her home.</p>
   <button class="btn" id="btnContinue" hidden>Continue the climb</button>
   <button class="btn alt" id="btnNew">Start the climb</button>
-  <div class="online"><b>Play with friends</b><input id="netName" maxlength="12" placeholder="Your name"><div><button class="btn plain" id="btnHost">Host online game</button><span><input id="netCode" maxlength="6" placeholder="CODE"><button class="btn plain" id="btnJoin">Join</button></span></div><small>One player hosts and tells the others the code. Online is always a fresh start for everyone (your solo climb is kept separately), it is tougher, and it adds walls and gates that take two. In the game: T pegs a rope for friends to climb, E beside a friend gives them a boost, and a whip crack at a friend hauls them up to you.</small></div>
+  <div class="online"><b>Play with friends</b><input id="netName" maxlength="12" placeholder="Your name"><div><button class="btn plain" id="btnHost">Host online game</button><span><input id="netCode" maxlength="6" placeholder="CODE"><button class="btn plain" id="btnJoin">Join</button></span></div><small>One player hosts and tells the others the code. Online is always a fresh start for everyone (your solo climb is kept separately), it is tougher, and it adds walls and gates that take two. In the game: B calls for help, T pegs a rope for friends to climb, E beside a friend gives them a boost, and a whip crack at a friend hauls them up to you.</small></div>
   <div class="keys">
     <b>W A S D</b><span>Move (mouse looks)</span>
     <b>Space</b><span>Jump, double jump, triple jump; hold to glide</span>
@@ -197,6 +199,6 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 
 <div id="fade"></div>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795158851"></script>
+<script type="module" src="./src/main.js?v=1795159314"></script>
 </body>
 </html>

@@ -21,7 +21,7 @@ export class Player {
   detach() { this.climb = null; this.swing = null; this.zip = null; }
   knock(dx, dz, power, up = 7, friendly) {
     if (this.inv > 0) return false;
-    const l = Math.hypot(dx, dz) || 1; power *= (1 - (this.G.save.upg.hide || 0) * 0.17) * (this.G.save.relics.iron ? 0.75 : 1); this.vel.set(dx / l * power, up, dz / l * power); this.stun = 0.5; this.inv = 1.4; this.detach(); this.grounded = false; this.pos.y += 0.06; this.shake = 0.35; this.slideT = 0;
+    const l = Math.hypot(dx, dz) || 1; power *= (1 - (this.G.save.upg.hide || 0) * 0.17) * (this.G.save.relics.iron ? 0.75 : 1); this.vel.set(dx / l * power, up, dz / l * power); this.stun = 0.6; this.inv = 0.85; if (!friendly) this.G.dazed(); this.detach(); this.grounded = false; this.pos.y += 0.06; this.shake = 0.35; this.slideT = 0;
     if (!friendly) this.G.loseCoins(); this.G.audio.sfx('hit'); return true;
   }
   canStand() {
@@ -61,7 +61,7 @@ export class Player {
     const sens = 0.0023 * (S.sens || 1); this.yaw -= I.mx * sens; this.pitch = clamp(this.pitch - I.my * sens, -1.5, 1.5);
     const cp = Math.cos(this.pitch); this.look.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
     this.stun -= dt; this.inv -= dt; this.whipCd -= dt; this.whipAnim -= dt; this.climbCd -= dt; this.noBeamT -= dt; this.sinceJump += dt; this.shake -= dt;
-    const ctrl = this.stun <= 0 && !G.locked;
+    this.down = (this.down || 0) - dt; const ctrl = this.stun <= 0 && !G.locked && this.down <= 0;
     let f = 0, s = 0; if (ctrl) { f = (I.down('KeyW') || I.down('ArrowUp') ? 1 : 0) - (I.down('KeyS') || I.down('ArrowDown') ? 1 : 0); s = (I.down('KeyD') || I.down('ArrowRight') ? 1 : 0) - (I.down('KeyA') || I.down('ArrowLeft') ? 1 : 0); }
     const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     let wx = -sy * f + cy * s, wz = -cy * f - sy * s; const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
@@ -74,7 +74,7 @@ export class Player {
     this.aimWhip = S.items.whip ? this.aimLimb(13 + (S.upg.whip || 0) * 2.5 + (S.relics.rope ? 3 : 0), this.swing && this.swing.a) : null; if (this.aimWhip && !W.hookOk(p, this.aimWhip)) this.aimWhip = null;
     const hr = (S.items.cannon ? 62 : 27) + (S.relics.rope ? 9 : 0); this.aimHook = S.items.hook ? (this.aimLimb(hr) || this.aimSurface(hr, !!S.items.cannon)) : null; this.hookDenied = false; if (this.aimHook && !W.hookOk(p, this.aimHook)) { this.aimHook = null; this.hookDenied = true; }
     this.pushT = (this.pushT || 0) - dt;
-    if (ctrl && I.lmbHit && this.whipCd <= 0 && !this.swim) { const hit = W.pushHit(this, !S.items.whip); if (!S.items.whip || hit) { this.pushT = 0.28; G.audio.sfx(hit ? 'bonk' : 'throw'); if (!S.items.whip) this.whipCd = 0.45; } }
+    if (ctrl && I.lmbHit && this.whipCd <= 0 && !this.swim) { const hit = W.pushHit(this, !S.items.whip); if (!S.items.whip || hit) { this.pushT = 0.26; this.pushSide = !this.pushSide; if (hit) { G.audio.sfx('punch'); this.shake = Math.max(this.shake, 0.16); G.hitstop = 0.07; } else G.audio.sfx('slide', 0.5); if (!S.items.whip) this.whipCd = 0.34; } }
     if (ctrl && I.lmbHit && S.items.whip && this.whipCd <= 0 && !this.swim) {
       this.whipCd = 0.4; this.whipAnim = 0.3;
       const hitMob = W.whipHit(this, 5.5 + (S.upg.whip || 0)); G.audio.sfx('whip');
@@ -192,7 +192,7 @@ export class Player {
           nx = px * b.ax - pz * b.az; nz = px * b.az + pz * b.ax; p.x = b.x + lx * b.ax - lz * b.az; p.z = b.z + lx * b.az + lz * b.ax;
         }
         // ledge grab: just short of the top while pushing toward it? Haul yourself up.
-        if (!wasGrounded && !this.climb && !this.zip && !b.beam && !b.noGrab && ctrl && top - p.y < (S.relics.reach ? 2.2 : 1.4) && v.y < 9 && v.y > -16 && wx * nx + wz * nz < -0.3) { p.x -= nx * 0.55; p.z -= nz * 0.55; p.y = top + 0.02; v.y = 0; this.grounded = true; this.ground = b; this.swing = null; if (b.crumble && !b.crT) b.crT = 0.001; this.mantleT = 0.25; G.audio.sfx('land'); continue; }
+        if (!wasGrounded && !this.climb && !this.zip && !b.beam && !b.noGrab && ctrl && top - p.y < (S.relics.reach ? 2.0 : 1.15) && v.y < 9 && v.y > -16 && wx * nx + wz * nz < -0.3) { p.x -= nx * 0.55; p.z -= nz * 0.55; p.y = top + 0.02; v.y = 0; this.grounded = true; this.ground = b; this.swing = null; if (b.crumble && !b.crT) b.crT = 0.001; this.mantleT = 0.25; G.audio.sfx('land'); continue; }
         const vn = v.x * nx + v.z * nz; if (vn < 0 && !this.climb) { v.x -= nx * vn; v.z -= nz * vn; }
         if (b.climb) {
           if (this.climb && this.climb.b === b) { if (nx * this.climb.fx + nz * this.climb.fz > 0.9) { touchedClimb = true; this.climb.nx = nx; this.climb.nz = nz; } }
@@ -235,13 +235,13 @@ export class Player {
       let dy = this.faceYaw - m.rotation.y; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; m.rotation.y += dy * Math.min(1, 14 * dt);
       const mode = this.swim ? 'swim' : this.climb ? 'climb' : this.swing || this.zip ? 'swing' : this.glide ? 'glide' : this.slideT > 0 ? 'slide' : this.crouch ? 'crouch' : this.airT > 0.2 ? 'air' : sp > 0.6 ? 'run' : 'idle';
       this.animT += dt * (mode === 'climb' ? Math.abs(this.vel.y) * 2.2 + Math.abs(this.vel.x) : mode === 'run' || mode === 'crouch' ? sp * 1.6 : 6);
-      animBiped(m, this.animT, sp, mode); m.position.y += p.y; const bk = m.userData.back || 0; m.position.x += Math.sin(m.rotation.y) * bk; m.position.z += Math.cos(m.rotation.y) * bk; this.gl.visible = this.glide;
+      animBiped(m, this.animT, sp, this.down > 0 ? 'crouch' : mode); if (this.pushT > 0) m.userData.parts[this.pushSide ? 'armR' : 'armL'].rotation.x = -1.6; m.position.y += p.y; const bk = m.userData.back || 0; m.position.x += Math.sin(m.rotation.y) * bk; m.position.z += Math.cos(m.rotation.y) * bk; this.gl.visible = this.glide;
       m.visible = !(this.inv > 0 && this.stun <= 0 && (G.time * 12 | 0) % 2 === 0 && this.inv < 1.3);
     } else {
       const h = this.hands.userData, sw = this.whipAnim > 0 ? Math.sin((0.3 - this.whipAnim) / 0.3 * Math.PI) : 0, bobT = this.airT < 0.2 ? 1 : 0, bob = (this.bobK = (this.bobK || 0) + (bobT - (this.bobK || 0)) * 0.15) * Math.sin(G.time * (sp > 6 ? 12 : 8.5)) * Math.min(1, sp / 5) * 0.014;
       const run = (this.bobK || 0) * Math.min(1, sp / 8.4), pump = Math.sin(G.time * (sp > 6 ? 12 : 8.5)) * run, air = this.airT > 0.2 && !this.climb && !this.swing && !this.zip ? 1 : 0, ck = Math.sin(G.time * 7) * 0.2 * Math.sign(this.vel.y), E = (o, a, v, k) => { o[a] += (v - o[a]) * (k || 0.22); };
-      E(h.r.rotation, 'x', 0.2 - sw * 1.3 + (this.swing ? -0.9 : 0) + (this.climb ? -0.7 + ck : 0) + pump * 0.22 - air * 0.25, sw > 0 ? 0.6 : 0.22); E(h.r.position, 'y', -0.3 + bob + (this.glide ? 0.2 : 0) + air * 0.03); E(h.r.position, 'z', -0.55 - pump * 0.05 - (this.pushT > 0 ? 0.3 : 0), this.pushT > 0 ? 0.6 : 0.22);
-      E(h.l.rotation, 'x', 0.2 + (this.zip ? -0.5 : 0) + (this.climb ? -0.7 - ck : 0) - pump * 0.22 - air * 0.25); E(h.l.position, 'y', -0.3 - bob + (this.glide ? 0.2 : 0) + air * 0.03); E(h.l.position, 'z', -0.55 + pump * 0.05 - (this.pushT > 0 ? 0.3 : 0), this.pushT > 0 ? 0.6 : 0.22);
+      E(h.r.rotation, 'x', 0.2 - sw * 1.3 + (this.swing ? -0.9 : 0) + (this.climb ? -0.7 + ck : 0) + pump * 0.22 - air * 0.25, sw > 0 ? 0.6 : 0.22); E(h.r.position, 'y', -0.3 + bob + (this.glide ? 0.2 : 0) + air * 0.03); { const pr = this.pushT > 0 && this.pushSide, pl = this.pushT > 0 && !this.pushSide; E(h.r.position, 'z', -0.55 - pump * 0.05 - (pr ? 0.5 : pl ? -0.08 : 0), pr ? 0.75 : 0.22); E(h.r.position, 'x', 0.34 - (pr ? 0.16 : 0), 0.5); E(h.l.position, 'x', -0.34 + (pl ? 0.16 : 0), 0.5); if (pr) h.r.rotation.x = 0.02; if (pl) h.l.rotation.x = 0.02; }
+      E(h.l.rotation, 'x', 0.2 + (this.zip ? -0.5 : 0) + (this.climb ? -0.7 - ck : 0) - pump * 0.22 - air * 0.25); E(h.l.position, 'y', -0.3 - bob + (this.glide ? 0.2 : 0) + air * 0.03); E(h.l.position, 'z', -0.55 + pump * 0.05 - (this.pushT > 0 && !this.pushSide ? 0.5 : this.pushT > 0 ? -0.08 : 0), this.pushT > 0 && !this.pushSide ? 0.75 : 0.22);
       h.whip.visible = !!G.save.items.whip; h.coil.visible = !this.swing && this.whipAnim <= 0; h.hook.visible = !!G.save.items.hook && !G.save.items.cannon; h.cannon.visible = !!G.save.items.cannon;
     }
     // the whip lash (a tapering leather thong that arcs out and cracks) or the hook rope

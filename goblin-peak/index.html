@@ -101,22 +101,29 @@ button{font:inherit;cursor:pointer}
 #jewelBox{top:48px}
 #heightBox{font-size:14px}
 body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heightBox,body.clean #msgs>#toast{display:none!important}
+.online{margin:12px 0 0;padding:10px 12px;border:3px dashed var(--ink);border-radius:14px;text-align:left}
+.online input{font:inherit;padding:6px 10px;border:3px solid var(--ink);border-radius:10px;width:130px;margin:6px 6px 0 0}
+.online>div{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.online .btn{display:inline-block;width:auto;font-size:16px;padding:7px 14px;margin:6px 0}
+.online small{display:block;margin-top:6px;opacity:.8}
+#netCode{width:90px;text-transform:uppercase}
 </style>
 <script type="importmap">
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795143071",
-"./src/entities.js": "./src/entities.js?v=1795143071",
-"./src/levels.js": "./src/levels.js?v=1795143071",
-"./src/lowland.js": "./src/lowland.js?v=1795143071",
-"./src/main.js": "./src/main.js?v=1795143071",
-"./src/models.js": "./src/models.js?v=1795143071",
-"./src/player.js": "./src/player.js?v=1795143071",
-"./src/terrain.js": "./src/terrain.js?v=1795143071",
-"./src/ui.js": "./src/ui.js?v=1795143071",
-"./src/util.js": "./src/util.js?v=1795143071",
-"./src/world.js": "./src/world.js?v=1795143071"
+"./src/audio.js": "./src/audio.js?v=1795143366",
+"./src/entities.js": "./src/entities.js?v=1795143366",
+"./src/levels.js": "./src/levels.js?v=1795143366",
+"./src/lowland.js": "./src/lowland.js?v=1795143366",
+"./src/main.js": "./src/main.js?v=1795143366",
+"./src/models.js": "./src/models.js?v=1795143366",
+"./src/net.js": "./src/net.js?v=1795143366",
+"./src/player.js": "./src/player.js?v=1795143366",
+"./src/terrain.js": "./src/terrain.js?v=1795143366",
+"./src/ui.js": "./src/ui.js?v=1795143366",
+"./src/util.js": "./src/util.js?v=1795143366",
+"./src/world.js": "./src/world.js?v=1795143366"
 }
 }
 </script>
@@ -151,6 +158,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
   <button class="btn alt" id="btnCamp">Go back to my last campfire</button>
   <button class="btn plain" id="btnVillage">Return to the village</button>
   <p>Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p>
+  <p class="small" id="netInfo"></p>
   <button class="btn plain" id="btnFull">Full screen (F)</button>
   <p class="small">F full screen · H hide the on-screen hints · V or mouse wheel: first / third person · M map · N music · P pause</p>
 </div></div>
@@ -160,6 +168,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
   <p class="sub">Chieftain Grizzlegut has carried Princess Wrenna to the top of the mountain. Jump, climb, swing, glide, crawl and zip-line your way up to bring her home.</p>
   <button class="btn" id="btnContinue" hidden>Continue the climb</button>
   <button class="btn alt" id="btnNew">Start the climb</button>
+  <div class="online"><b>Play with friends</b><input id="netName" maxlength="12" placeholder="Your name"><div><button class="btn plain" id="btnHost">Host online game</button><span><input id="netCode" maxlength="6" placeholder="CODE"><button class="btn plain" id="btnJoin">Join</button></span></div><small>One player hosts and tells the others the code. In the game: T pegs a rope for friends to climb, E beside a friend gives them a boost, and a whip crack at a friend hauls them up to you.</small></div>
   <div class="keys">
     <b>W A S D</b><span>Move (mouse looks)</span>
     <b>Space</b><span>Jump, double jump, triple jump; hold to glide</span>
@@ -175,6 +184,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 </div></div>
 
 <div id="fade"></div>
-<script type="module" src="./src/main.js?v=1795143071"></script>
+<script src="./vendor/peerjs.min.js"></script>
+<script type="module" src="./src/main.js?v=1795143366"></script>
 </body>
 </html>

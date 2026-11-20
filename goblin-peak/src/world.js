@@ -370,7 +370,7 @@ export class World {
     return null;
   }
   whipHit(P, range) {
-    const p = P.pos, L = P.look, ey = p.y + P.eye; let any = false;
+    const p = P.pos, L = P.look, ey = p.y + P.eye; let any = this.G.net.whipPull(P, range);
     for (const e of this.ents) {
       if (e.dead || !(e.mob || e.hittable)) continue; const h = e.k ? e.k.h : e.h, dx = e.x - p.x, dy = e.y + h * 0.5 - ey, dz = e.z - p.z, d = Math.hypot(dx, dy, dz); if (d > range + (e.k ? e.k.r : e.r)) continue;
       if (d < 1.6 || (dx * L.x + dy * L.y + dz * L.z) / d > 0.45) { e.hit(1 + (this.G.save.upg.heavy || 0), p.x, p.z); any = true; }

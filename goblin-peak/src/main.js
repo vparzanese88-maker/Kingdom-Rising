@@ -5,6 +5,7 @@ import { ACT_TOTAL } from './lowland.js';
 import { Player } from './player.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
+import { Net } from './net.js';
 import { LEVELS, ORDER, ITEMS, RELICS } from './levels.js';
 
 const $ = id => document.getElementById(id), KEY = 'goblin-peak-save-1';
@@ -24,7 +25,7 @@ class Game {
     const r = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' }); r.setPixelRatio(Math.min(devicePixelRatio, 1.5)); r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     this.camera = new THREE.PerspectiveCamera(78, 1, 0.1, 1600);
     this.player = new Player(this); this.player.third = !!this.save.third; if (this.save.camDist) this.player.camDist = this.save.camDist; this.camera.add(this.player.hands);
-    this.ui = new UI(this); this.bind(); this.resize(); addEventListener('resize', () => this.resize());
+    this.net = new Net(this); this.ui = new UI(this); this.bind(); this.resize(); addEventListener('resize', () => this.resize());
     $('btnContinue').hidden = !this.save.played; $('btnNew').textContent = this.save.played ? 'New game' : 'Start the climb';
     this.last = performance.now(); requestAnimationFrame(t => this.loop(t));
     const q = new URLSearchParams(location.search); this.debug = q.has('debug'); if (q.get('level')) { this.begin(q.get('level')); }
@@ -55,6 +56,10 @@ class Game {
     $('btnNew').onclick = () => { this.audio.unlock(); if (this.save.played && !confirm('Start again from the beginning? Your saved climb will be erased.')) return; this.save = fresh(); this.player.third = false; this.begin('hub'); };
     $('btnContinue').onclick = () => { this.audio.unlock(); this.begin(this.save.cur || 'hub'); };
     $('btnResume').onclick = () => this.pause(false);
+    const nm = () => { this.net.name = ($('netName').value || 'Hero').trim().slice(0, 12) || 'Hero'; this.save.name = this.net.name; };
+    $('netName').value = this.save.name || ''; $('netCode').addEventListener('keydown', e => e.stopPropagation()); $('netName').addEventListener('keydown', e => e.stopPropagation());
+    $('btnHost').onclick = () => { this.audio.unlock(); nm(); const c = this.net.host(); if (c) { this.begin(this.save.played ? this.save.cur : 'hub'); this.ui.toast('You are hosting. Tell your friends the code: ' + c + '  (it is also on the pause screen)', 12); } };
+    $('btnJoin').onclick = () => { this.audio.unlock(); nm(); const c = $('netCode').value.trim(); if (c.length < 4) { $('netCode').focus(); return; } this.net.join(c); this.begin(this.save.played ? this.save.cur : 'hub'); };
     $('btnFull').onclick = () => this.fullscreen();
     $('btnVillage').onclick = () => { this.pause(false); if (!this.world.def.hub) this.loadLevel('hub'); };
     $('btnCamp').onclick = () => { this.pause(false); this.toCamp(); };
@@ -65,7 +70,7 @@ class Game {
   fullscreen(on) { const d = document; try { if (!d.fullscreenElement) { const p = d.documentElement.requestFullscreen({ navigationUI: 'hide' }); if (p && p.catch) p.catch(() => { }); } else if (on === undefined) d.exitFullscreen(); } catch (e) { } }
   begin(id) { if (!this.testing && !this.debug) this.fullscreen(true); document.body.classList.toggle('clean', !!this.save.clean); this.playing = true; $('title').hidden = true; $('hud').hidden = false; this.save.played = 1; this.loadLevel(id); this.pause(false); }
   pause(on) {
-    this.paused = on; $('pause').hidden = !on || !this.playing; if (on) { if (document.pointerLockElement) document.exitPointerLock(); $('sens').value = this.save.sens; $('btnVillage').hidden = this.world.def.hub; $('btnCamp').hidden = this.world.def.hub; this.saveNow(); }
+    this.paused = on; $('pause').hidden = !on || !this.playing; if (on) { if (document.pointerLockElement) document.exitPointerLock(); $('sens').value = this.save.sens; $('netInfo').textContent = this.net.on ? `Online: ${this.net.status}  ·  ${this.net.count()} player${this.net.count() > 1 ? 's' : ''}  ·  T drops a rope, E boosts a friend, whip a friend to haul them up` : ''; $('btnVillage').hidden = this.world.def.hub; $('btnCamp').hidden = this.world.def.hub; this.saveNow(); }
     else if (this.playing && !this.testing) { try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { }); } catch (e) { } }
   }
   // ---- one open world: the village and the three mountains all exist at once; whichever you stand in is the live one
@@ -125,7 +130,7 @@ class Game {
   }
   step(dt) {
     this.time += dt; this.frame++; this.levelT += dt; this.save.played += dt;
-    this.world.update(dt); this.player.update(dt); if (this.regions) this.handoff(); this.ui.update(dt);
+    this.world.update(dt); this.player.update(dt); if (this.regions) this.handoff(); this.net.update(dt); this.ui.update(dt);
     if (this.frame % 600 === 0) this.saveNow();
   }
   loop(t) {

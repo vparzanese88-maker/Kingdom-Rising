@@ -1,6 +1,6 @@
 // Goblin Peak: boot, input, saving, the frame loop, and moving between the village and the mountain stages.
 import * as THREE from 'three';
-import { World } from './world.js';
+import { World, THEMES } from './world.js';
 import { Player } from './player.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
@@ -27,6 +27,7 @@ class Game {
     $('btnContinue').hidden = !this.save.played; $('btnNew').textContent = this.save.played ? 'New game' : 'Start the climb';
     this.last = performance.now(); requestAnimationFrame(t => this.loop(t));
     const q = new URLSearchParams(location.search); this.debug = q.has('debug'); if (q.get('level')) { this.begin(q.get('level')); }
+    else if (!q.has('split')) { this.buildRealm(); this.loadLevel(this.save.played ? this.save.cur : 'hub', true); }
     else this.loadLevel(this.save.played ? this.save.cur : 'hub', true);
   }
   load() { try { this.save = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { this.save = fresh(); } }
@@ -66,7 +67,33 @@ class Game {
     this.paused = on; $('pause').hidden = !on || !this.playing; if (on) { if (document.pointerLockElement) document.exitPointerLock(); $('sens').value = this.save.sens; $('btnVillage').hidden = this.world.def.hub; $('btnCamp').hidden = this.world.def.hub; this.saveNow(); }
     else if (this.playing && !this.testing) { try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { }); } catch (e) { } }
   }
+  // ---- one open world: the village and the three mountains all exist at once; whichever you stand in is the live one
+  buildRealm() {
+    const root = this.root = new THREE.Scene(); World.dressSky(this, root, THEMES.meadow);
+    const rg = this.rg = new THREE.Group(); root.add(rg, this.player.model, this.player.rope, this.camera);
+    const gp = new THREE.Mesh(new THREE.CircleGeometry(1700, 64), new THREE.MeshLambertMaterial({ color: new THREE.Color(...THEMES.meadow.ground).multiplyScalar(0.95) })); gp.rotation.x = -Math.PI / 2; gp.position.y = -0.05; gp.receiveShadow = true; rg.add(gp);
+    const dirs = { l1: [-1, 0, 0], l2: [0, -1, -Math.PI / 2], l3: [1, 0, Math.PI] }; this.regions = {};
+    for (const id of ['hub', 'l1', 'l2', 'l3']) { const W = new World(this, LEVELS[id], true), d = dirs[id], Dm = d ? W.spiral.R0 + 200 : 0; W.xf = d ? { ox: d[0] * Dm, oz: d[1] * Dm, rot: d[2] } : { ox: 0, oz: 0, rot: 0 }; W.scene.position.set(W.xf.ox, 0, W.xf.oz); W.scene.rotation.y = W.xf.rot; rg.add(W.scene); this.regions[id] = W; }
+    this.trailhead = i => { const W = this.regions[ORDER[i]], g = this.toGlobal(W, W.start.x, W.start.z); return g; };
+  }
+  rotY(x, z, t) { const c = Math.cos(t), s = Math.sin(t); return [x * c + z * s, -x * s + z * c]; }
+  toGlobal(W, x, z) { const r = this.rotY(x, z, W.xf.rot); return [r[0] + W.xf.ox, r[1] + W.xf.oz]; }
+  setActive(W) {
+    this.world = W; const { ox, oz, rot } = W.xf, p = this.rotY(ox, oz, -rot); this.rg.rotation.y = -rot; this.rg.position.set(-p[0], 0, -p[1]);
+    const th = W.theme; this.root.fog.color.set(th.fog[0]); this.root.background.set(th.fog[0]); this.root.fog.near = W.def.hub ? 160 : th.fog[1] + 60; this.root.fog.far = W.def.hub ? 1000 : 760; this.save.cur = W.def.id; this.audio.music(th.music);
+  }
+  // Walking out of one place and into the next: swap which map is live and carry the hero across without a break.
+  handoff() {
+    const W = this.world, P = this.player, g = this.toGlobal(W, P.pos.x, P.pos.z), dv = Math.hypot(g[0], g[1]); let next = null, best = 1e9;
+    for (const id of ORDER) { const m = this.regions[id], d = Math.hypot(g[0] - m.xf.ox, g[1] - m.xf.oz) - m.spiral.R0; if (d < 125 && d < best) { best = d; next = m; } }
+    if (W.def.hub) { if (dv <= 92) next = null; } else if (dv < 80) next = this.regions.hub; else if (next === W || next && Math.hypot(g[0] - W.xf.ox, g[1] - W.xf.oz) - W.spiral.R0 < best + 12) next = null;
+    if (!next || next === W) return;
+    const l = this.rotY(g[0] - next.xf.ox, g[1] - next.xf.oz, -next.xf.rot), dr = W.xf.rot - next.xf.rot, v = this.rotY(P.vel.x, P.vel.z, dr);
+    P.pos.x = l[0]; P.pos.z = l[1]; P.vel.x = v[0]; P.vel.z = v[1]; P.yaw += dr; P.faceYaw += dr; P.model.rotation.y += dr; P.routePhi = undefined; P.detach(); P.ground = null; this.levelT = 0;
+    this.setActive(next); this.ui.area(next.def.name); this.saveNow();
+  }
   loadLevel(id, quiet) {
+    if (this.regions) { const W = this.regions[id] || this.regions.hub; $('fade').style.opacity = 1; this.setActive(W); this.levelT = 0; this.locked = false; this.toCamp(true); if (W.def.hub) { const g = W.guide(), p = this.player; if (g) p.yaw = Math.atan2(-(g.x - p.pos.x), -(g.z - p.pos.z)); } if (!quiet) { this.ui.area(W.def.name); this.saveNow(); } setTimeout(() => { $('fade').style.opacity = 0; }, 150); return; }
     const def = LEVELS[id] || LEVELS.hub; $('fade').style.opacity = 1;
     if (this.world) { this.world.scene.traverse(o => { if (o.isInstancedMesh) o.dispose(); if (o.geometry && o.geometry.index && o.geometry.index.count > 2000) o.geometry.dispose(); }); this.renderer.renderLists.dispose(); }
     const W = this.world = new World(this, def); W.scene.add(this.player.model, this.player.rope, this.camera);
@@ -94,14 +121,14 @@ class Game {
   }
   step(dt) {
     this.time += dt; this.frame++; this.levelT += dt; this.save.played += dt;
-    this.world.update(dt); this.player.update(dt); this.ui.update(dt);
+    this.world.update(dt); this.player.update(dt); if (this.regions) this.handoff(); this.ui.update(dt);
     if (this.frame % 600 === 0) this.saveNow();
   }
   loop(t) {
     requestAnimationFrame(tt => this.loop(tt)); const dt = Math.min(0.033, (t - this.last) / 1000); this.last = t;
     if (this.playing && !this.paused) this.step(dt); else if (!this.playing) { this.time += dt; const p = this.player; p.yaw += dt * 0.08; p.pos.set(Math.sin(this.time * 0.05) * 20, 14, 30); }
     this.player.updateCamera(dt, this.camera); if (!this.playing) { this.player.model.visible = false; this.player.hands.visible = false; this.camera.position.y = 16; this.camera.rotation.set(-0.15, this.player.yaw, 0); }
-    this.input.end(); this.renderer.render(this.world.scene, this.camera);
+    this.input.end(); this.renderer.render(this.root || this.world.scene, this.camera);
   }
 }
 window.G = new Game();

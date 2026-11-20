@@ -24,17 +24,11 @@ const PROFILE = {
 };
 
 export class World {
-  constructor(G, def) {
-    this.G = G; this.def = def; const th = this.theme = THEMES[def.theme]; this.scene = new THREE.Scene();
+  constructor(G, def, realm) {
+    this.G = G; this.def = def; this.realm = !!realm; const th = this.theme = THEMES[def.theme]; this.scene = realm ? new THREE.Group() : new THREE.Scene();
     this.limbs = []; this.loose = []; this.boxes = []; this.ents = []; this.anchors = []; this.drafts = []; this.nets = []; this.iceR = []; this.coins = []; this.triggers = []; this.secs = []; this.movers = []; this.jewels = []; this.camps = []; this.spiral = null;
     this.rnd = rng(def.seed || 7); this.rockMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }); this.rg = M.rockGeos(new THREE.Color(...th.ground).getHex(), th.rockCol); this.rk = 0;
-    this.scene.fog = new THREE.Fog(th.fog[0], th.fog[1], th.fog[2]); this.scene.background = new THREE.Color(th.fog[0]);
-    const sg = new THREE.SphereGeometry(900, 24, 12), sc = new Float32Array(sg.attributes.position.count * 3), top = new THREE.Color(th.sky[0]), bot = new THREE.Color(th.sky[1]), c = new THREE.Color();
-    for (let i = 0; i < sg.attributes.position.count; i++) { c.copy(bot).lerp(top, clamp(sg.attributes.position.getY(i) / 500, 0, 1)); sc[i * 3] = c.r; sc[i * 3 + 1] = c.g; sc[i * 3 + 2] = c.b; }
-    sg.setAttribute('color', new THREE.BufferAttribute(sc, 3)); this.sky = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })); this.scene.add(this.sky);
-    this.scene.add(new THREE.HemisphereLight(th.sky[1], 0x6a6258, 1.25));
-    const sun = this.sun = new THREE.DirectionalLight(th.sun, 1.9); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); const sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -55; sc2.right = sc2.top = 55; sc2.near = 10; sc2.far = 260; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05; this.scene.add(sun, sun.target);
-    for (let i = 0; i < 16; i++) { const cl = M.ball(0xffffff, 1, (this.rnd() - 0.5) * 1100, 290 + this.rnd() * 140, (this.rnd() - 0.5) * 1100); cl.scale.set(30 + this.rnd() * 40, 8 + this.rnd() * 6, 20 + this.rnd() * 25); cl.castShadow = false; cl.material = M.mat(0xffffff, { e: 0xd0d0d0 }); this.scene.add(cl); }
+    if (!realm) World.dressSky(this, this.scene, th);
     // water
     const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'); x.fillStyle = '#3f9bd8'; x.fillRect(0, 0, 128, 128); for (let i = 0; i < 60; i++) { x.fillStyle = `rgba(255,255,255,${0.15 + Math.random() * 0.35})`; x.fillRect(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 3, 10 + Math.random() * 26); }
     this.waterTex = new THREE.CanvasTexture(cv); this.waterTex.wrapS = this.waterTex.wrapT = THREE.RepeatWrapping; this.waterTex.repeat.set(2, 1); this.waterTex.colorSpace = THREE.SRGBColorSpace;
@@ -47,7 +41,18 @@ export class World {
     this.scatter();
     const cg = new THREE.CylinderGeometry(0.36, 0.36, 0.07, 14); cg.rotateX(Math.PI / 2);
     this.coinMesh = new THREE.InstancedMesh(cg, new THREE.MeshLambertMaterial({ color: 0xffd23a, emissive: 0x7a5200 }), Math.max(1, this.coins.length)); this.coinMesh.frustumCulled = false; this.scene.add(this.coinMesh); this.dummy = new THREE.Object3D();
+    this.coins.forEach((c, i) => { c.init = true; this.dummy.position.set(c.x, c.y, c.z); this.dummy.rotation.y = i; this.dummy.updateMatrix(); this.coinMesh.setMatrixAt(i, this.dummy.matrix); });
     if (def.hub) { const hc = G.save.hubCoins = G.save.hubCoins || {}; this.coins.forEach((c, i) => { if (hc[i]) { c.got = true; this.dummy.position.set(0, -999, 0); this.dummy.updateMatrix(); this.coinMesh.setMatrixAt(i, this.dummy.matrix); } }); }
+  }
+  // Sky dome, lights and clouds. In the single open world there is one set for everything; a lone map gets its own.
+  static dressSky(o, scene, th) {
+    scene.fog = new THREE.Fog(th.fog[0], th.fog[1], th.fog[2]); scene.background = new THREE.Color(th.fog[0]);
+    const sg = new THREE.SphereGeometry(1400, 24, 12), sc = new Float32Array(sg.attributes.position.count * 3), top = new THREE.Color(th.sky[0]), bot = new THREE.Color(th.sky[1]), c = new THREE.Color();
+    for (let i = 0; i < sg.attributes.position.count; i++) { c.copy(bot).lerp(top, clamp(sg.attributes.position.getY(i) / 780, 0, 1)); sc[i * 3] = c.r; sc[i * 3 + 1] = c.g; sc[i * 3 + 2] = c.b; }
+    sg.setAttribute('color', new THREE.BufferAttribute(sc, 3)); o.sky = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })); scene.add(o.sky);
+    scene.add(new THREE.HemisphereLight(th.sky[1], 0x6a6258, 1.25));
+    const sun = o.sun = new THREE.DirectionalLight(th.sun, 1.9); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); const sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -55; sc2.right = sc2.top = 55; sc2.near = 10; sc2.far = 260; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05; scene.add(sun, sun.target);
+    for (let i = 0; i < 26; i++) { const cl = M.ball(0xffffff, 1, (Math.random() - 0.5) * 2200, 300 + Math.random() * 160, (Math.random() - 0.5) * 2200); cl.scale.set(30 + Math.random() * 40, 8 + Math.random() * 6, 20 + Math.random() * 25); cl.castShadow = false; cl.material = M.mat(0xffffff, { e: 0xd0d0d0 }); scene.add(cl); }
   }
   add(e) { this.ents.push(e); return e; }
   // A hanging curtain of vines and leaves for climbable rock faces.
@@ -84,7 +89,7 @@ export class World {
   buildMountain() {
     const def = this.def, P0 = 46, k0 = P0 / TAU, Ltot = def.sections.reduce((a, s) => a + s.len, 0) + 80, R0 = Math.sqrt(58 * 58 + 2 * k0 * Ltot), phiEst = (R0 - 58) / k0;
     const rloops = def.river ? Math.min(def.river.loops, Math.floor((phiEst - def.river.th - 0.5) / TAU) + 1) : 0;
-    const sp = this.spiral = this.T = new Spiral({ R0, P: P0, river: rloops > 0 ? { th: def.river.th, loops: rloops } : null }), rv = sp.river;
+    const sp = this.spiral = this.T = new Spiral({ R0, P: P0, realm: this.realm, river: rloops > 0 ? { th: def.river.th, loops: rloops } : null }), rv = sp.river;
     let crossN = 0;
     const lay = s => {
       s.w = s.w || 5; const pr = PROFILE[s.t] ? PROFILE[s.t](s) : {}, rec = sp.lay(s.len, s.rise || 0, pr.y, pr.pit, () => s.w);
@@ -104,8 +109,9 @@ export class World {
     this.campN = 0; this.jewelN = 0;
     for (const s of this.secs) { if (this[`b_${s.t}`]) this[`b_${s.t}`](s); this.common(s); }
     const f = this.secs[0].at(3, 0, 0); this.start = { x: f.x, y: f.y, z: f.z, yaw: Math.atan2(-f.tx, -f.tz) };
-    // a gate back to the village behind the trailhead
-    const b = this.secs[0].at(-6, 0, 0); this.add(new Gate(this, b.x, b.z, b.yaw, { title: 'Back to the village', sub: 'Walk through', col: 0x3f8a3a, go: G => G.loadLevel('hub') }));
+    // the trailhead gate: barred until the trail before it has been cleared
+    const idx = ['l1', 'l2', 'l3'].indexOf(def.id), prev = idx > 0 ? ['l1', 'l2', 'l3'][idx - 1] : null, b = this.secs[0].at(this.realm ? this.secs[0].len - 3 : -6, 0, 0);
+    this.add(new Gate(this, b.x, b.z, b.yaw, { w: 6, title: this.realm ? `${idx + 1}. ${def.name}` : 'Back to the village', sub: 'The trail starts here', lockSub: `LOCKED: clear trail ${idx} first`, col: def.col || 0x3f8a3a, locked: g => this.realm && prev && !g.save.done[prev], lockText: 'This trail starts where the one before it ends. Climb that first.', go: G => { if (!this.realm) G.loadLevel('hub'); } }));
   }
   common(s) {
     const sp = this.spiral, G = this.G;
@@ -275,7 +281,7 @@ export class World {
 
   // ------------------------------------------------------------------ the village
   buildHub() {
-    const T = this.T = new Meadow(), G = this.G, st = this.def.story; this.scene.add(T.mesh(this.theme)); for (const m of T.waterMeshes(this.waterMat)) this.scene.add(m);
+    const T = this.T = new Meadow(this.realm), G = this.G, st = this.def.story; this.scene.add(T.mesh(this.theme)); for (const m of T.waterMeshes(this.waterMat)) this.scene.add(m);
     this.start = { x: 0, y: 0, z: 6, yaw: 0 };
     const put = (m, x, z, yaw = 0) => { m.position.set(x, T.hAt(x, z), z); m.rotation.y = yaw; this.scene.add(m); return m; };
     [[-14, 14, 0.5, 0xb5652a], [14, 16, -0.4, 0x8a4a6a], [-20, -8, 1.4, 0x3f7a8a], [20, -10, -1.4, 0xb5652a], [0, 26, 0, 0x6a8a3a]].forEach(([x, z, yaw, c]) => { put(M.hut(c), x, z, yaw); const hy = T.hAt(x, z); this.addBox(x, hy + 1.5, z, 2.5, 1.5, 2.2, -yaw, null); for (let i = 0; i < 6; i++) { const q = 3.04 * (1 - i / 6) + 0.1; this.addBox(x, hy + 3.2 + i * 0.4, z, q, 0.2, q, -yaw, null); } });
@@ -286,7 +292,7 @@ export class World {
       const L = lv[i], S = G.save, lockd = i > 0 && !S.done[lv[i - 1].id];
       for (let k = 0; k < 10; k++) { const sd = k % 2 ? 1 : -1, along = 7 + (k >> 1) * 2.2 + this.rnd() * 2, back = this.rnd() * 9 - 2, px = x + Math.cos(yaw) * sd * along - Math.sin(yaw) * -back * (yaw === 0 ? 0 : 1) + (yaw === 0 ? 0 : 0), pz = z + (yaw === 0 ? -back : sd * along), qx = yaw === 0 ? x + sd * along : x + Math.sign(x) * back, sc = 0.8 + this.rnd() * 0.9;
         const m = i === 0 ? M.cone(0x2a6e33, 2 * sc, 6 * sc, 0, 3 * sc, 0, { flat: 1 }) : i === 1 ? M.cone(0xb5683f, 1.6 * sc, 5 * sc, 0, 2.5 * sc, 0, { flat: 1 }) : k % 3 ? M.cone(0xbfe6ff, 1.1 * sc, 4.5 * sc, 0, 2.2 * sc, 0, { flat: 1, e: 0x224455 }) : M.ball(0xf4f8ff, 2.4 * sc, 0, 0.3, 0, { flat: 1 }); const g2 = new THREE.Group(); g2.add(m); put(g2, qx, pz); }
-      this.add(new Gate(this, x, z, yaw, { title: `${i + 1}. ${L.name}`, sub: S.done[L.id] ? 'CLEARED  \u2714  walk through' : 'OPEN: walk through', lockSub: `LOCKED: clear trail ${i} first`, col: L.col, go: g => g.loadLevel(L.id), locked: g => i > 0 && !g.save.done[lv[i - 1].id], lockName: g => 'Gate', lockText: g => `That trail starts where ${lv[Math.max(0, i - 1)].name} ends. Climb that first.` }));
+      this.add(new Gate(this, x, z, yaw, { title: `${i + 1}. ${L.name}`, sub: this.realm ? 'this way: 150 m' : S.done[L.id] ? 'CLEARED  \u2714  walk through' : 'OPEN: walk through', lockSub: `LOCKED: clear trail ${i} first`, col: L.col, go: g => { if (!this.realm) g.loadLevel(L.id); }, locked: g => !this.realm && i > 0 && !g.save.done[lv[i - 1].id], lockName: g => 'Gate', lockText: g => `That trail starts where ${lv[Math.max(0, i - 1)].name} ends. Climb that first.` }));
       const sx = x - Math.sin(yaw) * 0 + Math.cos(yaw) * 6.5, sz = z + Math.sin(yaw) * 6.5 * 0 + (yaw === 0 ? 0 : 0); const sg = put(M.sign(), x + (yaw === 0 ? 6.5 : 0), z + (yaw === 0 ? 0 : 6.5), yaw + Math.PI);
       this.add(new NPC(this, sg.position.x, sg.position.z, { name: 'the sign', model: new THREE.Group(), prompt: 'Read the sign', lines: g => [{ who: 'Trail sign', text: `${L.name}. ${L.blurb}` }] }));
     });
@@ -306,15 +312,15 @@ export class World {
     this.addBox(22, 1, 40, 2, 1, 2, 0, ROCK); this.addBox(38, 1, 40, 2, 1, 2, 0, ROCK); for (let i = 0; i < 5; i++) this.coin(26 + i * 2, 1.2 + Math.abs(i - 2) * 0.6, 40);
     for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; this.coin(Math.cos(a) * 16, 1, Math.sin(a) * 16 - 4); }
     // the mountain itself, looming to the north
-    const mt = new THREE.Mesh(new THREE.ConeGeometry(190, 330, 9), M.mat(0x6f7a72, { flat: 1 })); mt.position.set(0, 150, -330); const cap = new THREE.Mesh(new THREE.ConeGeometry(64, 112, 9), M.mat(0xf2f6fa, { flat: 1 })); cap.position.set(0, 261, -330); const m2 = new THREE.Mesh(new THREE.ConeGeometry(150, 190, 7), M.mat(0x5c7a54, { flat: 1 })); m2.position.set(-170, 80, -290); const m3 = new THREE.Mesh(new THREE.ConeGeometry(140, 170, 7), M.mat(0x9a6a4a, { flat: 1 })); m3.position.set(180, 70, -280); this.scene.add(mt, cap, m2, m3);
+    if (!this.realm) { const mt = new THREE.Mesh(new THREE.ConeGeometry(190, 330, 9), M.mat(0x6f7a72, { flat: 1 })); mt.position.set(0, 150, -330); const cap = new THREE.Mesh(new THREE.ConeGeometry(64, 112, 9), M.mat(0xf2f6fa, { flat: 1 })); cap.position.set(0, 261, -330); const m2 = new THREE.Mesh(new THREE.ConeGeometry(150, 190, 7), M.mat(0x5c7a54, { flat: 1 })); m2.position.set(-170, 80, -290); const m3 = new THREE.Mesh(new THREE.ConeGeometry(140, 170, 7), M.mat(0x9a6a4a, { flat: 1 })); m3.position.set(180, 70, -280); this.scene.add(mt, cap, m2, m3); }
   }
 
   scatter() {
     const T = this.T, th = this.theme, r = this.rnd, pts = [], rocks = [], sp = this.spiral, n = { x: 0, y: 1, z: 0 };
     for (let i = 0; i < 6000 && pts.length < 620; i++) {
       const x = (r() - 0.5) * 2 * (T.S - 12), z = (r() - 0.5) * 2 * (T.S - 12), y = T.hAt(x, z); T.normalAt(x, z, n); if (n.y < 0.9 || T.waterY(x, z) > y - 0.2) continue;
-      if (sp) { sp.h(x, z); if (sp.info.kind === 1 || sp.info.kind === 3 || Math.abs(sp.info.lat) < sp.width(sp.info.phi) + 1.5 && sp.info.phi > -0.5 && sp.info.phi < sp.PHI + 0.5) continue; if (Math.hypot(x, z) < sp.R(sp.PHI) + 4) continue; }
-      else { if (Math.hypot(x, z) < 34 || Math.abs(x) < 5 && z < 10 && z > -66 || Math.abs(z + 30) < 5 && Math.abs(x) < 50 || x > 16 && x < 54 && z > 16 && z < 46) continue; }
+      if (sp) { sp.h(x, z); if (sp.info.kind === 1 || sp.info.kind === 3 || Math.abs(sp.info.lat) < sp.width(sp.info.phi) + 1.5 && sp.info.phi > -0.5 && sp.info.phi < sp.PHI + 0.5) continue; if (Math.hypot(x, z) < sp.R(sp.PHI) + 4 || this.realm && Math.hypot(x, z) > sp.R0 + 82) continue; }
+      else { if (this.realm && Math.hypot(x, z) > 102) continue; if (Math.hypot(x, z) < 34 || Math.abs(x) < 5 && z < 10 && z > -66 || Math.abs(z + 30) < 5 && Math.abs(x) < 50 || x > 16 && x < 54 && z > 16 && z < 46) continue; }
       (r() < 0.82 ? pts : rocks).push([x, y, z, 0.7 + r() * 0.8, r() * 6]);
     }
     for (const p of pts) this.limb(p[0], p[1] + 2.2 * p[3], p[2], p[0], p[1] + 6.2 * p[3], p[2]);
@@ -331,7 +337,7 @@ export class World {
     const G = this.G, S = G.save, p = G.player.pos, sp = this.spiral;
     if (!sp) {
       const lv = this.def.levels, i = lv.findIndex(L => !S.done[L.id]) < 0 || S.won ? -1 : lv.findIndex(L => !S.done[L.id]); if (i < 0) return null;
-      const g = [[-46, -30], [0, -62], [46, -30]][i]; return { x: g[0], y: 3, z: g[1], label: lv[i].name, text: `Walk through the ${['west', 'north', 'east'][i]} gate to ${lv[i].name}` };
+      const g = G.trailhead ? G.trailhead(i) : [[-46, -30], [0, -62], [46, -30]][i]; return { x: g[0], y: 3, z: g[1], label: lv[i].name, text: G.trailhead ? `Head ${['west', 'north', 'east'][i]} to the foot of ${lv[i].name}` : `Walk through the ${['west', 'north', 'east'][i]} gate to ${lv[i].name}` };
     }
     sp.toRoute(p.x, p.z, rt); const phi = clamp(rt.phi, 0, sp.PHI), R = sp.R(phi);
     let nc = null; for (const c of this.camps) if (c.sec.p0 > phi + 4 / R) { nc = c; break; }
@@ -413,6 +419,6 @@ export class World {
     for (const q of this.parts) if (q.life > 0) { q.life -= dt; q.v.y -= 9 * dt; q.m.position.addScaledVector(q.v, dt); const s = Math.max(0.01, q.life * 0.35); q.m.scale.setScalar(s); if (q.life <= 0) q.m.visible = false; }
     this.waterTex.offset.y = -t * 0.9;
     [P.aimWhip, P.aimHook].forEach((a, i) => { const s = this.ret[i]; s.visible = !!a && !G.locked; if (a) { s.position.set(a.x, a.y, a.z); const dd = Math.hypot(a.x - p.x, a.y - p.y, a.z - p.z); s.scale.setScalar(0.5 + dd * 0.06 + Math.sin(t * 8) * 0.05 * dd * 0.1); } });
-    this.sun.position.set(p.x + 60, p.y + 110, p.z + 40); this.sun.target.position.set(p.x, p.y, p.z); this.sky.position.set(p.x, 0, p.z);
+    const lit = this.sun ? this : G; lit.sun.position.set(p.x + 60, p.y + 110, p.z + 40); lit.sun.target.position.set(p.x, p.y, p.z); lit.sky.position.set(p.x, 0, p.z);
   }
 }

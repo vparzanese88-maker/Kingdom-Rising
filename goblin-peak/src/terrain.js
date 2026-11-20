@@ -8,7 +8,7 @@ export class Spiral {
     this.R0 = o.R0 || 170; this.P = o.P || 46; this.k = this.P / TAU; this.D = 0.002;
     this.Y = []; this.G = []; this.W = []; this.PHI = 0; this.Ytop = 0;
     this.river = o.river || null; this.openFrom = 1e9;      // { th, loops, rw }
-    this.rim = this.R0 + 85; this.S = this.R0 + 118;
+    this.rim = this.R0 + 85; this.S = this.R0 + 118; if (o.realm) { this.S = this.R0 + 150; this.noRim = true; this.clipR = this.R0 + 86; }
     if (this.river) { this.river.rw = this.river.rw || 4.5; this.river.rSrc = this.R(this.river.th + TAU * (this.river.loops - 1)) - 9; this.river.lakeR = this.R0 + 48; }
     this.info = { kind: 0, phi: 0, lat: 0 };
   }
@@ -62,9 +62,9 @@ export class Spiral {
       } else { y = lerp(Yi, Yo, smooth(t)) + Math.sin(Math.PI * t) * (nz - 0.5) * Math.min(4, Math.abs(dY) * 0.15); inf.kind = 2; }
       inf.phi = pO; inf.lat = d - P;
       // where two levels of the trail are close in height, a rock ridge stands between them so neither can be reached from the other
-      const tI = this.trailY(pI), tO = this.trailY(pO); if (Math.abs(tI - tO) < 27 && !(pO >= this.openFrom)) { const u = (d - Wi) / avail, bump = smooth(Math.min(u, 1 - u) / 0.22), want = Math.max(tI, tO) + 16; if (want > y) { ridge = (want - y) * bump; y += ridge; if (bump > 0.15) inf.kind = 2; } }
+      const tI = this.trailY(pI), tO = this.trailY(pO); if (Math.abs(tI - tO) < 27 && pI >= 0 && !(pO >= this.openFrom)) { const u = (d - Wi) / avail, bump = smooth(Math.min(u, 1 - u) / 0.22), want = Math.max(tI, tO) + 16; if (want > y) { ridge = (want - y) * bump * (pO < 0 ? smooth((pI - 0.16) / 0.1) : 1); y += ridge; if (bump > 0.15) inf.kind = 2; } }
     }
-    if (r > this.rim) { const q = (r - this.rim) / 30; y += q * q * 22; inf.kind = 2; }
+    if (!this.noRim && r > this.rim) { const q = (r - this.rim) / 30; y += q * q * 22; inf.kind = 2; }
     const rv = this.river;
     if (rv) {
       if (r > rv.rSrc) {
@@ -122,10 +122,10 @@ export class Spiral {
       else { c.setRGB(...theme.ground); c.lerp(new THREE.Color(...theme.ground2), nz2); c.multiplyScalar(0.86 + nz * 0.24); }
       col[o * 3] = c.r; col[o * 3 + 1] = c.g; col[o * 3 + 2] = c.b;
     }
-    let q = 0;
-    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const a = j * (n + 1) + i, b = a + 1, d = a + n + 1, e = d + 1; idx[q++] = a; idx[q++] = d; idx[q++] = b; idx[q++] = b; idx[q++] = d; idx[q++] = e; }
+    let q = 0; const cr = this.clipR || 1e9;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { if (Math.hypot(-this.S + (i + 0.5) * st, -this.S + (j + 0.5) * st) > cr) continue; const a = j * (n + 1) + i, b = a + 1, d = a + n + 1, e = d + 1; idx[q++] = a; idx[q++] = d; idx[q++] = b; idx[q++] = b; idx[q++] = d; idx[q++] = e; }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setIndex(new THREE.BufferAttribute(idx.subarray(0, q), 1)); geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })); m.receiveShadow = true; return m;
   }
   waterMeshes(mat) {
@@ -145,10 +145,10 @@ export class Spiral {
 
 // The village green at the foot of the mountain: gentle ground ringed by hills.
 export class Meadow {
-  constructor() { this.S = 130; this.step = 2; this.spiral = null; this.bake(); }
+  constructor(realm) { this.realm = realm; this.S = 130; this.step = 2; this.spiral = null; this.bake(); }
   h(x, z) {
-    const r = Math.hypot(x, z); let y = (vnoise(x * 0.04, z * 0.04) - 0.5) * 1.6 * smooth((r - 30) / 30);
-    if (r > 82) { const q = (r - 82) / 30; y += q * q * 9 * (0.6 + vnoise(x * 0.03, z * 0.03)); }
+    const r = Math.hypot(x, z); let y = (vnoise(x * 0.04, z * 0.04) - 0.5) * 1.6 * smooth((r - 30) / 30) * (this.realm ? smooth((96 - r) / 22) : 1);
+    if (!this.realm && r > 82) { const q = (r - 82) / 30; y += q * q * 9 * (0.6 + vnoise(x * 0.03, z * 0.03)); }
     const px = x + 34, pz = z - 30, pd = Math.hypot(px, pz); if (pd < 16) y -= 2.6 * smooth(1 - pd / 16);
     return y;
   }
@@ -164,8 +164,8 @@ export class Meadow {
       if (y < -1) c.setRGB(...theme.bed); else if (road) c.setRGB(...theme.trail); else { c.setRGB(...theme.ground); c.lerp(new THREE.Color(...theme.ground2), vnoise(x * 0.05, z * 0.05)); }
       c.multiplyScalar(0.86 + nz * 0.24); col[o * 3] = c.r; col[o * 3 + 1] = c.g; col[o * 3 + 2] = c.b;
     }
-    let q = 0; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const a = j * (n + 1) + i, b = a + 1, d = a + n + 1, e = d + 1; idx[q++] = a; idx[q++] = d; idx[q++] = b; idx[q++] = b; idx[q++] = d; idx[q++] = e; }
-    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals();
+    let q = 0; const cr = this.realm ? 108 : 1e9; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { if (Math.hypot(-this.S + (i + 0.5) * st, -this.S + (j + 0.5) * st) > cr) continue; const a = j * (n + 1) + i, b = a + 1, d = a + n + 1, e = d + 1; idx[q++] = a; idx[q++] = d; idx[q++] = b; idx[q++] = b; idx[q++] = d; idx[q++] = e; }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setIndex(new THREE.BufferAttribute(idx.subarray(0, q), 1)); geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })); m.receiveShadow = true; return m;
   }
   waterMeshes(mat) { const m = new THREE.Mesh(new THREE.CircleGeometry(15, 32), mat); m.rotation.x = -Math.PI / 2; m.position.set(-34, -1.1, 30); return [m]; }

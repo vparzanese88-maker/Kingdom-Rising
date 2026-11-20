@@ -62,7 +62,7 @@ export class Spiral {
       } else { y = lerp(Yi, Yo, smooth(t)) + Math.sin(Math.PI * t) * (nz - 0.5) * Math.min(4, Math.abs(dY) * 0.15); inf.kind = 2; }
       inf.phi = pO; inf.lat = d - P;
       // where two levels of the trail are close in height, a rock ridge stands between them so neither can be reached from the other
-      const need = 14 - Math.abs(dY); if (need > 0 && !(pO >= this.openFrom)) { const u = (d - Wi) / avail, bump = smooth(Math.min(u, 1 - u) / 0.22); ridge = need * bump; y += ridge; if (bump > 0.15) inf.kind = 2; }
+      const tI = this.trailY(pI), tO = this.trailY(pO); if (Math.abs(tI - tO) < 27 && !(pO >= this.openFrom)) { const u = (d - Wi) / avail, bump = smooth(Math.min(u, 1 - u) / 0.22), want = Math.max(tI, tO) + 16; if (want > y) { ridge = (want - y) * bump; y += ridge; if (bump > 0.15) inf.kind = 2; } }
     }
     if (r > this.rim) { const q = (r - this.rim) / 30; y += q * q * 22; inf.kind = 2; }
     const rv = this.river;

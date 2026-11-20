@@ -348,8 +348,8 @@ export class World {
     const sp = this.spiral; if (!sp) return true; const P = this.G.player, b = this._hb = this._hb || { phi: 0, lat: 0 }; let phiP = P.routePhi;
     if (phiP === undefined) { sp.toRoute(p.x, p.z, b); phiP = b.phi; while (phiP > 0 && sp.groundY(Math.min(phiP, sp.PHI)) > p.y + 5) phiP -= TAU; P.routePhi = phiP; } phiP = clamp(phiP, 0, sp.PHI);
     if (phiP > sp.PHI - 0.45 && Math.hypot(t.x, t.z) < sp.R(sp.PHI) + 12) return true;      // the summit itself, once you have walked up to it
-    sp.toRoute(t.x, t.z, b); const ahead = Math.min(sp.PHI, phiP + 1.2), top = Math.max(sp.trailY(phiP), sp.trailY(ahead)) + (t.ter ? 6 : 9);
-    return b.phi < phiP + 1.2 && t.y < top && t.y < sp.trailY(clamp(b.phi, 0, sp.PHI)) + (t.ter ? 6 : 9);
+    sp.toRoute(t.x, t.z, b); const ahead = Math.min(sp.PHI, phiP + 30 / sp.R(phiP)), top = Math.max(sp.trailY(phiP), sp.trailY(ahead)) + (t.ter ? 6 : 9);
+    const bp = clamp(b.phi, 0, sp.PHI); return b.phi < phiP + 1.2 && t.y < top && t.y < Math.max(sp.trailY(bp), sp.trailY(Math.min(sp.PHI, bp + 14 / sp.R(bp)))) + (t.ter ? 6 : 9);
   }
   inNet(x, z) { for (const n of this.nets) { if (!n || !n.active) continue; const dx = x - n.x, dz = z - n.z; if (Math.abs(dx * n.ax + dz * n.az) < n.hx && Math.abs(-dx * n.az + dz * n.ax) < n.hz) return true; } return false; }
   iceAt(x, z) { if (!this.iceR.length) return false; this.spiral.toRoute(x, z, rt); for (const r of this.iceR) if (rt.phi >= r[0] && rt.phi <= r[1]) return true; return false; }

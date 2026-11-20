@@ -50,6 +50,7 @@ export class UI {
       x.fillStyle = '#b5332a'; x.fillText('▲ Princess Wrenna', 300, 46); x.fillStyle = '#3a2a1c'; x.fillText('● Bramblewick (you are here)', 300, 590);
       obj += tick(S.done.l1, 'Climb Greenfoot Slopes (west gate)') + tick(S.done.l2, 'Cross Thunder Gorge (north gate)') + tick(S.won, 'Climb the Frostfang Stair and free the Princess (east gate)');
       const jw = ORDER.reduce((a, id) => a + (S.jewels[id] || []).filter(Boolean).length, 0); obj += tick(jw >= 9, `Find the nine hidden relics: each unlocks an upgrade (${jw}/9)`);
+      { const an = Object.keys(S.acts || {}).length; obj += tick(an >= 100, `Lowland adventures: treasure, races, goblin camps, spires and more, all around the village (${an}/100)`); }
       obj += `<li>○ Visit Nib's stall to spend coins (${S.coins})</li>`;
     } else {
       $('mapTitle').textContent = W.def.name; const sc = (w / 2 - 22) / (sp.R0 + 40), X = v => w / 2 + v * sc, Z = v => h / 2 + v * sc, rv = sp.river;

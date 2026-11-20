@@ -1,13 +1,14 @@
 // Goblin Peak: boot, input, saving, the frame loop, and moving between the village and the mountain stages.
 import * as THREE from 'three';
 import { World, THEMES } from './world.js';
+import { ACT_TOTAL } from './lowland.js';
 import { Player } from './player.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
 import { LEVELS, ORDER, ITEMS, RELICS } from './levels.js';
 
 const $ = id => document.getElementById(id), KEY = 'goblin-peak-save-1';
-const fresh = () => ({ coins: 0, items: {}, upg: {}, done: {}, toll: {}, bombs: 0, jewels: {}, relics: {}, camp: {}, seen: {}, best: {}, stats: {}, sens: 1, third: false, won: false, cur: 'hub', played: 0 });
+const fresh = () => ({ coins: 0, items: {}, upg: {}, done: {}, toll: {}, bombs: 0, jewels: {}, relics: {}, acts: {}, camp: {}, seen: {}, best: {}, stats: {}, sens: 1, third: false, won: false, cur: 'hub', played: 0 });
 
 class Input {
   constructor() { this.k = {}; this.h = {}; this.mx = 0; this.my = 0; this.lmbHit = false; this.rmbHit = false; }
@@ -71,9 +72,10 @@ class Game {
   buildRealm() {
     const root = this.root = new THREE.Scene(); World.dressSky(this, root, THEMES.meadow);
     const rg = this.rg = new THREE.Group(); root.add(rg, this.player.model, this.player.rope, this.camera);
-    const gp = new THREE.Mesh(new THREE.CircleGeometry(1700, 64), new THREE.MeshLambertMaterial({ color: new THREE.Color(...THEMES.meadow.ground).multiplyScalar(0.95) })); gp.rotation.x = -Math.PI / 2; gp.position.y = -0.05; gp.receiveShadow = true; rg.add(gp);
+    const gp = new THREE.Mesh(new THREE.CircleGeometry(1700, 64), new THREE.MeshLambertMaterial({ color: new THREE.Color(...THEMES.meadow.ground).multiplyScalar(0.95) })); gp.rotation.x = -Math.PI / 2; gp.position.y = -14; gp.receiveShadow = true; rg.add(gp);
     const dirs = { l1: [-1, 0, 0], l2: [0, -1, -Math.PI / 2], l3: [1, 0, Math.PI] }; this.regions = {};
-    for (const id of ['hub', 'l1', 'l2', 'l3']) { const W = new World(this, LEVELS[id], true), d = dirs[id], Dm = d ? W.spiral.R0 + 200 : 0; W.xf = d ? { ox: d[0] * Dm, oz: d[1] * Dm, rot: d[2] } : { ox: 0, oz: 0, rot: 0 }; W.scene.position.set(W.xf.ox, 0, W.xf.oz); W.scene.rotation.y = W.xf.rot; rg.add(W.scene); this.regions[id] = W; }
+    this.holes = []; this.save.acts = this.save.acts || {};
+    for (const id of ['l1', 'l2', 'l3', 'hub']) { const W = new World(this, LEVELS[id], true), d = dirs[id], Dm = d ? W.spiral.R0 + 200 : 0; W.xf = d ? { ox: d[0] * Dm, oz: d[1] * Dm, rot: d[2] } : { ox: 0, oz: 0, rot: 0 }; if (d) { this.holes.push({ x: W.xf.ox, z: W.xf.oz, r: W.spiral.R0 }); W.terrainMesh.position.y = 0.03; } W.scene.position.set(W.xf.ox, 0, W.xf.oz); W.scene.rotation.y = W.xf.rot; rg.add(W.scene); this.regions[id] = W; }
     this.trailhead = i => { const W = this.regions[ORDER[i]], g = this.toGlobal(W, W.start.x, W.start.z); return g; };
   }
   rotY(x, z, t) { const c = Math.cos(t), s = Math.sin(t); return [x * c + z * s, -x * s + z * c]; }
@@ -85,8 +87,8 @@ class Game {
   // Walking out of one place and into the next: swap which map is live and carry the hero across without a break.
   handoff() {
     const W = this.world, P = this.player, g = this.toGlobal(W, P.pos.x, P.pos.z), dv = Math.hypot(g[0], g[1]); let next = null, best = 1e9;
-    for (const id of ORDER) { const m = this.regions[id], d = Math.hypot(g[0] - m.xf.ox, g[1] - m.xf.oz) - m.spiral.R0; if (d < 125 && d < best) { best = d; next = m; } }
-    if (W.def.hub) { if (dv <= 92) next = null; } else if (dv < 80) next = this.regions.hub; else if (next === W || next && Math.hypot(g[0] - W.xf.ox, g[1] - W.xf.oz) - W.spiral.R0 < best + 12) next = null;
+    for (const id of ORDER) { const m = this.regions[id], d = Math.hypot(g[0] - m.xf.ox, g[1] - m.xf.oz) - m.spiral.R0; if (d < 118 && d < best) { best = d; next = m; } }
+    if (!W.def.hub) { const own = Math.hypot(g[0] - W.xf.ox, g[1] - W.xf.oz) - W.spiral.R0; if (own <= 130 && (!next || next === W || own < best + 12)) next = null; else if (!next || next === W) next = this.regions.hub; }
     if (!next || next === W) return;
     const l = this.rotY(g[0] - next.xf.ox, g[1] - next.xf.oz, -next.xf.rot), dr = W.xf.rot - next.xf.rot, v = this.rotY(P.vel.x, P.vel.z, dr);
     P.pos.x = l[0]; P.pos.z = l[1]; P.vel.x = v[0]; P.vel.z = v[1]; P.yaw += dr; P.faceYaw += dr; P.model.rotation.y += dr; P.routePhi = undefined; P.detach(); P.ground = null; this.levelT = 0;
@@ -108,6 +110,8 @@ class Game {
   loseCoins() { const n = Math.min(this.save.coins, Math.max(5, Math.round(this.save.coins * 0.12)) >> (this.save.upg.purse ? 1 : 0), 30); if (n > 0) { this.save.coins -= n; const p = this.player.pos; this.world.dropCoins(p.x, p.y + 1.2, p.z, n); } }
   give(item) { this.save.items[item] = 1; this.saveNow(); this.audio.sfx('item'); const it = ITEMS[item]; this.ui.dialog([{ who: 'You found', text: it.name + '!' }, { who: it.name, text: it.text }]); }
   gotJewel(idx) { const id = this.world.def.id, a = this.save.jewels[id] = this.save.jewels[id] || []; a[idx] = 1; const r = (RELICS[id] || [])[idx]; if (r) this.save.relics[r.id] = 1; this.audio.sfx('jewel'); this.saveNow(); this.ui.dialog([{ who: 'You found a relic', text: (r ? r.name : 'A relic') + `!  (${a.filter(Boolean).length} of 3 on this trail)` }, { who: r ? r.name : 'Relic', text: r ? r.text : '' }]); }
+  // One of the hundred lowland adventures done.
+  act(id, name, coins, x, y, z) { const S = this.save; if (S.acts[id]) return; S.acts[id] = 1; const n = Object.keys(S.acts).length; this.audio.sfx('jewel'); if (coins) this.world.dropCoins(x, y, z, Math.min(40, coins)); this.ui.toast(`${name}!  Lowland adventures: ${n} of ${ACT_TOTAL}` + (n === ACT_TOTAL ? '. Every single one. The stones were right about you.' : ''), 5); this.saveNow(); }
   stat(k, n = 1) { this.save.stats[k] = (this.save.stats[k] || 0) + n; }
   fmt(t) { const m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + String(s).padStart(2, '0'); }
   completeLevel() {

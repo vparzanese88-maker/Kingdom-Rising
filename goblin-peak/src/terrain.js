@@ -145,9 +145,12 @@ export class Spiral {
 
 // The village green at the foot of the mountain: gentle ground ringed by hills.
 export class Meadow {
-  constructor(realm) { this.realm = realm; this.S = 130; this.step = 2; this.spiral = null; this.bake(); }
+  constructor(realm, holes) { this.realm = realm; this.holes = holes || []; this.S = realm ? 420 : 130; this.step = realm ? 2.5 : 2; this.spiral = null; this.bake(); }
+  // 0 near a mountain's foot (so the two maps meet dead level), 1 out in open country
+  open(x, z) { let f = 1; for (const h of this.holes) f = Math.min(f, smooth((Math.hypot(x - h.x, z - h.z) - h.r - 142) / 45)); return f; }
   h(x, z) {
     const r = Math.hypot(x, z); let y = (vnoise(x * 0.04, z * 0.04) - 0.5) * 1.6 * smooth((r - 30) / 30) * (this.realm ? smooth((96 - r) / 22) : 1);
+    if (this.realm) { const f = this.open(x, z) * smooth((r - 85) / 50); y += f * ((vnoise(x * 0.011 + 5, z * 0.011) - 0.42) * 15 + (vnoise(x * 0.045, z * 0.045 + 9) - 0.5) * 2.2); const e = r - (this.S - 46); if (e > 0) y += e * e * 0.03; }
     if (!this.realm && r > 82) { const q = (r - 82) / 30; y += q * q * 9 * (0.6 + vnoise(x * 0.03, z * 0.03)); }
     const px = x + 34, pz = z - 30, pd = Math.hypot(px, pz); if (pd < 16) y -= 2.6 * smooth(1 - pd / 16);
     return y;
@@ -164,7 +167,7 @@ export class Meadow {
       if (y < -1) c.setRGB(...theme.bed); else if (road) c.setRGB(...theme.trail); else { c.setRGB(...theme.ground); c.lerp(new THREE.Color(...theme.ground2), vnoise(x * 0.05, z * 0.05)); }
       c.multiplyScalar(0.86 + nz * 0.24); col[o * 3] = c.r; col[o * 3 + 1] = c.g; col[o * 3 + 2] = c.b;
     }
-    let q = 0; const cr = this.realm ? 108 : 1e9; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { if (Math.hypot(-this.S + (i + 0.5) * st, -this.S + (j + 0.5) * st) > cr) continue; const a = j * (n + 1) + i, b = a + 1, d = a + n + 1, e = d + 1; idx[q++] = a; idx[q++] = d; idx[q++] = b; idx[q++] = b; idx[q++] = d; idx[q++] = e; }
+    let q = 0; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const cx = -this.S + (i + 0.5) * st, cz = -this.S + (j + 0.5) * st; if (this.holes.some(h => Math.hypot(cx - h.x, cz - h.z) < h.r + 84)) continue; const a = j * (n + 1) + i, b = a + 1, d = a + n + 1, e = d + 1; idx[q++] = a; idx[q++] = d; idx[q++] = b; idx[q++] = b; idx[q++] = d; idx[q++] = e; }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setIndex(new THREE.BufferAttribute(idx.subarray(0, q), 1)); geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })); m.receiveShadow = true; return m;
   }

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { TAU, clamp, rng, vnoise } from './util.js';
 import { Spiral, Meadow } from './terrain.js';
 import * as M from './models.js';
+import { buildLowlands } from './lowland.js';
 import { Pike, Bomb, Mob, Boulder, Roller, Spikes, Pendulum, DartTotem, Chest, Camp, NPC, Jewel, Gate, Geyser, Boss, Gong, RockRain, Wind, ZipLine, Ambush, Chase } from './entities.js';
 
 export const THEMES = {
@@ -281,7 +282,7 @@ export class World {
 
   // ------------------------------------------------------------------ the village
   buildHub() {
-    const T = this.T = new Meadow(this.realm), G = this.G, st = this.def.story; this.scene.add(T.mesh(this.theme)); for (const m of T.waterMeshes(this.waterMat)) this.scene.add(m);
+    const T = this.T = new Meadow(this.realm, this.G.holes), G = this.G, st = this.def.story; this.scene.add(T.mesh(this.theme)); for (const m of T.waterMeshes(this.waterMat)) this.scene.add(m);
     this.start = { x: 0, y: 0, z: 6, yaw: 0 };
     const put = (m, x, z, yaw = 0) => { m.position.set(x, T.hAt(x, z), z); m.rotation.y = yaw; this.scene.add(m); return m; };
     [[-14, 14, 0.5, 0xb5652a], [14, 16, -0.4, 0x8a4a6a], [-20, -8, 1.4, 0x3f7a8a], [20, -10, -1.4, 0xb5652a], [0, 26, 0, 0x6a8a3a]].forEach(([x, z, yaw, c]) => { put(M.hut(c), x, z, yaw); const hy = T.hAt(x, z); this.addBox(x, hy + 1.5, z, 2.5, 1.5, 2.2, -yaw, null); for (let i = 0; i < 6; i++) { const q = 3.04 * (1 - i / 6) + 0.1; this.addBox(x, hy + 3.2 + i * 0.4, z, q, 0.2, q, -yaw, null); } });
@@ -312,15 +313,16 @@ export class World {
     this.addBox(22, 1, 40, 2, 1, 2, 0, ROCK); this.addBox(38, 1, 40, 2, 1, 2, 0, ROCK); for (let i = 0; i < 5; i++) this.coin(26 + i * 2, 1.2 + Math.abs(i - 2) * 0.6, 40);
     for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; this.coin(Math.cos(a) * 16, 1, Math.sin(a) * 16 - 4); }
     // the mountain itself, looming to the north
+    if (this.realm) buildLowlands(this);
     if (!this.realm) { const mt = new THREE.Mesh(new THREE.ConeGeometry(190, 330, 9), M.mat(0x6f7a72, { flat: 1 })); mt.position.set(0, 150, -330); const cap = new THREE.Mesh(new THREE.ConeGeometry(64, 112, 9), M.mat(0xf2f6fa, { flat: 1 })); cap.position.set(0, 261, -330); const m2 = new THREE.Mesh(new THREE.ConeGeometry(150, 190, 7), M.mat(0x5c7a54, { flat: 1 })); m2.position.set(-170, 80, -290); const m3 = new THREE.Mesh(new THREE.ConeGeometry(140, 170, 7), M.mat(0x9a6a4a, { flat: 1 })); m3.position.set(180, 70, -280); this.scene.add(mt, cap, m2, m3); }
   }
 
   scatter() {
     const T = this.T, th = this.theme, r = this.rnd, pts = [], rocks = [], sp = this.spiral, n = { x: 0, y: 1, z: 0 };
-    for (let i = 0; i < 6000 && pts.length < 620; i++) {
+    const many = this.realm && !sp; for (let i = 0; i < (many ? 30000 : 6000) && pts.length < (many ? 2200 : 620); i++) {
       const x = (r() - 0.5) * 2 * (T.S - 12), z = (r() - 0.5) * 2 * (T.S - 12), y = T.hAt(x, z); T.normalAt(x, z, n); if (n.y < 0.9 || T.waterY(x, z) > y - 0.2) continue;
       if (sp) { sp.h(x, z); if (sp.info.kind === 1 || sp.info.kind === 3 || Math.abs(sp.info.lat) < sp.width(sp.info.phi) + 1.5 && sp.info.phi > -0.5 && sp.info.phi < sp.PHI + 0.5) continue; if (Math.hypot(x, z) < sp.R(sp.PHI) + 4 || this.realm && Math.hypot(x, z) > sp.R0 + 82) continue; }
-      else { if (this.realm && Math.hypot(x, z) > 102) continue; if (Math.hypot(x, z) < 34 || Math.abs(x) < 5 && z < 10 && z > -66 || Math.abs(z + 30) < 5 && Math.abs(x) < 50 || x > 16 && x < 54 && z > 16 && z < 46) continue; }
+      else { if (this.realm && T.holes.some(h => Math.hypot(x - h.x, z - h.z) < h.r + 88)) continue; if (Math.hypot(x, z) < 34 || Math.abs(x) < 5 && z < 10 && z > -66 || Math.abs(z + 30) < 5 && Math.abs(x) < 50 || x > 16 && x < 54 && z > 16 && z < 46) continue; }
       (r() < 0.82 ? pts : rocks).push([x, y, z, 0.7 + r() * 0.8, r() * 6]);
     }
     for (const p of pts) this.limb(p[0], p[1] + 2.2 * p[3], p[2], p[0], p[1] + 6.2 * p[3], p[2]);

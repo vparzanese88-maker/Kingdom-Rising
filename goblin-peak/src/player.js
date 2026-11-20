@@ -17,7 +17,7 @@ export class Player {
     this.rope = new THREE.Group(); this.segs = []; this.lashMat = [mat(0x3a2414), mat(0xb8b8c4)]; for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(GEO.cylG, this.lashMat[0]); m.frustumCulled = false; this.rope.add(m); this.segs.push(m); } this.rope.visible = false; this.camDist = 6.2; this.va = new THREE.Vector3(); this.vb = new THREE.Vector3(); this.vc = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0);
     this.aimWhip = null; this.aimHook = null; this.tmp = new THREE.Vector3(); this.look = new THREE.Vector3();
   }
-  spawn(x, y, z, yaw = 0) { this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = 0; this.climb = this.swing = this.zip = null; this.crouch = false; this.swim = false; this.H = 1.8; this.stun = 0; this.inv = 1; this.lean = 0; }
+  spawn(x, y, z, yaw = 0) { this.routePhi = undefined; this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = 0; this.climb = this.swing = this.zip = null; this.crouch = false; this.swim = false; this.H = 1.8; this.stun = 0; this.inv = 1; this.lean = 0; }
   detach() { this.climb = null; this.swing = null; this.zip = null; }
   knock(dx, dz, power, up = 7) {
     if (this.inv > 0) return false;
@@ -54,7 +54,7 @@ export class Player {
     if (h.b && h.b.noHook) return null;
     if (!any && !h.b) { W.T.normalAt(h.x, h.z, nrm); if (nrm.y > 0.8) return null; }
     let y = h.y + 1.0; if (h.b) { const top = h.b.y + h.b.hy; if (top - h.y < 3.2) y = top + 0.5; }
-    return { x: h.x - L.x * 0.5, y, z: h.z - L.z * 0.5, surf: 1, sx: h.x, sy: h.y, sz: h.z };
+    return { x: h.x - L.x * 0.5, y, z: h.z - L.z * 0.5, surf: 1, ter: h.b ? 0 : 1, sx: h.x, sy: h.y, sz: h.z };
   }
   update(dt) {
     const G = this.G, I = G.input, W = G.world, T = W.T, S = G.save, p = this.pos, v = this.vel;
@@ -71,7 +71,7 @@ export class Player {
     if (this.grounded && this.ground && this.ground.mover) { p.x += this.ground.dx; p.y += this.ground.dy; p.z += this.ground.dz; }
     const wasGrounded = this.grounded; let ice = false;
     // ---- tools
-    this.aimWhip = S.items.whip ? this.aimLimb(13 + (S.upg.whip || 0) * 2.5, this.swing && this.swing.a) : null;
+    this.aimWhip = S.items.whip ? this.aimLimb(13 + (S.upg.whip || 0) * 2.5, this.swing && this.swing.a) : null; if (this.aimWhip && !W.hookOk(p, this.aimWhip)) this.aimWhip = null;
     const hr = S.items.cannon ? 62 : 27; this.aimHook = S.items.hook ? (this.aimLimb(hr) || this.aimSurface(hr, !!S.items.cannon)) : null; this.hookDenied = false; if (this.aimHook && !W.hookOk(p, this.aimHook)) { this.aimHook = null; this.hookDenied = true; }
     if (ctrl && I.lmbHit && S.items.whip && this.whipCd <= 0 && !this.swim) {
       this.whipCd = 0.4; this.whipAnim = 0.3;

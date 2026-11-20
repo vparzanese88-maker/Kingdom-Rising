@@ -98,6 +98,7 @@ export class World {
       }
       lay(s);
     }
+    sp.openFrom = this.secs[this.secs.length - 1].p0 - 3 / sp.R(sp.PHI);
     sp.Y.push(sp.Ytop); sp.G.push(sp.Ytop); sp.W.push(sp.W[sp.W.length - 1]);
     sp.bake(); this.terrainMesh = sp.mesh(this.theme); this.scene.add(this.terrainMesh); for (const m of sp.waterMeshes(this.waterMat)) this.scene.add(m);
     this.campN = 0; this.jewelN = 0;
@@ -344,8 +345,11 @@ export class World {
   // ------------------------------------------------------------------ queries
   // The hook only holds on things belonging to the stretch of trail you are on: not on the great faces up to the next level.
   hookOk(p, t) {
-    const sp = this.spiral; if (!sp) return true; if (Math.hypot(t.x, t.z) < sp.R(sp.PHI) + 12 && Math.hypot(p.x, p.z) < sp.R(sp.PHI) + 16) return true;
-    const a = { phi: 0, lat: 0 }, b = { phi: 0, lat: 0 }; sp.toRoute(p.x, p.z, a); sp.toRoute(t.x, t.z, b); return b.phi < a.phi + 1.4 && t.y < sp.trailY(Math.min(sp.PHI, a.phi + 1.4)) + 14;
+    const sp = this.spiral; if (!sp) return true; const P = this.G.player, b = this._hb = this._hb || { phi: 0, lat: 0 }; let phiP = P.routePhi;
+    if (phiP === undefined) { sp.toRoute(p.x, p.z, b); phiP = b.phi; while (phiP > 0 && sp.groundY(Math.min(phiP, sp.PHI)) > p.y + 5) phiP -= TAU; P.routePhi = phiP; } phiP = clamp(phiP, 0, sp.PHI);
+    if (phiP > sp.PHI - 0.45 && Math.hypot(t.x, t.z) < sp.R(sp.PHI) + 12) return true;      // the summit itself, once you have walked up to it
+    sp.toRoute(t.x, t.z, b); const ahead = Math.min(sp.PHI, phiP + 1.2), top = Math.max(sp.trailY(phiP), sp.trailY(ahead)) + (t.ter ? 6 : 9);
+    return b.phi < phiP + 1.2 && t.y < top && t.y < sp.trailY(clamp(b.phi, 0, sp.PHI)) + (t.ter ? 6 : 9);
   }
   inNet(x, z) { for (const n of this.nets) { if (!n || !n.active) continue; const dx = x - n.x, dz = z - n.z; if (Math.abs(dx * n.ax + dz * n.az) < n.hx && Math.abs(-dx * n.az + dz * n.ax) < n.hz) return true; } return false; }
   iceAt(x, z) { if (!this.iceR.length) return false; this.spiral.toRoute(x, z, rt); for (const r of this.iceR) if (rt.phi >= r[0] && rt.phi <= r[1]) return true; return false; }
@@ -400,7 +404,7 @@ export class World {
     if (got) G.addCoins(got, true);
     // story triggers along the trail
     if (this.spiral) {
-      const sp = this.spiral; sp.toRoute(p.x, p.z, rt); this.route = rt;
+      const sp = this.spiral; sp.toRoute(p.x, p.z, rt); this.route = rt; if (P.grounded && !P.steep && rt.phi >= -0.3 && rt.phi <= sp.PHI + 0.3 && Math.abs(p.y - sp.groundY(rt.phi)) < 4.5 && Math.abs(rt.lat) < sp.width(rt.phi) + 0.8 && !this.inNet(p.x, p.z)) P.routePhi = rt.phi;
       if (Math.abs(rt.lat) < 9 && Math.abs(p.y - sp.trailY(rt.phi)) < 7) for (const tr of this.triggers) {
         if (rt.phi < tr.p0 || rt.phi > tr.p1) continue; if (tr.key) { if (G.save.seen[tr.key]) continue; G.save.seen[tr.key] = 1; } else { if (tr.last && t - tr.last < tr.repeat) continue; tr.last = t; } tr.fn();
       }

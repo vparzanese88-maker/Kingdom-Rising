@@ -7,7 +7,7 @@ export class Spiral {
   constructor(o) {
     this.R0 = o.R0 || 170; this.P = o.P || 46; this.k = this.P / TAU; this.D = 0.002;
     this.Y = []; this.G = []; this.W = []; this.PHI = 0; this.Ytop = 0;
-    this.river = o.river || null;      // { th, loops, rw }
+    this.river = o.river || null; this.openFrom = 1e9;      // { th, loops, rw }
     this.rim = this.R0 + 85; this.S = this.R0 + 118;
     if (this.river) { this.river.rw = this.river.rw || 4.5; this.river.rSrc = this.R(this.river.th + TAU * (this.river.loops - 1)) - 9; this.river.lakeR = this.R0 + 48; }
     this.info = { kind: 0, phi: 0, lat: 0 };
@@ -50,7 +50,7 @@ export class Spiral {
     const Yi = this.groundY(pI), Yo = this.groundY(pO);
     let Wi = Math.min(this.width(pI), 30), Wo = Math.min(this.width(pO), 30);
     if (Wi + Wo > P - 6) { if (Wi > Wo) Wi = P - 6 - Wo; else Wo = P - 6 - Wi; }
-    let y;
+    let y, ridge = 0;
     if (d <= Wi) { y = Yi; inf.kind = (pI >= 0 && pI <= this.PHI && d < Wi - 0.8) ? 1 : 0; inf.phi = pI; inf.lat = d; }
     else if (d >= P - Wo) { y = Yo; inf.kind = (pO >= 0 && pO <= this.PHI && P - d < Wo - 0.8) ? 1 : 0; inf.phi = pO; inf.lat = d - P; }
     else {
@@ -61,12 +61,15 @@ export class Spiral {
         y = Yo + (nz - 0.35) * 1.6 * f; inf.kind = 0;
       } else { y = lerp(Yi, Yo, smooth(t)) + Math.sin(Math.PI * t) * (nz - 0.5) * Math.min(4, Math.abs(dY) * 0.15); inf.kind = 2; }
       inf.phi = pO; inf.lat = d - P;
+      // where two levels of the trail are close in height, a rock ridge stands between them so neither can be reached from the other
+      const need = 14 - Math.abs(dY); if (need > 0 && !(pO >= this.openFrom)) { const u = (d - Wi) / avail, bump = smooth(Math.min(u, 1 - u) / 0.22); ridge = need * bump; y += ridge; if (bump > 0.15) inf.kind = 2; }
     }
     if (r > this.rim) { const q = (r - this.rim) / 30; y += q * q * 22; inf.kind = 2; }
     const rv = this.river;
     if (rv) {
       if (r > rv.rSrc) {
         const aa = Math.abs(angDiff(th, rv.th) * r);
+        if (ridge && aa < rv.rw + 8) y -= ridge * smooth((rv.rw + 8 - aa) / 3);
         if (aa < rv.rw + 5) { const pr = smooth((rv.rw + 5 - aa) / 5) * smooth((r - rv.rSrc) / 5); y -= 2.4 * pr; if (pr > 0.5) inf.kind = 3; }
       }
       const lx = x - Math.cos(rv.th) * rv.lakeR, lz = z - Math.sin(rv.th) * rv.lakeR, ld = Math.hypot(lx, lz);

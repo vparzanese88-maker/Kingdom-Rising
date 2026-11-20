@@ -4,6 +4,7 @@ import { TAU, clamp, rng, vnoise } from './util.js';
 import { Spiral, Meadow } from './terrain.js';
 import * as M from './models.js';
 import { buildLowlands } from './lowland.js';
+import { buildVillage } from './village.js';
 import { Pike, Bomb, Mob, Boulder, Roller, Spikes, Pendulum, DartTotem, Chest, Camp, NPC, Jewel, Gate, Geyser, Boss, Gong, RockRain, Wind, ZipLine, Ambush, Chase } from './entities.js';
 
 export const THEMES = {
@@ -312,9 +313,9 @@ export class World {
     const lv = this.def.levels;
     [[-46, -30, Math.PI / 2, 0], [0, -62, 0, 1], [46, -30, -Math.PI / 2, 2]].forEach(([x, z, yaw, i]) => {
       const L = lv[i], S = G.save, lockd = i > 0 && !S.done[lv[i - 1].id];
-      for (let k = 0; k < 10; k++) { const sd = k % 2 ? 1 : -1, along = 7 + (k >> 1) * 2.2 + this.rnd() * 2, back = this.rnd() * 9 - 2, px = x + Math.cos(yaw) * sd * along - Math.sin(yaw) * -back * (yaw === 0 ? 0 : 1) + (yaw === 0 ? 0 : 0), pz = z + (yaw === 0 ? -back : sd * along), qx = yaw === 0 ? x + sd * along : x + Math.sign(x) * back, sc = 0.8 + this.rnd() * 0.9;
+      for (let k = 0; k < (this.realm ? 0 : 10); k++) { const sd = k % 2 ? 1 : -1, along = 7 + (k >> 1) * 2.2 + this.rnd() * 2, back = this.rnd() * 9 - 2, px = x + Math.cos(yaw) * sd * along - Math.sin(yaw) * -back * (yaw === 0 ? 0 : 1) + (yaw === 0 ? 0 : 0), pz = z + (yaw === 0 ? -back : sd * along), qx = yaw === 0 ? x + sd * along : x + Math.sign(x) * back, sc = 0.8 + this.rnd() * 0.9;
         const m = i === 0 ? M.cone(0x2a6e33, 2 * sc, 6 * sc, 0, 3 * sc, 0, { flat: 1 }) : i === 1 ? M.cone(0xb5683f, 1.6 * sc, 5 * sc, 0, 2.5 * sc, 0, { flat: 1 }) : k % 3 ? M.cone(0xbfe6ff, 1.1 * sc, 4.5 * sc, 0, 2.2 * sc, 0, { flat: 1, e: 0x224455 }) : M.ball(0xf4f8ff, 2.4 * sc, 0, 0.3, 0, { flat: 1 }); const g2 = new THREE.Group(); g2.add(m); put(g2, qx, pz); }
-      this.add(new Gate(this, x, z, yaw, { title: `${i + 1}. ${L.name}`, sub: this.realm ? 'this way: 150 m' : S.done[L.id] ? 'CLEARED  \u2714  walk through' : 'OPEN: walk through', lockSub: `LOCKED: clear trail ${i} first`, col: L.col, go: g => { if (!this.realm) g.loadLevel(L.id); }, locked: g => !this.realm && i > 0 && !g.save.done[lv[i - 1].id], lockName: g => 'Gate', lockText: g => `That trail starts where ${lv[Math.max(0, i - 1)].name} ends. Climb that first.` }));
+      if (!this.realm) this.add(new Gate(this, x, z, yaw, { title: `${i + 1}. ${L.name}`, sub: this.realm ? 'this way: 150 m' : S.done[L.id] ? 'CLEARED  \u2714  walk through' : 'OPEN: walk through', lockSub: `LOCKED: clear trail ${i} first`, col: L.col, go: g => { if (!this.realm) g.loadLevel(L.id); }, locked: g => !this.realm && i > 0 && !g.save.done[lv[i - 1].id], lockName: g => 'Gate', lockText: g => `That trail starts where ${lv[Math.max(0, i - 1)].name} ends. Climb that first.` }));
       const sx = x - Math.sin(yaw) * 0 + Math.cos(yaw) * 6.5, sz = z + Math.sin(yaw) * 6.5 * 0 + (yaw === 0 ? 0 : 0); const sg = put(M.sign(), x + (yaw === 0 ? 6.5 : 0), z + (yaw === 0 ? 0 : 6.5), yaw + Math.PI);
       this.add(new NPC(this, sg.position.x, sg.position.z, { name: 'the sign', model: new THREE.Group(), prompt: 'Read the sign', lines: g => [{ who: 'Trail sign', text: `${L.name}. ${L.blurb}` }] }));
     });
@@ -327,11 +328,9 @@ export class World {
     const board = put(M.box(0xc9a25a, 2.6, 1.8, 0.14, 0, 0, 0), 6, -24, -0.3); board.position.y += 1.7; put(M.cyl(0x6b4a2a, 0.09, 2.6, 0, 0, 0), 6, -24).position.y += 1.3;
     this.add(new NPC(this, 6, -23.4, { name: 'map', model: new THREE.Group(), prompt: 'Look at the map (M)', lines: null })).use = () => G.ui.toggleMap(true);
     // practice yard: jumps, a vine wall, a beam over the pond
-    let px = 22, pz = 22; for (let i = 0; i < 5; i++) { this.addBox(px + i * 4.6, 0.5 + i * 0.55, pz + (i % 2) * 1.5, 1.3, 0.5 + i * 0.55, 1.3, 0, ROCK); this.coin(px + i * 4.6, 2.2 + i * 1.1, pz + (i % 2) * 1.5); }
-    this.addBox(48, 4, 23, 2.5, 4, 2.5, 0, ROCK, { climb: true }); const vv = this.vines(4.6, 8); vv.position.set(45.4, 4, 23); vv.rotation.y = Math.PI / 2; this.scene.add(vv); for (let i = 0; i < 4; i++) this.coin(48 + (i % 2), 9.2, 22 + i * 0.6);
     this.addBox(-34, -0.35, 30, 0.3, 0.25, 15.5, 0, LOG, { beam: true }); for (let i = 0; i < 6; i++) this.coin(-34, 1, 20 + i * 4);
-    put(M.whipPost(8), 30, 40); this.limb(26.4, 8.65, 40, 31.9, 9.25, 40);
-    this.addBox(22, 1, 40, 2, 1, 2, 0, ROCK); this.addBox(38, 1, 40, 2, 1, 2, 0, ROCK); for (let i = 0; i < 5; i++) this.coin(26 + i * 2, 1.2 + Math.abs(i - 2) * 0.6, 40);
+    put(M.whipPost(8), 30, 44); this.limb(26.4, 8.65, 44, 31.9, 9.25, 44);
+    buildVillage(this);
     for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; this.coin(Math.cos(a) * 16, 1, Math.sin(a) * 16 - 4); }
     // the mountain itself, looming to the north
     if (this.realm) buildLowlands(this);

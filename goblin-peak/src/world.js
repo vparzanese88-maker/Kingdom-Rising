@@ -367,6 +367,7 @@ export class World {
       if (e.dead || !(e.mob || e.hittable)) continue; const h = e.k ? e.k.h : e.h, dx = e.x - p.x, dy = e.y + h * 0.5 - ey, dz = e.z - p.z, d = Math.hypot(dx, dy, dz); if (d > range + (e.k ? e.k.r : e.r)) continue;
       if (d < 1.6 || (dx * L.x + dy * L.y + dz * L.z) / d > 0.45) { e.hit(1 + (this.G.save.upg.heavy || 0), p.x, p.z); any = true; }
     }
+    if (this.G.save.relics.thunder) for (const e of this.ents) if (!e.dead && e.mob && Math.hypot(e.x - p.x, e.y - p.y, e.z - p.z) < 4.5 + e.k.r) { e.hit(1, p.x, p.z); any = true; }
     const t = 3.5; this.puff(p.x + L.x * t, ey + L.y * t, p.z + L.z * t, 0xfff2c0, any ? 6 : 2); return any;
   }
   throwBomb(P) { const S = this.G.save; if (!(S.bombs > 0)) { this.G.audio.sfx('nope'); this.G.ui.toast('No squibs. Nib sells them.', 2); return; } S.bombs--; const L = P.look; this.add(new Bomb(this, P.pos.x + L.x, P.pos.y + P.eye, P.pos.z + L.z, L.x * 15 + P.vel.x * 0.5, L.y * 15 + 5, L.z * 15 + P.vel.z * 0.5, true)); this.G.audio.sfx('throw'); }

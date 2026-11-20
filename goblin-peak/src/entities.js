@@ -35,7 +35,7 @@ export class Mob {
     if (this.k.shield && !how && n < 3) { G.audio.sfx('spike'); this.W.puff(this.x, this.y + 1, this.z, 0xfff2c0, 3); if (!this.told) { this.told = true; G.ui.toast('Its shield turns the whip aside. Jump on its head instead.', 4); } return; }
     this.hp -= n; this.stunT = 0.9; this.state = 'idle'; G.audio.sfx('bonk'); this.W.puff(this.x, this.y + this.k.h * 0.6, this.z, 0xffffff, 6);
     const dx = this.x - fx, dz = this.z - fz, l = Math.hypot(dx, dz) || 1; if (!this.k.thrower && !this.k.slam) this.move(dx / l * 1.2, dz / l * 1.2);
-    if (this.hp <= 0) { this.dead = true; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y + 0.8, this.z, 0x9be06a, 14); this.W.dropCoins(this.x, this.y + 1, this.z, this.k.coins); G.audio.sfx('poof'); G.stat('bonked'); }
+    if (this.hp <= 0) { this.dead = true; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y + 0.8, this.z, 0x9be06a, 14); this.W.dropCoins(this.x, this.y + 1, this.z, this.k.coins * (G.save.relics.midas ? 2 : 1)); G.audio.sfx('poof'); G.stat('bonked'); }
   }
   move(mx, mz) {
     const W = this.W, sp = W.spiral; let nx = this.x + mx, nz = this.z + mz;
@@ -233,7 +233,7 @@ export class NPC extends Near {
   use() { const G = this.W.G, lines = typeof this.o.lines === 'function' ? this.o.lines(G) : this.o.lines; G.ui.dialog(lines, () => { if (this.o.after) this.o.after(G, this); }); }
 }
 export class Jewel {
-  constructor(W, x, y, z, idx) { this.W = W; this.x = x; this.y = y; this.z = z; this.idx = idx; this.mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.5), M.mat(0xff4fa0, { e: 0x80104a })); this.mesh.position.set(x, y, z); this.mesh.scale.y = 1.4; W.scene.add(this.mesh); this.got = !!(W.G.save.jewels[W.def.id] || [])[idx]; this.mesh.visible = !this.got; this.halo = M.cyl(0xff9ad0, 0.35, 24, x, y + 12, z, { e: 0xff4fa0, op: 0.18 }); this.halo.castShadow = false; this.halo.visible = !this.got; W.scene.add(this.halo); }
+  constructor(W, x, y, z, idx) { this.W = W; this.x = x; this.y = y; this.z = z; this.idx = idx; this.mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.5), M.mat(0x7fe0ff, { e: 0x1a6f9a })); this.mesh.position.set(x, y, z); this.mesh.scale.y = 1.4; W.scene.add(this.mesh); this.got = !!(W.G.save.jewels[W.def.id] || [])[idx]; this.mesh.visible = !this.got; this.halo = M.cyl(0x9ae8ff, 0.35, 24, x, y + 12, z, { e: 0x3fb0e0, op: 0.2 }); this.halo.castShadow = false; this.halo.visible = !this.got; W.scene.add(this.halo); }
   update(dt) { if (this.got) return; this.mesh.rotation.y += dt * 2; this.mesh.position.y = this.y + Math.sin(this.W.G.time * 2) * 0.2; const p = this.W.G.player.pos; if (Math.hypot(p.x - this.x, p.y + 0.9 - this.y, p.z - this.z) < 1.6) { this.got = true; this.mesh.visible = this.halo.visible = false; this.W.G.gotJewel(this.idx); } }
 }
 export class Gate { // walk through to travel

@@ -46,10 +46,10 @@ export class UI {
       x.fillStyle = '#eef4fa'; x.beginPath(); x.moveTo(204, 245); x.lineTo(300, 60); x.lineTo(396, 245); x.fill();
       x.strokeStyle = '#5a3c1c'; x.lineWidth = 3; x.setLineDash([8, 7]); x.beginPath(); x.moveTo(110, 545); for (let i = 0; i <= 60; i++) { const q = i / 60, yy = 545 - q * 470, half = (560 - yy) / 500 * 250 * 0.8; x.lineTo(300 + Math.sin(q * 26) * half, yy); } x.stroke(); x.setLineDash([]);
       x.font = 'bold 20px Fredoka, sans-serif'; x.textAlign = 'center';
-      ORDER.forEach((id, i) => { const L = LEVELS[id], yy = [480, 320, 165][i], open = i === 0 || S.done[ORDER[i - 1]]; x.fillStyle = 'rgba(40,25,10,.78)'; x.fillRect(180, yy - 24, 240, 54); x.fillStyle = open ? '#ffe9a8' : '#998'; x.fillText(`${i + 1}. ${L.name}`, 300, yy); x.font = '15px Fredoka, sans-serif'; x.fillText(S.done[id] ? `Cleared ✔   Jewels ${(S.jewels[id] || []).filter(Boolean).length}/3` : open ? 'Open' : 'Locked', 300, yy + 21); x.font = 'bold 20px Fredoka, sans-serif'; });
+      ORDER.forEach((id, i) => { const L = LEVELS[id], yy = [480, 320, 165][i], open = i === 0 || S.done[ORDER[i - 1]]; x.fillStyle = 'rgba(40,25,10,.78)'; x.fillRect(180, yy - 24, 240, 54); x.fillStyle = open ? '#ffe9a8' : '#998'; x.fillText(`${i + 1}. ${L.name}`, 300, yy); x.font = '15px Fredoka, sans-serif'; x.fillText(S.done[id] ? `Cleared ✔   Relics ${(S.jewels[id] || []).filter(Boolean).length}/3` : open ? 'Open' : 'Locked', 300, yy + 21); x.font = 'bold 20px Fredoka, sans-serif'; });
       x.fillStyle = '#b5332a'; x.fillText('▲ Princess Wrenna', 300, 46); x.fillStyle = '#3a2a1c'; x.fillText('● Bramblewick (you are here)', 300, 590);
       obj += tick(S.done.l1, 'Climb Greenfoot Slopes (west gate)') + tick(S.done.l2, 'Cross Thunder Gorge (north gate)') + tick(S.won, 'Climb the Frostfang Stair and free the Princess (east gate)');
-      const jw = ORDER.reduce((a, id) => a + (S.jewels[id] || []).filter(Boolean).length, 0); obj += tick(jw >= 9, `Find the Princess's nine jewels (${jw}/9)`);
+      const jw = ORDER.reduce((a, id) => a + (S.jewels[id] || []).filter(Boolean).length, 0); obj += tick(jw >= 9, `Find the nine hidden relics: each unlocks an upgrade (${jw}/9)`);
       obj += `<li>○ Visit Nib's stall to spend coins (${S.coins})</li>`;
     } else {
       $('mapTitle').textContent = W.def.name; const sc = (w / 2 - 22) / (sp.R0 + 40), X = v => w / 2 + v * sc, Z = v => h / 2 + v * sc, rv = sp.river;
@@ -63,7 +63,7 @@ export class UI {
       x.fillStyle = '#3a2a1c'; x.fillText('START', X(W.start.x), Z(W.start.z) + 20); x.fillStyle = '#b5332a'; x.fillText(W.boss ? '♛ Chieftain' : '⚑ Gate', X(0), Z(0) + 5);
       const p = G.player; x.save(); x.translate(X(p.pos.x), Z(p.pos.z)); x.rotate(-p.yaw); x.fillStyle = '#1a6fd8'; x.strokeStyle = '#fff'; x.lineWidth = 2; x.beginPath(); x.moveTo(0, -11); x.lineTo(7, 8); x.lineTo(0, 4); x.lineTo(-7, 8); x.closePath(); x.fill(); x.stroke(); x.restore();
       const id = W.def.id, jn = (S.jewels[id] || []).filter(Boolean).length, lit = W.camps.filter(c => c.lit).length;
-      obj += tick(S.done[id] || S.won && id === 'l3', W.def.goal) + tick(lit >= W.camps.length, `Light the campfires (${lit}/${W.camps.length})`) + tick(jn >= 3, `Find the hidden jewels (${jn}/3)`);
+      obj += tick(S.done[id] || S.won && id === 'l3', W.def.goal) + tick(lit >= W.camps.length, `Light the campfires (${lit}/${W.camps.length})`) + tick(jn >= 3, `Find the hidden relics (${jn}/3)`);
       obj += `<li>○ Height: ${Math.max(0, Math.round(p.pos.y))} m of ${Math.round(sp.Ytop)} m</li><li class="key"><span style="color:#3f8a3a">■</span> vines <span style="color:#d8762c">■</span> jumps <span style="color:#e2b33a">■</span> whip <span style="color:#54a6d6">■</span> hook <span style="color:#c0392b">■</span> traps <span style="color:#9ad0f0">■</span> glide</li>`;
     }
     $('mapObj').innerHTML = obj;
@@ -93,11 +93,11 @@ export class UI {
     this.set('coins', S.coins); const id = W.def.id;
     this.show('jewelBox', !W.def.hub); if (!W.def.hub) { this.set('jewels', (S.jewels[id] || []).filter(Boolean).length + '/3'); this.set('height', Math.max(0, Math.round(P.pos.y)) + ' m / ' + Math.round(W.spiral.Ytop) + ' m'); }
     this.show('heightBox', !W.def.hub);
-    const tools = (S.items.whip ? '<span><b>LMB</b> Whip</span>' : '') + (S.items.hook ? `<span><b>RMB</b> ${S.items.cannon ? 'Hand cannon' : 'Hook'}</span>` : '') + (S.items.glider ? '<span><b>Hold SPACE</b> Glide</span>' : '') + (S.bombs > 0 ? `<span><b>G</b> Squibs ×${S.bombs}</span>` : '') + `<span><b>SPACE</b> Jump ×${S.items.boots ? 3 : 2}</span><span><b>M</b> Map</span>`;
+    const tools = (S.items.whip ? '<span><b>LMB</b> Whip</span>' : '') + (S.items.hook ? `<span><b>RMB</b> ${S.items.cannon ? 'Hand cannon' : 'Hook'}</span>` : '') + (S.items.glider ? '<span><b>Hold SPACE</b> Glide</span>' : '') + (S.bombs > 0 ? `<span><b>G</b> Squibs ×${S.bombs}</span>` : '') + (S.relics.dash ? '<span><b>X</b> Air dash</span>' : '') + `<span><b>SPACE</b> Jump ×${(S.items.boots ? 3 : 2) + (S.relics.fourth ? 1 : 0)}</span><span><b>M</b> Map</span>`;
     if (this.last.tools !== tools) { this.last.tools = tools; $('tools').innerHTML = tools; }
     const bal = !!P.onBeam; this.show('balance', bal); if (bal) $('balDot').style.left = (50 + P.lean * 46) + '%';
     const st = P.swim ? 'Swimming: head for the bank!' : P.climb ? 'Climbing  ·  W/S up and down  ·  SPACE jump off' : P.swing ? 'Swinging  ·  SPACE let go' : P.glide ? 'Gliding' : P.steep ? 'Sliding!' : '';
     this.show('state', !!st); if (st) this.set('state', st);
-    const j = P.grounded ? 0 : P.jumps, mx = S.items.boots ? 3 : 2; let pips = ''; for (let i = 0; i < mx; i++) pips += i < j ? '○' : '●'; this.set('pips', P.grounded || P.swim ? '' : pips);
+    const j = P.grounded ? 0 : P.jumps, mx = (S.items.boots ? 3 : 2) + (S.relics.fourth ? 1 : 0); let pips = ''; for (let i = 0; i < mx; i++) pips += i < j ? '○' : '●'; this.set('pips', P.grounded || P.swim ? '' : pips);
   }
 }

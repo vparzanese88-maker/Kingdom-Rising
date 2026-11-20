@@ -34,7 +34,7 @@ button{font:inherit;cursor:pointer}
 #coinBox.pop{animation:pop .25s}
 @keyframes pop{50%{transform:scale(1.18)}}
 #jewelBox{left:16px;top:58px}
-#jewelBox i{color:#ff6fb5;font-style:normal}
+#jewelBox i{color:#7fe0ff;font-style:normal}
 #heightBox{right:16px;top:14px;font-size:17px}
 #tools{position:absolute;right:16px;bottom:14px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:70vw}
 #tools span{background:rgba(43,28,14,.6);color:#fff;border-radius:10px;padding:4px 10px;font-size:14px}
@@ -106,16 +106,16 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795142241",
-"./src/entities.js": "./src/entities.js?v=1795142241",
-"./src/levels.js": "./src/levels.js?v=1795142241",
-"./src/main.js": "./src/main.js?v=1795142241",
-"./src/models.js": "./src/models.js?v=1795142241",
-"./src/player.js": "./src/player.js?v=1795142241",
-"./src/terrain.js": "./src/terrain.js?v=1795142241",
-"./src/ui.js": "./src/ui.js?v=1795142241",
-"./src/util.js": "./src/util.js?v=1795142241",
-"./src/world.js": "./src/world.js?v=1795142241"
+"./src/audio.js": "./src/audio.js?v=1795142307",
+"./src/entities.js": "./src/entities.js?v=1795142307",
+"./src/levels.js": "./src/levels.js?v=1795142307",
+"./src/main.js": "./src/main.js?v=1795142307",
+"./src/models.js": "./src/models.js?v=1795142307",
+"./src/player.js": "./src/player.js?v=1795142307",
+"./src/terrain.js": "./src/terrain.js?v=1795142307",
+"./src/ui.js": "./src/ui.js?v=1795142307",
+"./src/util.js": "./src/util.js?v=1795142307",
+"./src/world.js": "./src/world.js?v=1795142307"
 }
 }
 </script>
@@ -125,7 +125,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 
 <div id="hud" hidden>
   <div id="coinBox" class="pill"><i></i><span id="coins">0</span></div>
-  <div id="jewelBox" class="pill"><i>◆</i><span id="jewels">0/3</span></div>
+  <div id="jewelBox" class="pill" title="Relics"><i>✦</i><span id="jewels">0/3</span></div>
   <div id="heightBox" class="pill">▲ <span id="height">0 m</span></div>
   <div id="cross"></div><div id="pips"></div>
   <div id="prompt" hidden><b>E</b><span id="promptText"></span></div>
@@ -174,6 +174,6 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 </div></div>
 
 <div id="fade"></div>
-<script type="module" src="./src/main.js?v=1795142241"></script>
+<script type="module" src="./src/main.js?v=1795142307"></script>
 </body>
 </html>

@@ -4,10 +4,10 @@ import { World } from './world.js';
 import { Player } from './player.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
-import { LEVELS, ORDER, ITEMS } from './levels.js';
+import { LEVELS, ORDER, ITEMS, RELICS } from './levels.js';
 
 const $ = id => document.getElementById(id), KEY = 'goblin-peak-save-1';
-const fresh = () => ({ coins: 0, items: {}, upg: {}, done: {}, toll: {}, bombs: 0, jewels: {}, camp: {}, seen: {}, best: {}, stats: {}, sens: 1, third: false, won: false, cur: 'hub', played: 0 });
+const fresh = () => ({ coins: 0, items: {}, upg: {}, done: {}, toll: {}, bombs: 0, jewels: {}, relics: {}, camp: {}, seen: {}, best: {}, stats: {}, sens: 1, third: false, won: false, cur: 'hub', played: 0 });
 
 class Input {
   constructor() { this.k = {}; this.h = {}; this.mx = 0; this.my = 0; this.lmbHit = false; this.rmbHit = false; }
@@ -19,7 +19,7 @@ class Input {
 class Game {
   constructor() {
     this.canvas = $('game'); this.input = new Input(); this.audio = new Audio(); this.time = 0; this.frame = 0; this.locked = false; this.playing = false; this.paused = true;
-    this.load();
+    this.load(); { const S = this.save; S.relics = S.relics || {}; for (const id in S.jewels) (S.jewels[id] || []).forEach((v, i) => { if (v && RELICS[id] && RELICS[id][i]) S.relics[RELICS[id][i].id] = 1; }); }
     const r = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' }); r.setPixelRatio(Math.min(devicePixelRatio, 1.5)); r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     this.camera = new THREE.PerspectiveCamera(78, 1, 0.1, 1600);
     this.player = new Player(this); this.player.third = !!this.save.third; if (this.save.camDist) this.player.camDist = this.save.camDist; this.camera.add(this.player.hands);
@@ -80,17 +80,17 @@ class Game {
   addCoins(n, quiet) { this.save.coins += n; this.audio.sfx('coin'); this.stat('coins', n); $('coinBox').classList.remove('pop'); void $('coinBox').offsetWidth; $('coinBox').classList.add('pop'); }
   loseCoins() { const n = Math.min(this.save.coins, Math.max(5, Math.round(this.save.coins * 0.12)) >> (this.save.upg.purse ? 1 : 0), 30); if (n > 0) { this.save.coins -= n; const p = this.player.pos; this.world.dropCoins(p.x, p.y + 1.2, p.z, n); } }
   give(item) { this.save.items[item] = 1; this.saveNow(); this.audio.sfx('item'); const it = ITEMS[item]; this.ui.dialog([{ who: 'You found', text: it.name + '!' }, { who: it.name, text: it.text }]); }
-  gotJewel(idx) { const id = this.world.def.id, a = this.save.jewels[id] = this.save.jewels[id] || []; a[idx] = 1; this.audio.sfx('jewel'); this.addCoins(25, true); this.saveNow(); this.ui.toast(`One of the Princess's jewels! (${a.filter(Boolean).length}/3 on this trail)  +25 coins`, 5); }
+  gotJewel(idx) { const id = this.world.def.id, a = this.save.jewels[id] = this.save.jewels[id] || []; a[idx] = 1; const r = (RELICS[id] || [])[idx]; if (r) this.save.relics[r.id] = 1; this.audio.sfx('jewel'); this.saveNow(); this.ui.dialog([{ who: 'You found a relic', text: (r ? r.name : 'A relic') + `!  (${a.filter(Boolean).length} of 3 on this trail)` }, { who: r ? r.name : 'Relic', text: r ? r.text : '' }]); }
   stat(k, n = 1) { this.save.stats[k] = (this.save.stats[k] || 0) + n; }
   fmt(t) { const m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + String(s).padStart(2, '0'); }
   completeLevel() {
     const id = this.world.def.id, S = this.save, first = !S.done[id]; S.done[id] = 1; const t = this.levelT; if (!S.best[id] || t < S.best[id]) S.best[id] = t; this.audio.sfx('win'); if (first) S.coins += 50; S.camp[id] = 0; this.saveNow();
     const nx = ORDER[ORDER.indexOf(id) + 1]; if (document.pointerLockElement) document.exitPointerLock();
-    this.ui.levelDone({ title: this.world.def.name + ' cleared!', body: `<p>Time on the trail: <b>${this.fmt(t)}</b> (best ${this.fmt(S.best[id])})</p><p>Jewels found: <b>${(S.jewels[id] || []).filter(Boolean).length}/3</b></p><p>Coins: <b>${S.coins}</b>${first ? ' (including a 50 coin bonus)' : ''}</p><p>${nx ? `The way to <b>${LEVELS[nx].name}</b> is now open, back in the village.` : ''}</p>` }, () => this.loadLevel('hub'));
+    this.ui.levelDone({ title: this.world.def.name + ' cleared!', body: `<p>Time on the trail: <b>${this.fmt(t)}</b> (best ${this.fmt(S.best[id])})</p><p>Relics found: <b>${(S.jewels[id] || []).filter(Boolean).length}/3</b></p><p>Coins: <b>${S.coins}</b>${first ? ' (including a 50 coin bonus)' : ''}</p><p>${nx ? `The way to <b>${LEVELS[nx].name}</b> is now open, back in the village.` : ''}</p>` }, () => this.loadLevel('hub'));
   }
   finishGame() {
     const S = this.save; if (S.won) return; S.won = true; S.done.l3 = 1; this.saveNow(); this.audio.sfx('win'); if (document.pointerLockElement) document.exitPointerLock(); const st = S.stats, jw = ORDER.reduce((a, id) => a + (S.jewels[id] || []).filter(Boolean).length, 0);
-    this.ui.levelDone({ title: 'The Princess is free!', body: `<p>Chieftain Grizzlegut was last seen rolling past the village, still shouting.</p><p>Total time: <b>${this.fmt(S.played)}</b></p><p>Goblins and friends bonked: <b>${st.bonked || 0}</b> · Times shoved about: <b>${(st.knocked || 0) + (st.flattened || 0)}</b></p><p>Jewels: <b>${jw}/9</b> · Coins collected: <b>${st.coins || 0}</b></p><p>The mountain stays open: go back for the jewels you missed.</p><p class="small">Goblin Peak. Music by Matthew Pablo, Hitctrl (CC-BY 3.0), cynicmusic, RandomMind and Juhani Junkala (CC0).</p>` }, () => { });
+    this.ui.levelDone({ title: 'The Princess is free!', body: `<p>Chieftain Grizzlegut was last seen rolling past the village, still shouting.</p><p>Total time: <b>${this.fmt(S.played)}</b></p><p>Goblins and friends bonked: <b>${st.bonked || 0}</b> · Times shoved about: <b>${(st.knocked || 0) + (st.flattened || 0)}</b></p><p>Relics: <b>${jw}/9</b> · Coins collected: <b>${st.coins || 0}</b></p><p>The mountain stays open: go back for the relics you missed.</p><p class="small">Goblin Peak. Music by Matthew Pablo, Hitctrl (CC-BY 3.0), cynicmusic, RandomMind and Juhani Junkala (CC0).</p>` }, () => { });
   }
   step(dt) {
     this.time += dt; this.frame++; this.levelT += dt; this.save.played += dt;

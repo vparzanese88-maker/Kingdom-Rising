@@ -36,6 +36,12 @@ export const ITEMS = {
   glider: { name: 'The Leaf Glider', text: 'HOLD SPACE while falling to glide. White columns of rising air will carry you higher.' },
   cannon: { name: 'The Grapple Hand Cannon', text: 'RIGHT CLICK (or Q) now fires a steel spike that sticks into ANYTHING you can see, twice as far, and hauls you to it. It also bonks goblins it lands near.' },
 };
+// Hidden relics: three on each trail. Each one unlocks a permanent upgrade that cannot be bought.
+export const RELICS = {
+  l1: [{ id: 'swift', name: 'Hare-Foot Anklet', text: 'You sprint faster.' }, { id: 'reach', name: 'Climber\'s Chalk', text: 'You can catch ledges from much further below.' }, { id: 'dash', name: 'Gale Feather', text: 'NEW MOVE: press X in mid-air to dash forward. Once per jump.' }],
+  l2: [{ id: 'rope', name: 'Spider-Silk Line', text: 'Your hook, cannon and whip all reach further.' }, { id: 'hawk', name: 'Hawk Pinion', text: 'The glider flies faster and sinks more slowly.' }, { id: 'iron', name: 'Ironroot Charm', text: 'Shoves, boulders and blasts throw you a quarter less far.' }],
+  l3: [{ id: 'thunder', name: 'Thunderclap Knot', text: 'Every whip crack now also bonks any goblin close around you.' }, { id: 'midas', name: 'Goblin Tax Ledger', text: 'Goblins drop twice as many coins.' }, { id: 'fourth', name: 'Cloudstep Boots', text: 'You gain one more jump in the air.' }],
+};
 export const SHOP = [
   { id: 'spring', name: 'Springier Soles', text: 'Every jump goes a little higher.', cost: [40, 90, 160] },
   { id: 'whip', name: 'Longer Lash', text: 'The whip reaches further, for branches and goblins.', cost: [50, 110] },
@@ -50,13 +56,13 @@ export const SHOP = [
 ];
 
 export const HUB_STORY = {
-  barnaby: g => g.save.won ? say('Old Barnaby', 'You did it! The Princess is back, the goblins are sulking, and the Chieftain is still rolling, last I heard.', 'The mountain is yours to wander now. There are still jewels up there, I reckon.')
+  barnaby: g => g.save.won ? say('Old Barnaby', 'You did it! The Princess is back, the goblins are sulking, and the Chieftain is still rolling, last I heard.', 'The mountain is yours to wander now. There are still relics hidden up there, I reckon: old things that teach you new tricks.')
     : !g.save.done.l1 ? say('Old Barnaby', 'There you are! Terrible news. Chieftain Grizzlegut has carried Princess Wrenna to the very top of Goblin Peak.', 'Three trails, one after the other: Greenfoot Slopes to the west, then Thunder Gorge, then the Frostfang Stair.', 'You cannot die up there, the mountain is too stubborn for that. But if you fall, you fall. And then you walk back up.', 'Light every campfire you find. Each one drops a rope net down the cliff, so the walk back is shorter.', 'Press M for the map. Now go on. West gate. She is probably furious.')
       : !g.save.done.l2 ? say('Old Barnaby', 'Greenfoot is behind you! The north gate is open: Thunder Gorge. Mind the river. It does not stop to chat.')
         : say('Old Barnaby', 'Only the Frostfang Stair is left, through the east gate. Wrap up warm. And bring that girl home.'),
   nib: g => say(N, g.save.seen.nib ? 'Back again! Coins for goods, goods for coins. No refunds, no biting.' : 'Psst. Yes, I am a goblin. A FREELANCE goblin. The Chieftain pays in turnips.', ...(g.save.seen.nib ? [] : ['You bring gold coins, I sell you things that make falling off mountains less likely. Everybody wins. Except the Chieftain.'])),
   hildaHub: g => g.save.won ? say(H, 'I would like it noted that I was nearly at the top when you finished.') : say(H, 'Dame Hilda, knight of the realm. I set out to rescue the Princess this morning.', 'I got quite high. Then a goblin sneezed on me and I fell all the way back here.', 'I shall try again shortly. You go ahead. I will catch up. Probably.'),
-  pip: g => say('Pip', ['Did you know you can jump on a goblin\'s head? They go POOF.', 'My dad says if you tap C while you are running fast you do a big slide. I do it down the hill all day.', 'There are pink jewels hidden on the mountain. Three on every trail. I counted. From down here. With my eyes shut.', 'Press V and you can see yourself from behind! I like your cape.'][Math.floor(g.time / 7) % 4]),
+  pip: g => say('Pip', ['Did you know you can jump on a goblin\'s head? They go POOF.', 'My dad says if you tap C while you are running fast you do a big slide. I do it down the hill all day.', 'There are glowing relics hidden on the mountain. Three on every trail. Each one teaches you a trick you cannot buy. My dad found one and now he can jump over our house.', 'Press V and you can see yourself from behind! I like your cape.'][Math.floor(g.time / 7) % 4]),
 };
 
 const L1 = [
@@ -188,7 +194,7 @@ const BOSS = {
   gong: ['AAARGH! NOT THE GONG! WHO PUT GONGS THERE? ...ME? FOR "ATMOSPHERE"?!', 'STOP THAT! MY EARS! THEY ARE SIXTY PERCENT OF ME!', 'NO NO NO NOT THE THIRD ONE... oh. Oh, the floor is very close now. Hello.'],
   fall: 'WAAAAAAGH! I WILL BE BACK! AS SOON AS I HAVE... WALKED... ALL THE WAY... BACK UP...',
   rescue: [...say(PR, 'FINALLY. Do you know how many turnips I have eaten? I counted. It was all of them.', 'You jumped, climbed, swung, glided and crawled up an entire mountain for me. That is the nicest thing anyone has ever done. Thank you, Hero.', 'Now. How do we get down?'), ...say('You', '...The same way we came up.'), ...say(PR, 'Wonderful. Is there a faster way?'), ...say('You', 'Well. There is the river.'), ...say(PR, 'I like you. Race you to the lake.')],
-  after: say(PR, 'I am staying up here a while. The view is excellent now that it is not through bars.', 'Go and find the rest of those jewels. They are mine, by the way. The goblins scattered them.'),
+  after: say(PR, 'I am staying up here a while. The view is excellent now that it is not through bars.', 'Go and find the rest of those relics. The goblins never worked out what they do. You will.'),
 };
 
 // Sprinkle the trickier goblins through each trail so no two stretches fight the same way.

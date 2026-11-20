@@ -21,7 +21,7 @@ export class Player {
   detach() { this.climb = null; this.swing = null; this.zip = null; }
   knock(dx, dz, power, up = 7) {
     if (this.inv > 0) return false;
-    const l = Math.hypot(dx, dz) || 1; power *= 1 - (this.G.save.upg.hide || 0) * 0.17; this.vel.set(dx / l * power, up, dz / l * power); this.stun = 0.5; this.inv = 1.4; this.detach(); this.grounded = false; this.pos.y += 0.06; this.shake = 0.35; this.slideT = 0;
+    const l = Math.hypot(dx, dz) || 1; power *= (1 - (this.G.save.upg.hide || 0) * 0.17) * (this.G.save.relics.iron ? 0.75 : 1); this.vel.set(dx / l * power, up, dz / l * power); this.stun = 0.5; this.inv = 1.4; this.detach(); this.grounded = false; this.pos.y += 0.06; this.shake = 0.35; this.slideT = 0;
     this.G.loseCoins(); this.G.audio.sfx('hit'); return true;
   }
   canStand() {
@@ -66,13 +66,13 @@ export class Player {
     const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     let wx = -sy * f + cy * s, wz = -cy * f - sy * s; const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
     const jumpHit = ctrl && I.hit('Space'), jumpHeld = ctrl && I.down('Space'), crouchHeld = ctrl && I.down('KeyC'), sprint = I.down('ShiftLeft') || I.down('ShiftRight');
-    this.hex = (this.hex || 0) - dt; const hexed = this.hex > 0, maxJumps = S.items.boots ? 3 : 2, jb = (1 + (S.upg.spring || 0) * 0.06) * (hexed ? 0.72 : 1);
+    this.hex = (this.hex || 0) - dt; const RL = S.relics, hexed = this.hex > 0, maxJumps = (S.items.boots ? 3 : 2) + (RL.fourth ? 1 : 0), jb = (1 + (S.upg.spring || 0) * 0.06) * (hexed ? 0.72 : 1);
     if (ctrl && I.hit('KeyG')) W.throwBomb(this);
     if (this.grounded && this.ground && this.ground.mover) { p.x += this.ground.dx; p.y += this.ground.dy; p.z += this.ground.dz; }
     const wasGrounded = this.grounded; let ice = false;
     // ---- tools
-    this.aimWhip = S.items.whip ? this.aimLimb(13 + (S.upg.whip || 0) * 2.5, this.swing && this.swing.a) : null; if (this.aimWhip && !W.hookOk(p, this.aimWhip)) this.aimWhip = null;
-    const hr = S.items.cannon ? 62 : 27; this.aimHook = S.items.hook ? (this.aimLimb(hr) || this.aimSurface(hr, !!S.items.cannon)) : null; this.hookDenied = false; if (this.aimHook && !W.hookOk(p, this.aimHook)) { this.aimHook = null; this.hookDenied = true; }
+    this.aimWhip = S.items.whip ? this.aimLimb(13 + (S.upg.whip || 0) * 2.5 + (S.relics.rope ? 3 : 0), this.swing && this.swing.a) : null; if (this.aimWhip && !W.hookOk(p, this.aimWhip)) this.aimWhip = null;
+    const hr = (S.items.cannon ? 62 : 27) + (S.relics.rope ? 9 : 0); this.aimHook = S.items.hook ? (this.aimLimb(hr) || this.aimSurface(hr, !!S.items.cannon)) : null; this.hookDenied = false; if (this.aimHook && !W.hookOk(p, this.aimHook)) { this.aimHook = null; this.hookDenied = true; }
     if (ctrl && I.lmbHit && S.items.whip && this.whipCd <= 0 && !this.swim) {
       this.whipCd = 0.4; this.whipAnim = 0.3;
       const hitMob = W.whipHit(this, 5.5 + (S.upg.whip || 0)); G.audio.sfx('whip');
@@ -109,7 +109,7 @@ export class Player {
       if (crouchHeld && !this.crouch) { this.crouch = true; if (this.grounded && Math.hypot(v.x, v.z) > 6.2) { this.slideT = 1.0; const b = 1.18; v.x *= b; v.z *= b; G.audio.sfx('slide'); } }
       if (!crouchHeld && this.crouch && this.canStand()) { this.crouch = false; this.slideT = 0; }
       const beam = null;
-      let maxSp = (this.crouch ? 2.5 : sprint ? 8.4 : 5.4) * (hexed ? 0.55 : 1); if (beam) maxSp = sprint ? 4.4 : 2.9;
+      let maxSp = (this.crouch ? 2.5 : sprint ? (RL.swift ? 9.4 : 8.4) : 5.4) * (hexed ? 0.55 : 1); if (beam) maxSp = sprint ? 4.4 : 2.9;
       if (this.grounded) {
         ice = this.ground ? !!this.ground.ice : W.iceAt(p.x, p.z);
         if (this.slideT > 0) {
@@ -134,11 +134,12 @@ export class Player {
         }
       }
       if (this.swing) { if (jumpHit) { this.swing = null; v.x *= 1.1; v.z *= 1.1; v.y += 4; this.jumps = 1; this.sinceJump = 0; G.audio.sfx('jump2'); } }
+      if (RL.dash && ctrl && I.hit('KeyX') && !this.grounded && !this.dashed && !this.swing) { this.dashed = true; const dx = wl > 0.1 ? wx / wl : -sy, dz = wl > 0.1 ? wz / wl : -cy; v.x = dx * 17; v.z = dz * 17; v.y = Math.max(v.y, 2.5); this.sinceJump = 0; G.audio.sfx('slide'); W.puff(p.x, p.y + 1, p.z, 0xffffff, 8); }
       // gliding
       this.glide = !!S.items.glider && jumpHeld && !this.grounded && !this.swing && (v.y < 0 || this.glide) && this.sinceJump > 0.22;
       if (this.glide) {
-        const fall = -2.5 + (S.upg.silk || 0) * 0.45; if (v.y < fall) v.y += (fall - v.y) * Math.min(1, 9 * dt);
-        const fx = -sy, fz = -cy, gs = 11.5, k = Math.min(1, 2.2 * dt); v.x += (fx * gs - v.x) * k; v.z += (fz * gs - v.z) * k;
+        const fall = -2.5 + (S.upg.silk || 0) * 0.45 + (RL.hawk ? 0.6 : 0); if (v.y < fall) v.y += (fall - v.y) * Math.min(1, 9 * dt);
+        const fx = -sy, fz = -cy, gs = RL.hawk ? 13.5 : 11.5, k = Math.min(1, 2.2 * dt); v.x += (fx * gs - v.x) * k; v.z += (fz * gs - v.z) * k;
         const up = W.updraftAt(p.x, p.y, p.z); if (up) v.y = Math.min(v.y + up * dt, 10);
       }
       v.y = Math.max(v.y - G_ * dt, -46);
@@ -189,7 +190,7 @@ export class Player {
           nx = px * b.ax - pz * b.az; nz = px * b.az + pz * b.ax; p.x = b.x + lx * b.ax - lz * b.az; p.z = b.z + lx * b.az + lz * b.ax;
         }
         // ledge grab: just short of the top while pushing toward it? Haul yourself up.
-        if (!wasGrounded && !this.climb && !this.zip && !b.beam && !b.noGrab && ctrl && top - p.y < 1.4 && v.y < 9 && v.y > -16 && wx * nx + wz * nz < -0.3) { p.x -= nx * 0.55; p.z -= nz * 0.55; p.y = top + 0.02; v.y = 0; this.grounded = true; this.ground = b; this.swing = null; if (b.crumble && !b.crT) b.crT = 0.001; this.mantleT = 0.25; G.audio.sfx('land'); continue; }
+        if (!wasGrounded && !this.climb && !this.zip && !b.beam && !b.noGrab && ctrl && top - p.y < (S.relics.reach ? 2.2 : 1.4) && v.y < 9 && v.y > -16 && wx * nx + wz * nz < -0.3) { p.x -= nx * 0.55; p.z -= nz * 0.55; p.y = top + 0.02; v.y = 0; this.grounded = true; this.ground = b; this.swing = null; if (b.crumble && !b.crT) b.crT = 0.001; this.mantleT = 0.25; G.audio.sfx('land'); continue; }
         const vn = v.x * nx + v.z * nz; if (vn < 0 && !this.climb) { v.x -= nx * vn; v.z -= nz * vn; }
         if (b.climb) {
           if (this.climb && this.climb.b === b) { if (nx * this.climb.fx + nz * this.climb.fz > 0.9) { touchedClimb = true; this.climb.nx = nx; this.climb.nz = nz; } }
@@ -209,7 +210,7 @@ export class Player {
       if (this.swing.L > this.swing.Lmin) this.swing.L = Math.max(this.swing.Lmin, this.swing.L - 5 * dt);
       if (this.grounded && this.swing.t > 0.5) this.swing = null;
     }
-    if (this.grounded) { if (!wasGrounded && this.airT > 0.5) { G.audio.sfx('land'); W.puff(p.x, p.y, p.z, 0xd8ccb0, 4); } this.jumps = 0; this.coyote = 0.12; this.airT = 0; }
+    if (this.grounded) { this.dashed = false; if (!wasGrounded && this.airT > 0.5) { G.audio.sfx('land'); W.puff(p.x, p.y, p.z, 0xd8ccb0, 4); } this.jumps = 0; this.coyote = 0.12; this.airT = 0; }
     else { this.coyote -= dt; this.airT += dt; }
     const r = Math.hypot(p.x, p.z), lim = T.S - 14; if (r > lim) { p.x *= lim / r; p.z *= lim / r; }
     this.ice = ice;

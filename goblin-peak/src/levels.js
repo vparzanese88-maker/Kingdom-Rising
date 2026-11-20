@@ -68,7 +68,7 @@ export const HUB_STORY = {
 const L1 = [
   path(44, 2, { name: 'Greenfoot Trailhead', npcs: [{ name: H, model: hilda, a: 14, lines: say(H, 'Oh good, it is you. I am just catching my breath. For the third time.', 'The trail winds round and round the mountain. Fall off the edge and you land on the loop below. Ask me how I know.', 'SHIFT to sprint, SPACE to jump, SPACE again in the air to jump again. Off you go!') }], tip: 'WASD to move, mouse to look, SHIFT to sprint. SPACE jumps, and SPACE again in the air is a double jump.' }),
   gap(3, 2.4, 3.6, 'stone', { tip: 'A ravine. Hop across the rock pinnacles. If you fall in, the near wall is hung with vines: walk into them and hold W to climb out.' }),
-  path(34, 3, { mobs: [['grunt', 0.5], ['grunt', 0.8]], tip: 'Goblins! Jump on their heads to bonk them. They cannot hurt you, but they will happily shove you off the mountain.' }),
+  path(34, 3, { mobs: [['grunt', 0.5], ['grunt', 0.8]], tip: 'Goblins! LEFT CLICK shoves them back, and jumping on their heads bonks them. They cannot hurt you, but they will happily shove you off the mountain.' }),
   climb(7, { tip: 'Vines. Walk into them and hold W to climb. SPACE springs you off the wall.' }),
   path(30, 2, { chest: 'whip', bark: [C, '(a horn blares from far above) OI! HERO! THE PRINCESS IS MINE. TURN ROUND, OR I WILL... ROLL THINGS AT YOU. BIG ROUND THINGS.'] }),
   swing(2, { tip: 'Look at a branch of the old tree over the ravine and LEFT CLICK: the whip wraps round it and you swing. LEFT CLICK the next branch mid-swing, or SPACE to let go.' }),

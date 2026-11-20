@@ -30,6 +30,8 @@ export class Net {
     if (m.t === 's') { let q = this.peers.get(m.from); if (!q) { q = this.spawnPeer(m); G.ui.toast(m.n + ' joined the climb.', 4); } q.n = m.n; q.tx = m.p[0]; q.ty = m.p[1]; q.tz = m.p[2]; q.yaw = m.yaw; q.mode = m.m; q.sp = m.sp; q.seen = G.time; if (q.r !== m.r) { q.r = m.r; q.x = q.tx; q.y = q.ty; q.z = q.tz; this.place(q); } }
     else if (m.t === 'boost' && m.to === this.id) { P.vel.y = 17; P.grounded = false; P.jumps = 1; P.pos.y += 0.1; G.audio.sfx('bounce'); G.ui.toast((this.nameOf(m.from)) + ' gave you a boost!', 3); }
     else if (m.t === 'pull' && m.to === this.id && m.r === G.world.def.id) { P.climb = P.swing = null; P.zip = { x: m.p[0], y: m.p[1] + 1.4, z: m.p[2], t: 0, last: 1e9, stuck: 0, sp: 24, pop: 6, sx: m.p[0], sy: m.p[1] + 1.4, sz: m.p[2] }; P.grounded = false; G.audio.sfx('whip'); G.ui.toast(this.nameOf(m.from) + ' is hauling you up with the whip!', 3); }
+    else if (m.t === 'push' && m.to === this.id) { if (P.knock(m.d[0], m.d[1], 9, 5, true)) G.ui.toast(this.nameOf(m.from) + ' shoved you!', 2); }
+    else if (m.t === 'tm') { const q = this.peers.get(m.from); if (q) { q.best = m.b || {}; q.run = m.r || {}; q.done = m.d || {}; } }
     else if (m.t === 'rope') this.makeRope(m.r, m.p[0], m.p[1], m.p[2]);
     else if (m.t === 'camp') { const W = G.regions ? G.regions[m.r] : (G.world.def.id === m.r ? G.world : null), c = W && W.camps[m.i - 1]; if (c && !c.lit) { c.setLit(true); G.save.camp[m.r] = Math.max(G.save.camp[m.r] || 0, m.i); G.ui.toast(this.nameOf(m.from) + ' lit a campfire: ' + (c.sec.name || 'camp') + '. Its rope net is down for you too.', 5); } }
   }
@@ -55,11 +57,16 @@ export class Net {
   // Whip crack landing on a friend: haul them to you.
   whipPull(P, range) {
     if (!this.on) return false; const p = P.pos, L = P.look, id = this.G.world.def.id;
-    for (const q of this.peers.values()) { if (q.r !== id) continue; const dx = q.x - p.x, dy = q.y + 0.9 - (p.y + P.eye), dz = q.z - p.z, d = Math.hypot(dx, dy, dz); if (d < 1.2 || d > range + 16) continue; if ((dx * L.x + dy * L.y + dz * L.z) / d > 0.93) { this.send({ t: 'pull', to: q.id, r: id, p: [p.x, p.y, p.z] }); this.G.ui.toast('You haul ' + q.n + ' up!', 2); return true; } }
+    for (const q of this.peers.values()) { if (q.r !== id) continue; const dx = q.x - p.x, dy = q.y + 0.9 - (p.y + P.eye), dz = q.z - p.z, d = Math.hypot(dx, dy, dz); if (d < 3 || d > range + 16) continue; if ((dx * L.x + dy * L.y + dz * L.z) / d > 0.93) { this.send({ t: 'pull', to: q.id, r: id, p: [p.x, p.y, p.z] }); this.G.ui.toast('You haul ' + q.n + ' up!', 2); return true; } }
     return false;
   }
+  pushFriend(P, fx, fz) {
+    if (!this.on) return false; const p = P.pos, id = this.G.world.def.id; let any = false;
+    for (const q of this.peers.values()) { if (q.r !== id) continue; const dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz); if (d < 2.7 && Math.abs(q.y - p.y) < 2.2 && (dx * fx + dz * fz) / (d || 1) > 0.35) { this.send({ t: 'push', to: q.id, d: [+fx.toFixed(2), +fz.toFixed(2)] }); any = true; } }
+    return any;
+  }
   update(dt) {
-    const G = this.G, P = G.player, W = G.world, I = G.input;
+    const G = this.G, P = G.player, W = G.world, I = G.input; this.tmAcc = (this.tmAcc || 0) + dt; if (this.on && this.tmAcc > 1) { this.tmAcc = 0; this.send({ t: 'tm', b: G.save.best, r: G.save.run, d: G.save.done }); }
     for (const r of this.ropes) { r.t -= dt; if (r.t <= 0) { r.b.solid = false; r.W.scene.remove(r.m, r.peg); r.dead = true; } } if (this.ropes.some(r => r.dead)) this.ropes = this.ropes.filter(r => !r.dead);
     if (!this.on) return;
     if (I.hit('KeyT') && !G.locked) this.dropRope();

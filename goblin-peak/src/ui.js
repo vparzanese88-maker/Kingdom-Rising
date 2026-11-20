@@ -91,8 +91,16 @@ export class UI {
       const el = $('guide'); el.style.left = ((x * 0.5 + 0.5) * 100).toFixed(1) + '%'; el.style.top = ((-y * 0.5 + 0.5) * 100).toFixed(1) + '%';
       this.set('guideArrow', !offs ? '▼' : behind ? (x < 0 ? '◀ turn round' : 'turn round ▶') : x < -0.85 ? '◀' : x > 0.85 ? '▶' : y > 0 ? '▲' : '▼'); this.set('guideText', Math.round(d) + ' m');
     }
+    const tab = I.down('Tab') && !this.dlg; this.show('board', tab);
+    if (tab && (G.frame & 7) === 0) {
+      const cell = (best, run, done) => (best ? `<b>✔ ${G.fmt(best)}</b>` : '') + (run > 1 ? `<i>${best ? '<br>' : ''}… ${G.fmt(run)}</i>` : '') || '–';
+      const rows = [{ n: (G.net.on ? G.net.name : 'You') + ' (you)', best: S.best, run: S.run || {}, r: W.def.id }, ...[...G.net.peers.values()].map(q => ({ n: q.n, best: q.best || {}, run: q.run || {}, r: q.r }))];
+      let h = '<tr><th>Player</th>' + ORDER.map(id2 => `<th>${LEVELS[id2].name}</th>`).join('') + '<th>Now in</th></tr>';
+      for (const r of rows) h += `<tr><td>${r.n}</td>` + ORDER.map(id2 => `<td>${cell(r.best[id2], r.run[id2])}</td>`).join('') + `<td>${(LEVELS[r.r] || LEVELS.hub).name}</td></tr>`;
+      $('boardT').innerHTML = h;
+    }
     this.set('coins', S.coins); const id = W.def.id;
-    this.show('jewelBox', !W.def.hub); if (!W.def.hub) { this.set('jewels', (S.jewels[id] || []).filter(Boolean).length + '/3'); this.set('height', Math.max(0, Math.round(P.pos.y)) + ' m / ' + Math.round(W.spiral.Ytop) + ' m'); }
+    this.show('jewelBox', !W.def.hub); if (!W.def.hub) { this.set('jewels', (S.jewels[id] || []).filter(Boolean).length + '/3'); this.set('height', Math.max(0, Math.round(P.pos.y)) + ' m / ' + Math.round(W.spiral.Ytop) + ' m   ⏱ ' + G.fmt((S.run || {})[id] || 0)); }
     this.show('heightBox', !W.def.hub);
     const tools = (S.items.whip ? '<span><b>LMB</b> Whip</span>' : '') + (S.items.hook ? `<span><b>RMB</b> ${S.items.cannon ? 'Hand cannon' : 'Hook'}</span>` : '') + (S.items.glider ? '<span><b>Hold SPACE</b> Glide</span>' : '') + (G.net.on ? `<span><b>T</b> Rope · online ${G.net.code} (${G.net.count()})</span>` : '') + (S.bombs > 0 ? `<span><b>G</b> Squibs ×${S.bombs}</span>` : '') + (S.relics.dash ? '<span><b>X</b> Air dash</span>' : '') + `<span><b>SPACE</b> Jump ×${(S.items.boots ? 3 : 2) + (S.relics.fourth ? 1 : 0)}</span><span><b>M</b> Map</span>`;
     if (this.last.tools !== tools) { this.last.tools = tools; $('tools').innerHTML = tools; }

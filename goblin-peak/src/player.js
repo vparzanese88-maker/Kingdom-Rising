@@ -19,10 +19,10 @@ export class Player {
   }
   spawn(x, y, z, yaw = 0) { this.routePhi = undefined; this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = 0; this.climb = this.swing = this.zip = null; this.crouch = false; this.swim = false; this.H = 1.8; this.stun = 0; this.inv = 1; this.lean = 0; }
   detach() { this.climb = null; this.swing = null; this.zip = null; }
-  knock(dx, dz, power, up = 7) {
+  knock(dx, dz, power, up = 7, friendly) {
     if (this.inv > 0) return false;
     const l = Math.hypot(dx, dz) || 1; power *= (1 - (this.G.save.upg.hide || 0) * 0.17) * (this.G.save.relics.iron ? 0.75 : 1); this.vel.set(dx / l * power, up, dz / l * power); this.stun = 0.5; this.inv = 1.4; this.detach(); this.grounded = false; this.pos.y += 0.06; this.shake = 0.35; this.slideT = 0;
-    this.G.loseCoins(); this.G.audio.sfx('hit'); return true;
+    if (!friendly) this.G.loseCoins(); this.G.audio.sfx('hit'); return true;
   }
   canStand() {
     const p = this.pos;
@@ -73,6 +73,8 @@ export class Player {
     // ---- tools
     this.aimWhip = S.items.whip ? this.aimLimb(13 + (S.upg.whip || 0) * 2.5 + (S.relics.rope ? 3 : 0), this.swing && this.swing.a) : null; if (this.aimWhip && !W.hookOk(p, this.aimWhip)) this.aimWhip = null;
     const hr = (S.items.cannon ? 62 : 27) + (S.relics.rope ? 9 : 0); this.aimHook = S.items.hook ? (this.aimLimb(hr) || this.aimSurface(hr, !!S.items.cannon)) : null; this.hookDenied = false; if (this.aimHook && !W.hookOk(p, this.aimHook)) { this.aimHook = null; this.hookDenied = true; }
+    this.pushT = (this.pushT || 0) - dt;
+    if (ctrl && I.lmbHit && this.whipCd <= 0 && !this.swim) { const hit = W.pushHit(this, !S.items.whip); if (!S.items.whip || hit) { this.pushT = 0.28; G.audio.sfx(hit ? 'bonk' : 'throw'); if (!S.items.whip) this.whipCd = 0.45; } }
     if (ctrl && I.lmbHit && S.items.whip && this.whipCd <= 0 && !this.swim) {
       this.whipCd = 0.4; this.whipAnim = 0.3;
       const hitMob = W.whipHit(this, 5.5 + (S.upg.whip || 0)); G.audio.sfx('whip');
@@ -238,8 +240,8 @@ export class Player {
     } else {
       const h = this.hands.userData, sw = this.whipAnim > 0 ? Math.sin((0.3 - this.whipAnim) / 0.3 * Math.PI) : 0, bobT = this.airT < 0.2 ? 1 : 0, bob = (this.bobK = (this.bobK || 0) + (bobT - (this.bobK || 0)) * 0.15) * Math.sin(G.time * (sp > 6 ? 12 : 8.5)) * Math.min(1, sp / 5) * 0.014;
       const run = (this.bobK || 0) * Math.min(1, sp / 8.4), pump = Math.sin(G.time * (sp > 6 ? 12 : 8.5)) * run, air = this.airT > 0.2 && !this.climb && !this.swing && !this.zip ? 1 : 0, ck = Math.sin(G.time * 7) * 0.2 * Math.sign(this.vel.y), E = (o, a, v, k) => { o[a] += (v - o[a]) * (k || 0.22); };
-      E(h.r.rotation, 'x', 0.2 - sw * 1.3 + (this.swing ? -0.9 : 0) + (this.climb ? -0.7 + ck : 0) + pump * 0.22 - air * 0.25, sw > 0 ? 0.6 : 0.22); E(h.r.position, 'y', -0.3 + bob + (this.glide ? 0.2 : 0) + air * 0.03); E(h.r.position, 'z', -0.55 - pump * 0.05);
-      E(h.l.rotation, 'x', 0.2 + (this.zip ? -0.5 : 0) + (this.climb ? -0.7 - ck : 0) - pump * 0.22 - air * 0.25); E(h.l.position, 'y', -0.3 - bob + (this.glide ? 0.2 : 0) + air * 0.03); E(h.l.position, 'z', -0.55 + pump * 0.05);
+      E(h.r.rotation, 'x', 0.2 - sw * 1.3 + (this.swing ? -0.9 : 0) + (this.climb ? -0.7 + ck : 0) + pump * 0.22 - air * 0.25, sw > 0 ? 0.6 : 0.22); E(h.r.position, 'y', -0.3 + bob + (this.glide ? 0.2 : 0) + air * 0.03); E(h.r.position, 'z', -0.55 - pump * 0.05 - (this.pushT > 0 ? 0.3 : 0), this.pushT > 0 ? 0.6 : 0.22);
+      E(h.l.rotation, 'x', 0.2 + (this.zip ? -0.5 : 0) + (this.climb ? -0.7 - ck : 0) - pump * 0.22 - air * 0.25); E(h.l.position, 'y', -0.3 - bob + (this.glide ? 0.2 : 0) + air * 0.03); E(h.l.position, 'z', -0.55 + pump * 0.05 - (this.pushT > 0 ? 0.3 : 0), this.pushT > 0 ? 0.6 : 0.22);
       h.whip.visible = !!G.save.items.whip; h.coil.visible = !this.swing && this.whipAnim <= 0; h.hook.visible = !!G.save.items.hook && !G.save.items.cannon; h.cannon.visible = !!G.save.items.cannon;
     }
     // the whip lash (a tapering leather thong that arcs out and cracks) or the hook rope

@@ -379,6 +379,12 @@ export class World {
     const t = 3.5; this.puff(p.x + L.x * t, ey + L.y * t, p.z + L.z * t, 0xfff2c0, any ? 6 : 2); return any;
   }
   throwBomb(P) { const S = this.G.save; if (!(S.bombs > 0)) { this.G.audio.sfx('nope'); this.G.ui.toast('No squibs. Nib sells them.', 2); return; } S.bombs--; const L = P.look; this.add(new Bomb(this, P.pos.x + L.x, P.pos.y + P.eye, P.pos.z + L.z, L.x * 15 + P.vel.x * 0.5, L.y * 15 + 5, L.z * 15 + P.vel.z * 0.5, true)); this.G.audio.sfx('throw'); }
+  // A two-handed shove at whatever is right in front: friends always, goblins too until you have the whip.
+  pushHit(P, mobs) {
+    const p = P.pos, fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); let any = this.G.net.pushFriend(P, fx, fz);
+    if (mobs) for (const e of this.ents) { if (!e.mob || e.dead || e.k.slam) continue; const dx = e.x - p.x, dz = e.z - p.z, d = Math.hypot(dx, dz); if (d < 2.3 + e.k.r && Math.abs(e.y - p.y) < 2.5 && (dx * fx + dz * fz) / (d || 1) > 0.4) { e.stunT = 1.1; e.state = 'idle'; e.carry = null; e.move(fx * 2.6, fz * 2.6); this.puff(e.x, e.y + 1, e.z, 0xffffff, 4); any = true; } }
+    return any;
+  }
   cannonBlast(t) { for (const e of this.ents) if (e.mob && !e.dead && Math.hypot(e.x - t.x, e.y - t.y, e.z - t.z) < 3.5) e.hit(1, t.x, t.z); }
   puff(x, y, z, color, n) { for (let i = 0; i < n; i++) { const q = this.parts[this.pi = (this.pi + 1) % this.parts.length]; q.m.position.set(x, y, z); q.m.material.color.set(color); q.v.set((Math.random() - 0.5) * 5, Math.random() * 4 + 1, (Math.random() - 0.5) * 5); q.life = 0.5 + Math.random() * 0.3; q.m.visible = true; } }
 

@@ -12,12 +12,12 @@ export const THEMES = {
   gorge: { sky: [0x4a86d8, 0xf6d9b0], fog: [0xf2d2a8, 90, 470], ground: [0.82, 0.62, 0.36], ground2: [0.7, 0.56, 0.3], rock: [0.72, 0.4, 0.25], trail: [0.6, 0.44, 0.3], bed: [0.36, 0.44, 0.44], tree: [0x55742a, 0x6a8a30], trunk: 0x7a5236, sun: 0xffe2b8, music: 'calm_cave', rockCol: 0xb5683f },
   snow: { sky: [0x6aa2dc, 0xeaf3fa], fog: [0xe6f0f8, 70, 400], ground: [0.92, 0.95, 0.99], ground2: [0.84, 0.9, 0.97], rock: [0.45, 0.5, 0.6], trail: [0.76, 0.83, 0.93], bed: [0.5, 0.66, 0.78], tree: [0x2c5f4a, 0xe8f0f6], trunk: 0x5a4030, sun: 0xf4f8ff, music: 'calm_snow', rockCol: 0x7f8a9c },
 };
-const ROCK = 't', WOOD = 0x8a6238, LOG = 0x7a5230, PLANK = 0xb08a52;
+const G0 = w => w.G; const ROCK = 't', WOOD = 0x8a6238, LOG = 0x7a5230, PLANK = 0xb08a52;
 const rt = { phi: 0, lat: 0, on: false };
 
 // How each kind of section shapes the trail: y (height by arc metres), pit (depth), width.
 const PROFILE = {
-  climb: s => ({ y: a => a < 6 ? 0 : s.rise }), cliff: s => ({ y: a => a < 6 ? 0 : s.rise }),
+  climb: s => ({ y: a => a < 6 ? 0 : s.rise }), teamwall: s => ({ y: a => a < 6 ? 0 : s.rise }), cliff: s => ({ y: a => a < 6 ? 0 : s.rise }),
   gap: s => ({ pit: a => a > 4 && a < s.len - 4 ? s.depth || 9 : 0, y: s.style === 'rising' ? a => a < s.len - 4 ? 0 : s.rise : null }),
   beam: s => ({ pit: a => a > 4 && a < s.len - 4 ? s.depth || 9 : 0 }), swing: s => ({ pit: a => a > 4 && a < s.len - 4 ? s.depth || 9 : 0 }),
   traverse: s => ({ pit: a => a > 4 && a < s.len - 4 ? s.depth || 9 : 0 }), zip: s => ({ pit: a => a > 4 && a < s.len - 4 ? s.depth || 9 : 0 }),
@@ -88,7 +88,10 @@ export class World {
 
   // ------------------------------------------------------------------ mountain stages
   buildMountain() {
-    const def = this.def, P0 = 46, k0 = P0 / TAU, Ltot = def.sections.reduce((a, s) => a + s.len, 0) + 80, R0 = Math.sqrt(58 * 58 + 2 * k0 * Ltot), phiEst = (R0 - 58) / k0;
+    const def = this.def, P0 = 46, k0 = P0 / TAU; let list = def.sections;
+    if (this.G.coop) { // online: walls only two can scale and gates only two can pass, every few sections
+      list = []; let k = 0; def.sections.forEach((s, i) => { list.push(s); if (i > 1 && i % 5 === 2 && i < def.sections.length - 3) list.push(k++ % 2 ? { t: 'teamgate', len: 30, rise: 0, w: 6 } : { t: 'teamwall', len: 12, rise: 7.5 }); }); }
+    const Ltot = list.reduce((a, s) => a + s.len, 0) + 80, R0 = Math.sqrt(58 * 58 + 2 * k0 * Ltot), phiEst = (R0 - 58) / k0;
     const rloops = def.river ? Math.min(def.river.loops, Math.floor((phiEst - def.river.th - 0.5) / TAU) + 1) : 0;
     const sp = this.spiral = this.T = new Spiral({ R0, P: P0, realm: this.realm, river: rloops > 0 ? { th: def.river.th, loops: rloops } : null }), rv = sp.river;
     let crossN = 0;
@@ -96,7 +99,7 @@ export class World {
       s.w = s.w || 5; const pr = PROFILE[s.t] ? PROFILE[s.t](s) : {}, rec = sp.lay(s.len, s.rise || 0, pr.y, pr.pit, () => s.w);
       s.p0 = rec.p0; s.p1 = rec.p1; s.y0 = rec.y0; s.y1 = rec.y1; s.at = (a, l = 0, u = 0) => sp.frame(s.p0 + (a / s.len) * (s.p1 - s.p0), l, u); s.idx = this.secs.length; this.secs.push(s);
     };
-    for (const s0 of def.sections) {
+    for (const s0 of list) {
       const s = Object.assign({}, s0);
       if (rv && crossN < rv.loops) {
         const cross = rv.th + TAU * crossN, start = cross - 12 / sp.R(cross);
@@ -117,10 +120,10 @@ export class World {
   common(s) {
     const sp = this.spiral, G = this.G;
     if (s.ice) this.iceR.push([s.p0, s.p1]);
-    if (s.t === 'logs' || s.t === 'rockfall' || s.t === 'traps' || s.t === 'crawl' || s.t === 'ambush' || s.t === 'chase') this.benchWall(s);
+    if (s.t === 'logs' || s.t === 'rockfall' || s.t === 'traps' || s.t === 'crawl' || s.t === 'ambush' || s.t === 'chase' || s.t === 'teamgate') this.benchWall(s);
     if (s.rain) this.add(new RockRain(this, s, s.rain === true ? 0.5 : s.rain)); if (s.wind) this.add(new Wind(this, s));
     if ((s.t === 'path' || s.t === 'ramp' || s.t === 'traps' || s.t === 'chase' || s.t === 'ambush') && s.coins !== 0) this.coinLine(s, 2, s.len - 2, a => Math.sin(a * 0.16 + s.idx) * (s.w - 2.2), 1, Math.floor(s.len / 4.5));
-    for (const m of s.mobs || []) { const f = s.at(m[1] * s.len, m[2] || 0, 0); this.add(new Mob(this, m[0], f.x, f.z, { range: m[3] || Math.min(16, s.len / 2) })); }
+    for (const m of s.mobs || []) { const f = s.at(m[1] * s.len, m[2] || 0, 0); this.add(new Mob(this, m[0], f.x, f.z, { range: m[3] || Math.min(16, s.len / 2) })); if (G.coop && ['grunt', 'brute', 'shield', 'boar', 'ram'].includes(m[0])) { const g = s.at(Math.min(s.len - 2, m[1] * s.len + 4), -(m[2] || 0) + 1.5, 0); this.add(new Mob(this, m[0], g.x, g.z, { range: m[3] || Math.min(16, s.len / 2) })); } }
     if (s.chest) { const f = s.at(s.len / 2, -s.w + 2, 0); this.add(new Chest(this, f.x, f.z, s.chest, f.yaw + Math.PI / 2)); }
     for (const n of s.npcs || []) { const f = s.at(n.a === undefined ? s.len / 2 : n.a, n.lat === undefined ? -s.w + 1.6 : n.lat, 0); if (n.stall) { const st = M.stall(); st.position.set(f.x - f.nx * 1.4, this.T.hAt(f.x, f.z), f.z - f.nz * 1.4); st.rotation.y = Math.atan2(f.nx, f.nz); this.scene.add(st); } this.add(new NPC(this, f.x, f.z, { name: n.name, model: n.model(), lines: n.lines, after: n.after, prompt: n.prompt })); }
     if (s.tip) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 't' + this.def.id + s.idx, fn: () => G.ui.toast(s.tip, 9) });
@@ -191,6 +194,23 @@ export class World {
     this.add(new Ambush(this, s, box, g, mobs));
   }
   b_chase(s) { this.add(new Chase(this, s)); for (let a = 24; a < s.len - 12; a += 13) { const f = s.at(a, 0, 0); this.addBox(f.x, f.y + 0.42, f.z, s.w + 3, 0.45, 0.45, f.th + 0.1, LOG, { log: 1 }); } }
+  // Online only. A sheer wall with no vines: one hero boosts the other up, who then pegs a rope or whips them up after.
+  b_teamwall(s) {
+    const w = s.w + 1.5, r = s.rise, f = s.at(6, 0, 0), box = this.addBox(f.x, s.y0 + (r - 1) / 2 + 0.015, f.z, w, (r + 1) / 2, 2.4, f.th, ROCK, { noHook: true });
+    const v = this.vines((w - 0.6) * 2, r); this.deco(s, 3.46, 0, r / 2, v, 0); const sg = M.signBoard('TWO-HERO WALL', 'E boosts a friend  ·  T pegs a rope', '#54a6d6', 5, 1.65); this.deco(s, 2.2, -s.w + 1.4, 2.2, sg, Math.PI / 2 + Math.PI);
+    this.add({ update: () => { const alone = G0(this).net.count() < 2; box.climb = alone; v.visible = alone; } });
+    this.triggers.push({ p0: s.p0, p1: s.p0 + 6 / this.spiral.R(s.p0), fn: () => this.G.ui.toast(this.G.net.count() < 2 ? 'A two-hero wall. You are alone, so the vines are out for you.' : 'Too sheer to climb alone. One of you boosts the other (E beside them), then the one on top pegs a rope (T) or whips the other up.', 7), repeat: 30 });
+  }
+  // Online only. A gate that stays up only while someone stands on a plate: one holds it, the other goes through and holds the far plate.
+  b_teamgate(s) {
+    const w = s.w, f = s.at(15, 0, 0), box = this.addBox(f.x, f.y + 3.5, f.z, w + 4, 4.5, 0.6, f.th, null, { noHook: true, noGrab: true });
+    const g = new THREE.Group(); for (let i = 0; i < 7; i++) { const l = M.cyl(0x4a4a52, 0.34, (w + 4) * 2, 0, 0.4 + i * 0.78, 0); l.rotation.z = Math.PI / 2; g.add(l); } for (const x of [-w - 2, -w / 2, 0, w / 2, w + 2]) g.add(M.cyl(0x2a2a32, 0.18, 7, x, 3.3, 0.4)); this.deco(s, 15, 0, 0, g); const gy = g.position.y;
+    const plates = [8, 22].map(a => { const q = s.at(a, 0, 0), m = M.cyl(0x54a6d6, 1.7, 0.16, q.x, q.y + 0.08, q.z, { e: 0x103a55 }); m.castShadow = false; this.scene.add(m); return { x: q.x, y: q.y, z: q.z, m }; });
+    const id = this.def.id, on = (px, py, pz) => plates.some(p => Math.hypot(px - p.x, pz - p.z) < 1.9 && Math.abs(py - p.y) < 2);
+    this.add({ update: dt => { const G = this.G, N = G.net, P = G.player.pos; let open = N.count() < 2 || (G.world === this && on(P.x, P.y, P.z)); if (!open) for (const q of N.peers.values()) if (q.r === id && on(q.x, q.y, q.z)) { open = true; break; }
+      if (open !== !box.solid) { box.solid = !open; G.world === this && Math.hypot(P.x - f.x, P.z - f.z) < 40 && G.audio.sfx(open ? 'camp' : 'crumble'); } g.position.y += ((open ? gy - 7.5 : gy) - g.position.y) * Math.min(1, 6 * dt); for (const p of plates) p.m.material = M.mat(open ? 0x7ee07a : 0x54a6d6, { e: open ? 0x1a5a1a : 0x103a55 }); } });
+    this.triggers.push({ p0: s.p0, p1: s.p0 + 6 / this.spiral.R(s.p0), fn: () => this.G.ui.toast(this.G.net.count() < 2 ? 'A two-hero gate. You are alone, so it stands open.' : 'The gate only stays down while someone stands on a blue plate. One of you hold it; the other go through and hold the plate on the far side.', 7), repeat: 30 });
+  }
   // Fallen trees across the trail: hop the low ones, crawl or slide under the high ones.
   b_logs(s) {
     const w = s.w;

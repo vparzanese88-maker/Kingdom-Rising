@@ -21,7 +21,8 @@ class Input {
 class Game {
   constructor() {
     this.canvas = $('game'); this.input = new Input(); this.audio = new Audio(); this.time = 0; this.frame = 0; this.locked = false; this.playing = false; this.paused = true;
-    this.load(); { const S = this.save; S.relics = S.relics || {}; for (const id in S.jewels) (S.jewels[id] || []).forEach((v, i) => { if (v && RELICS[id] && RELICS[id][i]) S.relics[RELICS[id][i].id] = 1; }); }
+    try { const m = sessionStorage.getItem('gp-mp'); if (m) { sessionStorage.removeItem('gp-mp'); this.mp = JSON.parse(m); this.coop = true; } } catch (e) { }
+    if (this.mp) this.save = fresh(); else this.load(); { const S = this.save; S.relics = S.relics || {}; for (const id in S.jewels) (S.jewels[id] || []).forEach((v, i) => { if (v && RELICS[id] && RELICS[id][i]) S.relics[RELICS[id][i].id] = 1; }); }
     const r = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' }); r.setPixelRatio(Math.min(devicePixelRatio, 1.5)); r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     this.camera = new THREE.PerspectiveCamera(78, 1, 0.1, 1600);
     this.player = new Player(this); this.player.third = !!this.save.third; if (this.save.camDist) this.player.camDist = this.save.camDist; this.camera.add(this.player.hands);
@@ -30,10 +31,11 @@ class Game {
     this.last = performance.now(); requestAnimationFrame(t => this.loop(t));
     const q = new URLSearchParams(location.search); this.debug = q.has('debug'); if (q.get('level')) { this.begin(q.get('level')); }
     else if (!q.has('split')) { this.buildRealm(); this.loadLevel(this.save.played ? this.save.cur : 'hub', true); }
+    if (this.mp && this.regions) { const m = this.mp; this.net.name = m.name || 'Hero'; if (m.host) this.net.host(m.code); else this.net.join(m.code); this.testing = q.has('debug'); this.begin('hub'); this.testing = false; this.ui.toast(m.host ? `You are hosting a fresh climb. Tell your friends the code: ${m.code}. Click the game to take control.` : `Joining ${m.code} on a fresh climb. Click the game to take control.`, 14); }
     else this.loadLevel(this.save.played ? this.save.cur : 'hub', true);
   }
   load() { try { this.save = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { this.save = fresh(); } }
-  saveNow() { try { localStorage.setItem(KEY, JSON.stringify(this.save)); } catch (e) { } }
+  saveNow() { if (this.coop) return; try { localStorage.setItem(KEY, JSON.stringify(this.save)); } catch (e) { } }     // an online climb never touches the solo save
   resize() { const w = innerWidth, h = innerHeight; this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
   bind() {
     const I = this.input, c = this.canvas;
@@ -57,9 +59,11 @@ class Game {
     $('btnContinue').onclick = () => { this.audio.unlock(); this.begin(this.save.cur || 'hub'); };
     $('btnResume').onclick = () => this.pause(false);
     const nm = () => { this.net.name = ($('netName').value || 'Hero').trim().slice(0, 12) || 'Hero'; this.save.name = this.net.name; };
-    $('netName').value = this.save.name || ''; $('netCode').addEventListener('keydown', e => e.stopPropagation()); $('netName').addEventListener('keydown', e => e.stopPropagation());
-    $('btnHost').onclick = () => { this.audio.unlock(); nm(); const c = this.net.host(); if (c) { this.begin(this.save.played ? this.save.cur : 'hub'); this.ui.toast('You are hosting. Tell your friends the code: ' + c + '  (it is also on the pause screen)', 12); } };
-    $('btnJoin').onclick = () => { this.audio.unlock(); nm(); const c = $('netCode').value.trim(); if (c.length < 4) { $('netCode').focus(); return; } this.net.join(c); this.begin(this.save.played ? this.save.cur : 'hub'); };
+    $('netName').value = localStorage.getItem(KEY + '-name') || ''; $('netCode').addEventListener('keydown', e => e.stopPropagation()); $('netName').addEventListener('keydown', e => e.stopPropagation());
+    // Going online reloads into a clean world: everyone starts from nothing, with the co-op obstacles built in.
+    const goOnline = o => { nm(); try { localStorage.setItem(KEY + '-name', this.net.name); sessionStorage.setItem('gp-mp', JSON.stringify(Object.assign(o, { name: this.net.name }))); } catch (e) { } const u = new URL(location.href); location.href = u.pathname + u.search; };
+    $('btnHost').onclick = () => goOnline({ host: 1, code: this.net.makeCode() });
+    $('btnJoin').onclick = () => { const c = $('netCode').value.trim().toUpperCase(); if (c.length < 4) { $('netCode').focus(); return; } goOnline({ host: 0, code: c }); };
     $('btnFull').onclick = () => this.fullscreen();
     $('btnVillage').onclick = () => { this.pause(false); if (!this.world.def.hub) this.loadLevel('hub'); };
     $('btnCamp').onclick = () => { this.pause(false); this.toCamp(); };

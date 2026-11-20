@@ -181,7 +181,7 @@ export class Roller {
     const W = this.W, P = W.G.player, p = P.pos, d = Math.hypot(p.x - this.x, p.z - this.z); this.t += dt; this.cd -= dt;
     if (d < 0.95 && p.y - this.y > 0.6 && p.y - this.y < 2 && P.vel.y < -2) { this.hit(); P.vel.y = 10.5; P.jumps = 1; return; }
     face(this.mesh, p.x - this.x, p.z - this.z); M.animBiped(this.mesh, this.t * 3, 0, this.cd < 0.5 ? 'cheer' : 'idle'); this.mesh.position.y = this.y;
-    if (d < (this.o.range || 60) && d > 6 && this.cd <= 0 && !W.G.locked) { this.cd = this.o.every || 3.4; W.G.audio.sfx('rumble', clamp(1 - d / 60, 0.15, 1)); W.add(new Boulder(W, this.o.make())); }
+    if (d < (this.o.range || 60) && d > 6 && this.cd <= 0 && !W.G.locked) { this.cd = (this.o.every || 3.4) * (W.G.coop ? 0.72 : 1); W.G.audio.sfx('rumble', clamp(1 - d / 60, 0.15, 1)); W.add(new Boulder(W, this.o.make())); }
   }
 }
 
@@ -300,7 +300,7 @@ export class RockRain {
     const W = this.W, G = W.G, P = G.player, p = P.pos, s = this.s, sp = W.spiral, rt = W.route; if (!rt) return;
     const a = (rt.phi - s.p0) / (s.p1 - s.p0) * s.len, inside = a > -6 && a < s.len + 2 && Math.abs(rt.lat) < s.w + 4 && Math.abs(p.y - sp.trailY(rt.phi)) < 8; this.cd -= dt;
     if (inside && this.cd <= 0 && !G.locked) {
-      this.cd = this.rate * (0.6 + Math.random() * 0.8); const f = s.at(Math.max(1, Math.min(s.len - 1, a + Math.random() * 11 - 2)), (Math.random() * 2 - 1) * (s.w - 0.6), 0), y = W.T.hAt(f.x, f.z);
+      this.cd = this.rate * (0.6 + Math.random() * 0.8) * (G.coop ? 0.65 : 1); const f = s.at(Math.max(1, Math.min(s.len - 1, a + Math.random() * 11 - 2)), (Math.random() * 2 - 1) * (s.w - 0.6), 0), y = W.T.hAt(f.x, f.z);
       const sh = M.cyl(0x000000, 1.5, 0.04, f.x, y + 0.06, f.z, { op: 0.35 }); sh.castShadow = false; const m = this.ice ? M.cone(0xcfeeff, 0.6, 2.4, f.x, y + 26, f.z, { flat: 1, e: 0x335566 }) : M.boulderMesh(0.8 + Math.random() * 0.4); if (this.ice) m.rotation.x = Math.PI; m.position.set(f.x, y + 26, f.z); W.scene.add(sh, m); this.d.push({ x: f.x, y, z: f.z, t: 0, sh, m });
     }
     for (const d of this.d) {

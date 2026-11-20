@@ -62,6 +62,7 @@ export class World {
     const t = this._vt.clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, Math.round(w / 3)), Math.max(1, Math.round(h / 3)));
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: t, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide })); return m;
   }
+  hideCoin(i) { const c = this.coins[i]; if (!c || c.got) return; c.got = true; this.dummy.position.set(0, -999, 0); this.dummy.updateMatrix(); this.coinMesh.setMatrixAt(i, this.dummy.matrix); this.coinMesh.instanceMatrix.needsUpdate = true; }
   // Loose coins that pop out, bounce and wait to be picked up.
   dropCoins(x, y, z, n) { for (let i = 0; i < n; i++) { const a = Math.random() * TAU, sp = 2 + Math.random() * 3.5, m = new THREE.Mesh(this.coinMesh.geometry, this.coinMesh.material); m.position.set(x, y, z); this.scene.add(m); this.loose.push({ m, vx: Math.cos(a) * sp, vy: 6 + Math.random() * 4, vz: Math.sin(a) * sp, t: 0 }); } }
   color(c) { return c === ROCK ? this.rockMat : c; }
@@ -423,7 +424,7 @@ export class World {
     const mag = 1.3 + (G.save.upg.magnet || 0) * 2.2, d = this.dummy; let got = 0;
     for (let i = 0; i < this.coins.length; i++) {
       const c = this.coins[i]; if (c.got) continue; const dx = p.x - c.x, dy = p.y + 0.9 - c.y, dz = p.z - c.z;
-      if (Math.abs(dx) < 60 && Math.abs(dz) < 60) { if (dx * dx + dy * dy + dz * dz < mag * mag) { c.got = true; got++; if (this.def.hub) G.save.hubCoins[i] = 1; d.position.set(0, -999, 0); d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); continue; } d.position.set(c.x, c.y + Math.sin(t * 3 + i) * 0.12, c.z); d.rotation.y = t * 3 + i; d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); }
+      if (Math.abs(dx) < 60 && Math.abs(dz) < 60) { if (dx * dx + dy * dy + dz * dz < mag * mag) { c.got = true; got++; if (G.net.on) G.net.send({ t: 'c', r: this.def.id, i }); if (this.def.hub) G.save.hubCoins[i] = 1; d.position.set(0, -999, 0); d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); continue; } d.position.set(c.x, c.y + Math.sin(t * 3 + i) * 0.12, c.z); d.rotation.y = t * 3 + i; d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); }
       else if (!c.init) { c.init = true; d.position.set(c.x, c.y, c.z); d.rotation.y = i; d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); }
     }
     this.coinMesh.instanceMatrix.needsUpdate = true;

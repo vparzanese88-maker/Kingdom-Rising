@@ -29,13 +29,17 @@ export class Mob {
     if (W.spiral && !this.arena) { W.spiral.toRoute(x, z, rt); this.phi = rt.phi; this.pa = rt.phi - (o.range || 13) / W.spiral.R(rt.phi); this.pb = rt.phi + (o.range || 13) / W.spiral.R(rt.phi); }
     if (k.fly && W.spiral && !this.arena) { this.y = this.hy = Math.max(this.y, W.spiral.trailY(this.phi) + 3.5); }
     this.mesh = k.model(); this.mesh.position.set(x, this.y, z); W.scene.add(this.mesh);
+    W.mobs = W.mobs || []; if (o.temp) this.mi = -1; else { this.mi = W.mobs.length; W.mobs.push(this); }
   }
+  die() { if (this.dead) return; const G = this.W.G; this.dead = true; this.carry = null; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y + 0.8, this.z, 0x9be06a, 14); this.W.dropCoins(this.x, this.y + 1, this.z, this.k.coins * (G.save.relics.midas ? 2 : 1)); if (G.world === this.W) G.audio.sfx('poof'); }
   hit(n, fx, fz, how) {
-    if (this.dead) return; const G = this.W.G;
+    if (this.dead) return; const G = this.W.G, N = G.net;
+    if (N.on && this.mi >= 0 && !N.owns(this.W) && how !== 'net') { N.send({ t: 'mh', r: this.W.def.id, i: this.mi, n, how: how || 0, f: [+fx.toFixed(1), +fz.toFixed(1)] }); G.audio.sfx('bonk'); this.W.puff(this.x, this.y + this.k.h * 0.6, this.z, 0xffffff, 6); return; }
+    if (how === 'net') how = undefined;
     if (this.k.shield && !how && n < 3) { G.audio.sfx('spike'); this.W.puff(this.x, this.y + 1, this.z, 0xfff2c0, 3); if (!this.told) { this.told = true; G.ui.toast('Its shield turns the whip aside. Jump on its head instead.', 4); } return; }
     this.hp -= n; this.stunT = 0.9; this.state = 'idle'; G.audio.sfx('bonk'); this.W.puff(this.x, this.y + this.k.h * 0.6, this.z, 0xffffff, 6);
     const dx = this.x - fx, dz = this.z - fz, l = Math.hypot(dx, dz) || 1; if (!this.k.thrower && !this.k.slam) this.move(dx / l * 1.2, dz / l * 1.2);
-    if (this.hp <= 0) { this.dead = true; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y + 0.8, this.z, 0x9be06a, 14); this.W.dropCoins(this.x, this.y + 1, this.z, this.k.coins * (G.save.relics.midas ? 2 : 1)); G.audio.sfx('poof'); G.stat('bonked'); }
+    if (this.hp <= 0) { this.die(); G.stat('bonked'); if (N.on && this.mi >= 0) N.send({ t: 'md', r: this.W.def.id, i: this.mi }); }
   }
   move(mx, mz) {
     const W = this.W, sp = W.spiral; let nx = this.x + mx, nz = this.z + mz;
@@ -45,7 +49,11 @@ export class Mob {
     this.x = nx; this.z = nz; return true;
   }
   update(dt) {
-    const W = this.W, P = W.G.player, k = this.k, p = P.pos; this.t += dt; this.stunT -= dt; this.cd -= dt;
+    const W = this.W, G = W.G, N = G.net, k = this.k, shared = N.on && this.mi >= 0, own = !shared || N.owns(W); let P = G.player, p = P.pos; this.t += dt; this.stunT -= dt; this.cd -= dt;
+    if (shared && !own && !this.carry) { // someone else's game is running this goblin: follow what it reports
+      const n = this.net; if (n) { const q = Math.min(1, 10 * dt); this.x += (n.x - this.x) * q; this.y += (n.y - this.y) * q; this.z += (n.z - this.z) * q; this.mesh.rotation.y = n.ry; this.state = n.w ? 'wind' : 'idle'; }
+      this.mesh.rotation.z = this.stunT > 0 ? Math.sin(this.t * 30) * 0.15 : 0; this.mesh.position.set(this.x, this.y, this.z); this.anim(n && n.mv ? k.sp : 0); this.touch(); return;
+    }
     if (this.carry) { // a harpy hauling the hero out over the drop
       const c = this.carry, I = W.G.input, r = Math.hypot(this.x, this.z) || 1, ox = this.arena ? Math.cos(this.t) : this.x / r, oz = this.arena ? Math.sin(this.t) : this.z / r; c.t += dt;
       this.x += ox * 5.5 * dt; this.z += oz * 5.5 * dt; this.y += 2.6 * dt; this.mesh.position.set(this.x, this.y, this.z); const fl = Math.sin(this.t * 22) * 0.9; this.mesh.userData.parts.wL.rotation.z = fl; this.mesh.userData.parts.wR.rotation.z = -fl;
@@ -54,6 +62,7 @@ export class Mob {
       if (c.t > 2.4 || c.mash >= 4 || whip || this.dead) { this.carry = null; P.vel.set(ox * 3, 3, oz * 3); P.stun = 0; P.jumps = 1; this.state = 'back'; this.cd = 4; }
       return;
     }
+    if (shared) { const t = N.target(W, this.x, this.z); if (t) { P = t; p = t.pos; } }      // chase whichever hero is nearest
     let dx = p.x - this.x, dz = p.z - this.z; const d = Math.hypot(dx, dz) || 0.01, dy = p.y - this.y; dx /= d; dz /= d;
     const sees = d < k.sight && Math.abs(dy) < (k.fly || k.thrower ? 12 : 4) && !W.G.locked; let sp = 0;
     if (this.stunT > 0) { this.mesh.rotation.z = Math.sin(this.t * 30) * 0.15; }
@@ -64,10 +73,10 @@ export class Mob {
       const fl = Math.sin(this.t * 16) * 0.8; this.mesh.userData.parts.wL.rotation.z = fl; this.mesh.userData.parts.wR.rotation.z = -fl;
     } else if (k.thrower) {
       this.mesh.rotation.z = 0; if (sees) { face(this.mesh, dx, dz); if (this.cd <= 0 && d > 3) { this.cd = k.rate || (k.thrower === 2 ? 3.0 : 2.1); this.throwT = 0.35; } }
-      if (this.throwT > 0) { this.throwT -= dt; if (this.throwT <= 0) { const big = k.thrower === 2, T = clamp(d / 15, 0.5, 1.6), sy = this.y + k.h * 0.9; const vx = (p.x + P.vel.x * T * 0.5 - this.x) / T, vy = (p.y + 1 - sy + 7 * T * T) / T, vz = (p.z + P.vel.z * T * 0.5 - this.z) / T; if (k.thrower === 3) W.add(new Bomb(W, this.x, sy, this.z, vx, vy, vz, false)); else if (k.thrower === 4) W.add(new Lasso(W, this, sy)); else if (k.thrower === 5) W.add(new Orb(W, this.x, sy + 0.6, this.z)); else W.add(new Rock(W, this.x, sy, this.z, vx, vy, vz, big ? 0.55 : 0.25, big ? 0xf4f8ff : 0x8a8378, k.knock)); W.G.audio.sfx('throw'); } }
+      if (this.throwT > 0) { this.throwT -= dt; if (this.throwT <= 0) { this.throwAt(P); if (shared) N.send({ t: 'pj', r: W.def.id, i: this.mi, to: P.nid || N.id }); } }
     } else if (k.slam) {
       this.mesh.rotation.z = 0;
-      if (this.state === 'wind') { this.cd -= 0; this.windT -= dt; if (this.windT <= 0) { this.state = 'idle'; this.cd = 3.4; W.add(new Shock(W, this.x, this.y, this.z, k.knock)); W.G.audio.sfx('slam'); W.G.player.shake = Math.max(W.G.player.shake, d < 14 ? 0.3 : 0); } }
+      if (this.state === 'wind') { this.cd -= 0; this.windT -= dt; if (this.windT <= 0) { this.state = 'idle'; this.cd = 3.4; W.add(new Shock(W, this.x, this.y, this.z, k.knock)); if (shared) N.send({ t: 'pj', r: W.def.id, i: this.mi, to: 'slam' }); W.G.audio.sfx('slam'); W.G.player.shake = Math.max(W.G.player.shake, d < 14 ? 0.3 : 0); } }
       else if (sees) { face(this.mesh, dx, dz); if (d < 6.5 && this.cd <= 0) { this.state = 'wind'; this.windT = 0.9; } else if (d > 3) { this.move(dx * k.sp * dt, dz * k.sp * dt); sp = k.sp; } }
     } else if (k.charge) {
       this.mesh.rotation.z = 0;
@@ -82,15 +91,27 @@ export class Mob {
     }
     if (!k.fly) this.y = W.T.hAt(this.x, this.z);
     this.mesh.position.set(this.x, this.y, this.z);
+    this.mv = sp > 0; this.anim(sp); this.touch();
+  }
+  anim(sp) {
     const parts = this.mesh.userData.parts;
     if (parts.armL) { M.animBiped(this.mesh, this.t * (sp ? 10 : 2), sp, sp ? 'run' : 'idle'); this.mesh.position.y = this.y; if (this.state === 'wind' || this.throwT > 0) parts.armR.rotation.x = -2.8; }
     else if (parts.legs) parts.legs.forEach((l, i) => l.rotation.x = Math.sin(this.t * 14 + i * 1.6) * Math.min(1, sp / 3) * 0.7);
+    if (this.k.fly && !this.carry) { const fl = Math.sin(this.t * 16) * 0.8, pp = this.mesh.userData.parts; if (pp.wL) { pp.wL.rotation.z = fl; pp.wR.rotation.z = -fl; } }
+  }
+  // what happens when this goblin and the hero on this screen meet
+  touch() {
+    const W = this.W, P = W.G.player, p = P.pos, k = this.k; let dx = p.x - this.x, dz = p.z - this.z; const d = Math.hypot(dx, dz) || 0.01, dy = p.y - this.y; dx /= d; dz /= d; if (W.G.world !== W) return;
     // touching the hero
     if (d < k.r + 0.45 && dy < k.h && dy > -1.9 && this.stunT <= 0) {
       if (P.vel.y < -2 && dy > k.h * 0.5) { this.hit(1, p.x, p.z, 'stomp'); P.vel.y = 10.5; P.jumps = 1; }
       else if (k.grab) { if (P.inv <= 0 && !this.carry) { this.carry = { t: 0, mash: 0 }; P.inv = 3.2; P.detach(); W.G.audio.sfx('screech'); W.G.ui.toast('A harpy has you! Mash SPACE or crack the whip to break free!', 3); W.G.stat('knocked'); } }
       else if (P.inv <= 0) { let kx = dx, kz = dz; if (W.spiral && !this.arena) { const r = Math.hypot(p.x, p.z) || 1; kx = dx * 0.8 + p.x / r * 0.35; kz = dz * 0.8 + p.z / r * 0.35; } if (P.knock(kx, kz, k.knock, 7)) { if (this.state === 'swoop') this.state = 'back'; if (this.state === 'charge') { this.state = 'idle'; this.cd = 1.6; } W.G.stat('knocked'); } }
     }
+  }
+  throwAt(P) {
+    const W = this.W, k = this.k, p = P.pos, d = Math.hypot(p.x - this.x, p.z - this.z) || 1, big = k.thrower === 2, T = clamp(d / 15, 0.5, 1.6), sy = this.y + k.h * 0.9, vx = (p.x + P.vel.x * T * 0.5 - this.x) / T, vy = (p.y + 1 - sy + 7 * T * T) / T, vz = (p.z + P.vel.z * T * 0.5 - this.z) / T;
+    if (k.thrower === 3) W.add(new Bomb(W, this.x, sy, this.z, vx, vy, vz, false)); else if (k.thrower === 4) W.add(new Lasso(W, this, sy, p)); else if (k.thrower === 5) W.add(new Orb(W, this.x, sy + 0.6, this.z, P)); else W.add(new Rock(W, this.x, sy, this.z, vx, vy, vz, big ? 0.55 : 0.25, big ? 0xf4f8ff : 0x8a8378, k.knock)); if (W.G.world === W) W.G.audio.sfx('throw');
   }
 }
 
@@ -119,7 +140,7 @@ export class Bomb {
 }
 // A thrown loop of rope: if it lands, the goblin hauls you toward itself (it stands by the drop for a reason).
 export class Lasso {
-  constructor(W, from, sy) { this.W = W; this.from = from; const p = W.G.player.pos; this.pos = new THREE.Vector3(from.x, sy, from.z); this.v = new THREE.Vector3(p.x - from.x, p.y + 1 - sy, p.z - from.z).normalize().multiplyScalar(21); this.mesh = new THREE.Mesh(M.GEO.torG, M.mat(0xc9a25a)); this.mesh.scale.setScalar(0.5); W.scene.add(this.mesh); this.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([this.pos.clone(), this.pos.clone()]), new THREE.LineBasicMaterial({ color: 0xc9a25a })); this.line.frustumCulled = false; W.scene.add(this.line); this.t = 0; }
+  constructor(W, from, sy, tp) { this.W = W; this.from = from; const p = tp || W.G.player.pos; this.pos = new THREE.Vector3(from.x, sy, from.z); this.v = new THREE.Vector3(p.x - from.x, p.y + 1 - sy, p.z - from.z).normalize().multiplyScalar(21); this.mesh = new THREE.Mesh(M.GEO.torG, M.mat(0xc9a25a)); this.mesh.scale.setScalar(0.5); W.scene.add(this.mesh); this.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([this.pos.clone(), this.pos.clone()]), new THREE.LineBasicMaterial({ color: 0xc9a25a })); this.line.frustumCulled = false; W.scene.add(this.line); this.t = 0; }
   update(dt) {
     const W = this.W, P = W.G.player, p = P.pos; this.t += dt; this.pos.addScaledVector(this.v, dt); this.mesh.position.copy(this.pos); this.mesh.rotation.x += dt * 9; const a = this.line.geometry.attributes.position; a.setXYZ(0, this.from.x, this.from.y + 1.1, this.from.z); a.setXYZ(1, this.pos.x, this.pos.y, this.pos.z); a.needsUpdate = true;
     if (Math.hypot(p.x - this.pos.x, p.y + 0.9 - this.pos.y, p.z - this.pos.z) < 1.0 && P.inv <= 0 && !this.from.dead) { const dx = this.from.x - p.x, dz = this.from.z - p.z; if (P.knock(dx, dz, 13, 5)) { W.G.ui.toast('Lassoed! It is dragging you toward the edge.', 3); W.G.stat('knocked'); } this.end(); }
@@ -129,11 +150,11 @@ export class Lasso {
 }
 // A slow purple hex that follows you. Whip it out of the air, or outrun it.
 export class Orb {
-  constructor(W, x, y, z) { this.W = W; this.x = x; this.y = y; this.z = z; this.t = 0; this.hittable = true; this.r = 0.6; this.h = 0.2; this.mesh = M.ball(0xc77dff, 0.38, x, y, z, { e: 0x7a3ab5 }); this.mesh.castShadow = false; W.scene.add(this.mesh); }
+  constructor(W, x, y, z, tg) { this.W = W; this.tg = tg || W.G.player; this.x = x; this.y = y; this.z = z; this.t = 0; this.hittable = true; this.r = 0.6; this.h = 0.2; this.mesh = M.ball(0xc77dff, 0.38, x, y, z, { e: 0x7a3ab5 }); this.mesh.castShadow = false; W.scene.add(this.mesh); }
   hit() { this.end(); this.W.G.audio.sfx('bonk'); }
   update(dt) {
-    const W = this.W, P = W.G.player, p = P.pos, dx = p.x - this.x, dy = p.y + 1 - this.y, dz = p.z - this.z, d = Math.hypot(dx, dy, dz) || 1; this.t += dt; const sp = 6.2; this.x += dx / d * sp * dt; this.y += dy / d * sp * dt; this.z += dz / d * sp * dt; this.mesh.position.set(this.x, this.y, this.z); this.mesh.scale.setScalar(0.38 + Math.sin(this.t * 9) * 0.06);
-    if (d < 0.9) { P.hex = 5; W.G.audio.sfx('nope'); W.G.ui.toast('Hexed! Your legs feel like lead for a few seconds.', 3); this.end(); } else if (this.t > 7) this.end();
+    const W = this.W, P = W.G.player, p = this.tg.pos, dx = p.x - this.x, dy = p.y + 1 - this.y, dz = p.z - this.z, d = Math.hypot(dx, dy, dz) || 1; this.t += dt; const sp = 6.2; this.x += dx / d * sp * dt; this.y += dy / d * sp * dt; this.z += dz / d * sp * dt; this.mesh.position.set(this.x, this.y, this.z); this.mesh.scale.setScalar(0.38 + Math.sin(this.t * 9) * 0.06);
+    if (d < 0.9 && this.tg !== P) this.end(); else if (d < 0.9) { P.hex = 5; W.G.audio.sfx('nope'); W.G.ui.toast('Hexed! Your legs feel like lead for a few seconds.', 3); this.end(); } else if (this.t > 7) this.end();
   }
   end() { this.dead = true; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y, this.z, 0xc77dff, 6); }
 }
@@ -276,7 +297,7 @@ export class Boss {
       if (active && this.phase < 3 && this.stunT <= 0 && !G.locked) {
         if (!this.seen) { this.seen = true; G.ui.bark('Chieftain Grizzlegut', this.story.intro); G.audio.music('boss'); }
         if (this.cd <= 0) { this.cd = [3.2, 2.5, 1.9][this.phase]; const dx = p.x - this.x, dz = p.z - this.z, l = Math.hypot(dx, dz) || 1; W.add(new Boulder(W, { x: dx / l * 4.2, z: dz / l * 4.2, vx: dx / l * 15, vz: dz / l * 15, r: 1.1, life: 7, col: 0x7a6a5a })); G.audio.sfx('rumble', 0.7); }
-        if (this.sum <= 0) { this.sum = 13 - this.phase * 2; let n = 0; for (const e of W.ents) if (e.mob && e.arena && !e.dead) n++; for (let i = n; i < 2 + this.phase; i++) { const a = Math.random() * TAU; W.add(new Mob(W, this.phase ? 'brute' : 'grunt', Math.cos(a) * 12, Math.sin(a) * 12, { arena: 38 })); W.puff(Math.cos(a) * 12, this.y0 + 1, Math.sin(a) * 12, 0x9be06a, 8); } }
+        if (this.sum <= 0) { this.sum = 13 - this.phase * 2; let n = 0; for (const e of W.ents) if (e.mob && e.arena && !e.dead) n++; for (let i = n; i < 2 + this.phase; i++) { const a = Math.random() * TAU; W.add(new Mob(W, this.phase ? 'brute' : 'grunt', Math.cos(a) * 12, Math.sin(a) * 12, { arena: 38, temp: true })); W.puff(Math.cos(a) * 12, this.y0 + 1, Math.sin(a) * 12, 0x9be06a, 8); } }
       }
     } else if (this.phase === 4) {
       this.x += this.fv.x * 13 * dt; this.z += this.fv.z * 13 * dt; const my = W.T.hAt(this.x, this.z) + 1; this.mesh.position.set(this.x, my, this.z); this.mesh.rotation.x += dt * 12;

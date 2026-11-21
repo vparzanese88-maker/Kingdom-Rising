@@ -74,7 +74,8 @@ export class Player {
     this.aimWhip = S.items.whip ? this.aimLimb(13 + (S.upg.whip || 0) * 2.5 + (S.relics.rope ? 3 : 0), this.swing && this.swing.a) : null; if (this.aimWhip && !W.hookOk(p, this.aimWhip)) this.aimWhip = null;
     const hr = (S.items.cannon ? 62 : 27) + (S.relics.rope ? 9 : 0); this.aimHook = S.items.hook ? (this.aimLimb(hr) || this.aimSurface(hr, !!S.items.cannon)) : null; this.hookDenied = false; if (this.aimHook && !W.hookOk(p, this.aimHook)) { this.aimHook = null; this.hookDenied = true; }
     this.pushT = (this.pushT || 0) - dt;
-    if (ctrl && I.lmbHit && this.whipCd <= 0 && !this.swim) { const hit = W.pushHit(this, !S.items.whip); if (!S.items.whip || hit) { this.pushT = 0.26; this.pushSide = !this.pushSide; if (hit) { G.audio.sfx('punch'); this.shake = Math.max(this.shake, 0.16); G.hitstop = 0.07; } else G.audio.sfx('slide', 0.5); if (!S.items.whip) this.whipCd = 0.34; } }
+    this.pushCd = (this.pushCd || 0) - dt;      // F (or left click while you have no whip) throws a punch
+    if (ctrl && (I.hit('KeyF') || I.lmbHit && !S.items.whip) && this.pushCd <= 0 && !this.swim) { const hit = W.pushHit(this, true); this.pushCd = 0.34; this.pushT = 0.26; this.pushSide = !this.pushSide; if (hit) { G.audio.sfx('punch'); this.shake = Math.max(this.shake, 0.16); G.hitstop = 0.07; } else G.audio.sfx('slide', 0.5); }
     if (ctrl && I.lmbHit && S.items.whip && this.whipCd <= 0 && !this.swim) {
       this.whipCd = 0.4; this.whipAnim = 0.3;
       const hitMob = W.whipHit(this, 5.5 + (S.upg.whip || 0)); G.audio.sfx('whip');
@@ -214,7 +215,7 @@ export class Player {
     }
     if (this.grounded) { this.dashed = false; if (!wasGrounded && this.airT > 0.5) { G.audio.sfx('land'); W.puff(p.x, p.y, p.z, 0xd8ccb0, 4); } this.jumps = 0; this.coyote = 0.12; this.airT = 0; }
     else { this.coyote -= dt; this.airT += dt; }
-    const r = Math.hypot(p.x, p.z), lim = T.S - 14; if (r > lim) { p.x *= lim / r; p.z *= lim / r; }
+    const r = Math.hypot(p.x, p.z), lim = W.def.lobby ? 23.6 : T.S - 14; if (r > lim) { p.x *= lim / r; p.z *= lim / r; }
     this.ice = ice;
   }
   updateCamera(dt, cam) {

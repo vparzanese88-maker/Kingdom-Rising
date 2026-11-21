@@ -102,7 +102,7 @@ export class World {
       s.p0 = rec.p0; s.p1 = rec.p1; s.y0 = rec.y0; s.y1 = rec.y1; s.at = (a, l = 0, u = 0) => sp.frame(s.p0 + (a / s.len) * (s.p1 - s.p0), l, u); s.idx = this.secs.length; this.secs.push(s);
     };
     for (const s0 of list) {
-      const s = Object.assign({}, s0);
+      let s = Object.assign({}, s0); if (this.G.coop && s.t === 'arena') s = { t: 'goal', len: 30, rise: 0, w: 8 };      // online there is no story: the top is a finish line
       if (rv && crossN < rv.loops) {
         const cross = rv.th + TAU * crossN, start = cross - 17 / sp.R(cross);
         if (sp.PHI + s.len / sp.R(sp.PHI) > start) { const fill = (start - sp.PHI) * sp.R(sp.PHI); if (fill > 1.5) lay({ t: 'path', len: fill, rise: fill * 0.03 }); lay({ t: 'river', len: 34, rise: 0, w: 6, style: def.river.styles[crossN], cross }); crossN++; }
@@ -117,7 +117,7 @@ export class World {
     const f = this.secs[0].at(3, 0, 0); this.start = { x: f.x, y: f.y, z: f.z, yaw: Math.atan2(-f.tx, -f.tz) };
     // the trailhead gate: barred until the trail before it has been cleared
     const idx = ['l1', 'l2', 'l3'].indexOf(def.id), prev = idx > 0 ? ['l1', 'l2', 'l3'][idx - 1] : null, b = this.secs[0].at(this.realm ? this.secs[0].len - 3 : -6, 0, 0);
-    this.add(new Gate(this, b.x, b.z, b.yaw, { w: 6, title: this.realm ? `${idx + 1}. ${def.name}` : 'Back to the village', sub: 'The trail starts here', lockSub: `LOCKED: clear trail ${idx} first`, col: def.col || 0x3f8a3a, locked: g => this.realm && prev && !g.save.done[prev], lockText: 'This trail starts where the one before it ends. Climb that first.', go: G => { if (!this.realm) G.loadLevel('hub'); } }));
+    this.add(new Gate(this, b.x, b.z, b.yaw, { w: 6, title: this.realm ? `${idx + 1}. ${def.name}` : 'Back to the village', sub: 'The trail starts here', lockSub: `LOCKED: clear trail ${idx} first`, col: def.col || 0x3f8a3a, locked: g => this.realm && !g.coop && prev && !g.save.done[prev], lockText: 'This trail starts where the one before it ends. Climb that first.', go: G => { if (!this.realm) G.loadLevel('hub'); } }));
   }
   common(s) {
     const sp = this.spiral, G = this.G;
@@ -127,9 +127,9 @@ export class World {
     if ((s.t === 'path' || s.t === 'ramp' || s.t === 'traps' || s.t === 'chase' || s.t === 'ambush') && s.coins !== 0) this.coinLine(s, 2, s.len - 2, a => Math.sin(a * 0.16 + s.idx) * (s.w - 2.2), 1, Math.floor(s.len / 4.5));
     for (const m of s.mobs || []) { const f = s.at(m[1] * s.len, m[2] || 0, 0); this.add(new Mob(this, m[0], f.x, f.z, { range: m[3] || Math.min(16, s.len / 2) })); if (G.coop && ['grunt', 'brute', 'shield', 'boar', 'ram'].includes(m[0])) { const g = s.at(Math.min(s.len - 2, m[1] * s.len + 4), -(m[2] || 0) + 1.5, 0); this.add(new Mob(this, m[0], g.x, g.z, { range: m[3] || Math.min(16, s.len / 2) })); } }
     if (s.chest) { const f = s.at(s.len / 2, -s.w + 2, 0); this.add(new Chest(this, f.x, f.z, s.chest, f.yaw + Math.PI / 2)); }
-    for (const n of s.npcs || []) { const f = s.at(n.a === undefined ? s.len / 2 : n.a, n.lat === undefined ? -s.w + 1.6 : n.lat, 0); if (n.stall) { const st = M.stall(); st.position.set(f.x - f.nx * 1.4, this.T.hAt(f.x, f.z), f.z - f.nz * 1.4); st.rotation.y = Math.atan2(f.nx, f.nz); this.scene.add(st); } this.add(new NPC(this, f.x, f.z, { name: n.name, model: n.model(), lines: n.lines, after: n.after, prompt: n.prompt })); }
+    for (const n0 of s.npcs || []) { if (G.coop && !n0.stall) continue; const n = G.coop ? Object.assign({}, n0, { lines: [] }) : n0; const f = s.at(n.a === undefined ? s.len / 2 : n.a, n.lat === undefined ? -s.w + 1.6 : n.lat, 0); if (n.stall) { const st = M.stall(); st.position.set(f.x - f.nx * 1.4, this.T.hAt(f.x, f.z), f.z - f.nz * 1.4); st.rotation.y = Math.atan2(f.nx, f.nz); this.scene.add(st); } this.add(new NPC(this, f.x, f.z, { name: n.name, model: n.model(), lines: n.lines, after: n.after, prompt: n.prompt })); }
     if (s.tip) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 't' + this.def.id + s.idx, fn: () => G.ui.toast(s.tip, 9) });
-    if (s.bark) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 'b' + this.def.id + s.idx, fn: () => G.ui.bark(s.bark[0], s.bark[1]) });
+    if (s.bark && !G.coop) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 'b' + this.def.id + s.idx, fn: () => G.ui.bark(s.bark[0], s.bark[1]) });
     if (s.name) this.triggers.push({ p0: s.p0, p1: s.p0 + 8 / sp.R(s.p0), fn: () => G.ui.area(s.name), repeat: 40 });
     if (s.jewel) {
       const j = s.jewel, f = s.at(j.a === undefined ? s.len / 2 : j.a, j.lat || 0, 0), gy = j.abs ? f.y : this.T.hAt(f.x, f.z), y = gy + (j.up || 0) + 1.3; const idx = this.jewelN++;
@@ -200,8 +200,8 @@ export class World {
   b_teamwall(s) {
     const w = s.w + 1.5, r = s.rise, f = s.at(6, 0, 0), box = this.addBox(f.x, s.y0 + (r - 1) / 2 + 0.015, f.z, w, (r + 1) / 2, 2.4, f.th, ROCK, { noHook: true });
     const v = this.vines((w - 0.6) * 2, r); this.deco(s, 3.46, 0, r / 2, v, 0); const sg = M.signBoard('TWO-HERO WALL', 'E boosts a friend  ·  T pegs a rope', '#54a6d6', 5, 1.65); this.deco(s, 2.2, -s.w + 1.4, 2.2, sg, Math.PI / 2 + Math.PI);
-    this.add({ update: () => { const alone = G0(this).net.count() < 2; box.climb = alone; v.visible = alone; } });
-    this.triggers.push({ p0: s.p0, p1: s.p0 + 6 / this.spiral.R(s.p0), fn: () => this.G.ui.toast(this.G.net.count() < 2 ? 'A two-hero wall. You are alone, so the vines are out for you.' : 'Too sheer to climb alone. One of you boosts the other (E beside them), then the one on top pegs a rope (T) or whips the other up.', 7), repeat: 30 });
+    this.add({ update: () => { const alone = G0(this).net.count() < 2 || G0(this).mode === 'race'; box.climb = alone; v.visible = alone; } });
+    this.triggers.push({ p0: s.p0, p1: s.p0 + 6 / this.spiral.R(s.p0), fn: () => this.G.mode === 'race' || this.G.ui.toast(this.G.net.count() < 2 ? 'A two-hero wall. You are alone, so the vines are out for you.' : 'Too sheer to climb alone. One of you boosts the other (E beside them), then the one on top pegs a rope (T) or whips the other up.', 7), repeat: 30 });
   }
   // Online only. A gate that stays up only while someone stands on a plate: one holds it, the other goes through and holds the far plate.
   b_teamgate(s) {
@@ -209,9 +209,9 @@ export class World {
     const g = new THREE.Group(); for (let i = 0; i < 7; i++) { const l = M.cyl(0x4a4a52, 0.34, (w + 4) * 2, 0, 0.4 + i * 0.78, 0); l.rotation.z = Math.PI / 2; g.add(l); } for (const x of [-w - 2, -w / 2, 0, w / 2, w + 2]) g.add(M.cyl(0x2a2a32, 0.18, 7, x, 3.3, 0.4)); this.deco(s, 15, 0, 0, g); const gy = g.position.y;
     const plates = [8, 22].map(a => { const q = s.at(a, 0, 0), m = M.cyl(0x54a6d6, 1.7, 0.16, q.x, q.y + 0.08, q.z, { e: 0x103a55 }); m.castShadow = false; this.scene.add(m); return { x: q.x, y: q.y, z: q.z, m }; });
     const id = this.def.id, on = (px, py, pz) => plates.some(p => Math.hypot(px - p.x, pz - p.z) < 1.9 && Math.abs(py - p.y) < 2);
-    this.add({ update: dt => { const G = this.G, N = G.net, P = G.player.pos; let open = N.count() < 2 || (G.world === this && on(P.x, P.y, P.z)); if (!open) for (const q of N.peers.values()) if (q.r === id && on(q.x, q.y, q.z)) { open = true; break; }
+    this.add({ update: dt => { const G = this.G, N = G.net, P = G.player.pos; let open = N.count() < 2 || G.mode === 'race' || (G.world === this && on(P.x, P.y, P.z)); if (!open) for (const q of N.peers.values()) if (q.r === id && on(q.x, q.y, q.z)) { open = true; break; }
       if (open !== !box.solid) { box.solid = !open; G.world === this && Math.hypot(P.x - f.x, P.z - f.z) < 40 && G.audio.sfx(open ? 'camp' : 'crumble'); } g.position.y += ((open ? gy - 7.5 : gy) - g.position.y) * Math.min(1, 6 * dt); for (const p of plates) p.m.material = M.mat(open ? 0x7ee07a : 0x54a6d6, { e: open ? 0x1a5a1a : 0x103a55 }); } });
-    this.triggers.push({ p0: s.p0, p1: s.p0 + 6 / this.spiral.R(s.p0), fn: () => this.G.ui.toast(this.G.net.count() < 2 ? 'A two-hero gate. You are alone, so it stands open.' : 'The gate only stays down while someone stands on a blue plate. One of you hold it; the other go through and hold the plate on the far side.', 7), repeat: 30 });
+    this.triggers.push({ p0: s.p0, p1: s.p0 + 6 / this.spiral.R(s.p0), fn: () => this.G.mode === 'race' || this.G.ui.toast(this.G.net.count() < 2 ? 'A two-hero gate. You are alone, so it stands open.' : 'The gate only stays down while someone stands on a blue plate. One of you hold it; the other go through and hold the plate on the far side.', 7), repeat: 30 });
   }
   // Fallen trees across the trail: hop the low ones, crawl or slide under the high ones.
   b_logs(s) {
@@ -306,6 +306,7 @@ export class World {
   buildHub() {
     const T = this.T = new Meadow(this.realm, this.G.holes), G = this.G, st = this.def.story; this.scene.add(T.mesh(this.theme)); for (const m of T.waterMeshes(this.waterMat)) this.scene.add(m);
     this.start = { x: 0, y: 0, z: 6, yaw: 0 };
+    if (this.def.lobby) return this.buildLobby();
     const put = (m, x, z, yaw = 0) => { m.position.set(x, T.hAt(x, z), z); m.rotation.y = yaw; this.scene.add(m); return m; };
     [[-14, 14, 0.5, 0xb5652a], [14, 16, -0.4, 0x8a4a6a], [-20, -8, 1.4, 0x3f7a8a], [20, -10, -1.4, 0xb5652a], [0, 26, 0, 0x6a8a3a]].forEach(([x, z, yaw, c]) => { put(M.hut(c), x, z, yaw); const hy = T.hAt(x, z); this.addBox(x, hy + 1.5, z, 2.5, 1.5, 2.2, -yaw, null); for (let i = 0; i < 6; i++) { const q = 3.04 * (1 - i / 6) + 0.1; this.addBox(x, hy + 3.2 + i * 0.4, z, q, 0.2, q, -yaw, null); } });
     put(M.cyl(0x8a8378, 1.6, 0.9, 0, 0, 0), 0, -4).position.y += 0.45; this.addCyl(0, 0.45, -4, 1.6, 0.5, null); const wr = M.cyl(0x6b4a2a, 0.1, 2.4, 0, 0, 0); put(wr, 1.4, -4).position.y += 1.2; const wr2 = wr.clone(); put(wr2, -1.4, -4).position.y += 1.2; const roof = M.cone(0xb5332a, 2.2, 1, 0, 0, 0); put(roof, 0, -4).position.y += 2.9;
@@ -337,6 +338,16 @@ export class World {
     if (!this.realm) { const mt = new THREE.Mesh(new THREE.ConeGeometry(190, 330, 9), M.mat(0x6f7a72, { flat: 1 })); mt.position.set(0, 150, -330); const cap = new THREE.Mesh(new THREE.ConeGeometry(64, 112, 9), M.mat(0xf2f6fa, { flat: 1 })); cap.position.set(0, 261, -330); const m2 = new THREE.Mesh(new THREE.ConeGeometry(150, 190, 7), M.mat(0x5c7a54, { flat: 1 })); m2.position.set(-170, 80, -290); const m3 = new THREE.Mesh(new THREE.ConeGeometry(140, 170, 7), M.mat(0x9a6a4a, { flat: 1 })); m3.position.set(180, 70, -280); this.scene.add(mt, cap, m2, m3); }
   }
 
+  // The online starting camp: a fenced yard where players gather while the host picks the mountain and the mode.
+  buildLobby() {
+    const T = this.T, S = this.scene, put = (m, x, z, yaw = 0, dy = 0) => { m.position.set(x, T.hAt(x, z) + dy, z); m.rotation.y = yaw; S.add(m); return m; };
+    for (let i = 0; i < 44; i++) { const a = i / 44 * TAU; put(M.cyl(0x6b4a2a, 0.22, 2.6, 0, 0, 0), Math.cos(a) * 25, Math.sin(a) * 25, 0, 1.3); put(M.cone(0x6b4a2a, 0.24, 0.5, 0, 0, 0), Math.cos(a) * 25, Math.sin(a) * 25, 0, 2.85); }
+    const f = M.campfire(); f.userData.flames.forEach(q => q.visible = true); put(f, 0, 0); const l = new THREE.PointLight(0xff8a30, 26, 16); l.position.set(0, 1.2, 0); S.add(l); this.addCyl(0, 0.3, 0, 0.8, 0.3, null);
+    for (const [x, z, h] of [[-9, -8, 1], [-11.4, -8, 2], [-13.8, -8, 3], [9, -9, 1.4], [12, 6, 1], [12, 8.4, 2.2]]) this.addBox(x, h / 2, z, 1.1, h / 2, 1.1, 0, ROCK);
+    put(M.whipPost(8), 14, -14); this.limb(10.4, 8.65, -14, 15.9, 9.25, -14);
+    const b1 = M.signBoard('THE STARTING CAMP', 'the host picks the mountain', '#d8362c', 9, 3); b1.position.set(0, 4.2, -22); S.add(b1); S.add(M.cyl(0x6b4a2a, 0.14, 4, -3.6, 2, -22), M.cyl(0x6b4a2a, 0.14, 4, 3.6, 2, -22));
+    for (let i = 0; i < 20; i++) { const a = i / 20 * TAU; this.coin(Math.cos(a) * 12, 1, Math.sin(a) * 12); }
+  }
   scatter() {
     const T = this.T, th = this.theme, r = this.rnd, pts = [], rocks = [], sp = this.spiral, n = { x: 0, y: 1, z: 0 };
     const many = this.realm && !sp; for (let i = 0; i < (many ? 30000 : 6000) && pts.length < (many ? 2200 : 620); i++) {
@@ -356,7 +367,7 @@ export class World {
 
   // Where should the player head next? Village: the first gate not yet cleared. Mountain: a point a little way up the trail.
   guide() {
-    const G = this.G, S = G.save, p = G.player.pos, sp = this.spiral; if (G.callMark && G.callMark.t > 0 && G.callMark.r === this.def.id) return { x: G.callMark.x, y: G.callMark.y + 2.2, z: G.callMark.z, label: G.callMark.n, text: G.callMark.n + ' needs help: follow the arrow to them' };
+    const G = this.G, S = G.save, p = G.player.pos, sp = this.spiral; if (this.def.lobby) return null; if (G.callMark && G.callMark.t > 0 && G.callMark.r === this.def.id) return { x: G.callMark.x, y: G.callMark.y + 2.2, z: G.callMark.z, label: G.callMark.n, text: G.callMark.n + ' needs help: follow the arrow to them' };
     if (!sp) {
       const lv = this.def.levels, i = lv.findIndex(L => !S.done[L.id]) < 0 || S.won ? -1 : lv.findIndex(L => !S.done[L.id]); if (i < 0) return null;
       const g = G.trailhead ? G.trailhead(i) : [[-46, -30], [0, -62], [46, -30]][i]; return { x: g[0], y: 3, z: g[1], label: lv[i].name, text: G.trailhead ? `Head ${['west', 'north', 'east'][i]} to the foot of ${lv[i].name}` : `Walk through the ${['west', 'north', 'east'][i]} gate to ${lv[i].name}` };

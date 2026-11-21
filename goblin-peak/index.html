@@ -116,24 +116,30 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 #board b{color:#2f7a36}
 #board i{font-style:normal;opacity:.75}
 #lucky{position:absolute;left:50%;top:38%;transform:translateX(-50%);background:var(--gold);color:var(--ink);border:3px solid var(--ink);border-radius:14px;padding:8px 18px;font-weight:700;font-size:18px;white-space:nowrap;box-shadow:0 4px 0 var(--ink)}
+#countBox{position:absolute;left:50%;top:30%;transform:translateX(-50%);font-size:clamp(90px,18vw,200px);font-weight:700;color:#fff;text-shadow:6px 6px 0 var(--red),10px 10px 0 var(--ink);line-height:1}
+#lobbyBox{position:absolute;left:16px;top:70px;width:min(360px,44vw);background:rgba(255,244,214,.93);border:3px solid var(--ink);border-radius:16px;padding:10px 16px;font-size:15px}
+#lobbyBox h2{margin:0 0 4px;color:var(--red);font-size:22px}
+#lobbyBox p{margin:5px 0}
+#lobbyBox .code{font-size:22px;letter-spacing:.12em;background:var(--ink);color:var(--gold);border-radius:8px;padding:1px 10px}
+#lobbyBox .keys2{background:rgba(43,28,14,.1);border-radius:10px;padding:6px 8px}
 </style>
 <script type="importmap">
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795159314",
-"./src/entities.js": "./src/entities.js?v=1795159314",
-"./src/levels.js": "./src/levels.js?v=1795159314",
-"./src/lowland.js": "./src/lowland.js?v=1795159314",
-"./src/main.js": "./src/main.js?v=1795159314",
-"./src/models.js": "./src/models.js?v=1795159314",
-"./src/net.js": "./src/net.js?v=1795159314",
-"./src/player.js": "./src/player.js?v=1795159314",
-"./src/terrain.js": "./src/terrain.js?v=1795159314",
-"./src/ui.js": "./src/ui.js?v=1795159314",
-"./src/util.js": "./src/util.js?v=1795159314",
-"./src/village.js": "./src/village.js?v=1795159314",
-"./src/world.js": "./src/world.js?v=1795159314"
+"./src/audio.js": "./src/audio.js?v=1795281426",
+"./src/entities.js": "./src/entities.js?v=1795281426",
+"./src/levels.js": "./src/levels.js?v=1795281426",
+"./src/lowland.js": "./src/lowland.js?v=1795281426",
+"./src/main.js": "./src/main.js?v=1795281426",
+"./src/models.js": "./src/models.js?v=1795281426",
+"./src/net.js": "./src/net.js?v=1795281426",
+"./src/player.js": "./src/player.js?v=1795281426",
+"./src/terrain.js": "./src/terrain.js?v=1795281426",
+"./src/ui.js": "./src/ui.js?v=1795281426",
+"./src/util.js": "./src/util.js?v=1795281426",
+"./src/village.js": "./src/village.js?v=1795281426",
+"./src/world.js": "./src/world.js?v=1795281426"
 }
 }
 </script>
@@ -153,6 +159,8 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
   <div id="guide" hidden><b id="guideArrow">▼</b><span id="guideText"></span></div>
   <div id="msgs"><div id="bark" hidden><b id="barkWho"></b><span id="barkText"></span></div><div id="toast" hidden></div><div id="state" hidden></div></div>
   <div id="lucky" hidden><span id="luckyT"></span></div>
+  <div id="countBox" hidden></div>
+  <div id="lobbyBox" hidden></div>
   <div id="tools"></div>
 </div>
 
@@ -172,8 +180,8 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
   <button class="btn plain" id="btnVillage">Return to the village</button>
   <p>Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p>
   <p class="small" id="netInfo"></p>
-  <button class="btn plain" id="btnFull">Full screen (F)</button>
-  <p class="small">F full screen · H hide the on-screen hints · V or mouse wheel: first / third person · M map · N music · P pause</p>
+  <button class="btn plain" id="btnFull">Full screen (U)</button>
+  <p class="small">U full screen · H hide the on-screen hints · V or mouse wheel: first / third person · M map · N music · P pause</p>
 </div></div>
 
 <div id="title" class="screen"><div class="card">
@@ -181,7 +189,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
   <p class="sub">Chieftain Grizzlegut has carried Princess Wrenna to the top of the mountain. Jump, climb, swing, glide, crawl and zip-line your way up to bring her home.</p>
   <button class="btn" id="btnContinue" hidden>Continue the climb</button>
   <button class="btn alt" id="btnNew">Start the climb</button>
-  <div class="online"><b>Play with friends</b><input id="netName" maxlength="12" placeholder="Your name"><div><button class="btn plain" id="btnHost">Host online game</button><span><input id="netCode" maxlength="6" placeholder="CODE"><button class="btn plain" id="btnJoin">Join</button></span></div><small>One player hosts and tells the others the code. Online is always a fresh start for everyone (your solo climb is kept separately), it is tougher, and it adds walls and gates that take two. In the game: B calls for help, T pegs a rope for friends to climb, E beside a friend gives them a boost, and a whip crack at a friend hauls them up to you.</small></div>
+  <div class="online"><b>Play with friends</b><input id="netName" maxlength="12" placeholder="Your name"><div><button class="btn plain" id="btnHost">Host online game</button><span><input id="netCode" maxlength="6" placeholder="CODE"><button class="btn plain" id="btnJoin">Join</button></span></div><small>One player hosts and tells the others the code. Everyone gathers in a small starting camp. The host picks the mountain and the mode, a countdown runs, and you all start on the line together. RACE: every hero for themselves, and you can knock each other about. TEAM: one clock, and obstacles that take two.</small></div>
   <div class="keys">
     <b>W A S D</b><span>Move (mouse looks)</span>
     <b>Space</b><span>Jump, double jump, triple jump; hold to glide</span>
@@ -191,7 +199,8 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
     <b>Right click / Q</b><span>Grappling hook, later the hand cannon</span>
     <b>E</b><span>Talk, open, read</span>
     <b>M · V · P</b><span>Map · first or third person · pause</span>
-    <b>F · H</b><span>Full screen · hide the on-screen hints</span>
+    <b>F</b><span>Punch (shoves goblins, and other players online)</span>
+    <b>U · H</b><span>Full screen · hide the on-screen hints</span>
     <b>Tab</b><span>Hold to see trail times (yours and your friends')</span>
   </div>
   <p class="small">You cannot die. But if you fall, you walk back up.</p>
@@ -199,6 +208,6 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 
 <div id="fade"></div>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795159314"></script>
+<script type="module" src="./src/main.js?v=1795281426"></script>
 </body>
 </html>

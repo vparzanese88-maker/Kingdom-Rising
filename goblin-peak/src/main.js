@@ -9,7 +9,7 @@ import { Net } from './net.js';
 import { LEVELS, ORDER, ITEMS, RELICS } from './levels.js';
 
 const $ = id => document.getElementById(id), KEY = 'goblin-peak-save-1';
-const fresh = () => ({ coins: 0, items: {}, upg: {}, done: {}, toll: {}, bombs: 0, jewels: {}, relics: {}, acts: {}, run: {}, camp: {}, seen: {}, best: {}, stats: {}, sens: 1, third: false, won: false, cur: 'hub', played: 0 });
+const fresh = () => ({ coins: 0, items: { whip: 1 }, upg: {}, done: {}, toll: {}, bombs: 0, jewels: {}, relics: {}, acts: {}, run: {}, camp: {}, seen: {}, best: {}, stats: {}, sens: 1, third: false, won: false, cur: 'hub', played: 0 });
 
 class Input {
   constructor() { this.k = {}; this.h = {}; this.mx = 0; this.my = 0; this.lmbHit = false; this.rmbHit = false; }
@@ -22,7 +22,7 @@ class Game {
   constructor() {
     this.canvas = $('game'); this.input = new Input(); this.audio = new Audio(); this.time = 0; this.frame = 0; this.locked = false; this.playing = false; this.paused = true;
     try { const m = sessionStorage.getItem('gp-mp'); if (m) { sessionStorage.removeItem('gp-mp'); this.mp = JSON.parse(m); this.coop = true; } } catch (e) { }
-    if (this.mp) this.save = fresh(); else this.load(); { const S = this.save; S.relics = S.relics || {}; for (const id in S.jewels) (S.jewels[id] || []).forEach((v, i) => { if (v && RELICS[id] && RELICS[id][i]) S.relics[RELICS[id][i].id] = 1; }); }
+    if (this.mp) this.save = fresh(); else this.load(); { const S = this.save; S.items.whip = 1; S.relics = S.relics || {}; for (const id in S.jewels) (S.jewels[id] || []).forEach((v, i) => { if (v && RELICS[id] && RELICS[id][i]) S.relics[RELICS[id][i].id] = 1; }); }
     const r = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' }); r.setPixelRatio(Math.min(devicePixelRatio, 1.5)); r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     this.camera = new THREE.PerspectiveCamera(78, 1, 0.1, 1600);
     this.player = new Player(this); this.player.third = !!this.save.third; if (this.save.camDist) this.player.camDist = this.save.camDist; this.camera.add(this.player.hands);
@@ -31,7 +31,7 @@ class Game {
     this.last = performance.now(); requestAnimationFrame(t => this.loop(t));
     const q = new URLSearchParams(location.search); this.debug = q.has('debug'); if (q.get('level')) { this.begin(q.get('level')); }
     else if (!q.has('split')) { this.buildRealm(); this.loadLevel(this.save.played ? this.save.cur : 'hub', true); }
-    if (this.mp && this.regions) { const m = this.mp; this.net.name = m.name || 'Hero'; if (m.host) this.net.host(m.code); else this.net.join(m.code); this.testing = q.has('debug'); this.begin('hub'); this.testing = false; this.ui.toast(m.host ? `You are hosting a fresh climb. Tell your friends the code: ${m.code}. Click the game to take control.` : `Joining ${m.code} on a fresh climb. Click the game to take control.`, 14); }
+    if (this.mp && this.regions) { const m = this.mp; this.net.name = m.name || 'Hero'; if (m.host) this.net.host(m.code); else this.net.join(m.code); this.testing = q.has('debug'); this.begin('lobby'); this.testing = false; this.ui.toast(m.host ? `You are hosting a fresh climb. Tell your friends the code: ${m.code}. Click the game to take control.` : `Joining ${m.code} on a fresh climb. Click the game to take control.`, 14); }
     else this.loadLevel(this.save.played ? this.save.cur : 'hub', true);
   }
   load() { try { this.save = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { this.save = fresh(); } }
@@ -44,7 +44,7 @@ class Game {
       if (!this.playing) return;
       if (e.code === 'KeyV' && !this.locked) { this.player.third = this.save.third = !this.player.third; if (this.player.third && this.player.camDist < 2.5) this.player.camDist = 6.2; }
       if (e.code === 'KeyP' || e.code === 'Escape' && !document.pointerLockElement && !this.ui.shopOpen) this.pause(!this.paused);
-      if (e.code === 'KeyF') this.fullscreen();
+      if (e.code === 'KeyU') this.fullscreen();
       if (e.code === 'KeyH') { this.save.clean = !this.save.clean; document.body.classList.toggle('clean', !!this.save.clean); this.ui.toast(this.save.clean ? 'Hints hidden. H brings them back.' : 'Hints shown.', 2); }
       if (e.code === 'KeyN' && !this.locked) this.ui.toast(this.audio.toggleMusic() ? 'Music on' : 'Music off', 2);
     });
@@ -84,7 +84,8 @@ class Game {
     const gp = new THREE.Mesh(new THREE.CircleGeometry(1700, 64), new THREE.MeshLambertMaterial({ color: new THREE.Color(...THEMES.meadow.ground).multiplyScalar(0.95) })); gp.rotation.x = -Math.PI / 2; gp.position.y = -14; gp.receiveShadow = true; rg.add(gp);
     const dirs = { l1: [-1, 0, 0], l2: [0, -1, -Math.PI / 2], l3: [1, 0, Math.PI] }; this.regions = {};
     this.holes = []; this.save.acts = this.save.acts || {};
-    for (const id of ['l1', 'l2', 'l3', 'hub']) { const W = new World(this, LEVELS[id], true), d = dirs[id], Dm = d ? W.spiral.R0 + 200 : 0; W.xf = d ? { ox: d[0] * Dm, oz: d[1] * Dm, rot: d[2] } : { ox: 0, oz: 0, rot: 0 }; if (d) { this.holes.push({ x: W.xf.ox, z: W.xf.oz, r: W.spiral.R0 }); W.terrainMesh.position.y = 0.03; } W.scene.position.set(W.xf.ox, 0, W.xf.oz); W.scene.rotation.y = W.xf.rot; rg.add(W.scene); this.regions[id] = W; }
+    for (const id of ['l1', 'l2', 'l3', this.coop ? 'lobby' : 'hub']) { const W = new World(this, LEVELS[id], true), d = dirs[id], Dm = d ? W.spiral.R0 + 200 : 0; W.xf = d ? { ox: d[0] * Dm, oz: d[1] * Dm, rot: d[2] } : { ox: 0, oz: 0, rot: 0 }; if (d) { this.holes.push({ x: W.xf.ox, z: W.xf.oz, r: W.spiral.R0 }); W.terrainMesh.position.y = 0.03; } W.scene.position.set(W.xf.ox, 0, W.xf.oz); W.scene.rotation.y = W.xf.rot; rg.add(W.scene); this.regions[id] = W; }
+    if (this.coop) this.regions.hub = this.regions.lobby;
     this.trailhead = i => { const W = this.regions[ORDER[i]], g = this.toGlobal(W, W.start.x, W.start.z); return g; };
   }
   rotY(x, z, t) { const c = Math.cos(t), s = Math.sin(t); return [x * c + z * s, -x * s + z * c]; }
@@ -95,6 +96,7 @@ class Game {
   }
   // Walking out of one place and into the next: swap which map is live and carry the hero across without a break.
   handoff() {
+    if (this.coop) return;      // online, players are moved by the race, not by walking
     const W = this.world, P = this.player, g = this.toGlobal(W, P.pos.x, P.pos.z), dv = Math.hypot(g[0], g[1]); let next = null, best = 1e9;
     for (const id of ORDER) { const m = this.regions[id], d = Math.hypot(g[0] - m.xf.ox, g[1] - m.xf.oz) - m.spiral.R0; if (d < 118 && d < best) { best = d; next = m; } }
     if (!W.def.hub) { const own = Math.hypot(g[0] - W.xf.ox, g[1] - W.xf.oz) - W.spiral.R0; if (own <= 130 && (!next || next === W || own < best + 12)) next = null; else if (!next || next === W) next = this.regions.hub; }
@@ -117,10 +119,10 @@ class Game {
   toCamp(silent) { const W = this.world, n = this.save.camp[W.def.id] || 0, c = n && W.camps[n - 1]; let s = W.start; if (c) { const f = c.sec.spawn; s = { x: f.x, y: f.y, z: f.z, yaw: Math.atan2(-f.tx, -f.tz) }; } this.player.spawn(s.x, s.y + 0.1, s.z, s.yaw); if (!silent) this.ui.toast('Back at camp.', 2); }
   addCoins(n, quiet) { this.save.coins += n; this.audio.sfx('coin'); this.stat('coins', n); $('coinBox').classList.remove('pop'); void $('coinBox').offsetWidth; $('coinBox').classList.add('pop'); }
   loseCoins() { const n = Math.min(this.save.coins, Math.max(5, Math.round(this.save.coins * 0.12)) >> (this.save.upg.purse ? 1 : 0), 30); if (n > 0) { this.save.coins -= n; const p = this.player.pos; this.world.dropCoins(p.x, p.y + 1.2, p.z, n); } }
-  give(item) { this.net.send({ t: 'item', k: item }); this.save.items[item] = 1; this.saveNow(); this.audio.sfx('item'); const it = ITEMS[item]; this.ui.dialog([{ who: 'You found', text: it.name + '!' }, { who: it.name, text: it.text }]); }
-  gotJewel(idx) { this.net.send({ t: 'relic', r: this.world.def.id, i: idx }); const id = this.world.def.id, a = this.save.jewels[id] = this.save.jewels[id] || []; a[idx] = 1; const r = (RELICS[id] || [])[idx]; if (r) this.save.relics[r.id] = 1; this.audio.sfx('jewel'); this.saveNow(); this.ui.dialog([{ who: 'You found a relic', text: (r ? r.name : 'A relic') + `!  (${a.filter(Boolean).length} of 3 on this trail)` }, { who: r ? r.name : 'Relic', text: r ? r.text : '' }]); }
+  give(item) { if (this.mode !== 'race') this.net.send({ t: 'item', k: item }); this.save.items[item] = 1; this.saveNow(); this.audio.sfx('item'); const it = ITEMS[item]; this.ui.dialog([{ who: 'You found', text: it.name + '!' }, { who: it.name, text: it.text }]); }
+  gotJewel(idx) { if (this.mode !== 'race') this.net.send({ t: 'relic', r: this.world.def.id, i: idx }); const id = this.world.def.id, a = this.save.jewels[id] = this.save.jewels[id] || []; a[idx] = 1; const r = (RELICS[id] || [])[idx]; if (r) this.save.relics[r.id] = 1; this.audio.sfx('jewel'); this.saveNow(); this.ui.dialog([{ who: 'You found a relic', text: (r ? r.name : 'A relic') + `!  (${a.filter(Boolean).length} of 3 on this trail)` }, { who: r ? r.name : 'Relic', text: r ? r.text : '' }]); }
   // Online with a partner, three knocks in quick succession leave you dizzy on the ground until a friend helps you up.
-  dazed() { const P = this.player, N = this.net; if (N.count() < 2 || P.down > 0) return; P.daze = (P.daze || 0) + 1; P.dazeT = 9; if (P.daze >= 3) { P.daze = 0; P.down = 16; this.ui.toast('You are seeing stars. A friend can help you up (E beside you), or wait it out.', 6); N.call(true); } }
+  dazed() { const P = this.player, N = this.net; if (N.count() < 2 || P.down > 0 || this.mode === 'race') return; P.daze = (P.daze || 0) + 1; P.dazeT = 9; if (P.daze >= 3) { P.daze = 0; P.down = 16; this.ui.toast('You are seeing stars. A friend can help you up (E beside you), or wait it out.', 6); N.call(true); } }
   // Nib's lucky line: fall off the trail and, for a price, be hauled back to where you last stood.
   lucky(dt) {
     const P = this.player, S = this.save, W = this.world; if (P.dazeT > 0 && (P.dazeT -= dt) <= 0) P.daze = 0; if (this.callMark) this.callMark.t -= dt;
@@ -129,11 +131,21 @@ class Game {
     this.ui.show('lucky', true); this.ui.set('luckyT', S.coins >= cost ? `Press R: Nib's lucky line hauls you back up (${cost} coins)  ·  ${Math.ceil(f.t)}` : `Nib's lucky line costs ${cost} coins. You have ${S.coins}. It is a long walk back.`);
     if (this.input.hit('KeyR') && S.coins >= cost && !this.locked) { S.coins -= cost; this.lineUses = (this.lineUses || 0) + 1; const yaw = f.yaw; P.spawn(f.x, f.y + 0.3, f.z, yaw); P.inv = 2; this.fall = null; this.ui.show('lucky', false); this.audio.sfx('hook'); this.audio.sfx('buy'); this.ui.toast('Hauled back up. Nib says the next one costs more.', 3); }
   }
+  // Online: a fresh copy of the chosen mountain, everyone wiped clean and lined up, then a countdown.
+  startRace(map, mode, slot, n) {
+    const S = this.save, old = this.regions[map]; this.mode = mode; this.raceMap = map; this.fall = null; this.ui.show('lucky', false);
+    Object.assign(S, { coins: 0, items: mode === 'race' ? { whip: 1, boots: 1 } : { whip: 1 }, upg: {}, relics: {}, jewels: {}, camp: {}, run: {}, done: {}, best: {}, seen: {}, bombs: 0 }); this.lineUses = 0;
+    this.rg.remove(old.scene); const W = new World(this, LEVELS[map], true); W.xf = old.xf; W.scene.position.copy(old.scene.position); W.scene.rotation.y = old.scene.rotation.y; W.terrainMesh.position.y = 0.03; this.rg.add(W.scene); this.regions[map] = W;
+    this.setActive(W); const s0 = W.secs[0], f = s0.at(4, (slot - (n - 1) / 2) * 1.7, 0), P = this.player; P.spawn(f.x, f.y + 0.1, f.z, Math.atan2(-f.tx, -f.tz)); P.down = 0; P.daze = 0; P.safe = null;
+    this.count = 4.99; this.locked = true; this.ui.show('lobbyBox', false); this.ui.closeAll(); this.audio.sfx('camp');
+  }
+  toLobby() { this.mode = null; this.count = 0; this.locked = false; this.loadLevel('lobby'); const a = Math.random() * 6.28; this.player.spawn(Math.cos(a) * 6, 0.2, Math.sin(a) * 6, a + Math.PI / 2); }
   // One of the hundred lowland adventures done.
   act(id, name, coins, x, y, z) { const S = this.save; if (S.acts[id]) return; this.net.send({ t: 'act', id, name }); S.acts[id] = 1; const n = Object.keys(S.acts).length; this.audio.sfx('jewel'); if (coins) this.world.dropCoins(x, y, z, Math.min(40, coins)); this.ui.toast(`${name}!  Lowland adventures: ${n} of ${ACT_TOTAL}` + (n === ACT_TOTAL ? '. Every single one. The stones were right about you.' : ''), 5); this.saveNow(); }
   stat(k, n = 1) { this.save.stats[k] = (this.save.stats[k] || 0) + n; }
   fmt(t) { const m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + String(s).padStart(2, '0'); }
   completeLevel() {
+    if (this.coop) return this.net.finished();
     const id = this.world.def.id, S = this.save, first = !S.done[id]; S.done[id] = 1; const t = S.run[id] || this.levelT; S.run[id] = 0; if (!S.best[id] || t < S.best[id]) S.best[id] = t; this.audio.sfx('win'); if (first) S.coins += 50; S.camp[id] = 0; this.saveNow();
     const nx = ORDER[ORDER.indexOf(id) + 1]; if (document.pointerLockElement) document.exitPointerLock();
     this.ui.levelDone({ title: this.world.def.name + ' cleared!', body: `<p>Time on the trail: <b>${this.fmt(t)}</b> (best ${this.fmt(S.best[id])})</p><p>Relics found: <b>${(S.jewels[id] || []).filter(Boolean).length}/3</b></p><p>Coins: <b>${S.coins}</b>${first ? ' (including a 50 coin bonus)' : ''}</p><p>${nx ? `The way to <b>${LEVELS[nx].name}</b> is now open, back in the village.` : ''}</p>` }, () => this.loadLevel('hub'));
@@ -144,7 +156,8 @@ class Game {
   }
   step(dt) {
     this.time += dt; this.frame++; this.levelT += dt; this.save.played += dt; { const S = this.save, id = this.world.def.id; S.run = S.run || {}; if (!this.world.def.hub && !this.locked) S.run[id] = (S.run[id] || 0) + dt; }
-    this.world.update(dt); this.player.update(dt); if (this.regions) this.handoff(); this.lucky(dt); this.net.update(dt); this.ui.update(dt);
+    this.world.update(dt); this.player.update(dt); if (this.count > 0) { const c0 = Math.ceil(this.count); this.count -= dt; const c1 = Math.ceil(this.count); this.locked = true; this.ui.count(this.count > 0 ? c1 : 'GO!'); if (c1 !== c0) this.audio.sfx(this.count > 0 ? 'coin' : 'win'); if (this.count <= 0) { this.locked = false; this.save.run = {}; setTimeout(() => this.ui.count(null), 900); } }
+    if (this.regions) this.handoff(); this.lucky(dt); this.net.update(dt); this.ui.update(dt);
     if (this.frame % 600 === 0) this.saveNow();
   }
   loop(t) {

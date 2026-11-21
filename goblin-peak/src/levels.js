@@ -68,7 +68,7 @@ export const HUB_STORY = {
 const L1 = [
   path(44, 2, { name: 'Greenfoot Trailhead', npcs: [{ name: H, model: hilda, a: 14, lines: say(H, 'Oh good, it is you. I am just catching my breath. For the third time.', 'The trail winds round and round the mountain. Fall off the edge and you land on the loop below. Ask me how I know.', 'SHIFT to sprint, SPACE to jump, SPACE again in the air to jump again. Off you go!') }], tip: 'WASD to move, mouse to look, SHIFT to sprint. SPACE jumps, and SPACE again in the air is a double jump.' }),
   gap(3, 2.4, 3.6, 'stone', { tip: 'A ravine. Hop across the rock pinnacles. If you fall in, the near wall is hung with vines: walk into them and hold W to climb out.' }),
-  path(34, 3, { mobs: [['grunt', 0.5], ['grunt', 0.8]], tip: 'Goblins! LEFT CLICK punches (two good ones drop a grunt), and jumping on their heads bonks them. They cannot hurt you, but they will happily shove you off the mountain.' }),
+  path(34, 3, { mobs: [['grunt', 0.5], ['grunt', 0.8]], tip: 'Goblins! F punches (two good ones drop a grunt), LEFT CLICK cracks the whip, and jumping on their heads bonks them. They cannot hurt you, but they will happily shove you off the mountain.' }),
   climb(7, { tip: 'Vines. Walk into them and hold W to climb. SPACE springs you off the wall.' }),
   path(30, 2, { chest: 'whip', bark: [C, '(a horn blares from far above) OI! HERO! THE PRINCESS IS MINE. TURN ROUND, OR I WILL... ROLL THINGS AT YOU. BIG ROUND THINGS.'] }),
   swing(2, { tip: 'Look at a branch of the old tree over the ravine and LEFT CLICK: the whip wraps round it and you swing. LEFT CLICK the next branch mid-swing, or SPACE to let go.' }),
@@ -211,6 +211,7 @@ spice(L1, ['shield', 'bomber', 'tugger']); spice(L2, ['bomber', 'shaman', 'harpy
 
 export const LEVELS = {
   hub: { id: 'hub', name: 'Bramblewick', hub: true, theme: 'meadow', seed: 3, story: HUB_STORY },
+  lobby: { id: 'lobby', name: 'The Starting Camp', hub: true, lobby: true, theme: 'meadow', seed: 5 },
   l1: { id: 'l1', name: 'Greenfoot Slopes', theme: 'forest', seed: 11, col: 0x3f8a3a, sections: L1, river: { th: 2.4, loops: 2, styles: ['stones', 'log'] }, blurb: 'Forest foothills. Vines, log bridges, and your first goblins.', goal: 'Reach the gate at the top of the slopes' },
   l2: { id: 'l2', name: 'Thunder Gorge', theme: 'gorge', seed: 23, col: 0xb5652a, sections: L2, river: { th: 4.1, loops: 3, styles: ['planks', 'swing', 'raft'] }, blurb: 'Red canyons and a river in a hurry. Bring something to hook onto.', goal: 'Cross the gorge and reach the high gate' },
   l3: { id: 'l3', name: 'The Frostfang Stair', theme: 'snow', seed: 37, col: 0x54a6d6, sections: L3, river: { th: 1.2, loops: 3, styles: ['hook', 'stones', 'log'] }, story: BOSS, blurb: 'Ice, yetis, and the Chieftain\'s fortress at the summit.', goal: 'Reach the summit, ring the three gongs and free the Princess' },

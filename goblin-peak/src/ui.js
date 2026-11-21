@@ -69,6 +69,13 @@ export class UI {
     }
     $('mapObj').innerHTML = obj;
   }
+  count(v) { this.show('countBox', v !== null); if (v !== null) this.set('countBox', String(v)); }
+  closeAll() { if (this.mapOpen) this.toggleMap(false); if (this.shopOpen) this.closeShop(); if (this.dlg) { this.dlg = null; this.show('dialog', false); } }
+  lobby(N, L) {
+    this.show('lobbyBox', true); const names = [N.name + ' (you)', ...[...N.peers.values()].map(q => q.n)], map = LEVELS[L.map].name;
+    const h = `<h2>The Starting Camp</h2><p>Code to join: <b class="code">${N.code}</b></p><p>Players (${names.length}): ${names.join(', ')}</p><p>Mountain: <b>${map}</b></p><p>Mode: <b>${L.mode === 'race' ? 'RACE: every hero for themselves' : 'TEAM: get everyone to the top together'}</b></p>` + `<p class="small">${L.mode === 'race' ? 'First to the top wins. Punches and whip cracks land on other players. Everyone starts with the whip and triple jump.' : 'One clock for the whole team. Walls and gates that take two, shared finds, ropes, boosts, and helping each other up.'}</p>` + (N.isHost ? '<p class="keys2"><b>1 2 3</b> pick the mountain · <b>G</b> switch Race / Team · <b>ENTER</b> start</p>' : '<p class="small">Waiting for the host to start.</p>');
+    if (this.last.lob !== h) { this.last.lob = h; $('lobbyBox').innerHTML = h; }
+  }
   levelDone(d, cb) { $('doneTitle').textContent = d.title; $('doneBody').innerHTML = d.body; this.show('done', true); this.G.locked = true; this.doneCb = cb; }
   closeDone() { this.show('done', false); this.G.locked = false; const cb = this.doneCb; this.doneCb = null; if (cb) cb(); }
   update(dt) {
@@ -94,15 +101,16 @@ export class UI {
     const tab = I.down('Tab') && !this.dlg; this.show('board', tab);
     if (tab && (G.frame & 7) === 0) {
       const cell = (best, run, done) => (best ? `<b>✔ ${G.fmt(best)}</b>` : '') + (run > 1 ? `<i>${best ? '<br>' : ''}… ${G.fmt(run)}</i>` : '') || '–';
+      if (G.mode) { const N = G.net, fin = N.fin, me = { id: N.id, n: N.name + ' (you)', pr: W.spiral && P.routePhi > 0 ? Math.min(100, Math.round(P.routePhi / W.spiral.PHI * 100)) : 0 }, all = [me, ...[...N.peers.values()].map(q => ({ id: q.id, n: q.n, pr: q.pr || 0 }))].sort((a, b) => (fin[a.id] ? fin[a.id].place - 100 : -a.pr) - (fin[b.id] ? fin[b.id].place - 100 : -b.pr)); $('boardT').innerHTML = `<tr><th>${G.mode === 'race' ? 'Race' : 'Team climb'}: ${W.def.name}</th><th>Up the trail</th><th>Finished</th></tr>` + all.map((r, i) => `<tr><td>${i + 1}. ${r.n}</td><td>${fin[r.id] ? 100 : r.pr}%</td><td>${fin[r.id] ? '<b>✔ ' + G.fmt(fin[r.id].time) + '</b>' : '…'}</td></tr>`).join(''); } else {
       const rows = [{ n: (G.net.on ? G.net.name : 'You') + ' (you)', best: S.best, run: S.run || {}, r: W.def.id }, ...[...G.net.peers.values()].map(q => ({ n: q.n, best: q.best || {}, run: q.run || {}, r: q.r }))];
       let h = '<tr><th>Player</th>' + ORDER.map(id2 => `<th>${LEVELS[id2].name}</th>`).join('') + '<th>Now in</th></tr>';
       for (const r of rows) h += `<tr><td>${r.n}</td>` + ORDER.map(id2 => `<td>${cell(r.best[id2], r.run[id2])}</td>`).join('') + `<td>${(LEVELS[r.r] || LEVELS.hub).name}</td></tr>`;
-      $('boardT').innerHTML = h;
+      $('boardT').innerHTML = h; }
     }
     this.set('coins', S.coins); const id = W.def.id;
     this.show('jewelBox', !W.def.hub); if (!W.def.hub) { this.set('jewels', (S.jewels[id] || []).filter(Boolean).length + '/3'); this.set('height', Math.max(0, Math.round(P.pos.y)) + ' m / ' + Math.round(W.spiral.Ytop) + ' m   ⏱ ' + G.fmt((S.run || {})[id] || 0)); }
     this.show('heightBox', !W.def.hub);
-    const tools = (S.items.whip ? '<span><b>LMB</b> Whip</span>' : '') + (S.items.hook ? `<span><b>RMB</b> ${S.items.cannon ? 'Hand cannon' : 'Hook'}</span>` : '') + (S.items.glider ? '<span><b>Hold SPACE</b> Glide</span>' : '') + (G.net.on ? `<span><b>B</b> Call</span><span><b>T</b> Rope · online ${G.net.code} (${G.net.count()})</span>` : '') + (S.bombs > 0 ? `<span><b>G</b> Squibs ×${S.bombs}</span>` : '') + (S.relics.dash ? '<span><b>X</b> Air dash</span>' : '') + `<span><b>SPACE</b> Jump ×${(S.items.boots ? 3 : 2) + (S.relics.fourth ? 1 : 0)}</span><span><b>M</b> Map</span>`;
+    const tools = '<span><b>F</b> Punch</span>' + (S.items.whip ? '<span><b>LMB</b> Whip</span>' : '') + (S.items.hook ? `<span><b>RMB</b> ${S.items.cannon ? 'Hand cannon' : 'Hook'}</span>` : '') + (S.items.glider ? '<span><b>Hold SPACE</b> Glide</span>' : '') + (G.net.on ? `<span><b>B</b> Call</span><span><b>T</b> Rope · online ${G.net.code} (${G.net.count()})</span>` : '') + (S.bombs > 0 ? `<span><b>G</b> Squibs ×${S.bombs}</span>` : '') + (S.relics.dash ? '<span><b>X</b> Air dash</span>' : '') + `<span><b>SPACE</b> Jump ×${(S.items.boots ? 3 : 2) + (S.relics.fourth ? 1 : 0)}</span><span><b>M</b> Map</span>`;
     if (this.last.tools !== tools) { this.last.tools = tools; $('tools').innerHTML = tools; }
     const bal = !!P.onBeam; this.show('balance', bal); if (bal) $('balDot').style.left = (50 + P.lean * 46) + '%';
     const st = P.swim ? 'Swimming: head for the bank!' : P.climb ? 'Climbing  ·  W/S up and down  ·  SPACE jump off' : P.swing ? 'Swinging  ·  SPACE let go' : P.glide ? 'Gliding' : P.steep ? 'Sliding!' : '';

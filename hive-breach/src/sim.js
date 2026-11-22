@@ -7,7 +7,9 @@ const LV = { dmg: [1, 1.6, 2.4], rng: [1, 1.12, 1.25], rate: [1, 1.15, 1.32] };
 export const KITS = 2;   // turret kits a marine can carry; more are picked up in the hub
 // welding torch power cell: about 1.5 upgrades for most marines, far more for the Engineer
 export const pwMax = cls => cls === 'engineer' ? 160 : 100;
-export const DRESS = 2;   // field dressings: a little health back out in the field
+export const DRESS = 2;
+// scrap: piles everywhere, picked up just by running over them; welded upgrades cost scrap
+export const SCRAP_COST = [0, 15, 30], SCRAP_PILES = 150;   // field dressings: a little health back out in the field
 export const BUILD = { teleporter: 3, pulse: 4,  ammocache: 2,  resupply: 5, uav: 3,  minigun: 4, tesla: 5, missile: 6, barricade: 3, repair: 4, stasis: 3, flamer: 4, railgun: 6, mines: 2, beacon: 3, mortar: 5, medbay: 4 };
 export function pickSpecial() { const e = Object.entries(SPECIALS), tot = e.reduce((a, [, v]) => a + v.w, 0); let r = Math.random() * tot; for (const [k, v] of e) { r -= v.w; if (r <= 0) return k; } return 'stim'; }
 export const LEVEL_T = 60, DROP_FALL = 9, DROP_LIFE = 60;
@@ -21,10 +23,11 @@ export class Sim {
     this.W = W; this.path = W.path; this.emit = emit; this.players = new Map(); this.reset();
   }
   reset() {
+    this.scrap = []; this.scrapT = 0; for (let i = 0; i < SCRAP_PILES; i++) this.spawnScrap();
     this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.items = []; this.pools = []; this.tm = []; this.drones = []; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = []; this.stormT = 0; this.stormI = 0; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0] }; this.spawnHive(1);
     for (const p of this.players.values()) this.resetPlayer(p);
   }
-  resetPlayer(p) { p.dr = DRESS; p.kits = KITS; p.pw = pwMax(p.cls); p.special = ''; p.acd = [0, 0, 0, 0]; p.items = CLASSES[p.cls] ? CLASSES[p.cls].throw.n : 2; p.buf = {}; p.cl = 0; p.adrT = 0; p.stimT = 0; p.rv = p.rv || 0; p.gold = START_GOLD; p.ups = { dmg: 0, rate: 0, mag: 0, spd: 0, hp: 0, arm: 0 }; p.mhp = p.hp = maxHp(p.cls, p.ups); p.dead = false; p.rt = 0; p.kills = 0; p.sp = (p.sp || 0) + 1; }
+  resetPlayer(p) { p.scrap = 0; p.dr = DRESS; p.kits = KITS; p.pw = pwMax(p.cls); p.special = ''; p.acd = [0, 0, 0, 0]; p.items = CLASSES[p.cls] ? CLASSES[p.cls].throw.n : 2; p.buf = {}; p.cl = 0; p.adrT = 0; p.stimT = 0; p.rv = p.rv || 0; p.gold = START_GOLD; p.ups = { dmg: 0, rate: 0, mag: 0, spd: 0, hp: 0, arm: 0 }; p.mhp = p.hp = maxHp(p.cls, p.ups); p.dead = false; p.rt = 0; p.kills = 0; p.sp = (p.sp || 0) + 1; }
   addPlayer(id, name, cls) {
     let p = this.players.get(id); if (p) { p.name = name; if (p.cls !== cls) { p.cls = cls; p.items = CLASSES[cls].throw.n; p.mhp = maxHp(cls, p.ups); p.hp = Math.min(p.hp, p.mhp); } return p; }
     { const f = bossScale(this.players.size + 1) / bossScale(this.players.size); for (const a of this.aliens) if (a.type === 'broodqueen' || a.type === 'royal') { a.hp *= f; a.mhp *= f; } }
@@ -34,6 +37,7 @@ export class Sim {
   // turrets go down almost anywhere, the track included
   dropError(x, z) { const W = this.W; if (!isFinite(x) || !isFinite(z) || Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2) return 'Too close to the edge'; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < 9) return 'Not on the hub core'; if (Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 9) return 'Too close to the hive'; if (W.T.chasm(x, z) < 0.9) return 'Not in the chasm'; return ''; }
   settle(t) { const n = this.path.near(t.x, t.z); t.y = this.W.top(t.x, t.z); if (TURRETS[t.kind].onPath && n.d < PATH_W / 2 + 2) { t.s = n.s; t.x = n.x; t.z = n.z; t.y = this.path.y(n.s); t.ry = Math.atan2(n.tx, n.tz); t.on = 1; } else { t.s = n.s; t.on = 0; } }
+  spawnScrap() { const W = this.W; for (let k = 0; k < 20; k++) { const x = (Math.random() * 2 - 1) * (BOUNDS - 6), z = (Math.random() * 2 - 1) * (BOUNDS - 6); if (W.T.chasm(x, z) < 0.99 || Math.hypot(x - W.hubP.x, z - W.hubP.z) < 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 20) continue; this.scrap.push({ id: this.nid++, x, z, n: 3 + (Math.random() * 4 | 0) }); return; } }
   removePlayer(id) { const p = this.players.get(id); if (!p) return; this.players.delete(id); this.emit({ k: 'toast', m: p.name + ' left.' }); }
   living() { return [...this.players.values()].filter(p => !p.dead && !(p.buf && p.buf.cloak > 0)); }
 
@@ -96,7 +100,7 @@ export class Sim {
       if (t && Math.hypot(t.x - p.x, t.z - p.z) < reach + 1.5) {
         if (t.hp < t.mhp) { t.hp = Math.min(t.mhp, t.hp + (eng ? 81 : 27) * dt); p.pw = Math.max(0, p.pw - 2 * dt); }
         else if (t.lvl < 3 && !t.fresh && !t.carry) {
-          if (!t.next) { t.next = t.lvl + 1; t.up = 0; this.emit({ k: 'upgstart', id: t.id, by: id, x: t.x, z: t.z }); }
+          if (!t.next) { const c = SCRAP_COST[t.lvl] || 30; if ((p.scrap || 0) < c) { if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say(`Need ${c} scrap to weld on this upgrade. Run over the scrap piles lying around the map.`); } return; } p.scrap -= c; t.next = t.lvl + 1; t.up = 0; this.emit({ k: 'upgstart', id: t.id, by: id, x: t.x, z: t.z }); }
           t.up = (t.up || 0) + dt / (4 + 2 * t.lvl) * (eng ? 3 : 1); p.pw = Math.max(0, p.pw - 10 * dt);
           if (t.up >= 1) { t.lvl = t.next; t.next = 0; t.up = 0; const k = TURRETS[t.kind].hp * (1 + 0.4 * (t.lvl - 1)); t.hp += k - t.mhp; t.mhp = k; this.emit({ k: 'upg', id: t.id, lvl: t.lvl, x: t.x, z: t.z }); }
         }
@@ -142,7 +146,7 @@ export class Sim {
     for (const a of this.aliens) { const dist = Math.hypot(a.x - x, a.y + ALIENS[a.type].h * 0.5 - y, a.z - z) - ALIENS[a.type].r; if (dist < r) this.hurtAlien(a, d * (1 - Math.max(0, dist) / r * 0.6), owner, true); }
   }
   killAlien(a, owner) {
-    a.dead = true; const A = ALIENS[a.type]; this.emit({ k: 'die', id: a.id, x: a.x, y: a.y, z: a.z, t: a.type });
+    a.dead = true; const A = ALIENS[a.type]; if (!A.static && Math.random() < 0.35 && this.scrap) this.scrap.push({ id: this.nid++, x: a.x, z: a.z, n: 2 + (Math.random() * 3 | 0) }); this.emit({ k: 'die', id: a.id, x: a.x, y: a.y, z: a.z, t: a.type });
     const p = this.players.get(owner); if (p) p.kills++;
     for (const q of this.players.values()) q.gold += Math.round(A.bounty * (q.id === owner ? 1 : 0.4));
     if (A.boss || a.type === 'broodqueen') this.emit({ k: 'toast', m: `${A.name} destroyed${p ? ' by ' + p.name : ''}!`, big: 1 });
@@ -192,6 +196,7 @@ export class Sim {
       for (let k = 0; k < 4; k++) p.acd[k] = Math.max(0, p.acd[k] - dt); for (const k in p.buf) p.buf[k] = Math.max(0, p.buf[k] - dt); p.adrT = Math.max(0, p.adrT - dt); p.stimT = Math.max(0, p.stimT - dt);
       const inHub = !!this.W.T.hubAt(p.x, p.z); p.regen = this.hub > 0 && inHub && p.hp < p.mhp; if (p.regen) p.hp = Math.min(p.mhp, p.hp + 16 * dt);
       { const pm = pwMax(p.cls); if (inHub) p.pw = Math.min(pm, (p.pw ?? pm) + 25 * dt); else if (this.turrets.some(t => (t.kind === 'resupply' || t.kind === 'ammocache') && !t.fresh && !t.carry && Math.hypot(t.x - p.x, t.z - p.z) < 6)) p.pw = Math.min(pm, (p.pw ?? pm) + 3 * dt); }
+      for (const sc of this.scrap) if (!sc.got && Math.abs(sc.x - p.x) < 2.6 && Math.abs(sc.z - p.z) < 2.6 && Math.hypot(sc.x - p.x, sc.z - p.z) < 2.6) { sc.got = true; p.scrap = (p.scrap || 0) + sc.n; this.emit({ k: 'scrap', to: p.id, n: sc.n }); }
       if (inHub && (p.dr ?? DRESS) < DRESS) { p.drT = (p.drT || 0) + dt; if (p.drT > 4) { p.drT = 0; p.dr = (p.dr ?? DRESS) + 1; } }
       if (inHub && (p.kits ?? KITS) < KITS) { p.kitT = (p.kitT || 0) + dt; if (p.kitT > 3) { p.kitT = 0; p.kits = (p.kits ?? KITS) + 1; this.emit({ k: 'kit', to: p.id, n: p.kits }); } }
       if (inHub && p.items < CLASSES[p.cls].throw.n) { p.irT = (p.irT || 0) + dt; if (p.irT > 2) { p.irT = 0; p.items++; } }
@@ -201,6 +206,7 @@ export class Sim {
       for (const c of this.ammo) if (Math.hypot(p.x - c.x, p.z - c.z) < 2.6 && (c.cd[p.id] || 0) < this.time) { c.cd[p.id] = this.time + 1; this.emit({ k: 'ammo', to: p.id }); }
       for (const pod of this.pods) if (!pod.got && pod.land <= 0 && Math.hypot(pod.x - p.x, pod.z - p.z) < 2.4) { pod.got = true; const g = 90 + this.wave * 15; for (const q of this.players.values()) q.gold += q === p ? g : Math.round(g * 0.4); if (pod.sp) { if (p.special) this.emit({ k: 'say', to: p.id, m: `${SPECIALS[pod.sp].name} replaced your ${SPECIALS[p.special].name}.` }); p.special = pod.sp; } this.emit({ k: 'pod', by: p.id, g, x: pod.x, z: pod.z, sp: pod.sp || '' }); this.emit({ k: 'ammo', to: p.id, big: 1 }); p.pw = pwMax(p.cls); }
     }
+    if (this.scrap.some(s => s.got)) this.scrap = this.scrap.filter(s => !s.got); this.scrapT += dt; if (this.scrapT > 4 && this.scrap.length < SCRAP_PILES) { this.scrapT = 0; this.spawnScrap(); }
     for (const q of this.pods) { q.land -= dt; q.life -= dt; if (q.life <= 0 && !q.got) { q.got = true; this.emit({ k: 'podgone', x: q.x, z: q.z }); } }
     if (this.pods.some(q => q.got)) this.pods = this.pods.filter(q => !q.got);
     for (const it of this.items) { it.life -= dt; it.age = (it.age || 0) + dt; } if (this.items.some(it => it.got || it.life <= 0)) this.items = this.items.filter(it => !it.got && it.life > 0);
@@ -477,8 +483,8 @@ export class Sim {
       w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), el: Math.floor(this.el || 0), n: this.players.size, wx: +(this.stormI || 0).toFixed(2), wa: +(this.windA || 0).toFixed(2),
       A: this.aliens.map(a => [a.id, a.type, r1(a.x), r1(a.y), r1(a.z), Math.round(a.hp), Math.round(a.mhp), +a.ry.toFixed(2), a.stun > 0 ? 1 : 0, a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0, a.rev > 0 || a.markT > 0 ? 1 : 0]),
       T: this.turrets.map(t => [t.id, t.kind, t.owner, r1(t.x), r1(t.z), +t.ry.toFixed(2), t.lvl, Math.round(t.hp), Math.round(t.mhp), t.tg, r1(t.y), r1(t.b || 0), t.bt || 0, t.fresh ? 1 : 0, t.ch || 0, t.carry || 0, t.next ? +(t.up || 0).toFixed(2) : 0]),
-      P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)]))]),
-      I: this.items.map(it => [it.id, it.kind, r1(it.x), r1(it.z)]),
+      P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, p.scrap || 0, Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)]))]),
+      I: this.items.map(it => [it.id, it.kind, r1(it.x), r1(it.z)]), SC: this.scrap.map(s => [s.id, r1(s.x), r1(s.z)]),
       M: this.ammo.map(c => [c.id, r1(c.x), r1(c.z), Math.ceil(c.life)]), Z: this.spores.map(c => [r1(c.x), r1(c.z), +(c.r * c.k).toFixed(1)]), K: this.pools.map(q => [r1(q.x), r1(q.y), r1(q.z), q.r, q.fire ? 1 : 0]), D: this.drones.map(d => [d.id, r1(d.x + Math.cos(d.a) * 8), r1(d.y + 14), r1(d.z + Math.sin(d.a) * 8), d.tg]), Q: this.medz.map(m => [m.id, r1(m.x), r1(m.y), r1(m.z), m.r, Math.ceil(m.t)]), S2: this.domes.map(d => [r1(d.x), r1(d.y), r1(d.z), d.r]),
       O: this.pods.map(p => [p.id, r1(p.x), r1(p.z), Math.ceil(Math.max(0, p.life)), r1(Math.max(0, p.land))]),
       L: this.allies.map(m => [m.id, m.type, r1(m.x), r1(m.y), r1(m.z), Math.round(m.hp), m.mhp, +m.ry.toFixed(2), m.tg]), C: { lv: this.cmd.lv, sz: this.cmd.sz, un: this.cmd.un, t: Math.ceil(this.cmd.t) }, open: this.hiveOpen() ? 1 : 0,

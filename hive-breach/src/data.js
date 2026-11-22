@@ -87,7 +87,7 @@ export const TURRETS = {
   medkitT: { name: 'Med kit', cost: 0, hp: 1, throwExtra: 1, key: 'third', desc: 'Throw it to a marine: it heals them to full.' },
   autocannon: { name: 'Twin Autocannon', cost: 100, hp: 300, range: 24, rate: 2.2, dmg: 38, key: 'sentry', desc: 'Heavy armour-piercing rounds from two barrels.' },
   shotgunT: { name: 'Shotgun Tower', cost: 110, hp: 320, range: 13, rate: 1.3, dmg: 16, pellets: 6, key: 'sentry', desc: 'Blasts everything close with buckshot.' },
-  rally: { name: 'Rally Beacon', cost: 80, hp: 320, key: 'defense', desc: 'The commander\'s dropships land here instead of at the hub.' },
+  rally: { name: 'Rally Beacon', cost: 80, hp: 320, key: 'defense', desc: 'Calls in an extra dropship of troops here every 45 s (faster and bigger when upgraded).' },
   sandbag: { name: 'Sandbag Bunker', cost: 60, hp: 900, range: 3.5, key: 'defense', desc: 'Cover: anyone inside takes half damage. A Gunner braced on it barely misses.' },
   nest: { name: 'Sniper Nest', cost: 90, hp: 500, key: 'defense', desc: 'A tower to climb (E at its foot) for height and a long view.' },
   fieldhosp: { name: 'Field Hospital', cost: 100, hp: 420, key: 'third', desc: 'Fallen marines respawn here instead of at the hub.' },

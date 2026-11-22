@@ -154,12 +154,12 @@ function fx(e) {
     case 'clear': banner(`WAVE ${e.w} CLEARED`, `+${e.b} gold · resupply`); audio.sfx('win'); break;
     case 'roar': audio.sfx('roar'); toast(`The ${ALIENS[e.t].name} has emerged from the hive!`, 4); G.shake = 0.6; break;
     case 'hubhit': G.hubFlash = 0.5; boomFx(e.x, e.y + 1, e.z, 2, 1); if (G.time - lastHubMsg > 6) { lastHubMsg = G.time; toast('The hub is under attack!', 2.5); audio.sfx('alarm', 0.5); } break;
-    case 'pod': burst(e.x, G.W.top(e.x, e.z) + 1, e.z, 0xffd040, 14, 5, 0.6); if (e.by === G.myId) { audio.sfx('pickup'); toast(`Supply crate: +${e.g} gold` + (e.sp ? ` and a special: ${SPECIALS[e.sp].name} (press ${keyName(KB.special)})` : ''), 4); G.me.reserve = Math.min(stats().reserve, G.me.reserve + stats().reserve * 0.5); } break;
+    case 'pod': burst(e.x, G.W.top(e.x, e.z) + 1, e.z, 0xffd040, 14, 5, 0.6); if (e.by === G.myId) { audio.sfx('pickup'); toast('Supply crate: ammo and welder power' + (e.sp ? `, and a special: ${SPECIALS[e.sp].name} (press ${keyName(KB.special)})` : ''), 4); G.me.reserve = Math.min(stats().reserve, G.me.reserve + stats().reserve * 0.5); } break;
     case 'drop2': toast(`✈ Supply drop! ${e.n} crates parachuting in: grab them within 60 seconds of landing (yellow on the minimap).`, 5); audio.sfx('wave', 0.6); break;
     case 'podgone': smoke(e.x, G.W.top(e.x, e.z) + 0.5, e.z, 3, 1); break;
     case 'placed': audio.sfx('place', vol(dist(e.x, e.z))); burst(e.x, 0.5, e.z, 0x80c0ff, 8, 3, 0.4); break;
     case 'upg': audio.sfx('buy', 0.6); { const v = view.turrets.get(e.id); if (v) burst(v.mesh.position.x, 2, v.mesh.position.z, 0xffd040, 12, 3, 0.6); } break;
-    case 'swapped': if (e.to === G.myId) { G.cls = e.cls; try { localStorage.setItem('hb-cls', e.cls); } catch (x) { } newMe(); G.me.reserve = stats().reserve; G.me.ammo = stats().mag; $('kit').innerHTML = `<h3>${CLASSES[G.cls].name}</h3>` + kitHTML(G.cls) + '<p class="small">H hides this card · K full gear guide</p>'; audio.sfx('buy'); toast(`You are now a ${CLASSES[e.cls].name}` + (e.n ? ` · ${e.n} structure${e.n > 1 ? 's' : ''} sold for ${e.refund} gold` : ''), 4); } break;
+    case 'swapped': if (e.to === G.myId) { G.cls = e.cls; try { localStorage.setItem('hb-cls', e.cls); } catch (x) { } newMe(); G.me.reserve = stats().reserve; G.me.ammo = stats().mag; $('kit').innerHTML = `<h3>${CLASSES[G.cls].name}</h3>` + kitHTML(G.cls) + '<p class="small">H hides this card · K full gear guide</p>'; audio.sfx('buy'); toast(`You are now a ${CLASSES[e.cls].name}` + (e.n ? ` · ${e.n} structure${e.n > 1 ? 's' : ''} removed, kits back` : ''), 4); } break;
     case 'bought': if (e.to === G.myId) audio.sfx('buy'); break;
     case 'bite': audio.sfx('screech', vol(dist(e.x, e.z)) * 0.4); for (const v of view.aliens.values()) if (Math.abs(v.x - e.x) < 0.6 && Math.abs(v.z - e.z) < 0.6) v.lunge = 0.25; break;
     case 'aggro': if (e.to === G.myId) audio.sfx('screech', 0.7); break;
@@ -556,9 +556,8 @@ function dropNew(kind, my) {
   const T = TURRETS[kind]; if (!T) return;
   // pressing the key of the turret in your hands puts it back in your pack
   const held = (state() || { T: [] }).T.find(t => t.carry === G.myId); if (held && held.kind === kind) { req({ a: 'stow' }); G.me.carry = 0; audio.sfx('pouch', 0.8); return; }
-  if (held) { req({ a: 'stow' }); my = Object.assign({}, my, { kits: (my.kits ?? 2) + 1, gold: my.gold + (held.spent || 0) }); }
+  if (held) { req({ a: 'stow' }); my = Object.assign({}, my, { kits: (my.kits ?? 2) + 1 }); }
   if ((my.kits ?? 2) < 1) { audio.sfx('nope'); toast('No turret kits left: pick up more in the hub (you carry 2).', 2.5); return; }
-  if (my.gold < T.cost) { audio.sfx('nope'); toast(`Need ${T.cost} gold for a ${T.name}.`, 2); return; }
   if (T.ball) { // the sentry ball is thrown, not carried: it arcs out to where you are looking
     const r = aimRay(0), hl = Math.hypot(r.d.x, r.d.z) || 1; let d = G.W.T.ray(r.o, r.d, 26); d = Math.min(isFinite(d) ? d : 18, 26 / hl, 26); const x = r.o.x + r.d.x * d, z = r.o.z + r.d.z * d, y1 = G.W.top(x, z);
     const ball = M.turret('uav', CLASSES[G.cls].color); ball.scale.setScalar(0.8); scene.add(ball); const a = new THREE.Vector3(G.me.x, G.me.y + 1.5, G.me.z), t0 = performance.now(); audio.sfx('grenade', 0.6);
@@ -860,7 +859,7 @@ function hud(dt, S) {
   const mt = S.T.filter(t => t.owner === G.myId).length, sT = TURRETS[C.sentry], dT = TURRETS[C.defense];
   const sp = my.special, TH = C.throw, tT = TURRETS[C.third];
   const pwPct = Math.round((my.pw ?? 100) / (G.cls === 'engineer' ? 160 : 100) * 100), wpn = [[C.gun.name, icon(G.cls), '', 0], [SIDEARM.name, icon('pistol'), '', 1], ['Welding torch', icon('welder'), pwPct + '%', 2], [TH.name, icon(TH.kind), `${my.items ?? 0}`, 3], ['Field dressing', icon('medkit'), `${my.dr ?? 2}`, 5], ...(C.heal ? [['Heal beam', icon('beam'), '', 4]] : [])];
-  const bslot = (key, kind) => { const T0 = TURRETS[kind]; return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${my.gold < T0.cost ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i>${T0.cost}</i></div>`; };
+  const bslot = (key, kind) => { const T0 = TURRETS[kind]; return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${(my.kits ?? 2) < 1 ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i></i></div>`; };
   setH('slots', wpn.map(([n, ic, c, sl], i) => `<div class="slot w ${G.me.slot === sl ? 'on' : ''} ${(sl === 3 && !my.items) || (sl === 5 && !my.dr) || (sl === 2 && (my.pw ?? 1) <= 0) ? 'poor' : ''}"><b>${i + 1}</b>${ic}<i>${c}</i></div>`).join('') + `<div class="gap"></div><div class="kits" title="turret kits">${'▮'.repeat(my.kits ?? 2)}${'▯'.repeat(Math.max(0, 2 - (my.kits ?? 2)))}<small>KITS</small></div>` + bslot('sentry', C.sentry) + bslot('defense', C.defense) + bslot('third', C.third) + `<div class="slot ${sp ? 'ready sp' : 'poor'}"><b>${keyName(KB.special)}</b>${sp ? icon(sp) : icon('empty')}</div>`);
   setT('slotName', G.me.place ? TURRETS[G.me.place].name : sp && G.time - (G.spT ?? -9) < 3 ? SPECIALS[sp].name : (wpn.find(w => w[3] === G.me.slot) || wpn[0])[0]); if (sp !== G.lastSp) { G.lastSp = sp; G.spT = G.time; }
   $('roundsBar').style.width = (G.me.slot <= 1 ? Math.min(100, G.me.ammo / st.mag * 100) : 0) + '%';
@@ -881,7 +880,7 @@ function hud(dt, S) {
   const end = S.ph === 'lose' && !G.explore && !G.cine; $('end').hidden = !end; $('btnFob').hidden = !(S.ph === 'win' && G.mode !== 'client');
   if (end) { setT('endTitle', S.ph === 'win' ? 'VICTORY' : 'THE HUB HAS FALLEN'); { const t = S.el || 0, ms = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('endText', S.ph === 'win' ? `The hive is destroyed after ${ms}! The colony is safe.` : `Your squad held the hub for ${ms}.`); } setT('endKey', G.mode === 'client' ? 'Waiting for the host to choose…' : ''); $('btnAgain').hidden = G.mode === 'client'; $('btnAgain').textContent = S.ph === 'win' ? 'Keep fighting (endless mode)' : 'Try again'; if (document.pointerLockElement) document.exitPointerLock(); }
   $('pause').hidden = locked() || G.shop || end || G.mmap || G.settings;
-  $('board').hidden = !keys[KB.scores]; if (keys[KB.scores]) setH('boardT', '<tr><th>Marine</th><th>Class</th><th>Kills</th><th>Gold</th></tr>' + S.P.map(p => `<tr><td>${esc(p.name)}${p.dead ? ' ✝' : ''}</td><td>${CLASSES[p.cls].name}</td><td>${p.kills}</td><td>${Math.floor(p.gold)}</td></tr>`).join(''));
+  $('board').hidden = !keys[KB.scores]; if (keys[KB.scores]) setH('boardT', '<tr><th>Marine</th><th>Class</th><th>Kills</th><th>Scrap</th></tr>' + S.P.map(p => `<tr><td>${esc(p.name)}${p.dead ? ' ✝' : ''}</td><td>${CLASSES[p.cls].name}</td><td>${p.kills}</td><td>${Math.floor(p.scrap || 0)}</td></tr>`).join(''));
   if (G.shop) shopDraw(my);
   mapT -= dt; if (mapT <= 0) { mapT = 0.1; minimap(S); }
   if (G.explore) { const v = G.ex && G.ex.veh; setT('waveTxt', 'FOB VALOR'); setT('waveInfo', v ? (v.kind === 'vtol' ? `VTOL · altitude ${Math.round(v.y - G.W.T.raw(v.x, v.z))} m` : `Rover · ${Math.round(Math.abs(v.sp) * 3.6)} km/h`) : `Explore the planet · wild aliens slain: ${G.ex ? G.ex.kills || 0 : 0}`); }
@@ -905,17 +904,12 @@ function minimap(S) {
   const me = G.me; g.save(); g.translate(W / 2, W / 2); g.rotate(-me.yaw); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, -7); g.lineTo(5, 5); g.lineTo(-5, 5); g.closePath(); g.fill(); g.restore();
 }
 function shopDraw(my) {
-  const inHub = G.W.T.hubAt(G.me.x, G.me.z), sw = `<h2>Change class</h2><p class="small">Swap kits here in the hub. <b>Every turret and barricade you own is sold</b> (60% back) when you swap.</p>` + Object.entries(CLASSES).map(([k, c]) => `<button class="up ${k === G.cls ? 'max' : ''}" data-cls="${k}"${inHub ? '' : ' disabled'}><b style="color:#${c.color.toString(16).padStart(6, '0')}">◆</b><span>${c.name}<small>${c.role} · ${c.gun.name}</small></span><em></em><i>${k === G.cls ? 'CURRENT' : 'SWAP'}</i></button>`).join('');
-  let h = `<p>Gold: <b>${Math.floor(my.gold)}</b></p>` + [].map((u, i) => { const lv = my.ups[u.id] || 0, c = UPG_PRICES[lv]; return `<button class="up ${lv >= 5 ? 'max' : my.gold < c ? 'poor' : ''}" data-up="${u.id}"><b>${i + 1}</b><span>${u.name}<small>${u.text}</small></span><em>${'■'.repeat(lv)}${'□'.repeat(5 - lv)}</em><i>${lv >= 5 ? 'MAX' : c + 'g'}</i></button>`; }).join('');
-  const C = (state() || {}).C; if (C) {
-    const row = (key, w, name, text, lv, max, cost, done) => `<button class="up ${done ? 'max' : my.gold < cost ? 'poor' : ''}" data-cmd="${w}"><b>${key ? '·' : '·'}</b><span>${name}<small>${text}</small></span><em>${max ? '■'.repeat(lv) + '□'.repeat(max - lv) : done ? 'READY' : ''}</em><i>${done ? (max ? 'MAX' : 'OWNED') : cost + 'g'}</i></button>`;
-    let c = `<h2>Hub reinforcements</h2><p class="small">Shared by the squad. Marines leave the hub during waves and march toward the hive, fighting everything they meet.</p>`;
-    c += row('7', 'rate', 'Faster drops', `Now every ${DROP_EVERY[C.lv]} s` + (C.lv < DROP_EVERY.length - 1 ? ` → ${DROP_EVERY[C.lv + 1]} s` : ''), C.lv, DROP_EVERY.length - 1, DROP_COST[C.lv + 1] || 0, C.lv >= DROP_EVERY.length - 1);
-    c += row('8', 'size', 'Bigger squads', `Now ${SQUAD[C.sz]} per drop` + (C.sz < SQUAD.length - 1 ? ` → ${SQUAD[C.sz + 1]}` : ''), C.sz, SQUAD.length - 1, SQUAD_COST[C.sz + 1] || 0, C.sz >= SQUAD.length - 1);
-    ['gunner', 'rocketeer', 'medic'].forEach((k, i) => { c += row(['9', '0', '-'][i], k, ALLIES[k].name, ALLIES[k].text, 0, 0, ALLIES[k].unlock, C.un.includes(k)); });
-    h += c;
-  }
-  setH('shopList', h + sw);
+  const inHub = G.W.T.hubAt(G.me.x, G.me.z), C = (state() || {}).C;
+  // the CPU commander runs the reinforcements by itself; this just reports what it has done
+  let h = '';
+  if (C) h += `<h2>Commander's report</h2><p class="small">The commander sends reinforcements and upgrades them as the battle grows. Nothing to buy.</p><p>Every <b>${DROP_EVERY[C.lv]} s</b>: <b>${SQUAD[C.sz]}</b> veteran${SQUAD[C.sz] > 1 ? 's' : ''} · units: <b>${C.un.map(k => ALLIES[k].name).join(', ')}</b> · next drop in ${Math.ceil(C.t)} s</p>`;
+  h += `<h2>Change class</h2><p class="small">Swap kits here in the hub. <b>Every turret and barricade you own is removed</b> when you swap (your kits come back).</p>` + Object.entries(CLASSES).map(([k, c]) => `<button class="up ${k === G.cls ? 'max' : ''}" data-cls="${k}"${inHub ? '' : ' disabled'}><b style="color:#${c.color.toString(16).padStart(6, '0')}">◆</b><span>${c.name}<small>${c.role} · ${c.gun.name}</small></span><em></em><i>${k === G.cls ? 'CURRENT' : 'SWAP'}</i></button>`).join('');
+  setH('shopList', h);
 }
 $('shopList').addEventListener('click', e => { const b = e.target.closest('[data-up]'); if (b) req({ a: 'buy', up: b.dataset.up }); const c = e.target.closest('[data-cmd]'); if (c) req({ a: 'cmd', w: c.dataset.cmd }); const k = e.target.closest('[data-cls]'); if (k && k.dataset.cls !== G.cls) req({ a: 'cls', cls: k.dataset.cls }); });
 function openShop(on) { G.shop = on; $('shop').hidden = !on; if (on) { G.me.place = null; if (document.pointerLockElement) document.exitPointerLock(); } else canvas.requestPointerLock(); }
@@ -930,7 +924,7 @@ function frame(now) {
   if (!G.on) { music.set('title'); if (G.W) renderer.render(scene, camera); clearHits(); return; }
   const S0 = state(); if (!S0) { clearHits(); return; } const S = G.explore ? exploreState(S0) : S0;
   // keys that work any time
-  const atComms = G.W.comms && Math.hypot(G.me.x - G.W.comms.x, G.me.z - G.W.comms.z) < 5 && !G.explore; if (atComms && !G.shop) prompt(`<b>${keyName(KB.armory)}</b> Recruitment and class change`);
+  const atComms = G.W.comms && Math.hypot(G.me.x - G.W.comms.x, G.me.z - G.W.comms.z) < 5 && !G.explore; if (atComms && !G.shop) prompt(`<b>${keyName(KB.armory)}</b> Change class`);
   if (hits[KB.armory]) { if (G.shop) openShop(false); else if (atComms) openShop(true); else toast('Recruitment is at the comms console in the hub.', 2.5); } if (G.shop) { if (hits.Escape) openShop(false); }
   if (hits[KB.kit]) $('kit').hidden = !$('kit').hidden;
   if (hits[KB.info]) { const el = $('info'); el.hidden = !el.hidden; if (!el.hidden) el.innerHTML = infoHTML(G.cls); } if (hits.Escape && !$('info').hidden) $('info').hidden = true;
@@ -1042,13 +1036,13 @@ function infoHTML(k) {
   h += row('4·G', th.kind, th.name, thTxt, `${th.n} carried`);
   h += row('5', 'medkit', 'Field dressing', 'Click to bandage yourself.', '+40 health · 2 carried');
   if (c.heal) h += row('6', 'beam', 'Heal beam', 'Hold on a teammate to heal them.', '');
-  for (const [key, kind] of [['T', c.sentry], ['F', c.defense], ['V', c.third]]) { const t = TURRETS[kind]; h += row(key, kind, t.name, t.desc, `${t.cost} gold${t.ball ? ' · thrown' : ' · left click places it'}`); }
+  for (const [key, kind] of [['T', c.sentry], ['F', c.defense], ['V', c.third]]) { const t = TURRETS[kind]; h += row(key, kind, t.name, t.desc, t.ball ? 'Thrown · uses a turret kit' : 'Left click places it · uses a turret kit'); }
   h += row('X', 'supply', 'Special', 'Found in supply drops. Air strikes, troops and more.', '');
   h += row('E', 'crate', 'Use', 'Pick up turrets, salvage wrecks, use teleporters.', '');
   return h + '</div><p class="sub2">Refill ammo, turret kits and dressings in the hub · B at the comms console changes class · K closes</p>';
 }
 function kitHTML(k) {
-  const c = CLASSES[k], g = c.gun, bl = (key, kind) => `<p><b>${key}</b> ${TURRETS[kind].name} (${TURRETS[kind].cost}g): ${TURRETS[kind].desc}</p>`;
+  const c = CLASSES[k], g = c.gun, bl = (key, kind) => `<p><b>${key}</b> ${TURRETS[kind].name}: ${TURRETS[kind].desc}</p>`;
   return `<p class="role">${c.role} · ${c.hp} health</p><p><b>1</b> ${g.name}${g.pellets ? ' (pellets, deadly up close)' : g.pierce ? ' (pierces 3 aliens)' : g.kind === 'rocket' ? ' (explodes)' : g.spin ? ' (spins up first)' : ''} · <b>2</b> side arm · <b>3</b> welding torch${k === 'engineer' ? ' (3x faster)' : ''} · <b>4</b> or <b>G</b> ${c.throw.name} ×${c.throw.n}${c.heal ? ' · <b>5</b> heal beam' : ''}</p><p><b>Team</b> ${c.team}</p>` + bl(keyName(KB.sentry), c.sentry) + bl(keyName(KB.defense), c.defense) + bl(keyName(KB.third), c.third);
 }
 function drawPickers() {

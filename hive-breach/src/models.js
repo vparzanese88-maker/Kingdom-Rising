@@ -292,6 +292,13 @@ export function tankTrap() { const g = new THREE.Group(), m = mat(0x3a3a3a, { m:
 export function deadTurret(rnd) { const g = new THREE.Group(), m = mat(0x3e464e), burnt = mat(0x22201e); C(g, 0.9, 1.1, 0.4, m, 0, 0.2, 0); C(g, 0.35, 0.45, 0.9, burnt, 0, 0.8, 0); const h = B(g, 0.8, 0.55, 0.9, burnt, 0.6, 0.35, 0.8); h.rotation.set(0.4, rnd() * 3, 1.0); C(g, 0.05, 0.05, 1.1, 0x222222, 1.2, 0.1, 1.4).rotation.set(1.4, 0, 0.3); return g; }
 export function burntCrate(rnd) { const g = new THREE.Group(); for (let i = 0; i < 1 + (rnd() * 3 | 0); i++) { const c = B(g, 1.2, 1.0, 1.0, rnd() < 0.5 ? 0x2a2622 : 0x4a5a3a, (rnd() - 0.5) * 2.5, 0.5, (rnd() - 0.5) * 2.5); c.rotation.set(0, rnd() * 3, rnd() < 0.3 ? 1.2 : 0); } return g; }
 export function flag(rnd) { const g = new THREE.Group(); const p = C(g, 0.05, 0.06, 4, 0x666666, 0, 2, 0); p.rotation.z = (rnd() - 0.5) * 0.4; const f = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8, 3, 1), mat(0x2a4a8a, { ds: true })); f.position.set(0.7, 3.5, 0); g.add(f); const pos = f.geometry.attributes.position; for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 3) * 0.15); f.geometry.computeVertexNormals(); return g; }
+export function hut() { // a heated shelter with an open doorway, a heater glowing inside
+  const g = new THREE.Group(), wall = mat(0x8a96a2, { m: 0.3 }), roof = mat(0xd04a2a);
+  const shell = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 3, 16, 1, true, 0.35, 6.28 - 0.7), wall); shell.position.y = 1.5; shell.material.side = THREE.DoubleSide; g.add(shell);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(4.1, 16, 6, 0, 6.29, 0, 1.2), roof); dome.position.y = 3; dome.scale.y = 0.5; g.add(dome);
+  B(g, 1, 1.2, 0.6, 0x3a3a3a, 0, 0.6, 2.4); B(g, 0.8, 0.5, 0.05, 0xff6020, 0, 0.8, 2.08, { e: 0xff4010, ei: 2 }); B(g, 3, 0.1, 1.4, 0x6a5040, 0, 0.5, -2.5);
+  S(g, 0.2, 0xffd040, 0, 3.6, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); return g;
+}
 export function supplyPod() {
   const g = new THREE.Group(); B(g, 1.1, 0.9, 1.1, 0x50606a, 0, 0.45, 0, { m: 0.5 }); B(g, 1.15, 0.2, 1.15, 0xe0b22e, 0, 0.55, 0, { e: 0x604000 });
   C(g, 0.05, 0.05, 1.6, 0x888888, 0, 1.6, 0); S(g, 0.15, 0xffd040, 0, 2.4, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); return g;

@@ -17,7 +17,7 @@ export class Sim {
     this.W = W; this.path = W.path; this.emit = emit; this.players = new Map(); this.reset();
   }
   reset() {
-    this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.pools = []; this.tm = []; this.drones = []; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = (this.W.def.hazard === 'nests') ? [0, 1, 2].map(i => ({ x: (Math.random() - 0.5) * 200, z: (Math.random() - 0.5) * 200, a: Math.random() * 6.28, r: 8 + i * 1.5 })) : []; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0] }; this.spawnHive(1);
+    this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.pools = []; this.tm = []; this.drones = []; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = []; this.stormT = 0; this.stormI = 0; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0] }; this.spawnHive(1);
     for (const p of this.players.values()) this.resetPlayer(p);
   }
   resetPlayer(p) { p.special = ''; p.acd = 0; p.adrT = 0; p.stimT = 0; p.rv = p.rv || 0; p.gold = START_GOLD; p.ups = { dmg: 0, rate: 0, mag: 0, spd: 0, hp: 0, arm: 0 }; p.mhp = p.hp = maxHp(p.cls, p.ups); p.dead = false; p.rt = 0; p.kills = 0; p.sp = (p.sp || 0) + 1; }
@@ -67,8 +67,8 @@ export class Sim {
       const tg = r.k === 'a' ? this.allies.find(m => m.id === r.id) : r.k === 'p' ? this.players.get(r.id) : null;
       if (tg && !tg.dead && Math.hypot(tg.x - p.x, tg.z - p.z) < 16) { tg.hp = Math.min(tg.mhp, tg.hp + 28 * dt); this.emit({ k: 'beam', c: 0x40ff80, a: [p.x, p.y + 1.3, p.z], b: [tg.x, (tg.y || 0) + 1.2, tg.z], f: id }); } else p.hp = Math.min(p.mhp, p.hp + 8 * dt);
     } else if (r.a === 'repair') {
-      if (p.cls !== 'engineer') return; const dt = Math.min(0.5, +r.dt || 0), t = this.turrets.find(q => q.id === r.id);
-      if (t && Math.hypot(t.x - p.x, t.z - p.z) < 12 && t.hp < t.mhp) { t.hp = Math.min(t.mhp, t.hp + 80 * dt); this.emit({ k: 'beam', c: 0x60c0ff, a: [p.x, p.y + 1.3, p.z], b: [t.x, t.y + 1.2, t.z], f: id, torch: 1 }); }
+      const eng = p.cls === 'engineer', dt = Math.min(0.5, +r.dt || 0), t = this.turrets.find(q => q.id === r.id);
+      if (t && Math.hypot(t.x - p.x, t.z - p.z) < (eng ? 12 : 5) && t.hp < t.mhp) { t.hp = Math.min(t.mhp, t.hp + (eng ? 81 : 27) * dt); this.emit({ k: 'beam', c: eng ? 0x60c0ff : 0xffc060, a: [p.x, p.y + 1.3, p.z], b: [t.x, t.y + 1.2, t.z], f: id, torch: 1 }); }
     } else if (r.a === 'ability') {
       const C = CLASSES[p.cls], A = C.ability; if (p.acd > 0) return; p.acd = A.cd; this.emit({ k: 'ability', id: A.id, by: id, x: p.x, y: p.y, z: p.z, n: p.name });
       if (A.id === 'adrenaline') p.adrT = 8;
@@ -159,8 +159,8 @@ export class Sim {
       if (this.phase === 'wave') p.gold += dt * (1.6 + this.wave * 0.08);
       p.acd = Math.max(0, p.acd - dt); p.adrT = Math.max(0, p.adrT - dt); p.stimT = Math.max(0, p.stimT - dt);
       const inHub = !!this.W.T.hubAt(p.x, p.z); p.regen = this.hub > 0 && inHub && p.hp < p.mhp; if (p.regen) p.hp = Math.min(p.mhp, p.hp + 16 * dt);
-      if (this.storm > 0 && !inHub) { p.hp -= 2.5 * dt; p.cold = 1; if (p.hp <= 0) this.hurtPlayer(p, 1); } else p.cold = 0;
-      p.toxic = Math.max(0, (p.toxic || 0) - dt); for (const c of this.spores) if (Math.hypot(p.x - c.x, p.z - c.z) < c.r) { p.hp -= 6 * dt; p.toxic = 0.3; if (p.hp <= 0) this.hurtPlayer(p, 1); }
+      if (this.stormI > 0.5 && !this.sheltered(p, inHub)) { p.hp -= 2 * (this.stormI - 0.5) * 2 * dt; p.cold = 1; if (p.hp <= 0) this.hurtPlayer(p, 1); } else p.cold = 0;
+      p.toxic = Math.max(0, (p.toxic || 0) - dt); for (const c of this.spores) if (Math.hypot(p.x - c.x, p.z - c.z) < c.r * c.k) { p.hp -= 4 * c.k * dt; p.toxic = 0.3; if (p.hp <= 0) this.hurtPlayer(p, 1); }
       for (const c of this.ammo) if (Math.hypot(p.x - c.x, p.z - c.z) < 2.6 && (c.cd[p.id] || 0) < this.time) { c.cd[p.id] = this.time + 1; this.emit({ k: 'ammo', to: p.id }); }
       for (const pod of this.pods) if (!pod.got && pod.land <= 0 && Math.hypot(pod.x - p.x, pod.z - p.z) < 2.4) { pod.got = true; const g = 90 + this.wave * 15; for (const q of this.players.values()) q.gold += q === p ? g : Math.round(g * 0.4); if (pod.sp) { if (p.special) this.emit({ k: 'say', to: p.id, m: `${SPECIALS[pod.sp].name} replaced your ${SPECIALS[p.special].name}.` }); p.special = pod.sp; } this.emit({ k: 'pod', by: p.id, g, x: pod.x, z: pod.z, sp: pod.sp || '' }); }
     }
@@ -194,7 +194,7 @@ export class Sim {
       }
       if (a.type === 'hivecore') { if (this.phase === 'assault' || this.hiveOpen()) { a.qcd -= dt; if (a.qcd <= 0) { a.qcd = 9; for (let i = 0, nn = Math.round(3 * countScale(this.players.size)); i < nn; i++) this.spawn('crawler', 2 + i); } } continue; }
       if (a.stun > 0) { a.stun -= dt; continue; }
-      const sp = a.spd * (a.slowT > 0 ? (a.slowF ?? 0.5) : 1) * (this.storm > 0 ? 1.15 : 1); if (a.slowT > 0) a.slowT -= dt;
+      const sp = a.spd * (a.slowT > 0 ? (a.slowF ?? 0.5) : 1) * (1 + 0.15 * (this.stormI || 0)); if (a.slowT > 0) a.slowT -= dt;
       // spitters and the queen shoot at marines first, then turrets
       if (A.ranged && a.rcd <= 0) {
         let tg = null, bd = A.ranged; for (const p of living) { const d = Math.hypot(p.x - a.x, p.z - a.z); if (d < bd) { bd = d; tg = p; } }
@@ -297,6 +297,8 @@ export class Sim {
     this.updateAllies(dt);
     for (const m of this.tm) { m.t -= dt; if (m.t <= 0) { m.done = true; this.splash(m.x, m.y + 1, m.z, MISSILE.radius, MISSILE.dmg, m.owner); this.emit({ k: 'nuke', x: m.x, y: m.y, z: m.z }); } } if (this.tm.some(m => m.done)) this.tm = this.tm.filter(m => !m.done);
     for (const q of this.pools) { q.t -= dt; for (const a of this.aliens) if (!ALIENS[a.type].fly && Math.hypot(a.x - q.x, a.z - q.z) < q.r) this.hurtAlien(a, q.dps * dt, q.owner, true); } if (this.pools.some(q => q.t <= 0)) this.pools = this.pools.filter(q => q.t > 0);
+    for (const c of this.spores) { c.life -= dt; c.k = Math.min(1, (c.age = (c.age || 0) + dt) / 15, Math.max(0, c.life) / 15); }
+    if (this.spores.some(c => c.life <= 0)) this.spores = this.spores.filter(c => c.life > 0);
     for (const c of this.spores) { c.a += (Math.random() - 0.5) * dt * 0.8; c.x += Math.cos(c.a) * 2.2 * dt; c.z += Math.sin(c.a) * 2.2 * dt; if (Math.abs(c.x) > BOUNDS - 10) c.a = Math.PI - c.a; if (Math.abs(c.z) > BOUNDS - 10) c.a = -c.a; c.x = Math.max(-BOUNDS + 10, Math.min(BOUNDS - 10, c.x)); c.z = Math.max(-BOUNDS + 10, Math.min(BOUNDS - 10, c.z)); }
     for (const e of this.later) { e.t -= dt; if (e.t <= 0 && !e.done) { e.done = true; e.f(); } } if (this.later.some(e => e.done)) this.later = this.later.filter(e => !e.done);
     for (const d of this.drones) { d.t -= dt; d.a += dt * 0.9; d.cd -= dt; d.tg = 0; const cx = d.x + Math.cos(d.a) * 8, cz = d.z + Math.sin(d.a) * 8; let tg = null, bd = 18; for (const a of this.aliens) { if (ALIENS[a.type].static) continue; const dd = Math.hypot(a.x - cx, a.z - cz); if (dd < bd) { bd = dd; tg = a; } } if (tg) { d.tg = tg.id; if (d.cd <= 0) { d.cd = 0.12; this.hurtAlien(tg, 9, d.owner, true); } } } if (this.drones.some(d => d.t <= 0)) this.drones = this.drones.filter(d => d.t > 0);
@@ -348,17 +350,27 @@ export class Sim {
     else if (sp === 'dome') this.domes.push({ x, y, z, t: 12, r: 10 });
   }
   // Mars drops meteors; Kryos whips up blizzards. Both strike during waves.
+  // Shelter from the blizzard: the hub walls, the cave, a tunnel, a heated hut, or near a turret that gives off heat
+  sheltered(p, inHub) {
+    if (inHub) return true; const W = this.W; if ((W.shelters || []).some(h => Math.hypot(h.x - p.x, h.z - p.z) < h.r)) return true;
+    const n = this.path.near(p.x, p.z); if (n.d < PATH_W / 2 + 1 && W.T.tunnelAt(n.s)) return true;
+    return this.turrets.some(t => (t.kind === 'flamer' || t.kind === 'medbay' || t.kind === 'repair') && Math.hypot(t.x - p.x, t.z - p.z) < 8);
+  }
+  // Map dangers come rarely, build up slowly, last a while and fade: Mars meteor showers, Kryos blizzards, jungle spore clouds.
   hazards(dt) {
-    const hz = this.W.def.hazard; this.storm = Math.max(0, (this.storm || 0) - dt);
+    const hz = this.W.def.hazard;
+    if (this.stormT > 0) { this.stormT -= dt; const e = 90 - this.stormT; this.stormI = Math.max(0, Math.min(1, e / 20, this.stormT / 25)); if (this.stormT <= 0) { this.stormI = 0; this.emit({ k: 'toast', m: 'The blizzard has passed.' }); } }
     for (const m of this.meteors || []) { m.t -= dt; if (m.t <= 0 && !m.done) { m.done = true; this.splash(m.x, m.y + 0.5, m.z, 4.5, 110, null); for (const p of this.living()) if (Math.hypot(p.x - m.x, p.z - m.z) < 4.5) this.hurtPlayer(p, 35, m); for (const t of this.turrets) if (Math.hypot(t.x - m.x, t.z - m.z) < 4) this.hurtTurret(t, 60); } }
     if (this.meteors) this.meteors = this.meteors.filter(m => !m.done);
-    if (this.W.def.weather === 'rain') { this.boltT = (this.boltT ?? 12) - dt; if (this.boltT <= 0) { this.boltT = 10 + Math.random() * 16; this.emit({ k: 'bolt' }); } }
-    this.hzT = (this.hzT ?? 30) - dt; if (this.hzT > 0) return; this.hzT = 50 + Math.random() * 25;
+    if (this.W.def.weather === 'rain') { this.boltT = (this.boltT ?? 12) - dt; if (this.boltT <= 0) { this.boltT = 14 + Math.random() * 22; this.emit({ k: 'bolt' }); } }
+    this.hzT = (this.hzT ?? 120) - dt; if (this.hzT > 0) return; this.hzT = 150 + Math.random() * 60;
     if (hz === 'meteor') {
-      this.meteors = this.meteors || []; this.emit({ k: 'toast', m: '☄ METEOR SHOWER! Stay clear of the red circles.', big: 1 }); this.emit({ k: 'alarm' });
-      for (let i = 0, nm = Math.round(9 * countScale(this.players.size)); i < nm; i++) { const x = (Math.random() * 2 - 1) * (BOUNDS - 8), z = (Math.random() * 2 - 1) * (BOUNDS - 8);
-        const y = this.W.top(x, z), t = 2 + i * 0.7; this.meteors.push({ x, y, z, t }); this.emit({ k: 'meteor', x: +x.toFixed(1), y: +y.toFixed(1), z: +z.toFixed(1), t }); }
-    } else if (hz === 'blizzard') { this.storm = 22; this.emit({ k: 'toast', m: '❄ BLIZZARD! Frostbite hurts outside the hub walls. Aliens move faster.', big: 1 }); this.emit({ k: 'alarm' }); }
+      this.meteors = this.meteors || []; this.emit({ k: 'toast', m: '☄ A meteor shower is starting. Stay clear of the red circles.', big: 1 });
+      // sparse at first, heavy in the middle, then thinning out, over about 50 seconds
+      const nm = Math.round(14 * countScale(this.players.size)); for (let i = 0; i < nm; i++) { const u = (i + Math.random() * 0.6) / nm, tm = 4 + 46 * (0.5 - Math.asin(1 - 2 * u) / Math.PI), x = (Math.random() * 2 - 1) * (BOUNDS - 8), z = (Math.random() * 2 - 1) * (BOUNDS - 8), y = this.W.top(x, z);
+        this.meteors.push({ x, y, z, t: tm }); this.later.push({ t: Math.max(0, tm - 3), f: () => this.emit({ k: 'meteor', x: +x.toFixed(1), y: +y.toFixed(1), z: +z.toFixed(1), t: 3 }) }); }
+    } else if (hz === 'blizzard') { this.stormT = 90; this.emit({ k: 'toast', m: '❄ A blizzard is rolling in. When it gets heavy, shelter in the hub, a heated hut, the cave, a tunnel or by a Flame Turret.', big: 1 }); }
+    else if (hz === 'nests') { for (let i = 0; i < 3; i++) this.spores.push({ x: (Math.random() - 0.5) * BOUNDS * 1.4, z: (Math.random() - 0.5) * BOUNDS * 1.4, a: Math.random() * 6.28, r: 9 + i * 2, life: 85, k: 0 }); this.emit({ k: 'toast', m: '☣ Toxic spore clouds are drifting in. Keep out of the green haze.', big: 1 }); }
   }
   face(a, dx, dz) { const want = Math.atan2(-dx, -dz); let dr = want - a.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; a.ry += dr * 0.2; }
 
@@ -366,11 +378,11 @@ export class Sim {
   pack() {
     const r1 = v => Math.round(v * 10) / 10;
     return {
-      w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), el: Math.floor(this.el || 0), n: this.players.size, wx: this.storm > 0 ? 1 : 0,
+      w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), el: Math.floor(this.el || 0), n: this.players.size, wx: +(this.stormI || 0).toFixed(2),
       A: this.aliens.map(a => [a.id, a.type, r1(a.x), r1(a.y), r1(a.z), Math.round(a.hp), Math.round(a.mhp), +a.ry.toFixed(2), a.stun > 0 ? 1 : 0, a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0]),
       T: this.turrets.map(t => [t.id, t.kind, t.owner, r1(t.x), r1(t.z), +t.ry.toFixed(2), t.lvl, Math.round(t.hp), Math.round(t.mhp), t.tg, r1(t.y), r1(t.b || 0), t.bt || 0, t.fresh ? 1 : 0, t.ch || 0]),
       P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', Math.ceil(p.acd), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0]),
-      M: this.ammo.map(c => [c.id, r1(c.x), r1(c.z), Math.ceil(c.life)]), Z: this.spores.map(c => [r1(c.x), r1(c.z), c.r]), K: this.pools.map(q => [r1(q.x), r1(q.y), r1(q.z), q.r, q.fire ? 1 : 0]), D: this.drones.map(d => [d.id, r1(d.x + Math.cos(d.a) * 8), r1(d.y + 14), r1(d.z + Math.sin(d.a) * 8), d.tg]), Q: this.medz.map(m => [m.id, r1(m.x), r1(m.y), r1(m.z), m.r, Math.ceil(m.t)]), S2: this.domes.map(d => [r1(d.x), r1(d.y), r1(d.z), d.r]),
+      M: this.ammo.map(c => [c.id, r1(c.x), r1(c.z), Math.ceil(c.life)]), Z: this.spores.map(c => [r1(c.x), r1(c.z), +(c.r * c.k).toFixed(1)]), K: this.pools.map(q => [r1(q.x), r1(q.y), r1(q.z), q.r, q.fire ? 1 : 0]), D: this.drones.map(d => [d.id, r1(d.x + Math.cos(d.a) * 8), r1(d.y + 14), r1(d.z + Math.sin(d.a) * 8), d.tg]), Q: this.medz.map(m => [m.id, r1(m.x), r1(m.y), r1(m.z), m.r, Math.ceil(m.t)]), S2: this.domes.map(d => [r1(d.x), r1(d.y), r1(d.z), d.r]),
       O: this.pods.map(p => [p.id, r1(p.x), r1(p.z), Math.ceil(Math.max(0, p.life)), r1(Math.max(0, p.land))]),
       L: this.allies.map(m => [m.id, m.type, r1(m.x), r1(m.y), r1(m.z), Math.round(m.hp), m.mhp, +m.ry.toFixed(2), m.tg]), C: { lv: this.cmd.lv, sz: this.cmd.sz, un: this.cmd.un, t: Math.ceil(this.cmd.t) }, open: this.hiveOpen() ? 1 : 0,
     };

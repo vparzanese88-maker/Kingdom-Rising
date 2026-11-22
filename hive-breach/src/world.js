@@ -293,7 +293,7 @@ const LORE = {
   },
 };
 function placePOIs(g, W, T, D, mapId, path) {
-  const R = rng(mapId.length * 7919 + 11), H = T.hub, hv = W.hiveP; W.lore = [];
+  const R = rng(mapId.length * 7919 + 11), H = T.hub, hv = W.hiveP; W.lore = []; W.shelters = [];
   const ok = (x, z, clear) => Math.abs(x) < BOUNDS - 12 && Math.abs(z) < BOUNDS - 12 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 18 && Math.hypot(x - hv.x, z - hv.z) > 30 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 1.5 && !W.lore.some(l => Math.hypot(l.x - x, l.z - z) < 40);
   const spot = clear => { for (let k = 0; k < 400; k++) { const x = (R() * 2 - 1) * BOUNDS, z = (R() * 2 - 1) * BOUNDS; if (ok(x, z, clear)) return [x, z]; } return null; };
   const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };
@@ -306,8 +306,11 @@ function placePOIs(g, W, T, D, mapId, path) {
     const roof = new THREE.Mesh(new THREE.SphereGeometry(10, 18, 10, 0, 6.29, 0, 1.25), rockM); roof.scale.y = 0.6; roof.position.y = 2.4; roof.material.side = THREE.DoubleSide; C.add(roof);
     const L = new THREE.PointLight(0x60a0ff, 18, 16); L.position.set(0, 3, 0); C.add(L); for (let i = 0; i < 5; i++) { const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.4 + R() * 0.6), M.mat(0x80d0ff, { e: 0x3080c0, ei: 1.5 })); cr.position.set((R() - 0.5) * 8, 0.4, (R() - 0.5) * 8); C.add(cr); }
     const t = M.terminal(); t.position.set(-Math.cos(open) * 3, 0, -Math.sin(open) * 3); t.rotation.y = -open - Math.PI / 2; C.add(t);
+    W.shelters.push({ x: cx, z: cz, r: 7 });
     const lo = LORE[mapId].cave; W.lore.push({ x: cx - Math.cos(open) * 3, z: cz - Math.sin(open) * 3, kind: 'cave', title: lo[0], text: lo[1] });
   }
+  // Kryos: heated shelter huts to wait out a blizzard
+  if (mapId === 'ice') for (let i = 0; i < 5; i++) { const p2 = spot(16); if (!p2) continue; const [x, z] = p2, y = T.raw(x, z), h = M.hut(); h.position.set(x, y, z); h.rotation.y = Math.atan2(-x, -z); g.add(h); W.shelters.push({ x, z, r: 5 }); W.lore.push({ x, z, kind: 'hut', silent: 1 }); }
   // rock spires round the hive: you have to come close to hit its guardians
   for (let i = 0; i < 18; i++) { const a = i / 18 * 6.28 + R() * 0.2, rr = 24 + R() * 8, x = hv.x + Math.cos(a) * rr, z = hv.z + Math.sin(a) * rr; if (path.near(x, z).d < 8 || Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2) continue; const sp = M.spire(R, D.rock); sp.position.set(x, T.raw(x, z), z); g.add(sp); W.colliders.push({ x, z, r: 1.9, h: 12 }); }
 }

@@ -439,7 +439,7 @@ function syncView(S, dt) {
   seen.clear();
   for (const m of S.L || []) {
     seen.add(m.id); let v = view.allies.get(m.id); const AL = ALLIES[m.type];
-    if (!v) { const mesh = M.marine(AL.color, AL.gun); mesh.scale.setScalar(0.92); scene.add(mesh); v = { mesh, x: m.x, y: m.y, z: m.z, t: 0, acc: Math.random() * 0.3 }; view.allies.set(m.id, v); }
+    if (!v) { const mesh = M.marine(AL.color, AL.gun); mesh.scale.setScalar(1.12); scene.add(mesh); v = { mesh, x: m.x, y: m.y, z: m.z, t: 0, acc: Math.random() * 0.3 }; view.allies.set(m.id, v); }
     const kk = 1 - Math.exp(-dt * 10), ox = v.x, oz = v.z; v.x += (m.x - v.x) * kk; v.y += (m.y - v.y) * kk; v.z += (m.z - v.z) * kk; const spd = Math.hypot(v.x - ox, v.z - oz) / Math.max(dt, 1e-4);
     v.t += dt * Math.min(spd, 6) * 1.8; M.animMarine(v.mesh, v.t, spd); v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = m.ry;
     if (m.tg && !AL.splash) { v.acc += dt; const tv = view.aliens.get(m.tg); if (tv && v.acc > 1 / Math.min(AL.rate, 8)) { v.acc = 0; const mx = v.x - Math.sin(m.ry) * 0.9, mz = v.z - Math.cos(m.ry) * 0.9; tracer([mx, v.y + 1.3, mz], [tv.x, tv.y + ALIENS[tv.type].h * 0.6, tv.z], AL.gun === 'engineer' ? 0x60c0ff : 0xffe080, 0.05); const dd = dist(v.x, v.z); audio.gun(AL.gun === 'engineer' ? 'smg' : 'rifle', vol(dd) * 0.6, 1, Math.min(1, dd / 45)); flashAt([mx, v.y + 1.3, mz], 0.7); } }

@@ -186,13 +186,14 @@ export const BOUNDS = 180;
 
 // Marines the hub sends down the track toward the hive. Trooper is free; the others are unlocked in the armory.
 export const ALLIES = {
-  trooper: { name: 'Trooper', hp: 200, dmg: 12, rate: 3, range: 17, speed: 6.0, color: 0x5a7a4a, gun: 'assault', unlock: 0, text: 'Rifleman. Free from the start.' },
-  gunner: { name: 'Heavy Gunner', hp: 360, dmg: 6, rate: 11, range: 15, speed: 4.7, color: 0x8a7a3a, gun: 'engineer', unlock: 300, text: 'Slow and tough, with a hail of bullets.' },
-  rocketeer: { name: 'Rocketeer', hp: 170, dmg: 90, rate: 0.5, range: 24, speed: 5.5, splash: 3.6, color: 0x8a4a3a, gun: 'heavy', unlock: 450, text: 'Rockets that blow up packs of aliens.' },
-  medic: { name: 'Field Medic', hp: 200, dmg: 8, rate: 3, range: 14, speed: 6.0, heal: 12, color: 0xd8d8d8, gun: 'engineer', unlock: 380, text: 'Heals reinforcements and marines nearby.' },
+  trooper: { name: 'Trooper', hp: 520, dmg: 28, rate: 3, range: 17, speed: 6.0, color: 0x5a7a4a, gun: 'assault', unlock: 0, text: 'Rifleman. Free from the start.' },
+  gunner: { name: 'Heavy Gunner', hp: 900, dmg: 13, rate: 11, range: 15, speed: 4.7, color: 0x8a7a3a, gun: 'engineer', unlock: 300, text: 'Slow and tough, with a hail of bullets.' },
+  rocketeer: { name: 'Rocketeer', hp: 440, dmg: 200, rate: 0.5, range: 24, speed: 5.5, splash: 3.6, color: 0x8a4a3a, gun: 'heavy', unlock: 450, text: 'Rockets that blow up packs of aliens.' },
+  medic: { name: 'Field Medic', hp: 520, dmg: 18, rate: 3, range: 14, speed: 6.0, heal: 26, color: 0xd8d8d8, gun: 'engineer', unlock: 380, text: 'Heals reinforcements and marines nearby.' },
 };
-export const DROP_EVERY = [18, 14, 11, 8, 6, 4.5], DROP_COST = [0, 120, 200, 300, 420, 560];
-export const SQUAD = [2, 3, 4, 6], SQUAD_COST = [0, 220, 400, 650];
-export const MAX_ALLIES = 40;
+// fewer reinforcements, but each one is a hardened veteran
+export const DROP_EVERY = [26, 22, 18, 15, 12, 10], DROP_COST = [0, 120, 200, 300, 420, 560];
+export const SQUAD = [1, 2, 2, 3], SQUAD_COST = [0, 220, 400, 650];
+export const MAX_ALLIES = 18;
 
 export const UPGRADES = [];   // no more marine upgrades: upgrades are for turrets and reinforcements

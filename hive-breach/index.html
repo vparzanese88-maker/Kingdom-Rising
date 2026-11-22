@@ -195,6 +195,7 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 #hud .slot.sp{color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold),0 0 10px rgba(255,201,64,.35)}
 #hud #slots .gap{width:14px}
 #hud .kits{align-self:center;font:600 16px/1 "Share Tech Mono",monospace;color:var(--hc);text-align:center;margin-right:4px;letter-spacing:1px;text-shadow:0 0 6px var(--hc)}#hud .kits small{display:block;font-size:8px;letter-spacing:.2em;color:#7fa2b6;margin-top:2px}
+#title .pick.locked{opacity:.45;filter:grayscale(.8);cursor:not-allowed}#title .pick.nope{animation:nope .35s}@keyframes nope{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 #info{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(760px,94vw);max-height:80vh;overflow:auto;padding:12px 18px!important;font-size:13px}#info h2{margin:0 0 2px;color:var(--hc)}#info .gg{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:8px 0}#info .gi{display:flex;gap:8px;align-items:flex-start}#info .gi .ic{width:30px;height:30px;flex:none;color:var(--hc)}#info .gk{font:600 11px 'Share Tech Mono',monospace;color:var(--gold);min-width:30px;padding-top:2px}#info .gi p{margin:1px 0;color:#c4d2de;line-height:1.3}#info .gi small{color:#8fb0c4;font-size:11px}@media (max-width:700px){#info .gg{grid-template-columns:1fr}}
 #weld{position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);width:220px;text-align:center}#weldT{font:600 11px/1.2 Rajdhani,sans-serif;letter-spacing:.25em;color:#bff0ff;text-shadow:0 0 6px #3090ff,0 1px 2px #000}#weld .wb{height:6px;margin-top:3px;background:rgba(95,216,255,.15);box-shadow:inset 0 0 0 1px rgba(95,216,255,.5)}#weld .wb i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3090ff,#bff0ff);box-shadow:0 0 10px #5fd8ff;transition:width .1s}#weld.rep .wb i{background:linear-gradient(90deg,#3df08a,#c0ffd8);box-shadow:0 0 8px #3df08a}
 #slotName{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:#cfe6f2;text-shadow:0 1px 3px #000;white-space:nowrap}
@@ -238,16 +239,16 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795373962",
-"./src/data.js": "./src/data.js?v=1795373962",
-"./src/explore.js": "./src/explore.js?v=1795373962",
-"./src/icons.js": "./src/icons.js?v=1795373962",
-"./src/main.js": "./src/main.js?v=1795373962",
-"./src/models.js": "./src/models.js?v=1795373962",
-"./src/music.js": "./src/music.js?v=1795373962",
-"./src/net.js": "./src/net.js?v=1795373962",
-"./src/sim.js": "./src/sim.js?v=1795373962",
-"./src/world.js": "./src/world.js?v=1795373962"
+"./src/audio.js": "./src/audio.js?v=1795374435",
+"./src/data.js": "./src/data.js?v=1795374435",
+"./src/explore.js": "./src/explore.js?v=1795374435",
+"./src/icons.js": "./src/icons.js?v=1795374435",
+"./src/main.js": "./src/main.js?v=1795374435",
+"./src/models.js": "./src/models.js?v=1795374435",
+"./src/music.js": "./src/music.js?v=1795374435",
+"./src/net.js": "./src/net.js?v=1795374435",
+"./src/sim.js": "./src/sim.js?v=1795374435",
+"./src/world.js": "./src/world.js?v=1795374435"
 }
 }
 </script>
@@ -328,6 +329,6 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795373962"></script>
+<script type="module" src="./src/main.js?v=1795374435"></script>
 </body>
 </html>

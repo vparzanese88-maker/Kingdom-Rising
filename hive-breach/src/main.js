@@ -197,7 +197,7 @@ function fx(e) {
     case 'adie': burst(e.x, e.y + 1, e.z, 0xa02020, 8, 3, 0.6); break;
     case 'banner': banner(e.a, e.b); audio.sfx('wave'); break;
     case 'assault': banner('FINAL ASSAULT', 'Go into the cave and kill the Brood Queen'); audio.sfx('alarm'); toast('Wave 20 survived! No more waves: push to the hive and destroy it.', 8); break;
-    case 'win': audio.sfx('win'); record(e.el); setTimeout(startFob, 900); break;
+    case 'win': audio.sfx('win'); record(e.el); unlockAfterWin(G.map, G.diff || 0); setTimeout(startFob, 900); break;
     case 'lose': audio.sfx('lose'); record(e.el); break;
   }
 }
@@ -1002,7 +1002,7 @@ function onMsg(m) {
   }
 }
 function status(s) { $('netStatus').textContent = s; const h = $('hudCode'); if (G.mode === 'host' && G.net && G.net.code) h.textContent = 'Online code: ' + G.net.code; }
-function readTitle() { G.name = ($('name').value.trim() || 'Marine').slice(0, 14); store.set('hb-name', G.name); store.set('hb-cls', G.cls); store.set('hb-map', G.map); audio.unlock(); }
+function readTitle() { clampPick(); G.name = ($('name').value.trim() || 'Marine').slice(0, 14); store.set('hb-name', G.name); store.set('hb-cls', G.cls); store.set('hb-map', G.map); audio.unlock(); }
 function startLocal(mode) {
   readTitle(); G.mode = mode; G.myId = mode === 'host' ? G.net.id : 'me'; G.sim = null; G.snap = null;
   begin(G.map); G.sim = new Sim(G.W, emit); G.sim.addPlayer(G.myId, G.name, G.cls).seen = 1e9;
@@ -1070,15 +1070,20 @@ function kitHTML(k) {
   const c = CLASSES[k], g = c.gun, bl = (key, kind) => `<p><b>${key}</b> ${TURRETS[kind].name} (${scrapCost(kind)} scrap): ${TURRETS[kind].desc}</p>`;
   return `<p class="role">${c.role} · ${c.hp} health</p><p><b>1</b> ${g.name}${g.pellets ? ' (pellets, deadly up close)' : g.pierce ? ' (pierces 3 aliens)' : g.kind === 'rocket' ? ' (explodes)' : g.spin ? ' (spins up first)' : ''} · <b>2</b> side arm · <b>3</b> welding torch${k === 'engineer' ? ' (3x faster)' : ''} · <b>4</b> or <b>G</b> ${c.throw.name} ×${c.throw.n}${c.heal ? ' · <b>5</b> heal beam' : ''}</p><p><b>Team</b> ${c.team}</p>` + bl(keyName(KB.sentry), c.sentry) + bl(keyName(KB.defense), c.defense) + bl(keyName(KB.third), c.third);
 }
+// campaign unlocks: Mars on Easy to start; each win opens the next difficulty, and a Hard win opens the next planet
+function unlocks() { const u = store.get('hb-unlock', null); return u && typeof u === 'object' ? u : { mars: 0 }; }
+function unlockAfterWin(map, diff) { const u = unlocks(); if (diff < 2) u[map] = Math.max(u[map] ?? -1, diff + 1); else { const nx = PLANET_ORDER[(PLANET_ORDER.indexOf(map) + 1) % PLANET_ORDER.length]; u[map] = 2; u[nx] = Math.max(u[nx] ?? -1, 0); } store.set('hb-unlock', u); }
+function clampPick() { const u = unlocks(); if (u[G.map] === undefined) G.map = 'mars'; if ((G.diff || 0) > (u[G.map] ?? 0)) G.diff = u[G.map] ?? 0; }
 function drawPickers() {
+  clampPick(); const U = unlocks();
   const best = store.get('hb-best2', {}), mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   $('classes').innerHTML = Object.entries(CLASSES).map(([k, c]) => `<button class="pick ${k === G.cls ? 'on' : ''}" data-cls="${k}" style="--c:#${c.color.toString(16).padStart(6, '0')}"><h3>${c.name}</h3>${kitHTML(k)}</button>`).join('');
-  $('diffs').innerHTML = DIFFS.map((d, i) => `<button class="pick ${i === (G.diff || 0) ? 'on' : ''}" data-diff="${i}" style="--c:${['#50d070', '#e0a030', '#e04040'][i]}"><h3>${d.name}</h3><p>${['The planet as surveyed, by day. Threat starts at level 1.', 'The map mirrored, at dusk. Threat starts at level 3, more aliens, a tougher queen with more guards.', 'Mirrored the other way, at night. Threat starts at level 6, far more aliens, the toughest queen.'][i]}</p></button>`).join('');
-  $('maps').innerHTML = Object.entries(MAPS).map(([k, m]) => `<button class="pick map ${k === G.map ? 'on' : ''}" data-map="${k}" style="--c:#${m.ground.toString(16).padStart(6, '0')}"><h3>${m.name}</h3><p>${m.sub}</p><p class="kit">${best[k] ? 'Longest hold: ' + mmss(best[k]) : 'Not yet played'}</p></button>`).join('');
+  $('diffs').innerHTML = DIFFS.map((d, i) => `<button class="pick ${i === (G.diff || 0) ? 'on' : ''} ${i > (U[G.map] ?? 0) ? 'locked' : ''}" data-diff="${i}" style="--c:${['#50d070', '#e0a030', '#e04040'][i]}"><h3>${i > (U[G.map] ?? 0) ? '🔒 ' : ''}${d.name}</h3><p>${i > (U[G.map] ?? 0) ? `Win ${DIFFS[i - 1].name} on this planet to unlock.` : ['The planet as surveyed, by day. Threat starts at level 1.', 'The map mirrored, at dusk. Threat starts at level 3, more aliens, a tougher queen with more guards.', 'Mirrored the other way, at night. Threat starts at level 6, far more aliens, the toughest queen.'][i]}</p></button>`).join('');
+  $('maps').innerHTML = Object.entries(MAPS).map(([k, m]) => `<button class="pick map ${k === G.map ? 'on' : ''} ${U[k] === undefined ? 'locked' : ''}" data-map="${k}" style="--c:#${m.ground.toString(16).padStart(6, '0')}"><h3>${U[k] === undefined ? '🔒 ' : ''}${m.name}</h3><p>${U[k] === undefined ? 'Win the Hard hive on the planet before it to unlock.' : m.sub}</p><p class="kit">${best[k] ? 'Longest hold: ' + mmss(best[k]) : 'Not yet played'}</p></button>`).join('');
 }
 $('classes').onclick = e => { const b = e.target.closest('[data-cls]'); if (b) { G.cls = b.dataset.cls; drawPickers(); } };
-$('maps').onclick = e => { const b = e.target.closest('[data-map]'); if (b) { G.map = b.dataset.map; drawPickers(); } };
-$('diffs').onclick = e => { const b = e.target.closest('[data-diff]'); if (b) { G.diff = +b.dataset.diff; store.set('hb-diff', G.diff); drawPickers(); } };
+$('maps').onclick = e => { const b = e.target.closest('[data-map]'); if (b) { if (unlocks()[b.dataset.map] === undefined) { b.classList.add('nope'); setTimeout(() => b.classList.remove('nope'), 400); return; } G.map = b.dataset.map; drawPickers(); } };
+$('diffs').onclick = e => { const b = e.target.closest('[data-diff]'); if (b) { if (+b.dataset.diff > (unlocks()[G.map] ?? 0)) { b.classList.add('nope'); setTimeout(() => b.classList.remove('nope'), 400); return; } G.diff = +b.dataset.diff; store.set('hb-diff', G.diff); drawPickers(); } };
 drawPickers();
 // show a map behind the title screen
 G.W = buildWorld(scene, G.map); camera.position.set(0, 40, 70); camera.lookAt(0, 0, 0);

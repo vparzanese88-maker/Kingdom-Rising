@@ -736,7 +736,8 @@ function updateMe(dt, S) {
   me.resup = me.slot <= 1 && G.W.T.hubAt(me.x, me.z) && me.reserve < st.reserve; if (G.W.T.hubAt(me.x, me.z)) refillAmmo(0.35 * dt);
   if (me.ammo > st.mag) me.ammo = st.mag;
   const gn = view2.gun, rf = 0;
-  const rc = CLASSES[G.cls].rclick, rmb = mouseR && !me.holdFire && live && locked() && !me.place && !G.shop; me.scope = rc === 'scope' && rmb && me.rel <= 0; me.ads = rc === 'ads' && rmb; $('scope').hidden = !me.scope;
+  // right click: aim down the sights on every gun; the Sniper's rail rifle uses its scope
+  const rc = me.slot === 0 && G.cls === 'sniper' ? 'scope' : me.slot <= 1 ? 'ads' : '', rmb = mouseR && !me.holdFire && !me.carry && live && locked() && !me.place && !G.shop; me.scope = rc === 'scope' && rmb && me.rel <= 0; me.ads = rc === 'ads' && rmb; $('scope').hidden = !me.scope;
   me.beam = (me.slot === 2 || me.slot === 4) && mouseL && live && locked() && !me.place && !G.shop; for (const [k, n] of [['pistol', 1], ['tool', 2], ['thr', 3], ['healer', 4], ['dress', 5]]) if (view2[k]) view2[k].visible = me.slot === n && !my.dead && !me.place && !me.scope;
   if (gn.userData.spin) gn.userData.spin.rotation.z += dt * me.spin * 40;
   { const u = gn.userData, f = me.rel > 0 ? 1 - me.rel / (me.relT || 1) : 0; 

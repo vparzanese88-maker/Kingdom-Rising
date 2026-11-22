@@ -112,6 +112,9 @@ export const ALIENS = {
   queen: { name: 'Hive Tyrant', hp: 15000, speed: 2.0, hub: 100, bounty: 1000, r: 3.4, h: 3.5, dmg: 55, melee: 1, armor: 0.35, boss: 1, ranged: 24 },
   nest: { name: 'Alien Nest', hp: 600, speed: 0, hub: 0, bounty: 80, r: 2.0, h: 1.0, dmg: 0, nest: 1, static: 1 },
   guardian: { name: 'Hive Guardian', hp: 2600, speed: 0, hub: 0, bounty: 150, r: 1.7, h: 3.2, dmg: 13, static: 1, armor: 0.2, guard: 26 },
+  // the endgame: the Brood Queen sits in a cave at the start of the track, births the swarm and is guarded by Royal Guards
+  broodqueen: { name: 'Brood Queen', hp: 36000, speed: 0, hub: 0, bounty: 2000, r: 3.4, h: 4.2, dmg: 34, static: 1, armor: 0.3, ranged: 24 },
+  royal: { name: 'Royal Guard', hp: 950, speed: 6.4, hub: 6, bounty: 45, r: 1.1, h: 1.8, dmg: 30, melee: 1, armor: 0.15 },
   hivecore: { name: 'The Hive', hp: 12000, speed: 0, hub: 0, bounty: 1500, r: 5.5, h: 2.4, dmg: 0, static: 1 },
 };
 

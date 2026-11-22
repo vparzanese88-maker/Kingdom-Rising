@@ -210,7 +210,8 @@ export function buildWorld(scene, mapId) {
     }
   }
 
-  const hv = M.hive(); hv.position.set(s0.x, path.y(0), s0.z); g.add(hv); W.hive = hv; const hsh = new THREE.Mesh(new THREE.SphereGeometry(8.5, 24, 14), M.mat(0xc040ff, { op: 0.18, e: 0x6020a0, ds: true, flat: false })); hsh.position.set(s0.x, path.y(0), s0.z); g.add(hsh); W.hiveShield = hsh; W.colliders.push({ x: s0.x, z: s0.z, r: 6 });
+  const hv = M.hive(), a0 = path.at(0); hv.position.set(s0.x - a0.tx * 9, path.y(0), s0.z - a0.tz * 9); hv.scale.set(0.6, 0.45, 0.6); g.add(hv); W.hive = hv; W.hiveShield = new THREE.Group(); W.hiveShield.visible = false; W.hiveShield.material = { opacity: 0 };
+  hiveCave(g, W, T, D, path);
   const hb = M.hub(); hb.scale.setScalar(1.25); hb.position.set(s1.x, path.y(path.len), s1.z); g.add(hb); W.hub = hb; W.colliders.push({ x: s1.x, z: s1.z, r: 9.5 });
   buildCompound(g, T.hub, W);
   const ring = new THREE.Mesh(new THREE.RingGeometry(HUB_R - WALL_T - 0.6, HUB_R - WALL_T - 0.2, 96), M.mat(0x40ff80, { e: 0x20c050, op: 0.55, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.set(s1.x, path.y(path.len) + 0.12, s1.z); g.add(ring); W.healRing = ring;
@@ -236,12 +237,12 @@ export function buildWorld(scene, mapId) {
   lookouts(g, W, T, D, mapId, path);
   // bullets: big props stop them (a grid of colliders with heights, looked up by cell)
   const cell = 16, grid = new Map(); for (const c of W.colliders) { c.gy = c.gy ?? T.raw(c.x, c.z); c.h = c.h ?? 3; const x0 = Math.floor((c.x - c.r) / cell), x1 = Math.floor((c.x + c.r) / cell), z0 = Math.floor((c.z - c.r) / cell), z1 = Math.floor((c.z + c.r) / cell); for (let a = x0; a <= x1; a++) for (let b = z0; b <= z1; b++) { const k = a + ',' + b; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(c); } }
-  T.block = (x, y, z) => { const l = grid.get(Math.floor(x / cell) + ',' + Math.floor(z / cell)); if (!l) return false; for (const c of l) if (y < c.gy + c.h && y > c.gy - 1 && (x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true; return false; };
+  const CR = W.caveRoof; T.block = (x, y, z) => { if (CR && y > CR.y && y < CR.y + 7 && (x - CR.x) ** 2 + (z - CR.z) ** 2 < CR.r * CR.r) return true; const l = grid.get(Math.floor(x / cell) + ',' + Math.floor(z / cell)); if (!l) return false; for (const c of l) if (y < c.gy + c.h && y > c.gy - 1 && (x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true; return false; };
   // a picture of the land for the minimap
   const MR = 420, mc = document.createElement('canvas'); mc.width = mc.height = MR; const mg = mc.getContext('2d'), im = mg.createImageData(MR, MR);
   for (let j = 0; j < MR; j++) for (let i = 0; i < MR; i++) { const hb0 = T.hubAt(-BOUNDS + (i + 0.5) / MR * BOUNDS * 2, -BOUNDS + (j + 0.5) / MR * BOUNDS * 2); const x = -BOUNDS + (i + 0.5) / MR * BOUNDS * 2, z = -BOUNDS + (j + 0.5) / MR * BOUNDS * 2, h = T.raw(x, z, true), o = (j * MR + i) * 4, v = h < -1 ? 15 : Math.max(20, Math.min(110, 40 + h * 7)); im.data[o] = h < -1 ? (mapId === 'mars' ? 120 : 20) : v * 0.8; im.data[o + 1] = h < -1 ? 30 : v; im.data[o + 2] = h < -1 ? (mapId === 'mars' ? 10 : 90) : v * 1.1; im.data[o + 3] = 200; if (hb0 && hb0.wall) { im.data[o] = im.data[o + 1] = im.data[o + 2] = 210; } }
   mg.putImageData(im, 0, 0); W.miniBg = mc;
-  mergeStatic(g, new Set([ground, liq, W.hive, W.hub, W.healRing, W.hiveShield, hemi, sun, sun.target]));
+  mergeStatic(g, new Set([ground, liq, W.hive, W.hub, W.healRing, W.hiveShield, W.caveLight, hemi, sun, sun.target]));
   return W;
 }
 
@@ -309,8 +310,24 @@ const LORE = {
     rover: ['Colony buggy', 'Glovebox: a photo of a family, a half-eaten ration bar, and a map with the hive circled three times.'],
   },
 };
+// The Brood Queen's lair: a great rock chamber with a roof, open toward the track; the queen sits at the start of the track inside it
+function hiveCave(g, W, T, D, path) {
+  const R = rng(4242), p0 = path.at(0), cy = path.y(0), cx = p0.x - p0.tx * 2, cz = p0.z - p0.tz * 2, open = Math.atan2(p0.tz, p0.tx), RAD = 15;
+  const rockM = M.mat(D.rock, { flat: false, r: 1 }), C = new THREE.Group(); C.position.set(cx, 0, cz); g.add(C);
+  for (let i = 0; i < 30; i++) { const a = open + 0.48 + i / 29 * (6.283 - 0.96), rr = 3.2 + R() * 1.4, x = Math.cos(a) * RAD, z = Math.sin(a) * RAD, gy = T.raw(cx + x, cz + z); const m = new THREE.Mesh(new THREE.DodecahedronGeometry(rr, 1), rockM); m.position.set(x, gy + rr * 0.9, z); m.scale.y = 1.9; m.rotation.set(R(), R() * 6, R()); m.castShadow = true; C.add(m); W.colliders.push({ x: cx + x, z: cz + z, r: rr * 0.92, h: 11, gy }); }
+  // the entrance: two pillars and a lintel of rock over the track
+  for (const sd of [-1, 1]) { const a = open + sd * 0.5, x = Math.cos(a) * (RAD + 1), z = Math.sin(a) * (RAD + 1), m = new THREE.Mesh(new THREE.DodecahedronGeometry(3.4, 1), rockM); m.position.set(x, T.raw(cx + x, cz + z) + 4, z); m.scale.set(1, 2.6, 1); C.add(m); }
+  const lin = new THREE.Mesh(new THREE.DodecahedronGeometry(3, 1), rockM); lin.position.set(Math.cos(open) * (RAD + 1), cy + 9.5, Math.sin(open) * (RAD + 1)); lin.scale.set(1.2, 0.8, 3.4); lin.rotation.y = -open; C.add(lin);
+  const roof = new THREE.Mesh(new THREE.SphereGeometry(19, 24, 12, 0, 6.29, 0, 1.22), rockM); roof.scale.y = 0.55; roof.position.y = cy + 3; roof.material = rockM.clone(); roof.material.side = THREE.DoubleSide; C.add(roof);
+  for (let i = 0; i < 14; i++) { const a = R() * 6.28, d = 3 + R() * 10, st = new THREE.Mesh(new THREE.ConeGeometry(0.5 + R() * 0.6, 2 + R() * 3, 6), rockM); st.position.set(Math.cos(a) * d, cy + 12.5 - d * 0.35, Math.sin(a) * d); st.rotation.x = Math.PI; C.add(st); }
+  // inside: a slime floor, egg clusters and a sick purple glow
+  const goo = new THREE.Mesh(new THREE.CircleGeometry(RAD - 1, 40), M.mat(0x3a1a40, { e: 0x200828, r: 0.3 })); goo.rotation.x = -Math.PI / 2; goo.position.y = cy + 0.06; C.add(goo);
+  const eggM = M.mat(0xc0a060, { e: 0x604010, ei: 0.8, op: 0.9, flat: false }); for (let i = 0; i < 26; i++) { const a = R() * 6.28, d = 7 + R() * 6.5; if (Math.abs(((a - open + 9.42) % 6.283) - 3.14) < 0.6) continue; const e = new THREE.Mesh(new THREE.SphereGeometry(0.45 + R() * 0.3, 10, 8), eggM); e.scale.y = 1.4; const x = Math.cos(a) * d, z = Math.sin(a) * d; e.position.set(x, T.raw(cx + x, cz + z) + 0.5, z); C.add(e); }
+  const L = new THREE.PointLight(0xb040ff, 40, 34); L.position.set(0, cy + 6, 0); C.add(L); W.caveLight = L;
+  W.caveRoof = { x: cx, z: cz, y: cy + 8, r: RAD + 1 }; W.cave = { x: cx, z: cz, r: RAD }; (W.shelters = W.shelters || []).push({ x: cx, z: cz, r: RAD - 1 });
+}
 function placePOIs(g, W, T, D, mapId, path) {
-  const R = rng(mapId.length * 7919 + 11), H = T.hub, hv = W.hiveP; W.lore = []; W.shelters = [];
+  const R = rng(mapId.length * 7919 + 11), H = T.hub, hv = W.hiveP; W.lore = []; W.shelters = W.shelters || [];
   const ok = (x, z, clear) => Math.abs(x) < BOUNDS - 12 && Math.abs(z) < BOUNDS - 12 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 18 && Math.hypot(x - hv.x, z - hv.z) > 30 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 1.5 && !W.lore.some(l => Math.hypot(l.x - x, l.z - z) < 40);
   const spot = clear => { for (let k = 0; k < 400; k++) { const x = (R() * 2 - 1) * BOUNDS, z = (R() * 2 - 1) * BOUNDS; if (ok(x, z, clear)) return [x, z]; } return null; };
   const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };

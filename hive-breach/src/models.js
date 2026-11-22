@@ -82,6 +82,13 @@ function scythe(parent, x, y, z, len, m, side) {
   sh.rotation.z = side * 0.15; return sh;
 }
 export function alien(type) {
+  // the Brood Queen is a Hive Tyrant grown huge, dragging a glowing egg sac; Royal Guards are big crimson Juggernauts with crests
+  if (type === 'broodqueen' || type === 'royal') {
+    const out = new THREE.Group(), inner = alien(type === 'broodqueen' ? 'queen' : 'brute'); inner.scale.setScalar(type === 'broodqueen' ? 2.4 : 1.2); out.add(inner); out.userData = inner.userData;
+    if (type === 'broodqueen') { const sac = S(inner, 0.95, mat(0xffb040, { e: 0xc06010, ei: 1.2, op: 0.82 }), 0, 1.05, 2.1, 1, 0.85, 1.7); inner.userData.sacs.push(sac); for (let i = 0; i < 8; i++) S(inner, 0.12, mat(0xfff0a0, { e: 0xffa020, ei: 1.5, op: 0.9 }), (Math.random() - 0.5) * 1.2, 0.85 + Math.random() * 0.4, 1.6 + Math.random() * 1.3); for (let i = 0; i < 5; i++) K(inner, 0.08, 0.7, 0xd04030, (i - 2) * 0.22, 2.2, -0.2, { e: 0x601008 }).rotation.x = -0.4; }
+    else { inner.traverse(o => { if (o.isMesh && o.material && o.material.color) { o.material = o.material.clone(); o.material.color.lerp(new THREE.Color(0x8a1a1a), 0.45); } }); for (let i = 0; i < 5; i++) K(inner, 0.08, 0.5, 0xffc040, (i - 2) * 0.16, 2.0, -0.4, { e: 0x804000 }).rotation.x = -0.3; }
+    return out;
+  }
   const g = new THREE.Group(), body = new THREE.Group(), legs = [], arms = [], wings = [], sacs = [], hide = mat(CHITIN[type] || 0x2a2420, { r: 0.55, m: 0.15, flat: false }), plate = mat(PLATE[type] || 0x5a4a3a, { r: 0.4, m: 0.25 }),
     gl = mat(GLOW[type], { e: GLOW[type], ei: 2 }), dk = 0x141012; let tail = null, head = null;
   g.add(body);

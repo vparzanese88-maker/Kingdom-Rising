@@ -190,7 +190,7 @@ function fx(e) {
     case 'drop': break;
     case 'adie': burst(e.x, e.y + 1, e.z, 0xa02020, 8, 3, 0.6); break;
     case 'banner': banner(e.a, e.b); audio.sfx('wave'); break;
-    case 'assault': banner('FINAL ASSAULT', e.open ? 'The shield is down: destroy the hive' : 'Destroy the Hive Guardians, then the hive'); audio.sfx('alarm'); toast('Wave 20 survived! No more waves: push to the hive and destroy it.', 8); break;
+    case 'assault': banner('FINAL ASSAULT', 'Go into the cave and kill the Brood Queen'); audio.sfx('alarm'); toast('Wave 20 survived! No more waves: push to the hive and destroy it.', 8); break;
     case 'win': audio.sfx('win'); record(e.el); break;
     case 'lose': audio.sfx('lose'); record(e.el); break;
   }
@@ -312,7 +312,7 @@ function updateWeather(dt, S) {
 // ---------------------------------------------------------------- view: meshes that follow the battle
 const view = { aliens: new Map(), turrets: new Map(), players: new Map(), pods: new Map(), allies: new Map() };
 const huntOf = a => a.tg !== undefined ? a.tg : a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0;
-const BAR_Y = { guardian: 5, hivecore: 9, nest: 3.4, crawler: 1.8, spitter: 2.9, brute: 2.9, flyer: 1.1, ravager: 4.9, queen: 7.8 };
+const BAR_Y = { broodqueen: 11, royal: 3.2, guardian: 5, hivecore: 9, nest: 3.4, crawler: 1.8, spitter: 2.9, brute: 2.9, flyer: 1.1, ravager: 4.9, queen: 7.8 };
 const barGeo = new THREE.PlaneGeometry(1, 0.12), barBg = new THREE.MeshBasicMaterial({ color: 0x200000, depthTest: false, transparent: true, opacity: 0.7 }), barFg = new THREE.MeshBasicMaterial({ color: 0xff4040, depthTest: false });
 function colorOf(id, S) { const p = S.P.find(q => q.id === id); return p ? CLASSES[p.cls].color : 0x888888; }
 function nameTag(text, color) {
@@ -350,7 +350,7 @@ function syncView(S, dt) {
     v.pop = Math.max(0, (v.pop || 0) - dt); v.mesh.scale.setScalar((a.type === 'ravager' ? 1.7 : 1) * (1 + v.pop * 1.4));
     v.lunge = Math.max(0, (v.lunge || 0) - dt); if (v.mesh.userData.body) { v.mesh.userData.body.position.z = -Math.sin(v.lunge / 0.25 * Math.PI) * 0.6; v.mesh.userData.body.rotation.x = v.pop * 2; }
     const mineHunt = v.hunt === G.myId, mateHunt = v.hunt && v.hunt !== 't' && !mineHunt; if ((mineHunt || mateHunt) && !v.mark) { v.mark = markSprite(); v.mark.material = v.mark.material.clone(); scene.add(v.mark); } if (v.mark) { v.mark.visible = mineHunt || mateHunt; v.mark.material.color.setHex(mineHunt ? 0xffffff : 0xffa040); v.mark.position.set(v.x, v.y + BAR_Y[a.type] + 0.9 + Math.sin(G.time * 10) * 0.1, v.z); }
-    const A = ALIENS[a.type], sc = a.type === 'hivecore' ? 6 : a.type === 'guardian' ? 2.5 : A.boss ? (a.type === 'queen' ? 4 : 2.5) : 1.2, f = Math.max(0, a.hp / a.mhp);
+    const A = ALIENS[a.type], sc = a.type === 'broodqueen' ? 6 : a.type === 'royal' ? 1.8 : a.type === 'hivecore' ? 6 : a.type === 'guardian' ? 2.5 : A.boss ? (a.type === 'queen' ? 4 : 2.5) : 1.2, f = Math.max(0, a.hp / a.mhp);
     v.bar.visible = f < 0.999; if (v.bar.visible) { v.bar.position.set(v.x, v.y + BAR_Y[a.type], v.z); v.bar.quaternion.copy(camera.quaternion); v.bar.scale.set(sc, sc, 1); v.fg.scale.x = f; v.fg.position.x = -(1 - f) / 2; }
   }
   for (const [id, v] of view.aliens) if (!seen.has(id)) { scene.remove(v.bar); if (v.mark) scene.remove(v.mark); view.aliens.delete(id); if (died.has(id) && v.type !== 'hivecore') { died.delete(id); corpses.push({ m: v.mesh, t: 0, side: Math.random() < 0.5 ? -1 : 1 }); } else scene.remove(v.mesh); }
@@ -420,9 +420,8 @@ function syncView(S, dt) {
     if (m.tg && !AL.splash) { v.acc += dt; const tv = view.aliens.get(m.tg); if (tv && v.acc > 1 / Math.min(AL.rate, 8)) { v.acc = 0; const mx = v.x - Math.sin(m.ry) * 0.9, mz = v.z - Math.cos(m.ry) * 0.9; tracer([mx, v.y + 1.3, mz], [tv.x, tv.y + ALIENS[tv.type].h * 0.6, tv.z], AL.gun === 'engineer' ? 0x60c0ff : 0xffe080, 0.05); const dd = dist(v.x, v.z); audio.gun(AL.gun === 'engineer' ? 'smg' : 'rifle', vol(dd) * 0.6, 1, Math.min(1, dd / 45)); flashAt([mx, v.y + 1.3, mz], 0.7); } }
   }
   for (const [id, v] of view.allies) if (!seen.has(id)) { scene.remove(v.mesh); view.allies.delete(id); }
-  // the hive's shield is up until the guardians fall in the final assault
-  if (G.W) G.W.hiveShield.visible = S.A.some(a => a.type === 'hivecore') && !S.open;
-  if (G.W && G.W.hiveShield.visible) G.W.hiveShield.material.opacity = 0.14 + Math.sin(G.time * 2) * 0.05;
+  // the Brood Queen's lair
+  if (G.W && G.W.cave && !G.explore) { const d = Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z); if (d < 26 && !G.lairWarn) { G.lairWarn = true; const n = S.A.filter(a => a.type === 'royal').length; banner('THE BROOD QUEEN', `${n} Royal Guards defend her. She births more while you fight in here.`); audio.sfx('alarm'); } if (d > 45) G.lairWarn = false; if (G.W.caveLight) G.W.caveLight.intensity = 34 + Math.sin(G.time * 2.2) * 10; }
   // gunners' ammo crates, jungle spore clouds, mortar acid pools
   G.vx = G.vx || { M: new Map(), Z: [], K: [] };
   { const seen2 = new Set(); for (const c of S.M || []) { seen2.add(c.id); let m = G.vx.M.get(c.id); if (!m) { m = M.ammoCrate(); m.position.set(c.x, G.W.top(c.x, c.z), c.z); scene.add(m); G.vx.M.set(c.id, m); } m.rotation.y += dt; } for (const [id, m] of G.vx.M) if (!seen2.has(id)) { scene.remove(m); G.vx.M.delete(id); } }
@@ -799,7 +798,7 @@ function hud(dt, S) {
   const hpv = G.explore && G.ex ? G.ex.hp * my.mhp / 100 : my.hp; setT('gold', Math.floor(my.gold)); setT('hpTxt', `${Math.ceil(hpv)} / ${my.mhp}`); $('hpBar').style.width = (hpv / my.mhp * 100) + '%';
   const slotNames = [C.gun.name, SIDEARM.name, 'Welding torch' + (G.cls === 'engineer' ? ' (3x)' : ''), C.throw.name + ' (left click throws)', 'Heal beam']; setT('ammo', G.me.slot === 3 ? String(my.items ?? 0) : G.me.slot === 5 ? String(my.dr ?? 0) : G.me.slot === 2 ? Math.round((my.pw ?? 100) / (G.cls === 'engineer' ? 160 : 100) * 100) + '%' : G.me.slot >= 2 ? '∞' : G.me.rel > 0 ? '--' : String(G.me.ammo)); setT('reserve', G.me.slot === 3 ? '/ ' + C.throw.n : G.me.slot === 5 ? '/ 2' : G.me.slot === 2 ? 'PWR' : G.me.slot >= 2 ? '' : '/ ' + Math.floor(G.me.reserve)); setT('gunName', `SLOT ${G.me.slot + 1}`); const low = G.me.reserve < st.mag && G.me.ammo < st.mag * 0.5; $('ammoWarn').hidden = !(low || G.me.resup); setT('ammoWarn', G.me.resup ? 'RESUPPLYING' : G.me.reserve < 1 && G.me.ammo === 0 ? 'OUT OF AMMO: BACK TO THE HUB' : 'LOW AMMO'); setT('clsName', C.name);
   const mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('waveTxt', S.ph === 'build' ? `BUILD ${mmss(Math.max(0, Math.ceil(S.tm)))}` : `⏱ ${mmss(S.el || 0)}`); $('hubBar').style.width = S.hub + '%'; setT('hubTxt', `HUB ${Math.ceil(S.hub)}%`);
-  let info = S.ph === 'build' ? 'Build defenses before the swarm arrives' : `${S.left} aliens on the field`; if (S.open) info = 'HIVE SHIELD DOWN: destroy the hive!';
+  let info = S.ph === 'build' ? 'Build defenses before the swarm arrives' : `${S.left} aliens on the field`; if (G.W.cave && Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z) < 40) info = 'The Brood Queen\'s lair: kill her to win';
   setT('waveInfo', info);
   const mt = S.T.filter(t => t.owner === G.myId).length, sT = TURRETS[C.sentry], dT = TURRETS[C.defense];
   const sp = my.special, TH = C.throw, tT = TURRETS[C.third];
@@ -810,7 +809,7 @@ function hud(dt, S) {
   $('roundsBar').style.width = (G.me.slot <= 1 ? Math.min(100, G.me.ammo / st.mag * 100) : 0) + '%';
   setH('status', [my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get under cover, or crouch behind something on the windward side</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
   // a boss bar while a big one is alive
-  const boss = S.A.find(a => ALIENS[a.type].boss) || (S.ph === 'assault' ? (S.A.find(a => a.type === 'guardian') || S.A.find(a => a.type === 'hivecore')) : S.open ? S.A.find(a => a.type === 'hivecore') : null); $('boss').hidden = !boss; if (boss) { setT('bossName', ALIENS[boss.type].name); $('bossBar').style.width = (boss.hp / boss.mhp * 100) + '%'; }
+  const nearQ = G.W.cave && Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z) < 34, boss = S.A.find(a => ALIENS[a.type].boss) || (nearQ ? S.A.find(a => a.type === 'broodqueen') : null); $('boss').hidden = !boss; if (boss) { setT('bossName', ALIENS[boss.type].name); $('bossBar').style.width = (boss.hp / boss.mhp * 100) + '%'; }
   const hunters = [...view.aliens.values()].filter(v => v.hunt === G.myId); $('hunt').hidden = !hunters.length || my.dead; if (hunters.length) setT('huntT', `⚠ ${hunters.length} ALIEN${hunters.length > 1 ? 'S' : ''} HUNTING YOU`);
   setH('arrows', hunters.slice(0, 8).map(v => { const a = Math.atan2(v.x - G.me.x, v.z - G.me.z) - Math.atan2(-Math.sin(G.me.yaw), -Math.cos(G.me.yaw)); return `<i style="transform:translate(-50%,-50%) rotate(${(-a).toFixed(2)}rad) translateY(-90px)"></i>`; }).join(''));
   $('hit').classList.toggle('head', !!G.hitHead);
@@ -843,7 +842,7 @@ function minimap(S) {
   for (const L of G.W.loot || []) { const px = X(L.x), py = Z(L.z); if (px < 0 || py < 0 || px > W || py > W) continue; const cd = G.lootCd && (G.lootCd.get(L) || 0) > G.time; g.strokeStyle = cd ? '#556' : '#c8d8e0'; g.lineWidth = 2; g.strokeRect(px - 4, py - 3, 8, 6); }
   for (const o of S.O) { if (o.got) continue; const on = (o.land ?? 0) > 0 || o.life > 10 || Math.sin(G.time * 10) > 0; let px = X(o.x) - W / 2, py = Z(o.z) - W / 2; const rr = W / 2 - 12, d = Math.hypot(px, py); if (d > rr) { px *= rr / d; py *= rr / d; } px += W / 2; py += W / 2; g.fillStyle = on ? '#ffd040' : '#806020'; g.save(); g.translate(px, py); g.rotate(0.785); g.fillRect(-6, -6, 12, 12); g.restore(); g.strokeStyle = '#000'; g.lineWidth = 1.5; g.strokeRect(px - 3, py - 3, 6, 6); }
   for (const m of S.L || []) { g.fillStyle = '#9fe870'; g.fillRect(X(m.x) - 2, Z(m.z) - 2, 4, 4); }
-  for (const a of S.A) { if (!revealed(a)) continue; const b = ALIENS[a.type].boss || a.type === 'guardian'; g.fillStyle = b ? '#ff40ff' : '#ff4040'; g.beginPath(); g.arc(X(a.x), Z(a.z), b ? 4 : 2, 0, 7); g.fill(); }
+  for (const a of S.A) { if (!revealed(a)) continue; const b = ALIENS[a.type].boss || a.type === 'broodqueen'; g.fillStyle = b ? '#ff40ff' : '#ff4040'; g.beginPath(); g.arc(X(a.x), Z(a.z), b ? 4 : 2, 0, 7); g.fill(); }
   for (const p of S.P) if (p.id !== G.myId && !p.dead) { g.fillStyle = '#' + CLASSES[p.cls].color.toString(16).padStart(6, '0'); g.beginPath(); g.arc(X(p.x), Z(p.z), 3.5, 0, 7); g.fill(); }
   const me = G.me; g.save(); g.translate(W / 2, W / 2); g.rotate(-me.yaw); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, -7); g.lineTo(5, 5); g.lineTo(-5, 5); g.closePath(); g.fill(); g.restore();
 }
@@ -873,7 +872,7 @@ function frame(now) {
   // keys that work any time
   const atComms = G.W.comms && Math.hypot(G.me.x - G.W.comms.x, G.me.z - G.W.comms.z) < 5 && !G.explore; if (atComms && !G.shop) prompt(`<b>${keyName(KB.armory)}</b> Recruitment: hire and upgrade reinforcements`);
   if (hits[KB.armory]) { if (G.shop) openShop(false); else if (atComms) openShop(true); else toast('Recruitment is at the comms console in the hub.', 2.5); } if (G.shop) { if (hits.Escape) openShop(false); }
-  if (!G.explore) music.set(S.ph === 'assault' ? 'boss' : S.ph === 'wave' ? (S.A.some(a => ALIENS[a.type].boss) ? 'boss' : 'battle') : S.ph === 'lose' ? 'off' : 'calm');
+  if (!G.explore) music.set(S.ph === 'assault' ? 'boss' : S.ph === 'wave' ? (S.A.some(a => ALIENS[a.type].boss) || (G.W.cave && Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z) < 30) ? 'boss' : 'battle') : S.ph === 'lose' ? 'off' : 'calm');
   const paused = G.mode === 'solo' && !locked() && S.ph !== 'lose' && S.ph !== 'win';
   updateMe(paused ? 0 : dt, S);
   if (G.sim) {

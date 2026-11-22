@@ -27,7 +27,7 @@ export class Sim {
   resetPlayer(p) { p.dr = DRESS; p.kits = KITS; p.pw = pwMax(p.cls); p.special = ''; p.acd = [0, 0, 0, 0]; p.items = CLASSES[p.cls] ? CLASSES[p.cls].throw.n : 2; p.buf = {}; p.cl = 0; p.adrT = 0; p.stimT = 0; p.rv = p.rv || 0; p.gold = START_GOLD; p.ups = { dmg: 0, rate: 0, mag: 0, spd: 0, hp: 0, arm: 0 }; p.mhp = p.hp = maxHp(p.cls, p.ups); p.dead = false; p.rt = 0; p.kills = 0; p.sp = (p.sp || 0) + 1; }
   addPlayer(id, name, cls) {
     let p = this.players.get(id); if (p) { p.name = name; if (p.cls !== cls) { p.cls = cls; p.items = CLASSES[cls].throw.n; p.mhp = maxHp(cls, p.ups); p.hp = Math.min(p.hp, p.mhp); } return p; }
-    { const f = bossScale(this.players.size + 1) / bossScale(this.players.size); for (const a of this.aliens) if (a.type === 'guardian' || a.type === 'hivecore') { a.hp *= f; a.mhp *= f; } }
+    { const f = bossScale(this.players.size + 1) / bossScale(this.players.size); for (const a of this.aliens) if (a.type === 'broodqueen' || a.type === 'royal') { a.hp *= f; a.mhp *= f; } }
     p = { id, name, cls, x: this.W.spawn.x, y: this.W.top(this.W.spawn.x, this.W.spawn.z), z: this.W.spawn.z, yaw: 0, sp: 0, seen: 0 }; this.resetPlayer(p); p.gold = START_GOLD + this.wave * 55; this.players.set(id, p);
     this.emit({ k: 'toast', m: `${name} (${CLASSES[cls].name}) has joined the defense. Squad of ${this.players.size}: the hive sends more, tougher aliens.` }); return p;
   }
@@ -71,6 +71,7 @@ export class Sim {
       p.gold -= c; p.ups[r.up] = lv + 1; const m = maxHp(p.cls, p.ups); p.hp += m - p.mhp; p.mhp = m; this.emit({ k: 'bought', to: id });
     } else if (r.a === 'hit') {
       const a = this.aliens.find(q => q.id === r.id); if (!a) return;
+      if (a.type === 'broodqueen' && Math.hypot(p.x - a.x, p.z - a.z) > 30) { if (this.time - (a.far || -9) > 4) { a.far = this.time; say('Too far: get inside the cave to hurt the Brood Queen.'); } return; }
       if (p.cls === 'sniper') { a.mark = Math.max(a.mark || 0, 1.25); a.markT = 6; a.rev = 6; a.hidden = false; } if (p.cls === 'gunner' && !ALIENS[a.type].boss) { a.slowT = 0.5; a.slowF = Math.min(a.slowF ?? 1, 0.8); }
       this.hurtAlien(a, Math.min(+r.d || 0, 2400), id, r.ap);
     } else if (r.a === 'cmd') {
@@ -128,8 +129,7 @@ export class Sim {
   hurtAlien(a, d, owner, ap) {
     if (a.hp <= 0) return; a.lastHit = this.time; if (a.markT > 0) d *= a.mark || 1;
     const op = owner && this.players.get(owner); if (op) { if (op.stimT > 0) d *= 1.5; if (op.buf.rally > 0) d *= 1.25; if (op.buf.fortify > 0) d *= 1.3; for (const q of this.players.values()) if (q !== op && !q.dead && q.cls === 'assault' && Math.hypot(q.x - op.x, q.z - op.z) < 14) { d *= 1.15; break; } }
-    if (ALIENS[a.type].static && a.type !== 'nest' && owner && this.players.get(owner) && Math.hypot(this.players.get(owner).x - a.x, this.players.get(owner).z - a.z) > 70) { if (this.time - (a.far || -9) > 4) { a.far = this.time; this.emit({ k: 'say', to: owner, m: 'Too far: the hive absorbs fire from more than 70 m away. Get closer.' }); } return; }
-    if (a.type === 'hivecore' && !this.hiveOpen()) { if (owner && this.time - (a.said || -9) > 4) { a.said = this.time; this.emit({ k: 'say', to: owner, m: 'The hive is shielded while a Hive Guardian stands. Destroy both Guardians to drop the shield.' }); } return; } const A = ALIENS[a.type]; a.hp -= d * (ap ? 1 : 1 - (A.armor || 0));
+    const A = ALIENS[a.type]; a.hp -= d * (ap ? 1 : 1 - (A.armor || 0));
     if (a.hp <= 0) this.killAlien(a, owner);
   }
   splash(x, y, z, r, d, owner) {
@@ -140,9 +140,8 @@ export class Sim {
     a.dead = true; const A = ALIENS[a.type]; this.emit({ k: 'die', id: a.id, x: a.x, y: a.y, z: a.z, t: a.type });
     const p = this.players.get(owner); if (p) p.kills++;
     for (const q of this.players.values()) q.gold += Math.round(A.bounty * (q.id === owner ? 1 : 0.4));
-    if (A.boss || a.type === 'guardian') this.emit({ k: 'toast', m: `${A.name} destroyed${p ? ' by ' + p.name : ''}!`, big: 1 });
-    if (a.type === 'guardian' && !this.aliens.some(q => q.type === 'guardian' && !q.dead)) this.emit({ k: 'banner', a: 'HIVE SHIELD DOWN', b: 'Destroy the hive now to win!' });
-    if (a.type === 'hivecore') { this.phase = 'win'; this.emit({ k: 'win', w: this.wave, el: Math.floor(this.el || 0) }); }
+    if (A.boss || a.type === 'broodqueen') this.emit({ k: 'toast', m: `${A.name} destroyed${p ? ' by ' + p.name : ''}!`, big: 1 });
+    if (a.type === 'broodqueen') { this.phase = 'win'; this.emit({ k: 'win', w: this.wave, el: Math.floor(this.el || 0) }); }
   }
   closest(list, a, r, dy = 99) { let best = null, bd = r; for (const q of list) { if (q.dead) continue; const d = Math.hypot(q.x - a.x, q.z - a.z); if (d < bd && Math.abs((q.y || 0) - a.y) < dy + 3) { bd = d; best = q; } } return best; }
   aggro(a, k, id, time) { a.mode = 'hunt'; a.tk = k; a.tid = id; a.ht = time ? (ALIENS[a.type].hunt || {}).time || 8 : (ALIENS[a.type].hunt || {}).time || 8; this.emit({ k: 'aggro', x: a.x, z: a.z, to: k === 'p' ? id : '', t: a.type }); }
@@ -220,13 +219,27 @@ export class Sim {
       if (a.dead) continue; const A = ALIENS[a.type]; a.cc -= dt; a.atk -= dt; a.rcd -= dt; if (a.markT > 0) a.markT -= dt; if (a.rev > 0) a.rev -= dt;
       // nests sit off the track and hatch crawlers that go for the nearest marine
       if (A.nest) { a.qcd -= dt; if (a.qcd <= 0 && this.phase === 'wave') { a.qcd = 26 + Math.random() * 10; this.emit({ k: 'hatch', x: a.x, z: a.z }); for (let i = 0, nn = Math.round(4 * countScale(this.players.size)); i < nn; i++) { const c = this.spawn('crawler', a.s); c.x = a.x + (Math.random() - 0.5) * 3; c.z = a.z + (Math.random() - 0.5) * 3; c.y = this.W.ground(c.x, c.z, a.y + 1); c.lat = (Math.random() - 0.5) * 3; const p = this.closest(living, c, 45); if (p) this.aggro(c, 'p', p.id, 1.5); else c.mode = 'return'; } } continue; }
-      if ((a.type === 'guardian' || a.type === 'hivecore') && this.time - (a.lastHit ?? -99) > 12) a.hp = Math.min(a.mhp, a.hp + a.mhp * 0.01 * dt);
-      if (a.type === 'guardian') {
-        if (a.rcd <= 0) { let tg = null, bd = A.guard; for (const p of living) { const d = Math.hypot(p.x - a.x, p.z - a.z); if (d < bd && Math.abs(p.y - a.y) < 12) { bd = d; tg = p; } } for (const m of this.allies) { const d = Math.hypot(m.x - a.x, m.z - a.z); if (d < bd) { bd = d; tg = m; } }
-          if (tg) { a.rcd = 0.75; const isP = 'cls' in tg; this.emit({ k: 'spit', a: [a.x, a.y + 3.6, a.z], b: [tg.x, tg.y + 1.3, tg.z], q: 2 }); if (isP) this.hurtPlayer(tg, A.dmg, a); else this.hurtAlly(tg, A.dmg * 1.5); } }
+      // the Brood Queen: heals when left alone, spits at anyone in her cave, and births Royal Guards and Stalkers while she is under attack
+      if (a.type === 'broodqueen') {
+        const near = t => Math.hypot(t.x - a.x, t.z - a.z) < 30, foes = [...living.filter(near), ...this.allies.filter(near), ...this.turrets.filter(t => near(t) && !t.carry && !TURRETS[t.kind].mine)], guards = this.aliens.filter(q => q.type === 'royal' && !q.dead).length;
+        if (a.rcd <= 0 && foes.length) { let tg = null, bd = A.ranged; for (const f of foes) { const d = Math.hypot(f.x - a.x, f.z - a.z); if (d < bd) { bd = d; tg = f; } } if (tg) { a.rcd = 1.3; const isP = 'cls' in tg; this.emit({ k: 'spit', a: [a.x, a.y + 5, a.z], b: [tg.x, (tg.y || 0) + 1.2, tg.z], q: 1 }); if (isP) this.hurtPlayer(tg, A.dmg, a); else if (tg.kind) this.hurtTurret(tg, A.dmg * 1.5, a); else this.hurtAlly(tg, A.dmg * 1.5); } }
+        if (!foes.length && this.time - (a.lastHit ?? -99) > 10) a.hp = Math.min(a.mhp, a.hp + a.mhp * 0.01 * dt);   // heals only when her cave is clear
+        a.qcd -= dt; if (a.qcd <= 0) {
+          if (foes.length) { a.qcd = 12; if (guards < 3 + 2 * this.players.size) this.spawnGuard(a); for (let i = 0; i < 2; i++) { const c = this.spawn('crawler', 0); c.x = a.x + (Math.random() - 0.5) * 6; c.z = a.z + (Math.random() - 0.5) * 6; c.mode = 'hunt'; const tg = living.find(near); if (tg) { c.tk = 'p'; c.tid = tg.id; c.ht = 10; } else c.mode = 'path'; } this.emit({ k: 'hatch', x: a.x, z: a.z }); }
+          else { a.qcd = 20; if (guards < 4 + 2 * this.players.size) this.spawnGuard(a); }
+        }
         continue;
       }
-      if (a.type === 'hivecore') { if (this.phase === 'assault' || this.hiveOpen()) { a.qcd -= dt; if (a.qcd <= 0) { a.qcd = 9; for (let i = 0, nn = Math.round(3 * countScale(this.players.size)); i < nn; i++) this.spawn('crawler', 2 + i); } } continue; }
+      // Royal Guards keep to the queen's chamber: they rush anyone who comes in and go back to their posts when it is clear
+      if (a.mode === 'guard') {
+        const Q = this.W.hiveP, inCave = t => Math.hypot(t.x - Q.x, t.z - Q.z) < 22; let tg = null, bd = 30;
+        for (const f of [...living, ...this.allies, ...this.turrets.filter(t => !t.carry && !TURRETS[t.kind].mine)]) { if (!inCave(f)) continue; const d = Math.hypot(f.x - a.x, f.z - a.z); if (d < bd) { bd = d; tg = f; } }
+        const gx = tg ? tg.x : a.px, gz = tg ? tg.z : a.pz, dx = gx - a.x, dz = gz - a.z, d = Math.hypot(dx, dz) || 1; if (a.stun > 0) { a.stun -= dt; continue; }
+        const sp = a.spd * (a.slowT > 0 ? (a.slowF ?? 0.5) : 1); if (a.slowT > 0) a.slowT -= dt;
+        if (tg && d < A.r + 1.5) { this.face(a, dx, dz); if (a.atk <= 0) { a.atk = 1; if ('cls' in tg) this.hurtPlayer(tg, A.dmg, a); else if (tg.kind) this.hurtTurret(tg, A.dmg, a); else this.hurtAlly(tg, A.dmg * 1.5); this.emit({ k: 'bite', x: a.x, z: a.z }); } }
+        else if (d > 0.6) { this.face(a, dx, dz); a.x += dx / d * sp * dt; a.z += dz / d * sp * dt; a.y = this.W.ground(a.x, a.z, a.y + 1); }
+        a.hidden = false; continue;
+      }
       if (a.stun > 0) { a.stun -= dt; continue; }
       const sp = a.spd * (a.slowT > 0 ? (a.slowF ?? 0.5) : 1) * (1 + 0.15 * (this.stormI || 0)); if (a.slowT > 0) a.slowT -= dt;
       // spitters and the queen shoot at marines first, then turrets
@@ -353,14 +366,14 @@ export class Sim {
     if (this.shells.some(s => s.done)) this.shells = this.shells.filter(s => !s.done);
   }
   // The hive itself and its two Guardian towers. The hive is shielded until the final assault, and while a Guardian stands.
+  // the Brood Queen in her cave at the start of the track, with her Royal Guards
   spawnHive(full, boost = 1) {
-    if (full) this.aliens = this.aliens.filter(a => a.type !== 'hivecore' && a.type !== 'guardian');
-    const P = this.path, p0 = P.at(0), hy = P.y(0), have = this.aliens.filter(a => a.type === 'guardian').map(a => a.gi);
-    if (full) { const h = this.spawn('hivecore', 0); h.x = p0.x; h.z = p0.z; h.y = hy; h.mode = 'static'; h.hp = h.mhp = ALIENS.hivecore.hp * boost * bossScale(this.players.size); }
-    for (const [i, sd] of [[0, -1], [1, 1]]) { if (have.includes(i)) continue; let x = p0.x - p0.tz * sd * 10 + p0.tx * 6, z = p0.z + p0.tx * sd * 10 + p0.tz * 6; if (this.W.T.chasm(x, z) < 0.99) { x = p0.x + p0.tx * 12; z = p0.z + p0.tz * 12 + sd * 4; }
-      const g = this.spawn('guardian', 0); g.x = x; g.z = z; g.y = this.W.top(x, z); g.gi = i; g.mode = 'static'; g.hp = g.mhp = ALIENS.guardian.hp * boost * bossScale(this.players.size); }
+    if (!full) return; this.aliens = this.aliens.filter(a => !['hivecore', 'guardian', 'broodqueen', 'royal'].includes(a.type));
+    const p0 = this.path.at(0), q = this.spawn('broodqueen', 0); q.x = p0.x; q.z = p0.z; q.y = this.path.y(0); q.mode = 'static'; q.ry = Math.atan2(-p0.tx, -p0.tz); q.hp = q.mhp = ALIENS.broodqueen.hp * boost * bossScale(this.players.size); q.qcd = 3;
+    for (let i = 0; i < 4 + 2 * this.players.size; i++) this.spawnGuard(q, i);
   }
-  hiveOpen() { return this.phase !== 'lose' && this.phase !== 'win' && !this.aliens.some(a => a.type === 'guardian' && !a.dead); }
+  spawnGuard(q, i) { const n = this.aliens.filter(a => a.type === 'royal').length, k = i ?? n, ang = k * 2.4, r = 6 + (k % 3) * 2.5, g = this.spawn('royal', 0); g.px = q.x + Math.cos(ang) * r; g.pz = q.z + Math.sin(ang) * r; g.x = q.x + Math.cos(ang) * 2; g.z = q.z + Math.sin(ang) * 2; g.y = this.W.ground(g.x, g.z, q.y + 2); g.mode = 'guard'; return g; }
+  hiveOpen() { return this.phase !== 'lose' && this.phase !== 'win'; }
   // Reinforcements: the hub sends marines down the track toward the hive.
   updateAllies(dt) {
     const P = this.path, C = this.cmd;

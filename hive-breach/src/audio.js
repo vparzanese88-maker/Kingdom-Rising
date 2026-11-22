@@ -19,7 +19,7 @@ const S = {
   screech: [[1700, 900, 0.3, 'sawtooth', 0.07]],
   roar: [['n', 300, 1.2, 0.5], [70, 40, 1.2, 'sawtooth', 0.25]],
   spit: [['n', 1800, 0.15, 0.12], [400, 200, 0.1, 'triangle', 0.08]],
-  alarm: [[880, 660, 0.25, 'square', 0.12], [880, 660, 0.25, 'square', 0.12, 0.3], [880, 660, 0.25, 'square', 0.12, 0.6]],
+  alarm: [[330, 322, 0.55, 'sawtooth', 0.045], [165, 161, 0.55, 'square', 0.03], [262, 256, 0.55, 'sawtooth', 0.045, 0.62], [131, 128, 0.55, 'square', 0.03, 0.62]],   // a deep two-tone military klaxon
   wave: [[392, 392, 0.15, 'square', 0.12], [523, 523, 0.15, 'square', 0.12, 0.15], [784, 784, 0.4, 'square', 0.12, 0.3]],
   win: [[523, 523, 0.15, 'square', 0.14], [659, 659, 0.15, 'square', 0.14, 0.15], [784, 784, 0.15, 'square', 0.14, 0.3], [1047, 1047, 0.6, 'square', 0.14, 0.45]],
   lose: [[400, 300, 0.4, 'sawtooth', 0.15], [300, 200, 0.4, 'sawtooth', 0.15, 0.4], [200, 90, 0.9, 'sawtooth', 0.15, 0.8]],
@@ -55,7 +55,7 @@ const S = {
 export class Audio {
   constructor() { this.ctx = null; this.vol = 0.5; try { const v = +localStorage.getItem('hb-sfx'); if (localStorage.getItem('hb-sfx') !== null && v >= 0) this.vol = v; } catch (e) { } this.noise = {}; this.last = {}; }
   unlock() {
-    if (!this.ctx) { try { const AC = window.AudioContext || window.webkitAudioContext; try { this.ctx = new AC({ latencyHint: 'playback' }); } catch (e) { this.ctx = new AC(); } /* a bigger buffer: the browser can't run dry when a frame is slow */ this.chain(); let i = 0; const kinds = ['rifle', 'pistol', 'shotgun', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
+    if (!this.ctx) { try { const AC = window.AudioContext || window.webkitAudioContext; try { this.ctx = new AC({ latencyHint: 'playback' }); } catch (e) { this.ctx = new AC(); } /* a bigger buffer: the browser can't run dry when a frame is slow */ this.chain(); this.ctx.onstatechange = () => { const c = this.ctx; if (c && c.state !== 'running' && c.state !== 'closed' && !document.hidden) c.resume().catch(() => { }); }; let i = 0; const kinds = ['rifle', 'pistol', 'shotgun', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
     if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') this.ctx.resume().catch(() => { });
     // iPhone and iPad: playing a silent HTML audio element moves the page into the "media" sound category, so the game is heard even with the silent switch on
     if (!this.el && /iPad|iPhone|iPod/.test(navigator.userAgent + (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform) ? 'iPad' : ''))) { try { const n = 8000, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, s) => [...s].forEach((ch, i) => b[o + i] = ch.charCodeAt(0)); w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true); b.fill(128, 44);
@@ -94,14 +94,13 @@ export class Audio {
   // a stuck overlap counter could mute gunfire, and one bad value can jam the compressor into silence; each of these is repaired here.
   watchdog() {
     const c = this.ctx; if (!c) return; if (c.state !== 'running' && c.state !== 'closed') c.resume().catch(() => { });
-    if ((this.live || 0) > 0 && performance.now() - (this.liveT || 0) > 3000) this.live = 0;
     if (this.mon && c.state === 'running') { this.mon.getFloatTimeDomainData(this.monBuf); let bad = false, peak = 0; for (let i = 0; i < this.monBuf.length; i++) { const v = this.monBuf[i]; if (!isFinite(v)) { bad = true; break; } peak = Math.max(peak, Math.abs(v)); }
       // dead air while music should be playing means the browser's audio got stuck: count it, and after a few seconds restart
       if (bad) this.restart(); }
   }
   // throw the whole sound engine away and build a new one (the next click or key turns it on); used when audio gets stuck
   restart() {
-    const old = this.ctx; this.ctx = null; this.out = null; this.verbIn = null; this.noise = {}; this.sb = null; this.fb = null; this.rmb = null; this.last = {}; this.live = 0; this.sfxN = 0; try { old && old.close(); } catch (e) { }
+    const old = this.ctx; this.ctx = null; this.out = null; this.verbIn = null; this.noise = {}; this.sb = null; this.fb = null; this.rmb = null; this.last = {}; this.vox = []; try { old && old.close(); } catch (e) { }
     if (this.onRestart) this.onRestart(); this.unlock();
   }
   noiseN(f0, f1, type, dur, v, t0, dest, q = 0.7) { const c = this.ctx, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = this.buf(Math.max(0.05, dur)); fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t0); if (f1 !== f0) fl.frequency.exponentialRampToValueAtTime(f1, t0 + dur); s.connect(fl); fl.connect(g); g.connect(dest); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur); s.start(t0); s.stop(t0 + dur + 0.02); return g; }
@@ -140,31 +139,46 @@ export class Audio {
     return this.sb[kind] = [1, 2, 3, 4].map(sd => this.shot(P, sd * 7 + kind.length));
   }
   // play a shot: power (from upgrades) makes it louder and deeper, far (0..1) muffles it and drowns it in echo
+  // Voice manager: every sound registers here. Nothing is ever refused: when too many are ringing at once, the quietest,
+  // oldest one fades out in a few milliseconds to make room. (Refusing new sounds is what made audio seem to cut out.)
+  _voice(g, stops, end, pri) {
+    const now = this.ctx.currentTime; this.vox = (this.vox || []).filter(v => v.end > now);
+    while (this.vox.length >= 44) { let k = 0; for (let i = 1; i < this.vox.length; i++) { const a = this.vox[i], b = this.vox[k]; if (a.pri < b.pri - 0.05 || (Math.abs(a.pri - b.pri) <= 0.05 && a.t0 < b.t0)) k = i; }
+      const v = this.vox.splice(k, 1)[0]; try { v.g.gain.cancelScheduledValues(now); v.g.gain.setValueAtTime(v.g.gain.value, now); v.g.gain.linearRampToValueAtTime(0, now + 0.02); for (const s of v.stops) s.stop(now + 0.03); } catch (e) { } }
+    this.vox.push({ g, stops, end, pri, t0: now });
+  }
+  // play a shot: power (from upgrades) makes it louder and deeper, far (0..1) muffles it and drowns it in echo
   gun(kind, vol = 1, power = 1, far = 0) {
     const c = this.ctx; if (!c || c.state !== 'running' || !(vol >= 0.03) || !isFinite(power) || !isFinite(far)) return; const t = c.currentTime;
-    const k = 'g' + kind; if (this.last[k] && t - this.last[k] < (kind === 'mini' || kind === 'smg' ? 0.04 : 0.025)) return; this.last[k] = t; if ((this.live || 0) > 12 && vol < 0.9) return;
+    // your own shots (full volume) always play; other people's identical shots closer than 15 ms together merge into one
+    if (vol < 0.9) { const k = 'g' + kind; if (this.last[k] && t - this.last[k] < 0.015) return; this.last[k] = t; }
     const list = this.shots(kind), src = c.createBufferSource(); src.buffer = list[(Math.random() * list.length) | 0];
     src.playbackRate.value = (0.94 + Math.random() * 0.12) / (1 + (power - 1) * 0.35);
     const g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 16000 - far * 14500; lp.Q.value = 0.5;
     g.gain.value = vol * this.vol * 0.5 * (0.85 + 0.15 * power) * (1 - far * 0.6);
-    src.connect(lp); lp.connect(g); g.connect(this.out); const send = c.createGain(); send.gain.value = 0.015 + far * 0.3;   /* your own and nearby shots stay dry: echo only for distant fire */ g.connect(send); send.connect(this.verbIn);
-    src.start(t); this.live = (this.live || 0) + 1; this.liveT = performance.now(); src.onended = () => { this.live = Math.max(0, this.live - 1); };
+    src.connect(lp); lp.connect(g); g.connect(this.out); const send = c.createGain(); send.gain.value = 0.015 + far * 0.3; g.connect(send); send.connect(this.verbIn);   /* own and nearby shots stay dry: echo only for distant fire */
+    src.start(t); this._voice(g, [src], t + src.buffer.duration / src.playbackRate.value, vol >= 0.9 ? 9 : vol);
   }
   setVol(v) { this.vol = v; try { localStorage.setItem('hb-sfx', v); } catch (e) { } }
   buf(dur) { const c = this.ctx, k = Math.round(dur * 100); if (this.noise[k]) return this.noise[k]; const n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), ch = b.getChannelData(0); for (let i = 0; i < n; i++) ch[i] = Math.random() * 2 - 1; return this.noise[k] = b; }
   // vol can be lowered for far-away sounds; a sound is not played twice within 30 ms
   sfx(name, vol = 1) {
-    if (!(vol >= 0)) return; const c = this.ctx; if (c && FOLEY[name] && c.state === 'running') { const t0 = c.currentTime; if (this.last[name] && t0 - this.last[name] < 0.03) return; this.last[name] = t0; this.fb ??= {}; const b = this.fb[name] ??= FOLEY[name](c);
-      const src = c.createBufferSource(); src.buffer = b; src.playbackRate.value = 0.96 + Math.random() * 0.08; const g = c.createGain(); g.gain.value = vol * this.vol * 0.32; const sf = c.createBiquadFilter(); sf.type = 'lowpass'; sf.frequency.value = 6500; const hf = c.createBiquadFilter(); hf.type = 'highpass'; hf.frequency.value = 140; src.connect(hf); hf.connect(sf); sf.connect(g); g.connect(this.out || c.destination);   /* reload handling noises: soft and clean, no harsh crack or boom */ if (this.verbIn) { const sd = c.createGain(); sd.gain.value = 0.05; g.connect(sd); sd.connect(this.verbIn); } src.start(); return; }
-    const d = S[name]; if (!c || !d || c.state !== 'running' || vol < 0.03) return; const t0 = c.currentTime;
-    // never pile up too many synthesized sounds at once: that is what makes the browser drop audio
-    if ((this.sfxN || 0) > 32) return; this.sfxN = (this.sfxN || 0) + 1; setTimeout(() => { this.sfxN--; }, 600);
-    if (this.last[name] && t0 - this.last[name] < 0.03) return; this.last[name] = t0;
-    for (const p of d) {
-      const g = c.createGain(); g.connect(this.out || c.destination);
-      if (p[0] === 'n') { const [, f, dur, v, dl = 0] = p, s = c.createBufferSource(); s.buffer = this.buf(dur); const fl = c.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = f; s.connect(fl); fl.connect(g); g.gain.setValueAtTime(v * vol * this.vol, t0 + dl); g.gain.exponentialRampToValueAtTime(0.001, t0 + dl + dur); s.start(t0 + dl); }
-      else { const [f0, f1, dur, type, v, dl = 0] = p, o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t0 + dl); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dl + dur); o.connect(g); g.gain.setValueAtTime(v * vol * this.vol, t0 + dl); g.gain.exponentialRampToValueAtTime(0.001, t0 + dl + dur); o.start(t0 + dl); o.stop(t0 + dl + dur + 0.02); }
+    const c = this.ctx; if (!c || c.state !== 'running' || !(vol >= 0.03) || !this.out) return; const t0 = c.currentTime;
+    if (this.last[name] && t0 - this.last[name] < 0.03) return; this.last[name] = t0;   // the same sound twice within 30 ms is one sound
+    if (FOLEY[name]) { // weapon handling noises: soft and clean, no harsh crack or boom
+      this.fb ??= {}; const b = this.fb[name] ??= FOLEY[name](c);
+      const src = c.createBufferSource(); src.buffer = b; src.playbackRate.value = 0.96 + Math.random() * 0.08; const g = c.createGain(); g.gain.value = vol * this.vol * 0.32; const sf = c.createBiquadFilter(); sf.type = 'lowpass'; sf.frequency.value = 6500; const hf = c.createBiquadFilter(); hf.type = 'highpass'; hf.frequency.value = 140;
+      src.connect(hf); hf.connect(sf); sf.connect(g); g.connect(this.out); if (this.verbIn) { const sd = c.createGain(); sd.gain.value = 0.04; g.connect(sd); sd.connect(this.verbIn); }
+      src.start(t0); this._voice(g, [src], t0 + b.duration, 5); return;
     }
+    const d = S[name]; if (!d) return;
+    const bus = c.createGain(); bus.connect(this.out); const stops = []; let end = t0;
+    for (const p of d) {
+      const g = c.createGain(); g.connect(bus);
+      if (p[0] === 'n') { const [, f, dur, v, dl = 0] = p, s = c.createBufferSource(); s.buffer = this.buf(dur); const fl = c.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = f; s.connect(fl); fl.connect(g); g.gain.setValueAtTime(v * vol * this.vol, t0 + dl); g.gain.exponentialRampToValueAtTime(0.001, t0 + dl + dur); s.start(t0 + dl); s.stop(t0 + dl + dur + 0.02); stops.push(s); end = Math.max(end, t0 + dl + dur); }
+      else { const [f0, f1, dur, type, v, dl = 0] = p, o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t0 + dl); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dl + dur); o.connect(g); g.gain.setValueAtTime(v * vol * this.vol, t0 + dl); g.gain.exponentialRampToValueAtTime(0.001, t0 + dl + dur); o.start(t0 + dl); o.stop(t0 + dl + dur + 0.02); stops.push(o); end = Math.max(end, t0 + dl + dur); }
+    }
+    this._voice(bus, stops, end + 0.03, vol);
   }
 }
 

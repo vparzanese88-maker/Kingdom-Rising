@@ -138,7 +138,7 @@ export function placeError(kind, x, z, path, turrets, hubP, hiveP, T) {
 }
 
 export function buildWorld(scene, mapId) {
-  const D = MAPS[mapId], path = new Path(D.pts, D.hs), W = { def: D, id: mapId, path, colliders: [], group: new THREE.Group() };
+  const D = MAPS[mapId], path = new Path(D.pts, D.hs), W = { def: D, id: mapId, path, colliders: [], wrecks: [], group: new THREE.Group() };
   const s0 = path.pts[0], s1 = path.pts[path.pts.length - 1];
   { const a0 = path.at(0); W.hiveP = { x: s0.x + a0.tx * 6, z: s0.z + a0.tz * 6 }; } W.hubP = { x: s1.x, z: s1.z };
   const T = W.T = makeTerrain(D, path, W.hubP, W.hiveP); W.ground = T.ground; W.top = T.top;
@@ -237,6 +237,8 @@ export function buildWorld(scene, mapId) {
   placePOIs(g, W, T, D, mapId, path);
   battlefield(g, W, T, D, mapId, path);
   lookouts(g, W, T, D, mapId, path);
+  // scrap lies around wreckage: crashed ships, satellites, capsules, debris fields, dead tanks, mechs and turrets
+  for (const l of W.lore || []) W.wrecks.push({ x: l.x, z: l.z, r: 4 }); for (const l of W.loot || []) W.wrecks.push({ x: l.x, z: l.z, r: 4 });
   // bullets: big props stop them (a grid of colliders with heights, looked up by cell)
   const cell = 16, grid = new Map(); for (const c of W.colliders) { c.gy = c.gy ?? T.raw(c.x, c.z); c.h = c.h ?? 3; const x0 = Math.floor((c.x - c.r) / cell), x1 = Math.floor((c.x + c.r) / cell), z0 = Math.floor((c.z - c.r) / cell), z1 = Math.floor((c.z + c.r) / cell); for (let a = x0; a <= x1; a++) for (let b = z0; b <= z1; b++) { const k = a + ',' + b; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(c); } }
   const CR = W.caveRoof; T.block = (x, y, z) => { if (CR && y > CR.y && y < CR.y + 7 && (x - CR.x) ** 2 + (z - CR.z) ** 2 < CR.r * CR.r) return true; const l = grid.get(Math.floor(x / cell) + ',' + Math.floor(z / cell)); if (!l) return false; for (const c of l) if (y < c.gy + c.h && y > c.gy - 1 && (x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true; return false; };
@@ -369,7 +371,7 @@ function placePOIs(g, W, T, D, mapId, path) {
 function battlefield(g, W, T, D, mapId, path) {
   const R = rng(mapId.length * 4447 + 5), H = T.hub, hv = W.hiveP;
   const free = (x, z, clear) => Math.abs(x) < BOUNDS - 6 && Math.abs(z) < BOUNDS - 6 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 6 && Math.hypot(x - hv.x, z - hv.z) > 44 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 2;
-  const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); };
+  const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); if ([M.tank, M.mech, M.deadTurret, M.burntCrate].includes(make)) W.wrecks.push({ x, z, r: col ? col[0] : 2 }); };
   // battle lines along the track: sandbags, tank traps, bodies and wrecks 12-40 m from it
   for (let s = 30; s < path.len - 40; s += 22) {
     const q = path.at(s);

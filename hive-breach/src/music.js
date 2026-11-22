@@ -39,8 +39,9 @@ export class Music {
     return { input, fs, vowel };
   }
   vowel(bus, v, t) { VOWEL[v].forEach(([f], i) => bus.fs[i].frequency.setTargetAtTime(f, t, 0.3)); }
+  // the game asks for a mix every frame; only switch once the new one has been wanted for a few seconds, so the music doesn't flicker in and out
   set(mode) {
-    if (mode === this.mode || !MIX[mode]) return; this.mode = mode; if (!this.master) return; const t = this.a.ctx.currentTime;
+    if (!MIX[mode]) return; if (mode === this.mode) { this.want = null; return; } const now = performance.now(); if (this.want !== mode) { this.want = mode; this.wantT = now; } if (mode !== 'off' && mode !== 'title' && this.mode !== 'title' && now - this.wantT < 3500) return; this.want = null; this.mode = mode; if (!this.master) return; const t = this.a.ctx.currentTime;
     for (const k in this.L) this.L[k].gain.setTargetAtTime(MIX[mode][k], t, 1.2);
     this.bpm = BPM[mode]; this.vowel(this.choirBus, mode === 'boss' || mode === 'battle' ? 'ah' : 'oo', t);
   }
@@ -48,8 +49,8 @@ export class Music {
   setVol(v) { this.vol = v; this.save(); if (this.master && this.on) this.master.gain.setTargetAtTime(v * 1.6 * (this.mul ?? 1), this.a.ctx.currentTime, 0.1); }
   tick() {
     const c = this.a.ctx; if (!c || c.state !== 'running') { if (c) this.next = c.currentTime + 0.1; return; }
-    if (this.next < c.currentTime - 0.1) this.next = c.currentTime + 0.1;
-    while (this.next < c.currentTime + 0.55) { this.play(this.step, this.next); this.next += 60 / this.bpm / 4; this.step = (this.step + 1) % 64; }
+    if (this.next < c.currentTime - 0.3) this.next = c.currentTime + 0.05;
+    while (this.next < c.currentTime + 1.4) { this.play(this.step, this.next); this.next += 60 / this.bpm / 4; this.step = (this.step + 1) % 64; }
   }
   play(step, t) {
     if (!this.on) return;

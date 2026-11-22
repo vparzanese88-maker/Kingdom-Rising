@@ -27,10 +27,10 @@ export class UI {
   shop() { this.shopOpen = true; this.G.locked = true; this.show('shop', true); this.drawShop(); this.G.save.seen.nib = 1; }
   drawShop() {
     const S = this.G.save; let h = '';
-    SHOP.forEach((it, i) => { const lv = it.stock ? 0 : S.upg[it.id] || 0, max = lv >= it.cost.length, lock = it.needs && !S.items[it.needs], c = it.cost[lv]; h += `<div class="row ${max || lock || S.coins < c ? 'dim' : ''}"><b>${(i + 1) % 10}</b><div><strong>${it.name}</strong> <i>${it.stock ? 'you have ' + (S.bombs || 0) : '★'.repeat(lv) + '☆'.repeat(it.cost.length - lv)}</i><br>${lock ? 'You do not have anything to fit this to yet.' : it.text}</div><span>${max ? 'Sold out' : lock ? '-' : c + ' coins'}</span></div>`; });
+    SHOP.forEach((it, i) => { const lv = it.stock ? 0 : it.item ? (S.items[it.item] ? 1 : 0) : S.upg[it.id] || 0, max = lv >= it.cost.length, lock = it.needs && !S.items[it.needs], c = it.cost[lv]; h += `<div class="row ${max || lock || S.coins < c ? 'dim' : ''}"><b>${(i + 1) % 10}</b><div><strong>${it.name}</strong> <i>${it.stock ? 'you have ' + (S.bombs || 0) : '★'.repeat(lv) + '☆'.repeat(it.cost.length - lv)}</i><br>${lock ? 'You do not have anything to fit this to yet.' : it.text}</div><span>${max ? 'Sold out' : lock ? '-' : c + ' coins'}</span></div>`; });
     $('shopList').innerHTML = h; $('shopCoins').textContent = S.coins;
   }
-  buy(i) { const S = this.G.save, it = SHOP[i]; if (!it) return; const lv = it.stock ? 0 : S.upg[it.id] || 0, c = it.cost[lv]; if (lv >= it.cost.length || (it.needs && !S.items[it.needs]) || S.coins < c) { this.G.audio.sfx('nope'); return; } S.coins -= c; if (it.stock) S.bombs = (S.bombs || 0) + 3; else S.upg[it.id] = lv + 1; this.G.audio.sfx('buy'); this.G.saveNow(); this.drawShop(); }
+  buy(i) { const S = this.G.save, it = SHOP[i]; if (!it) return; const lv = it.stock ? 0 : it.item ? (S.items[it.item] ? 1 : 0) : S.upg[it.id] || 0, c = it.cost[lv]; if (lv >= it.cost.length || (it.needs && !S.items[it.needs]) || S.coins < c) { this.G.audio.sfx('nope'); return; } S.coins -= c; if (it.stock) S.bombs = (S.bombs || 0) + 3; else if (it.item) S.items[it.item] = 1; else S.upg[it.id] = lv + 1; (this.G.bought = this.G.bought || []).push(it.name); this.G.audio.sfx('buy'); this.G.saveNow(); this.drawShop(); }
   closeShop() { this.shopOpen = false; this.show('shop', false); this.G.locked = false; this.G.input.clear(); }
   toggleMap(force) { this.mapOpen = force === undefined ? !this.mapOpen : force; this.show('map', this.mapOpen); if (this.mapOpen) this.drawMap(); }
   drawMap() {

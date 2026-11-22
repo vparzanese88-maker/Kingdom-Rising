@@ -99,7 +99,7 @@ export class Net {
   ids() { return [this.id, ...this.peers.keys()].sort(); }
   slot() { return this.ids().indexOf(this.id); }
   start() { if (!this.isHost) return; const m = { t: 'go', map: this.lob.map, mode: this.lob.mode }; this.send(m); this.lob.racing = true; this.fin = {}; this.endT = 0; this.G.startRace(m.map, m.mode, this.slot(), this.count()); }
-  finished() { const G = this.G; if (this.fin[this.id] || !G.mode) return; const time = G.save.run[G.raceMap] || 0; this.send({ t: 'fin', n: this.name, time }); this.onFin(this.id, this.name, time); }
+  finished() { const G = this.G; if (this.fin[this.id] || !G.mode) return; const time = G.save.run[G.raceMap] || 0, purse = 60 + 30 * (G.world.def.diff || 0); G.save.coins += purse; G.ui.toast(`Summit purse: ${purse} coins to spend in town.`, 6); this.send({ t: 'fin', n: this.name, time }); this.onFin(this.id, this.name, time); }
   onFin(id, n, time) {
     const G = this.G; if (this.fin[id]) return; const place = Object.keys(this.fin).length + 1; this.fin[id] = { n, time, place }; G.audio.sfx('win');
     if (G.mode === 'race') { G.ui.toast(`${n} reached the top in ${G.fmt(time)}: place ${place}.` + (place === 1 && id !== this.id ? ' You have 75 seconds to finish, and they have a zeppelin!' : ''), 7); if (place === 1) this.endT = 75; if (id === this.id && place === 1 && this.count() > 1) this.boardZep(); else if (id === this.id) this.results(place === 1 ? 'You won the race!' : `You finished in place ${place}`); }

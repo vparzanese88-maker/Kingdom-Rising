@@ -7,7 +7,7 @@ export const SIDEARM = { name: 'P-11 Side Arm', dmg: 22, rate: 4, mag: 12, reser
 export const CLASSES = {
   assault: {
     name: 'Assault', color: 0x3b7bd6, hp: 130, speed: 8.2, role: 'Front-line rifleman',
-    gun: { name: 'M9 Pulse Rifle', dmg: 17, rate: 10, mag: 32, reserve: 128, reload: 1.8, spread: 0.014, kind: 'hit', sound: 'rifle', recoil: 0.016, near: 22, far: 60, max: 90 },
+    gun: { name: 'M9 Pulse Rifle', dmg: 17, rate: 10, mag: 32, reserve: 256, reload: 1.8, spread: 0.014, kind: 'hit', sound: 'rifle', recoil: 0.016, near: 22, far: 60, max: 90 },
     throw: { kind: 'frag', name: 'Frag grenade', n: 2 },
     team: 'Squad Leader: teammates near you deal 15% more damage and reload 25% faster.',
     sentry: 'pulse', defense: 'barricade', third: 'mines',

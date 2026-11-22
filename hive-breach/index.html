@@ -45,6 +45,14 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 #hit:before,#hit:after{content:"";position:absolute;background:#ff5050}
 #hit:before{left:14px;top:0;width:2px;height:30px;clip-path:polygon(0 0,100% 0,100% 30%,0 30%,0 70%,100% 70%,100% 100%,0 100%)}
 #hit:after{top:14px;left:0;height:2px;width:30px;clip-path:polygon(0 0,30% 0,30% 100%,0 100%,0 0,70% 0,100% 0,100% 100%,70% 100%)}
+#dirs,#arrows{position:absolute;left:50%;top:50%;width:0;height:0}
+.dmgdir{position:absolute;left:0;top:0;width:220px;height:220px;border-radius:50%;border-top:10px solid rgba(255,40,30,.85);animation:fade .9s forwards}
+@keyframes fade{from{opacity:1}to{opacity:0}}
+#arrows i{position:absolute;left:0;top:0;width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:18px solid #ff3a2a;filter:drop-shadow(0 0 4px #000)}
+#hunt{position:absolute;left:50%;top:150px;transform:translateX(-50%);color:#ff4a3a;font-weight:900;letter-spacing:.15em;font-size:18px;text-shadow:0 0 8px #000;animation:pulse .6s infinite alternate}
+@keyframes pulse{from{opacity:1}to{opacity:.45}}
+#regen{position:absolute;left:12px;bottom:66px;color:#50ff80;font-weight:700;font-size:13px;letter-spacing:.1em;text-shadow:0 0 6px #000}
+#hit.weak:before,#hit.weak:after{background:#aaa}
 #hurt{position:absolute;inset:0;background:radial-gradient(transparent 45%,rgba(200,0,0,.75));opacity:0}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
 #top{position:absolute;left:50%;top:10px;transform:translateX(-50%);text-align:center;min-width:min(440px,90vw)}
@@ -87,6 +95,7 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 #board{position:absolute;left:50%;top:22%;transform:translateX(-50%)}
 #board table{border-collapse:collapse}
 #board td,#board th{padding:4px 14px;border-bottom:1px solid var(--line);text-align:left}
+#shop .card{max-height:92vh;overflow:auto}
 #shop .card,#pause .card,#end .card{background:rgba(8,14,20,.95);border:1px solid var(--line);border-radius:8px;padding:18px 22px;width:min(560px,100%)}
 #shop h2,#pause h2{margin-top:0}
 .up{display:grid;grid-template-columns:28px 1fr auto 56px;gap:10px;align-items:center;width:100%;text-align:left;background:#101c26;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:5px 0}
@@ -107,13 +116,14 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795312394",
-"./src/data.js": "./src/data.js?v=1795312394",
-"./src/main.js": "./src/main.js?v=1795312394",
-"./src/models.js": "./src/models.js?v=1795312394",
-"./src/net.js": "./src/net.js?v=1795312394",
-"./src/sim.js": "./src/sim.js?v=1795312394",
-"./src/world.js": "./src/world.js?v=1795312394"
+"./src/audio.js": "./src/audio.js?v=1795315132",
+"./src/data.js": "./src/data.js?v=1795315132",
+"./src/main.js": "./src/main.js?v=1795315132",
+"./src/models.js": "./src/models.js?v=1795315132",
+"./src/music.js": "./src/music.js?v=1795315132",
+"./src/net.js": "./src/net.js?v=1795315132",
+"./src/sim.js": "./src/sim.js?v=1795315132",
+"./src/world.js": "./src/world.js?v=1795315132"
 }
 }
 </script>
@@ -123,7 +133,8 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 
 <div id="hud" hidden>
   <div id="hurt"></div>
-  <div id="cross"></div><div id="hit"></div>
+  <div id="cross"></div><div id="hit"></div><div id="dirs"></div><div id="arrows"></div>
+  <div id="hunt" hidden><span id="huntT"></span></div><div id="regen" hidden>+ HUB REPAIRING YOUR ARMOR</div>
   <div id="top" class="panel"><div id="waveTxt">PREPARE</div><div id="waveInfo"></div><div class="bar"><i id="hubBar" style="width:100%"></i></div><div id="hubTxt">HUB 100%</div></div>
   <div id="boss" class="panel" hidden><div id="bossName"></div><div class="bar"><i id="bossBar"></i></div></div>
   <div id="tl" class="panel"><div id="goldBox"><span id="gold">0</span></div><div id="mapName"></div><div id="hudCode"></div></div>
@@ -138,13 +149,13 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
   <div id="board" class="panel" hidden><table id="boardT"></table></div>
 </div>
 
-<div id="shop" class="screen" hidden><div class="card"><h2>Armory</h2><div id="shopList"></div><p class="small">Click an upgrade or press 1 to 6. B or Esc to close. The battle keeps going online, so be quick.</p></div></div>
-<div id="pause" class="screen" hidden><div class="card"><h2>Click to fight</h2><p class="small">Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p><button class="btn alt" id="btnQuit" style="pointer-events:auto">Quit to title</button></div></div>
+<div id="shop" class="screen" hidden><div class="card"><h2>Armory</h2><div id="shopList"></div><p class="small">Click an upgrade or press its key. B or Esc to close. The battle keeps going online, so be quick.</p></div></div>
+<div id="pause" class="screen" hidden><div class="card"><h2>Click to fight</h2><p class="small">Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p><p class="small">Music volume <input type="range" id="mvol" min="0" max="1" step="0.05" value="0.55"> · M turns music on or off</p><button class="btn alt" id="btnQuit" style="pointer-events:auto">Quit to title</button></div></div>
 <div id="end" class="screen" hidden><div class="card"><h2 id="endTitle"></h2><p id="endText"></p><p id="endKey"></p></div></div>
 
 <div id="title" class="screen"><div class="card">
   <h1>Hive <span>Breach</span></h1>
-  <p class="sub">The year is 2387. Alien swarms pour out of the hive and march down the track toward your colony's power hub. Fight them yourself, build sentries in their path, and hold out for 20 waves.</p>
+  <p class="sub">The year is 2387. Alien swarms pour out of the hive and march down the track toward your colony's power hub. Fight them yourself, build sentries in their path, and hold out for 20 waves, then storm the alien hive and destroy it.</p>
   <h2>Your name</h2>
   <input id="name" maxlength="14" placeholder="Marine">
   <h2>Pick your class</h2>
@@ -165,15 +176,17 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
     <b>Q</b><span>Build your class sentry (click to place, right click cancels)</span>
     <b>E</b><span>Build your class defense</span>
     <b>G</b><span>Throw a grenade</span>
+    <b>Hub</b><span>Stand inside the green ring round the hub to heal</span>
     <b>U · X</b><span>Look at a turret: upgrade it (any turret, up to level 3) · sell your own</span>
-    <b>B</b><span>Armory: upgrade damage, fire rate, magazine, speed, health and armor</span>
-    <b>Enter</b><span>Send the next wave early (host)</span>
+    <b>B</b><span>Armory: upgrade damage, fire rate, magazine, speed, health and armor, and buy hub reinforcements (faster drops, bigger squads, Heavy Gunners, Rocketeers, Field Medics)</span>
+    <b>Enter</b><span>Waves start on a countdown; the host can press Enter to send one early</span>
+    <b>M</b><span>Music on or off</span>
     <b>Tab</b><span>Squad scores</span>
   </div>
-  <p class="small">Gold comes from kills, from surviving each wave, from supply pods (walk over the yellow beacons) and trickles in while you fight. Missiles, rockets, grenades and lightning pierce Brute armor. Wave 10 and 15 bring a Ravager; wave 20 brings the Hive Queen.</p>
+  <p class="small">Gold comes from kills, from surviving each wave, from supply pods (walk over the yellow beacons) and trickles in while you fight. Guns lose power with distance (a grey hit marker means a weak, long-range hit), so you need turrets. Aliens leave the track to hunt marines who come close (a red ! marks the ones after you), Brutes and Ravagers go off to smash turrets, and every alien stops to tear down barricades. Missiles, rockets, grenades and lightning pierce Brute armor. Mars has meteor showers, Kryos has blizzards and the jungle has alien nests that hatch ambushes: shoot them down. Wave 10 and 15 bring a Ravager; wave 20 brings the Hive Queen. The track climbs hills, crosses bridges over chasms and runs through tunnels: turrets cannot see aliens inside a tunnel, but you can wait at the exit, and anyone who falls into a chasm climbs out hurt.</p>
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795312394"></script>
+<script type="module" src="./src/main.js?v=1795315132"></script>
 </body>
 </html>

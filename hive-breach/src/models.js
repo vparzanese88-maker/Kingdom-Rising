@@ -39,11 +39,12 @@ export function marine(color, cls) {
   g.userData = { legL, legR, arms };
   return g;
 }
+export function kneel(m, k) { const u = m.userData; u.kn = (u.kn || 0) + ((k ? 1 : 0) - (u.kn || 0)) * 0.2; u.legL.rotation.x = u.kn ? -1.3 * u.kn : u.legL.rotation.x; u.legR.rotation.x = u.kn ? 0.2 * u.kn : u.legR.rotation.x; m.children.forEach(c => { if (c !== u.legL && c !== u.legR) c.position.y = (c.userData.y0 ??= c.position.y) - u.kn * 0.5; }); }
 export function animMarine(m, t, sp) { const u = m.userData, a = Math.sin(t) * Math.min(1, sp / 4) * 0.8; u.legL.rotation.x = a; u.legR.rotation.x = -a; }
 
 // ---------------------------------------------------------------- aliens
-const SKIN = { crawler: 0x4a2a5e, spitter: 0x3a5a2a, brute: 0x5a3030, flyer: 0x2a4a5e, ravager: 0x7a1e1e, queen: 0x2e1a3e };
-const GLOW = { crawler: 0x80ff40, spitter: 0xc0ff30, brute: 0xff8020, flyer: 0x40e0ff, ravager: 0xff3020, queen: 0xff40ff };
+const SKIN = { guardian: 0x2e1a3e, hivecore: 0x3a2048, nest: 0x3a2048, crawler: 0x4a2a5e, spitter: 0x3a5a2a, brute: 0x5a3030, flyer: 0x2a4a5e, ravager: 0x7a1e1e, queen: 0x2e1a3e };
+const GLOW = { guardian: 0xff3060, hivecore: 0xa040ff, nest: 0x80ff40, crawler: 0x80ff40, spitter: 0xc0ff30, brute: 0xff8020, flyer: 0x40e0ff, ravager: 0xff3020, queen: 0xff40ff };
 export function alien(type) {
   const g = new THREE.Group(), body = new THREE.Group(), sk = SKIN[type], gl = mat(GLOW[type], { e: GLOW[type], ei: 1.5 }), dk = 0x1a1420, legs = [];
   g.add(body);
@@ -69,6 +70,16 @@ export function alien(type) {
     S(body, 0.4, sk, 0, 0, 0, 0.8, 0.7, 1.6); K(body, 0.12, 0.9, dk, 0, -0.05, 0.9).rotation.x = 1.6; S(body, 0.08, gl, -0.12, 0.1, -0.6); S(body, 0.08, gl, 0.12, 0.1, -0.6);
     const wm = mat(0x80c0e0, { op: 0.55, ds: true, e: 0x204060 });
     for (const s of [-1, 1]) { const p = new THREE.Group(); p.position.set(s * 0.25, 0.15, 0); body.add(p); const w = B(p, 1.4, 0.03, 0.6, wm, s * 0.7, 0, 0); w.castShadow = false; legs.push(p); }
+  } else if (type === 'guardian') {
+    C(body, 1.4, 1.9, 1.2, 0x2e1a3e, 0, 0.6, 0); C(body, 0.7, 1.1, 3.4, 0x3a2048, 0, 2.2, 0);
+    for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; K(body, 0.25, 1.8, 0x1a0e24, Math.cos(a) * 0.9, 3.2, Math.sin(a) * 0.9).rotation.set(Math.sin(a) * 0.7, 0, -Math.cos(a) * 0.7); }
+    S(body, 0.6, 0xff3060, 0, 3.7, 0, 1, 1, 1, { e: 0xff1040, ei: 2 }); const L = new THREE.PointLight(0xff3060, 14, 14); L.position.y = 3.8; body.add(L);
+  } else if (type === 'hivecore') {
+    // the hive mesh is part of the map; this only carries the health bar
+  } else if (type === 'nest') {
+    S(body, 2, 0x3a2048, 0, 0.6, 0, 1.2, 0.6, 1.2); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28; K(body, 0.4, 2.4, 0x281430, Math.cos(a) * 1.8, 1.2, Math.sin(a) * 1.8).rotation.set(Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5); }
+    for (let i = 0; i < 5; i++) S(body, 0.45, gl, Math.cos(i * 1.3) * 0.9, 1.3 + (i % 2) * 0.3, Math.sin(i * 1.3) * 0.9, 1, 1.2, 1);
+    const L = new THREE.PointLight(0x80ff40, 10, 10); L.position.y = 2; body.add(L);
   } else if (type === 'queen') {
     S(body, 1.6, sk, 0, 2.4, 1.2, 1.1, 0.9, 1.8); S(body, 1.1, sk, 0, 2.8, -1.2, 1, 1.1, 1); S(body, 0.8, gl, 0, 2.7, 3.2, 1.2, 1, 1.4);
     for (let i = 0; i < 7; i++) K(body, 0.25, 2.2, 0x1a0e24, (i - 3) * 0.5, 4.3, -1.6 + Math.abs(i - 3) * 0.3).rotation.x = -0.5 - Math.abs(i - 3) * 0.1;
@@ -80,7 +91,7 @@ export function alien(type) {
   return g;
 }
 export function animAlien(m, t) {
-  const u = m.userData;
+  const u = m.userData; if (u.type === 'guardian' || u.type === 'hivecore') { u.body.rotation.y = t * 0.6; return; } if (u.type === 'nest') { u.body.scale.setScalar(1 + Math.sin(t * 2) * 0.04); return; }
   if (u.fly) { u.legs.forEach((p, i) => p.rotation.z = Math.sin(t * 22) * 0.7 * (i ? 1 : -1)); u.body.position.y = Math.sin(t * 3) * 0.2; return; }
   u.legs.forEach((p, i) => { p.rotation.x = Math.sin(t * 9 + i * 1.7) * 0.5; });
   u.body.position.y = Math.abs(Math.sin(t * 9)) * 0.05;
@@ -156,6 +167,11 @@ export function prop(kind, rnd) {
   else if (kind === 'ice') { const n = 2 + (rnd() * 3 | 0); for (let i = 0; i < n; i++) { const h = 1.5 + rnd() * 4; const m = K(g, 0.4 + rnd() * 0.6, h, 0xbfe4ff, (rnd() - 0.5) * 2.5, h / 2, (rnd() - 0.5) * 2.5, { m: 0.2, r: 0.1, e: 0x1a3050 }); m.rotation.set((rnd() - 0.5) * 0.5, 0, (rnd() - 0.5) * 0.5); } }
   else if (kind === 'tree') { const h = 4 + rnd() * 5; C(g, 0.25, 0.4, h, 0x4a3220, 0, h / 2, 0); for (let i = 0; i < 3; i++) S(g, 1.6 + rnd() * 1.2, rnd() < 0.5 ? 0x2e6a26 : 0x3a8030, (rnd() - 0.5) * 1.5, h + i * 0.6 - 0.3, (rnd() - 0.5) * 1.5, 1, 0.7, 1); }
   else if (kind === 'crate') { B(g, 1.4, 1.4, 1.4, 0x5a6470, 0, 0.7, 0, { m: 0.3 }); B(g, 1.45, 0.2, 1.45, 0xe0b22e, 0, 1.0, 0); }
+  else if (kind === 'dome') { C(g, 4.2, 4.4, 0.6, 0x6a747e, 0, 0.3, 0); const d = new THREE.Mesh(new THREE.SphereGeometry(4, 16, 8, 0, 6.29, 0, Math.PI / 2), mat(0x9ad0e0, { op: 0.45, e: 0x204050, m: 0.5, r: 0.1 })); d.position.y = 0.5; g.add(d); S(g, 1.2, 0x3a7a30, 0, 1, 0, 1, 0.8, 1); B(g, 1.2, 2, 0.4, 0x5a646e, 0, 1, 4.1); S(g, 0.25, 0xffd070, 0, 2.3, 4.2, 1, 1, 1, { e: 0xffa040 }); }
+  else if (kind === 'derrick') { for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const l = B(g, 0.2, 9, 0.2, 0x4a4a52, a * 0.9, 4.5, b * 0.9); l.rotation.set(b * 0.08, 0, -a * 0.08); } for (let y = 1.5; y < 9; y += 2) B(g, 1.9 - y * 0.12, 0.12, 1.9 - y * 0.12, 0x6a6a72, 0, y, 0); B(g, 1.2, 1.2, 1.2, 0xc06020, 0, 0.6, 0); S(g, 0.25, 0xff4020, 0, 9.3, 0, 1, 1, 1, { e: 0xff2010 }); }
+  else if (kind === 'dish') { C(g, 0.3, 0.5, 4, 0x8a96a2, 0, 2, 0); const d = new THREE.Mesh(new THREE.SphereGeometry(2.4, 14, 6, 0, 6.29, 0, 1.0), mat(0xd8e4ee, { ds: true, m: 0.4 })); d.position.set(0, 4.4, 0); d.rotation.x = 2.3; g.add(d); C(g, 0.06, 0.06, 2, 0x404040, 0, 5, -0.6).rotation.x = 0.8; B(g, 2, 1.2, 1.6, 0x5a6670, 1.6, 0.6, 0); }
+  else if (kind === 'spire') { const h = 6 + rnd() * 6; K(g, 1.2, h, 0x9fd8ff, 0, h / 2, 0, { e: 0x2060a0, m: 0.3, r: 0.1 }); K(g, 0.7, h * 0.6, 0xbfe8ff, 1, h * 0.3, 0.5, { e: 0x204060 }).rotation.z = -0.3; }
+  else if (kind === 'shroom') { const h = 3 + rnd() * 4, c = [0x40ffd0, 0xc060ff, 0x60a0ff][(rnd() * 3) | 0]; C(g, 0.3, 0.45, h, 0xd8d0b0, 0, h / 2, 0); const cap = S(g, 1.6 + rnd(), c, 0, h, 0, 1, 0.45, 1, { e: c, ei: 0.8 }); cap.castShadow = false; for (let i = 0; i < 4; i++) S(g, 0.14, 0xffffff, Math.cos(i * 1.6) * 1.1, h + 0.5, Math.sin(i * 1.6) * 1.1, 1, 1, 1, { e: 0xffffff }); if (rnd() < 0.1) { const L = new THREE.PointLight(c, 12, 12); L.position.y = h; g.add(L); } }
   else if (kind === 'tower') { B(g, 3, 6, 3, 0x6a747e, 0, 3, 0, { m: 0.3 }); B(g, 3.4, 0.4, 3.4, 0x3a424a, 0, 6.2, 0); S(g, 0.3, 0xff4040, 0, 6.8, 0, 1, 1, 1, { e: 0xff2020 }); }
   return g;
 }

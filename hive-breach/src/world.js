@@ -316,6 +316,11 @@ function placePOIs(g, W, T, D, mapId, path) {
   const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };
   put('satellite', 18, M.satellite, [[0, 0, 2.2, 3]]); put('wreck', 22, M.wreck, [[-4, 0, 2.6, 4], [4.5, 2, 2.4, 3.5], [-10, 0, 2, 4]]); put('capsule', 16, M.capsule, [[0, 0, 2, 3]]); put('rover', 14, M.rover, [[0, 0, 1.8, 2.5]]);
   for (let i = 0; i < 7; i++) put('debris' + i, 10, M.debris, []);
+  // downed dropships: their cargo holds still have ammunition to salvage (E)
+  W.loot = []; { const wr = W.lore.find(l => l.kind === 'wreck'); if (wr) W.loot.push({ x: wr.x, z: wr.z, name: 'Wrecked dropship' }); }
+  for (let i = 0; i < 6; i++) { const p = spot(14); if (!p) continue; const [x, z] = p, y = T.raw(x, z), ry = R() * 6, m = M.dropship(); m.position.set(x, y + 0.5, z); m.rotation.set((R() - 0.5) * 0.3, ry, (R() > 0.5 ? 1 : -1) * (0.25 + R() * 0.2)); m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.multiplyScalar(0.55); } }); g.add(m);
+    const cx = x + Math.cos(ry) * 4, cz = z - Math.sin(ry) * 4, c = M.ammoCrate(); c.position.set(cx, T.raw(cx, cz), cz); c.rotation.y = R() * 6; g.add(c);
+    W.colliders.push({ x, z, r: 3.2, h: 3, gy: y }); W.loot.push({ x: cx, z: cz, name: 'Downed dropship' }); W.lore.push({ x, z, kind: 'dropship' + i, silent: 1 }); }
   // the cave: a ring of great rocks with a rock roof, open on one side, a log terminal inside
   const p = spot(26); if (p) {
     const [cx, cz] = p, cy = T.raw(cx, cz), open = Math.atan2(-cz, -cx), rockM = M.mat(D.rock, { flat: false, r: 1 }), C = new THREE.Group(); C.position.set(cx, cy, cz); g.add(C);

@@ -120,7 +120,9 @@ export const WAVES = 20;
 export const MIX = { mars: { brute: 1.6, brute0: 3 }, ice: { flyer: 1.7, flyer0: 3 }, jungle: { crawler: 1.3, spitter: 1.5 } };
 export function waveList(w, map) {
   const X = MIX[map] || {}, L0 = waveBase(w, X), L = [];
-  for (const [t, c, g] of L0) L.push([t, Math.round(c * (X[t] || 1)), g]);
+  // the first threat levels come in light, building up to full strength by level 11
+  const ease = Math.min(1, 0.5 + 0.05 * (w - 1));
+  for (const [t, c, g] of L0) L.push([t, ALIENS[t].boss ? c : Math.max(1, Math.round(c * (X[t] || 1) * ease)), g]);
   if (X.brute0 && w >= X.brute0 && w < 5 && w !== 10) L.push(['brute', 1, 3]);
   if (X.flyer0 && w >= X.flyer0 && w < 6 && w !== 10) L.push(['flyer', 2 + w - X.flyer0, 0.8]);
   return L;
@@ -142,7 +144,7 @@ function waveBase(w) {
 // guardians and the hive get 60% more health instead), so 2 marines face about 2x, 3 face 3.2x, 4 face 4.75x.
 export const squad = n => Math.max(1, n);
 export const countScale = n => 1 + 0.5 * (squad(n) - 1);
-export const hpScale = (w, players) => (1 + 0.15 * (w - 1) + (w > 20 ? 0.12 * (w - 20) ** 1.3 : 0)) * (1 + 0.3 * (squad(players) - 1));
+export const hpScale = (w, players) => (1 + 0.11 * (w - 1) + (w > 20 ? 0.12 * (w - 20) ** 1.3 : 0)) * (1 + 0.3 * (squad(players) - 1));
 export const bossScale = n => 1 + 0.6 * (squad(n) - 1);
 
 export const MAPS = {
@@ -176,13 +178,13 @@ export const BOUNDS = 180;
 
 // Marines the hub sends down the track toward the hive. Trooper is free; the others are unlocked in the armory.
 export const ALLIES = {
-  trooper: { name: 'Trooper', hp: 130, dmg: 9, rate: 3, range: 17, speed: 6.0, color: 0x5a7a4a, gun: 'assault', unlock: 0, text: 'Rifleman. Free from the start.' },
-  gunner: { name: 'Heavy Gunner', hp: 240, dmg: 5, rate: 11, range: 15, speed: 4.7, color: 0x8a7a3a, gun: 'engineer', unlock: 400, text: 'Slow and tough, with a hail of bullets.' },
-  rocketeer: { name: 'Rocketeer', hp: 110, dmg: 70, rate: 0.45, range: 24, speed: 5.5, splash: 3.6, color: 0x8a4a3a, gun: 'heavy', unlock: 600, text: 'Rockets that blow up packs of aliens.' },
-  medic: { name: 'Field Medic', hp: 140, dmg: 6, rate: 3, range: 14, speed: 6.0, heal: 9, color: 0xd8d8d8, gun: 'engineer', unlock: 500, text: 'Heals reinforcements and marines nearby.' },
+  trooper: { name: 'Trooper', hp: 200, dmg: 12, rate: 3, range: 17, speed: 6.0, color: 0x5a7a4a, gun: 'assault', unlock: 0, text: 'Rifleman. Free from the start.' },
+  gunner: { name: 'Heavy Gunner', hp: 360, dmg: 6, rate: 11, range: 15, speed: 4.7, color: 0x8a7a3a, gun: 'engineer', unlock: 300, text: 'Slow and tough, with a hail of bullets.' },
+  rocketeer: { name: 'Rocketeer', hp: 170, dmg: 90, rate: 0.5, range: 24, speed: 5.5, splash: 3.6, color: 0x8a4a3a, gun: 'heavy', unlock: 450, text: 'Rockets that blow up packs of aliens.' },
+  medic: { name: 'Field Medic', hp: 200, dmg: 8, rate: 3, range: 14, speed: 6.0, heal: 12, color: 0xd8d8d8, gun: 'engineer', unlock: 380, text: 'Heals reinforcements and marines nearby.' },
 };
-export const DROP_EVERY = [26, 21, 17, 13, 10, 7], DROP_COST = [0, 150, 250, 380, 550, 750];
-export const SQUAD = [1, 2, 3, 4], SQUAD_COST = [0, 300, 550, 850];
-export const MAX_ALLIES = 28;
+export const DROP_EVERY = [18, 14, 11, 8, 6, 4.5], DROP_COST = [0, 120, 200, 300, 420, 560];
+export const SQUAD = [2, 3, 4, 6], SQUAD_COST = [0, 220, 400, 650];
+export const MAX_ALLIES = 40;
 
 export const UPGRADES = [];   // no more marine upgrades: upgrades are for turrets and reinforcements

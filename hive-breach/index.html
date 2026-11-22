@@ -190,6 +190,7 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 #hud .slot.poor{opacity:.38}
 #hud .slot.sp{color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold),0 0 10px rgba(255,201,64,.35)}
 #hud #slots .gap{width:14px}
+#hud .kits{align-self:center;font:600 16px/1 "Share Tech Mono",monospace;color:var(--hc);text-align:center;margin-right:4px;letter-spacing:1px;text-shadow:0 0 6px var(--hc)}#hud .kits small{display:block;font-size:8px;letter-spacing:.2em;color:#7fa2b6;margin-top:2px}
 #slotName{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:#cfe6f2;text-shadow:0 1px 3px #000;white-space:nowrap}
 #prompt{background:var(--glass);border:0;border-radius:0;box-shadow:inset 0 0 0 1px var(--hcd);font-size:13px;letter-spacing:.04em}
 #hunt{top:100px;font-size:14px;letter-spacing:.3em}
@@ -201,16 +202,16 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795362136",
-"./src/data.js": "./src/data.js?v=1795362136",
-"./src/explore.js": "./src/explore.js?v=1795362136",
-"./src/icons.js": "./src/icons.js?v=1795362136",
-"./src/main.js": "./src/main.js?v=1795362136",
-"./src/models.js": "./src/models.js?v=1795362136",
-"./src/music.js": "./src/music.js?v=1795362136",
-"./src/net.js": "./src/net.js?v=1795362136",
-"./src/sim.js": "./src/sim.js?v=1795362136",
-"./src/world.js": "./src/world.js?v=1795362136"
+"./src/audio.js": "./src/audio.js?v=1795363000",
+"./src/data.js": "./src/data.js?v=1795363000",
+"./src/explore.js": "./src/explore.js?v=1795363000",
+"./src/icons.js": "./src/icons.js?v=1795363000",
+"./src/main.js": "./src/main.js?v=1795363000",
+"./src/models.js": "./src/models.js?v=1795363000",
+"./src/music.js": "./src/music.js?v=1795363000",
+"./src/net.js": "./src/net.js?v=1795363000",
+"./src/sim.js": "./src/sim.js?v=1795363000",
+"./src/world.js": "./src/world.js?v=1795363000"
 }
 }
 </script>
@@ -250,7 +251,7 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
   <h1>Hive <span>Breach</span></h1>
   <p id="soundHint" class="small" style="color:var(--gold)">🔊 Click anywhere to turn on the sound and music (N turns music on or off).</p>
   <p class="small">Music <input type="range" id="mvol2" min="0" max="1" step="0.05" value="0.75"> · Effects <input type="range" id="svol2" min="0" max="1" step="0.05" value="0.5"></p>
-  <p class="sub">The year is 2387. Alien swarms pour out of the hive and march down the track toward your colony's power hub. Fight them yourself, build sentries in their path, and destroy the alien hive to win. There are no waves: the swarm never stops, and the threat level rises every 50 seconds. The hive's shield drops when both Hive Guardians are destroyed.</p>
+  <p class="sub">The year is 2387. Alien swarms pour out of the hive and march down the track toward your colony's power hub. Fight them yourself, build sentries in their path, and destroy the alien hive to win. There are no waves: the swarm never stops, and the threat level rises every 60 seconds. The hive's shield drops when both Hive Guardians are destroyed.</p>
   <h2>Your name</h2>
   <input id="name" maxlength="14" placeholder="Marine">
   <h2>Pick your class</h2>
@@ -270,15 +271,16 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
     <b>W A S D · Shift · Space</b><span>Move · sprint · jump (mouse looks)</span>
     <b>Left click · R</b><span>Shoot · reload (Sniper: right click to scope)</span>
     <b>C · Z</b><span>Hold C to crouch (steadier aim, half the recoil) · Z to go prone (steadiest aim, but slow)</span>
-    <b>T · F · V</b><span>Build: your class turret, device and third structure (click to place, right click cancels)</span>
-    <b>1 2 3 4 5</b><span>Main gun · side arm · welding torch (repairs; Engineers 3x faster) · grenade or class item (left click throws; G quick-throws it) · heal beam (Medic). Mouse wheel switches</span>
+    <b>T · F · V</b><span>Drop your class turret, device or third structure right in front of you (anywhere, the track too). Each uses one of the 2 turret kits you carry; pick up more in the hub</span>
+    <b>1 2 3 4 5 6</b><span>Main gun · side arm · welding torch (repairs turrets; aim at a healthy one to weld on an upgrade; it runs on a power cell that recharges in the hub, at a Forward Resupply or Ammo Cache, or from supply drops; Engineers weld 3x faster with a bigger cell) · grenade or class item (left click throws; G quick-throws it) · field dressing (hold left click: +40 health; 2 carried, more in the hub) · heal beam (Medic). Mouse wheel switches</span>
     <b>X</b><span>Use the special from a supply crate</span>
     <b>Right click</b><span>Your class action: aim, scope, plasma torch, heal beam or spin up</span>
-    <b>E · H · M · N</b><span>Use (vehicles) · class card · live map · music on or off</span>
-    <b>Hub</b><span>Inside the hub walls you heal and refill your spare ammo. Climb the ramps to patrol the walls</span>
-    <b>U · Y</b><span>Look at a turret: upgrade it (any turret, up to level 3) · sell your own</span>
+    <b>E</b><span>Pick up any turret (you carry it at walking speed, it can't shoot and takes double damage; left click or a weapon change puts it down) · salvage ammo from downed dropships · vehicles</span>
+    <b>H · M · N</b><span>Class card · live map · music on or off</span>
+    <b>Hub</b><span>Inside the hub walls you heal and refill your spare ammo, turret kits, field dressings and welder power. Supply drops (yellow diamonds on the minimap) also carry ammo. Climb the ramps to patrol the walls</span>
+    <b>Y</b><span>Look at one of your turrets: sell it. Upgrades are welded on with the torch (3) and turrets keep firing while you weld</span>
     <b>B</b><span>At the comms console in the hub: recruit and upgrade reinforcements. No marine upgrades: spend gold on turrets and recruits</span>
-    <b>Swarm</b><span>After a 45 second build countdown the aliens never stop coming; every 50 s the threat level rises</span>
+    <b>Swarm</b><span>After a 75 second build countdown the aliens never stop coming; every 60 s the threat level rises</span>
     <b>M</b><span>Music on or off</span>
     <b>Tab</b><span>Squad scores</span>
   </div>
@@ -286,6 +288,6 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795362136"></script>
+<script type="module" src="./src/main.js?v=1795363000"></script>
 </body>
 </html>

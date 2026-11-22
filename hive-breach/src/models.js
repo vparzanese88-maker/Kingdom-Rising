@@ -248,19 +248,46 @@ export function parachute() {
   return g;
 }
 // what each turret gains at level 2 and level 3: armour, extra weapons, sensors, a gold trim
+// What each upgrade adds. Level 2 and level 3 bolt on kind-specific hardware: weapons on the turning head, armour and power on the base.
+// (The whole turret also grows: 1x, 1.28x, 1.55x.)
 export function upgradeParts(kind, lvl, color) {
-  const g = new THREE.Group(); if (lvl < 2) return g; const steel = 0x5a646e, gold = mat(0xffc840, { m: 0.8, r: 0.3, e: 0x402800 }), acc = mat(color, { m: 0.3 }), glow = mat(0x60e0ff, { e: 0x30a0ff, ei: 2 });
-  const sentry = !['barricade', 'mines', 'resupply', 'stasis', 'uav', 'claymore', 'medbay'].includes(kind);
-  if (sentry) { for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; const pl = B(g, 0.7, 0.5, 0.14, i % 2 ? steel : color, Math.cos(a) * 1.05, 0.35, Math.sin(a) * 1.05); pl.rotation.y = -a + Math.PI / 2; } }
-  if (kind === 'barricade') for (let i = -2; i <= 2; i++) { K(g, 0.18, 0.8, 0x8a8a8a, i * 1.3, 2.1, 0.3).rotation.x = 0.4; K(g, 0.18, 0.8, 0x8a8a8a, i * 1.3, 2.1, -0.3).rotation.x = -0.4; }
-  if (lvl >= 3) {
-    if (sentry) { C(g, 0.04, 0.04, 1.6, 0x333333, 0.7, 2.6, 0.5); S(g, 0.12, 0xff3020, 0.7, 3.45, 0.5, 1, 1, 1, { e: 0xff1000, ei: 2 }); const rim = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.07, 6, 24), gold); rim.rotation.x = Math.PI / 2; rim.position.y = 0.62; g.add(rim); }
-    if (kind === 'minigun' || kind === 'flamer' || kind === 'railgun') { const pod = B(g, 0.5, 0.4, 0.9, steel, 0.75, 1.75, 0); B(g, 0.15, 0.15, 0.6, 0x222222, 0.75, 1.75, -0.7); void pod; }
-    if (kind === 'missile') for (let i = 0; i < 2; i++) B(g, 0.35, 0.35, 0.9, steel, i ? -0.85 : 0.85, 1.6, 0);
-    if (kind === 'tesla') { for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.7 + i * 0.25, 0.04, 6, 24), glow); r.position.y = 3.2 + i * 0.25; r.rotation.x = Math.PI / 2; g.add(r); } }
-    if (kind === 'barricade') { const f = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.2, 0.08), mat(0x60c0ff, { op: 0.35, e: 0x3080ff, ds: true })); f.position.y = 2.4; g.add(f); }
-    if (['resupply', 'stasis', 'uav', 'medbay'].includes(kind)) { const r = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.08, 6, 32), gold); r.rotation.x = Math.PI / 2; r.position.y = 0.4; g.add(r); C(g, 0.05, 0.05, 2, 0x333333, 1.2, 1.2, 0); S(g, 0.12, 0x60e0ff, 1.2, 2.25, 0, 1, 1, 1, { e: 0x30a0ff, ei: 2 }); }
-    if (kind === 'mortar') for (const sd of [-1, 1]) C(g, 0.18, 0.2, 1.1, 0x3a5a30, sd * 0.75, 1.2, 0);
+  const g = new THREE.Group(), hd = new THREE.Group(); g.userData.head = hd; if (lvl < 2) return g;
+  const steel = 0x5a646e, dark = 0x22272c, gold = mat(0xffc840, { m: 0.85, r: 0.25, e: 0x402800 }), acc = mat(color, { m: 0.3 }), glow = mat(0x60e0ff, { e: 0x30a0ff, ei: 2.5 }), hot = mat(0xff7a20, { e: 0xff5010, ei: 2.5 }), red = mat(0xff3020, { e: 0xff1000, ei: 2.5 }), green = mat(0x50ff90, { e: 0x20d060, ei: 2.5 });
+  const L3 = lvl >= 3, ring = (grp, r, t, m, y, x = 0, z = 0, rx = Math.PI / 2) => { const o = new THREE.Mesh(new THREE.TorusGeometry(r, t, 8, 32), m); o.rotation.x = rx; o.position.set(x, y, z); grp.add(o); return o; };
+  const gun = ['pulse', 'minigun', 'missile', 'flamer', 'railgun'].includes(kind);
+  // armoured base for the guns: a hex skirt at level 2; at level 3 stabiliser legs, a gold collar and a glowing power ring
+  if (gun || kind === 'tesla') {
+    for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283, pl = B(g, 0.75, 0.55, 0.14, i % 2 ? steel : color, Math.cos(a) * 1.1, 0.35, Math.sin(a) * 1.1); pl.rotation.y = -a + Math.PI / 2; }
+    if (L3) { for (let i = 0; i < 3; i++) { const a = i / 3 * 6.283 + 0.5, leg = B(g, 0.22, 0.18, 1.5, dark, Math.cos(a) * 1.5, 0.15, Math.sin(a) * 1.5); leg.rotation.y = -a + Math.PI / 2; B(g, 0.5, 0.08, 0.5, steel, Math.cos(a) * 2.2, 0.04, Math.sin(a) * 2.2); } ring(g, 1.15, 0.08, gold, 0.66); ring(g, 0.55, 0.05, glow, 0.95); }
+  }
+  if (kind === 'pulse') { // twin barrels, then a quad mount with a scope and glowing heat fins
+    C(hd, 0.07, 0.07, 1.3, dark, 0.22, 0.02, -0.9).rotation.x = Math.PI / 2; B(hd, 0.28, 0.32, 0.5, steel, 0.48, -0.05, 0.25);
+    if (L3) { for (const [x, y] of [[0, 0.2], [0.22, 0.2]]) C(hd, 0.06, 0.06, 1.4, dark, x, y, -0.95).rotation.x = Math.PI / 2; C(hd, 0.08, 0.08, 0.5, 0x111111, -0.3, 0.4, 0).rotation.x = Math.PI / 2; S(hd, 0.06, 0x40c0ff, -0.3, 0.4, -0.26, 1, 1, 1, { e: 0x2080ff, ei: 3 }); for (let i = 0; i < 4; i++) B(hd, 0.05, 0.35, 0.3, glow, -0.4, 0, 0.35 - i * 0.12); }
+  } else if (kind === 'minigun') { // a second barrel cluster, then a gun shield, ammo drums and a laser sight
+    for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; C(hd, 0.05, 0.05, 1.0, dark, -0.55 + Math.cos(a) * 0.12, Math.sin(a) * 0.12, -0.85).rotation.x = Math.PI / 2; } C(hd, 0.18, 0.18, 0.1, steel, -0.55, 0, -1.3).rotation.x = Math.PI / 2;
+    if (L3) { const sh = B(hd, 1.9, 1.0, 0.1, steel, -0.25, 0.1, -0.35); sh.rotation.x = -0.15; B(hd, 1.92, 0.12, 0.12, acc, -0.25, 0.58, -0.4); for (const x of [0.75, -1.05]) C(hd, 0.28, 0.28, 0.4, 0x4a5a3a, x, -0.1, 0.25); C(hd, 0.02, 0.02, 0.1, 0x111111, 0.3, 0.25, -0.5).rotation.x = Math.PI / 2; S(hd, 0.05, 0xff3020, 0.3, 0.25, -0.56, 1, 1, 1, { e: 0xff1000, ei: 3 }); }
+  } else if (kind === 'tesla') { // more coils and three satellite orbs, then floating rings and a crown of arcs
+    for (let i = 0; i < 3; i++) { const a = i / 3 * 6.283; B(hd, 0.08, 0.08, 0.9, steel, Math.cos(a) * 0.45, 1.5, Math.sin(a) * 0.45).rotation.set(0, -a, 0); S(hd, 0.14, 0x80d0ff, Math.cos(a) * 0.8, 1.55, Math.sin(a) * 0.8, 1, 1, 1, { e: 0x40a0ff, ei: 2 }); }
+    for (let i = 0; i < 2; i++) C(hd, 0.62, 0.62, 0.08, 0xb87333, 0, 0.1 + i * 1.75, 0, { m: 0.7, r: 0.3 });
+    if (L3) { for (let i = 0; i < 3; i++) ring(hd, 0.75 + i * 0.28, 0.045, glow, 2.3 + i * 0.3, 0, 0, Math.PI / 2 + (i - 1) * 0.25); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; K(hd, 0.06, 0.5, 0xb87333, Math.cos(a) * 0.32, 2.3, Math.sin(a) * 0.32); } S(hd, 0.2, 0xffffff, 0, 3.2, 0, 1, 1, 1, { e: 0x80c0ff, ei: 3 }); }
+  } else if (kind === 'missile') { // side pods double the tubes, then a big top rack and a radar dish
+    for (const sd of [-1, 1]) { B(hd, 0.45, 0.7, 1.0, steel, sd * 0.85, 0, 0); for (let y = 0; y < 2; y++) K(hd, 0.1, 0.2, 0xd04030, sd * 0.85, -0.16 + y * 0.32, -0.55).rotation.x = -Math.PI / 2; }
+    if (L3) { B(hd, 1.6, 0.6, 1.2, steel, 0, 0.75, 0.05); B(hd, 1.62, 0.1, 0.5, acc, 0, 1.08, 0.05); for (let x = 0; x < 3; x++) for (let y = 0; y < 2; y++) K(hd, 0.09, 0.22, 0xffd040, -0.5 + x * 0.5, 0.62 + y * 0.26, -0.62).rotation.x = -Math.PI / 2; C(hd, 0.04, 0.04, 0.6, dark, 0.7, 1.35, 0.4); const dish = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 6, 0, 6.29, 0, 1.1), mat(0xd0d4d8, { ds: true })); dish.position.set(0.7, 1.7, 0.4); dish.rotation.x = 1.2; hd.add(dish); }
+  } else if (kind === 'flamer') { // a fuel tank on the back and a second nozzle, then an armoured hood with glowing vents
+    C(hd, 0.32, 0.32, 0.9, 0xb04020, 0, 0.45, 0.45).rotation.z = Math.PI / 2; C(hd, 0.08, 0.12, 0.6, dark, 0.3, -0.1, -0.6).rotation.x = Math.PI / 2;
+    if (L3) { const hood = B(hd, 1.3, 0.25, 1.4, steel, 0, 0.5, 0); hood.rotation.x = 0.08; for (let i = 0; i < 4; i++) B(hd, 0.9, 0.04, 0.08, hot, 0, 0.64, -0.4 + i * 0.25); for (const sd of [-1, 1]) B(hd, 0.12, 0.6, 1.2, steel, sd * 0.7, 0, 0); S(hd, 0.09, 0xff7a20, 0.3, -0.1, -0.95, 1, 1, 1, { e: 0xff5010, ei: 3 }); }
+  } else if (kind === 'railgun') { // longer rails and capacitor banks, then glowing coils down the barrel and a power spine
+    for (const sd of [-1, 1]) { B(hd, 0.1, 0.18, 0.9, dark, sd * 0.2, 0, -2.5); B(hd, 0.25, 0.4, 0.6, steel, sd * 0.5, 0, 0.3); }
+    if (L3) { for (let i = 0; i < 5; i++) ring(hd, 0.3, 0.04, glow, 0, 0, -0.5 - i * 0.45, 0); B(hd, 0.2, 0.25, 1.4, steel, 0, 0.5, 0); for (let i = 0; i < 4; i++) B(hd, 0.22, 0.05, 0.12, glow, 0, 0.64, 0.5 - i * 0.3); }
+  } else if (kind === 'barricade') { // spikes, then an energy field on top
+    for (let i = -2; i <= 2; i++) { K(g, 0.18, 0.8, 0x8a8a8a, i * 1.3, 2.1, 0.3).rotation.x = 0.4; K(g, 0.18, 0.8, 0x8a8a8a, i * 1.3, 2.1, -0.3).rotation.x = -0.4; }
+    if (L3) { const f = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.4, 0.08), mat(0x60c0ff, { op: 0.35, e: 0x3080ff, ds: true })); f.position.y = 2.5; g.add(f); for (const sd of [-1, 1]) S(g, 0.16, 0x60e0ff, sd * 3.3, 2.4, 0, 1, 1, 1, { e: 0x30a0ff, ei: 3 }); }
+  } else if (kind === 'mines') { for (const [x, z] of [[-1.6, 0.4], [0, -0.3], [1.6, 0.5]]) { ring(g, 0.55, 0.04, red, 0.12, x, z); if (L3) C(g, 0.3, 0.42, 0.14, 0x2a3020, x, 0.24, z); } }
+  else if (kind === 'mortar') { for (const sd of [-1, 1]) C(g, 0.18, 0.2, 1.1, 0x3a5a30, sd * 0.75, 1.2, 0); if (L3) { B(g, 1.2, 0.6, 0.8, 0x4a5a3a, 0, 0.3, 1.1); ring(g, 1.3, 0.07, gold, 0.4); for (let i = 0; i < 4; i++) C(g, 0.08, 0.08, 0.35, 0x80ff60, -0.3 + i * 0.2, 0.75, 1.1, { e: 0x40c020, ei: 1.5 }); } }
+  else { // support structures: resupply, ammo cache, med bay, stasis, UAV: an antenna mast and plating, then a gold ring, beacon and extra modules
+    const col = kind === 'medbay' ? green : kind === 'stasis' ? glow : kind === 'resupply' || kind === 'ammocache' ? mat(0xffd040, { e: 0xffa000, ei: 2.5 }) : glow;
+    C(g, 0.05, 0.05, 2.2, 0x333333, 1.1, 1.1, 0.4); S(g, 0.12, 0xffffff, 1.1, 2.25, 0.4, 1, 1, 1, { e: 0xffffff, ei: 1 }); for (const sd of [-1, 1]) B(g, 0.12, 0.5, 1.6, steel, sd * 1.2, 0.25, 0);
+    if (L3) { ring(g, 1.5, 0.08, gold, 0.45); ring(g, 1.2, 0.05, col, 0.1); B(g, 0.8, 0.7, 0.8, steel, -1.2, 0.35, -0.8); S(g, 0.18, 0xffffff, -1.2, 0.9, -0.8, 1, 1, 1, col === glow ? { e: 0x30a0ff, ei: 3 } : { e: 0xffd040, ei: 2 }); C(g, 0.04, 0.04, 1.2, 0x333333, -1.2, 1.4, -0.8); }
   }
   return g;
 }

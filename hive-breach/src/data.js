@@ -209,9 +209,9 @@ export const ALLIES = {
   medic: { name: 'Field Medic', hp: 520, dmg: 18, rate: 3, range: 14, speed: 6.0, heal: 26, color: 0xd8d8d8, gun: 'engineer', unlock: 380, text: 'Heals reinforcements and marines nearby.' },
 };
 // fewer reinforcements, but each one is a hardened veteran
-export const DROP_EVERY = [26, 22, 18, 15, 12, 10], DROP_COST = [0, 120, 200, 300, 420, 560];
+export const DROP_EVERY = [34, 30, 26, 23, 20, 17], DROP_COST = [0, 120, 200, 300, 420, 560];
 export const SQUAD = [1, 2, 2, 3], SQUAD_COST = [0, 220, 400, 650];
-export const MAX_ALLIES = 18;
+export const MAX_ALLIES = 7;
 
 export const UPGRADES = [];   // no more marine upgrades: upgrades are for turrets and reinforcements
 

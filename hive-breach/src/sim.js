@@ -4,6 +4,8 @@ import { placeError, HUB_R } from './world.js';
 import { PATH_W, SPECIALS, MISSILE, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST, MAX_ALLIES } from './data.js';
 
 const LV = { dmg: [1, 1.6, 2.4], rng: [1, 1.12, 1.25], rate: [1, 1.15, 1.32] };
+// reinforcements support the marines but cannot hold the line on their own
+export const ALLY_DMG = 0.2, ALLY_HURT = 3;
 export const KITS = 2;   // turret kits a marine can carry; more are picked up in the hub
 // welding torch power cell: about 1.5 upgrades for most marines, far more for the Engineer
 export const pwMax = cls => cls === 'engineer' ? 160 : 100;
@@ -312,7 +314,7 @@ export class Sim {
         else { a.x += dx / d * sp * 1.1 * dt; a.z += dz / d * sp * 1.1 * dt; this.face(a, dx, dz); a.y = A.fly ? a.y + (home.y + 4.5 - a.y) * Math.min(1, dt * 3) : Math.max(this.W.ground(a.x, a.z, a.y + 1), d < 3 ? home.y : -99); a.hidden = false; continue; }
       }
       // reinforcements block the track: aliens stop to fight them
-      if (A.melee) { let al = null; for (const m of this.allies) if (Math.hypot(m.x - a.x, m.z - a.z) < A.r + 1.3) { al = m; break; } if (al) { this.face(a, al.x - a.x, al.z - a.z); if (a.atk <= 0) { a.atk = 1; this.hurtAlly(al, A.dmg * (A.boss ? 2 : 1)); this.emit({ k: 'bite', x: a.x, z: a.z }); } continue; } }
+      if (A.melee) { let al = null; for (const m of this.allies) if (Math.hypot(m.x - a.x, m.z - a.z) < A.r + 1.3) { al = m; break; } if (al) { this.face(a, al.x - a.x, al.z - a.z); if (a.atk <= 0) { a.atk = 1; this.hurtAlly(al, A.dmg * (A.boss ? 2 : 1)); this.emit({ k: 'bite', x: a.x, z: a.z }); } if (A.boss || a.id % 3 === 0) continue; } }   /* only some stop to brawl; the rest claw as they pass and keep going */
       // a marine right next to the track gets bitten even by aliens that do not hunt
       if (A.melee) {
         let near = null, nd = A.r + 1.4; for (const p of living) { const d = Math.hypot(p.x - a.x, p.z - a.z); if (d < nd && Math.abs(p.y - a.y) < A.h + 2.2) { nd = d; near = p; } }
@@ -425,8 +427,8 @@ export class Sim {
       const A = ALLIES[m.type]; m.cd -= dt; m.tg = 0;
       if (A.heal) { for (const o of this.allies) if (o !== m && o.hp < o.mhp && Math.hypot(o.x - m.x, o.z - m.z) < 8) o.hp = Math.min(o.mhp, o.hp + A.heal * dt); for (const p of this.living()) if (p.hp < p.mhp && Math.hypot(p.x - m.x, p.z - m.z) < 8) p.hp = Math.min(p.mhp, p.hp + A.heal * 0.6 * dt); }
       let tg = null, bd = A.range; for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !this.inCave(m.x, m.z)) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < bd && Math.abs(a.y - m.y) < 9) { bd = d; tg = a; } }
-      if (A.rocket) { m.cd2 = (m.cd2 ?? 1) - dt; if (m.cd2 <= 0) { let rt = null, rb = A.rocket.range; for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !this.inCave(m.x, m.z))) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < rb) { rb = d; rt = a; } } if (rt) { m.cd2 = A.rocket.cd; const dur = 0.3 + rb / 28; this.shells.push({ tg: rt.id, x: rt.x, y: rt.y, z: rt.z, t: dur, d: A.rocket.dmg, r: A.rocket.r, owner: null }); this.emit({ k: 'msl', a: [m.x + Math.cos(m.ry) * 1.4, m.y + 3.1, m.z - Math.sin(m.ry) * 1.4], tg: rt.id, b: [rt.x, rt.y, rt.z], t: dur, rk: 1 }); } } }
-      if (tg) { m.tg = tg.id; m.ry = Math.atan2(-(tg.x - m.x), -(tg.z - m.z)); if (m.cd <= 0 && A.flame) { m.cd = 1 / A.rate; for (const a of this.aliens) if (!a.dead && Math.hypot(a.x - tg.x, a.z - tg.z) < 2.6 && (!a.cave || this.inCave(m.x, m.z))) this.hurtAlien(a, A.dmg * 1.25, null, true); continue; } if (m.cd <= 0) { m.cd = 1 / A.rate; if (A.splash) { const dur = 0.2 + bd / 30; this.shells.push({ tg: tg.id, x: tg.x, y: tg.y, z: tg.z, t: dur, d: A.dmg * TECH.k * 1.25, r: A.splash, owner: null }); this.emit({ k: 'msl', a: [m.x, m.y + 1.6, m.z], tg: tg.id, b: [tg.x, tg.y, tg.z], t: dur, rk: 1 }); } else this.hurtAlien(tg, A.dmg * TECH.k * 1.25, null); } continue; }
+      if (A.rocket) { m.cd2 = (m.cd2 ?? 1) - dt; if (m.cd2 <= 0) { let rt = null, rb = A.rocket.range; for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !this.inCave(m.x, m.z))) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < rb) { rb = d; rt = a; } } if (rt) { m.cd2 = A.rocket.cd; const dur = 0.3 + rb / 28; this.shells.push({ tg: rt.id, x: rt.x, y: rt.y, z: rt.z, t: dur, d: A.rocket.dmg * ALLY_DMG, r: A.rocket.r, owner: null }); this.emit({ k: 'msl', a: [m.x + Math.cos(m.ry) * 1.4, m.y + 3.1, m.z - Math.sin(m.ry) * 1.4], tg: rt.id, b: [rt.x, rt.y, rt.z], t: dur, rk: 1 }); } } }
+      if (tg) { m.tg = tg.id; m.ry = Math.atan2(-(tg.x - m.x), -(tg.z - m.z)); if (m.cd <= 0 && A.flame) { m.cd = 1 / A.rate; for (const a of this.aliens) if (!a.dead && Math.hypot(a.x - tg.x, a.z - tg.z) < 2.6 && (!a.cave || this.inCave(m.x, m.z))) this.hurtAlien(a, A.dmg * ALLY_DMG, null, true); continue; } if (m.cd <= 0) { m.cd = 1 / A.rate; if (A.splash) { const dur = 0.2 + bd / 30; this.shells.push({ tg: tg.id, x: tg.x, y: tg.y, z: tg.z, t: dur, d: A.dmg * TECH.k * ALLY_DMG, r: A.splash, owner: null }); this.emit({ k: 'msl', a: [m.x, m.y + 1.6, m.z], tg: tg.id, b: [tg.x, tg.y, tg.z], t: dur, rk: 1 }); } else this.hurtAlien(tg, A.dmg * TECH.k * ALLY_DMG, null); } continue; }
       if (m.s > 7) { m.s -= A.speed * dt; const q = P.at(m.s); m.x = q.x - q.tz * m.lat; m.z = q.z + q.tx * m.lat; m.y = q.y; m.ry = Math.atan2(q.tx, q.tz); }
       else { // the end of the track: push on through the cavern toward the queen until she is in range
         const Q = this.aliens.find(a => a.type === 'broodqueen' && !a.dead); if (Q) { const dx = Q.x - m.x, dz = Q.z - m.z, d = Math.hypot(dx, dz), want = Math.max(6, A.range * 0.7) + ALIENS.broodqueen.r; if (d > want) { const st = Math.min(d - want, A.speed * dt); m.x += dx / d * st + (m.lat || 0) * 0.02 * dz / d; m.z += dz / d * st - (m.lat || 0) * 0.02 * dx / d; m.y = this.W.ground(m.x, m.z, m.y + 1); m.ry = Math.atan2(-dx, -dz); } }
@@ -434,7 +436,7 @@ export class Sim {
     }
     if (this.allies.some(m => m.hp <= 0)) { for (const m of this.allies) if (m.hp <= 0) this.emit({ k: 'adie', x: m.x, y: m.y, z: m.z }); this.allies = this.allies.filter(m => m.hp > 0); }
   }
-  hurtAlly(m, d) { m.hp -= d; }
+  hurtAlly(m, d) { m.hp -= d * ALLY_HURT; }
   // a parachute crate from the commander, a few metres from the marine it is meant for
   airdrop(p, kind) {
     const a = Math.random() * 6.28, x = Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, p.x + Math.cos(a) * 3.5)), z = Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, p.z + Math.sin(a) * 3.5));

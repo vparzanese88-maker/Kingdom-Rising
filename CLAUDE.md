@@ -17,6 +17,9 @@ Run `python3 kingdom-rising-2/tools/stamp.py` before committing changes in `king
 ## Goblin Peak (goblin-peak/): stamp before committing
 Run `python3 goblin-peak/tools/stamp.py` before committing changes in `goblin-peak/`, so players' browsers load the new code instead of a cached copy.
 
+## Hive Breach (hive-breach/): stamp before committing
+Run `python3 hive-breach/tools/stamp.py` before committing changes in `hive-breach/`, so players' browsers load the new code instead of a cached copy.
+
 ## Kingdom Rising II: keep ability text, icons and perks in step
 Every time a class ability is added, replaced or changed in `kingdom-rising-2/`, update its entry in `src/kitinfo.js` in the same change (short description, an icon that shows what it does, ultimate flag), check its perk-tree column and any class perks that mention it still make sense, and check the left-click label in `lmbAttack` (arena.js) matches the weapon the class holds. No class has pet or summon abilities, except the shaman's Spirit Wolf (the owner asked for it: it hunts for 6 s and leaves).
 
@@ -35,6 +38,7 @@ End every reply that creates or changes a game with its GitHub Pages link, so it
 - Kingdom Rising II Kingdom Arena (hero team fights in the Ruins of Aldermere, a fantasy town map with three routes; set up from the title screen's Kingdom Arena button, runs at `?mode=arena`; online: one player presses Host online on the arena setup screen, friends type the code there and press Join; `&net=loop` tests two tabs on one computer): https://vparzanese88-maker.github.io/Kingdom-Rising/kingdom-rising-2/?mode=arena
 - Stonefront (stickman battle strategy: mine ore, train an army, topple the enemy monument; 10-battle campaign, survival, upgrades; lives in `stonefront/`, one file): https://vparzanese88-maker.github.io/Kingdom-Rising/stonefront/
 - Goblin Peak (first/third-person adventure platformer in one open world: Bramblewick village, the lowlands with 100 side-adventures, and three mountain trails, Greenfoot Slopes, Thunder Gorge, the Frostfang Stair, to rescue Princess Wrenna from Chieftain Grizzlegut; whip, grappling hook, glider, hand cannon; nine hidden relics unlock upgrades; online: one player presses Host online game and tells friends the code, friends type it and press Join; everyone gathers in a starting camp where the host picks the mountain (1 2 3) and Race or Team mode (G) and presses Enter for a countdown start; `?level=l1|l2|l3` loads a single trail on its own for testing and `?net=loop` tests two tabs on one computer; lives in `goblin-peak/`): https://vparzanese88-maker.github.io/Kingdom-Rising/goblin-peak/
+- Hive Breach (first-person tower defense, marines vs aliens; classes Assault, Engineer, Heavy, each with its own sentry and defense; 3 maps, 20 waves with a Hive Queen, then endless; online co-op up to 4: one player presses Host online game, friends type the code and press Join; `?net=loop` tests two tabs on one computer; lives in `hive-breach/`): https://vparzanese88-maker.github.io/Kingdom-Rising/hive-breach/
 - Castle Wars (online: one player presses Multiplayer → Host Online Game and sends the invite link): https://vparzanese88-maker.github.io/Kingdom-Rising/castle-wars/
 
 When a new game is added, add its link to this list and to `arcade.html`.

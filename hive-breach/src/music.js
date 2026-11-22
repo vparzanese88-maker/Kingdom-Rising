@@ -11,7 +11,7 @@ const TAIKO = [1, 0, 0, 0.5, 0, 0, 0.8, 0, 1, 0, 0, 0.5, 0, 0.7, 0.9, 0.6];
 const VOWEL = { ah: [[730, 1], [1090, 0.5], [2440, 0.18]], oo: [[320, 1], [800, 0.35], [2240, 0.1]] };
 const MIX = {
   off: { choir: 0, chant: 0, strings: 0, spicc: 0, brass: 0, drums: 0, timp: 0, synth: 0 },
-  drop: { choir: 0.9, chant: 0, strings: 0.9, spicc: 1, brass: 1.1, drums: 1.15, timp: 1, synth: 1 },
+  drop: { choir: 0.7, chant: 0, strings: 0.7, spicc: 0.8, brass: 0.75, drums: 0.85, timp: 0.75, synth: 0.7 },
   title: { choir: 0.9, chant: 1, strings: 0.7, spicc: 0, brass: 0.5, drums: 0.5, timp: 0.7, synth: 0 },
   calm: { choir: 0.7, chant: 0.6, strings: 0.6, spicc: 0, brass: 0, drums: 0.2, timp: 0.5, synth: 0 },
   battle: { choir: 0.7, chant: 0, strings: 0.6, spicc: 1, brass: 1, drums: 1, timp: 0.8, synth: 0 },
@@ -29,7 +29,7 @@ export class Music {
   start() {
     const c = this.a.ctx; if (!c || this.master) return;
     this.master = c.createGain(); this.master.gain.value = this.on ? this.vol * 1.6 * (this.mul ?? 1) : 0;
-    const comp = c.createDynamicsCompressor(); comp.threshold.value = -20; comp.ratio.value = 3; comp.attack.value = 0.02; this.master.connect(comp); comp.connect(c.destination);
+    const comp = c.createDynamicsCompressor(); comp.threshold.value = -20; comp.ratio.value = 3; comp.attack.value = 0.02; this.master.connect(comp); comp.connect(this.a.bus || c.destination);   // through the shared limiter
     // a concert hall: a long, smooth stereo tail
     const len = c.sampleRate * 3.6, ir = c.createBuffer(2, len, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < len; i++) { const t = i / len; lp += (Math.random() * 2 - 1 - lp) * (0.5 - t * 0.35); d[i] = lp * Math.pow(1 - t, 3) * (i < c.sampleRate * 0.02 ? i / (c.sampleRate * 0.02) : 1); } }
@@ -39,6 +39,8 @@ export class Music {
     this.choirBus = this.formants('choir', 'ah'); this.chantBus = this.formants('chant', 'oo');
     this.step = 0; this.next = c.currentTime + 0.1; this.bpm = BPM[this.mode]; this.timer = setInterval(() => this.tick(), 40);
   }
+  // after the sound engine restarts, drop everything tied to the old one; start() builds it again on the next click
+  reset() { clearInterval(this.timer); this.master = null; this.L = null; this.lock = false; if (this.mode === 'drop') this.mode = 'calm'; }
   formants(layer, vowel) {
     const c = this.a.ctx, input = c.createGain(), out = this.L[layer]; input.gain.value = 1; const fs = [];
     for (const [f, g] of VOWEL[vowel]) { const bp = c.createBiquadFilter(), gg = c.createGain(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 7; gg.gain.value = g * 2.2; input.connect(bp); bp.connect(gg); gg.connect(out); fs.push(bp); }
@@ -88,8 +90,8 @@ export class Music {
   }
   endScore() { if (!this.lock) return; this.lock = false; this.mode = 'calm'; this.want = null; if (!this.master) return; const t = this.a.ctx.currentTime; for (const k in this.L) this.L[k].gain.setTargetAtTime(MIX.calm[k], t, 1.5); this.bpm = BPM.calm; }
   hit(t, root, big) { // a stab: drums, timpani, crash and a full brass chord
-    this.taiko(t, 1.3, 0.8); this.taiko(t, 1, 1.3); this.timpani(t, midi(root), 1.2); this.crash(t);
-    const iv = big === 'major' ? [0, 4, 7, 12] : [0, 3, 7, 12]; for (const i of iv) { this.brass(t, midi(root + 12 + i), big === 'major' ? 4 : 1.2, 1.2); this.brass(t, midi(root + i), big === 'major' ? 4 : 1.2, 0.8); }
+    this.taiko(t, 0.9, 0.8); this.taiko(t, 0.6, 1.3); this.timpani(t, midi(root), 0.8); this.crash(t);
+    const iv = big === 'major' ? [0, 4, 7, 12] : [0, 3, 7, 12]; for (const i of iv) { this.brass(t, midi(root + 12 + i), big === 'major' ? 4 : 1.2, 0.55); this.brass(t, midi(root + i), big === 'major' ? 4 : 1.2, 0.4); }
     if (big === 'major') { const nx = this.next; this.next = t; for (const i of [0, 4, 7]) this.voice(this.choirBus, midi(root + 24 + i), 5, 0.08, 3); this.next = nx; }   // voice() starts at this.next
   }
   synth(t, f, dur, v) { // a growling saw bass with a filter that bites and closes

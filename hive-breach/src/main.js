@@ -19,6 +19,8 @@ function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.asp
 // switching fullscreen fires a burst of resize events: rebuild the drawing buffers once it settles, not on every one (that froze the page and the sound)
 let resizeT = 0; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 180); }); resize();
 const audio = new Audio(), music = new Music(audio); window.hbMusic = music;
+audio.onRestart = () => { music.reset(); setTimeout(() => { if (audio.ctx && audio.ctx.state === 'running') { music.start(); applyAudio(); } }, 200); };
+audio.expectSound = () => music.on && music.master && music.mode !== 'off' && music.vol > 0.02 && (music.mul ?? 1) > 0.02 && !document.hidden;
 addEventListener('pointerdown', () => { audio.unlock(); music.start(); const h = document.getElementById('soundHint'); if (h) h.hidden = true; });
 addEventListener('keydown', () => { audio.unlock(); music.start(); });
 

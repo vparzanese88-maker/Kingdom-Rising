@@ -46,12 +46,12 @@ const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ==
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
 function state() {
-  if (G.sim) { const s = G.sim; return { w: s.wave, ph: s.phase, tm: s.timer, hub: s.hub, en: s.endless, n: s.players.size, left: s.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(s.lvlT || 0), wx: s.stormI || 0, L: s.allies, C: s.cmd, open: s.hiveOpen(), el: Math.floor(s.el || 0), A: s.aliens, T: s.turrets, P: [...s.players.values()], O: s.pods, I: s.items, M: s.ammo.map(c => ({ id: c.id, x: c.x, z: c.z, life: c.life })), Z: s.spores, K: s.pools, D: s.drones.map(d => ({ id: d.id, x: d.x + Math.cos(d.a) * 8, y: d.y + 14, z: d.z + Math.sin(d.a) * 8, tg: d.tg })), Q: s.medz, S2: s.domes }; }
+  if (G.sim) { const s = G.sim; return { w: s.wave, ph: s.phase, tm: s.timer, hub: s.hub, en: s.endless, n: s.players.size, left: s.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(s.lvlT || 0), wx: s.stormI || 0, wa: s.windA || 0, L: s.allies, C: s.cmd, open: s.hiveOpen(), el: Math.floor(s.el || 0), A: s.aliens, T: s.turrets, P: [...s.players.values()], O: s.pods, I: s.items, M: s.ammo.map(c => ({ id: c.id, x: c.x, z: c.z, life: c.life })), Z: s.spores, K: s.pools, D: s.drones.map(d => ({ id: d.id, x: d.x + Math.cos(d.a) * 8, y: d.y + 14, z: d.z + Math.sin(d.a) * 8, tg: d.tg })), Q: s.medz, S2: s.domes }; }
   return G.snap;
 }
 function decode(m) {
   return {
-    w: m.w, ph: m.ph, tm: m.tm, hub: m.hub, en: m.en, left: m.left, lt: m.lt, wx: m.wx, n: m.n, C: m.C, open: m.open,
+    w: m.w, ph: m.ph, tm: m.tm, hub: m.hub, en: m.en, left: m.left, lt: m.lt, wx: m.wx, wa: m.wa || 0, n: m.n, C: m.C, open: m.open,
     L: m.L.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], tg: a[8] })),
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9], rv: a[10] })),
     T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
@@ -296,7 +296,7 @@ function makeWeather() {
 }
 function updateWeather(dt, S) {
   if (!wx) return; const a = wx.pts.geometry.attributes.position.array, c = camera.position, storm = (S && S.wx) || 0, fall = wx.kind === 'rain' ? 26 : wx.kind === 'snow' ? 2.5 + storm * 4 : 0.4, wind = wx.kind === 'snow' ? 1.5 + storm * 13 : wx.kind === 'dust' ? 5 : 2;
-  for (let i = 0; i < wx.n; i++) { const o = i * 3; a[o] += wind * dt; a[o + 1] -= fall * dt * (0.7 + (i % 5) * 0.1); if (wx.kind === 'dust') a[o + 1] += Math.sin(G.time + i) * dt * 0.5;
+  for (let i = 0; i < wx.n; i++) { const o = i * 3, wa = wx.kind === 'snow' ? ((S && S.wa) || 0) : 0; a[o] += Math.cos(wa) * wind * dt; a[o + 2] += Math.sin(wa) * wind * dt; a[o + 1] -= fall * dt * (0.7 + (i % 5) * 0.1); if (wx.kind === 'dust') a[o + 1] += Math.sin(G.time + i) * dt * 0.5;
     if (a[o] - c.x > 30) a[o] -= 60; if (a[o] - c.x < -30) a[o] += 60; if (a[o + 2] - c.z > 30) a[o + 2] -= 60; if (a[o + 2] - c.z < -30) a[o + 2] += 60; if (a[o + 1] < c.y - 15) a[o + 1] += 30; if (a[o + 1] > c.y + 15) a[o + 1] -= 30; }
   wx.pts.geometry.attributes.position.needsUpdate = true;
   // blizzards close the fog right in
@@ -720,7 +720,7 @@ function hud(dt, S) {
   const wpn = [[C.gun.name.split(' ').slice(-1)[0], '🔫'], ['Side arm', '🔫'], ['Welder', '🔧'], [TH.name + ` ${my.items ?? 0}/${TH.n}`, ICON[TH.kind]], ...(C.heal ? [['Heal beam', '✚']] : [])];
   const bslot = (key, kind) => { const T0 = TURRETS[kind]; return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${my.gold < T0.cost ? 'poor' : ''}"><b>${keyName(KB[key])}</b><u>${ICON[kind] || '▣'}</u>${T0.name}<i>${T0.cost}g</i></div>`; };
   setH('slots', wpn.map(([n, ic], i) => `<div class="slot w ${G.me.slot === i ? 'on' : ''} ${i === 3 && !my.items ? 'poor' : ''}"><b>${i + 1}</b><u>${ic}</u>${n}</div>`).join('') + '<div class="gap"></div>' + bslot('sentry', C.sentry) + bslot('defense', C.defense) + bslot('third', C.third) + `<div class="slot ${sp ? 'ready sp' : 'poor'}"><b>${keyName(KB.special)}</b><u>${sp ? ICON[sp] : '·'}</u>${sp ? SPECIALS[sp].name : 'Special'}<i>${sp ? 'USE' : 'crates'}</i></div>`);
-  setH('status', [my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get to shelter</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
+  setH('status', [my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get under cover, or crouch behind something on the windward side</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
   // a boss bar while a big one is alive
   const boss = S.A.find(a => ALIENS[a.type].boss) || (S.ph === 'assault' ? (S.A.find(a => a.type === 'guardian') || S.A.find(a => a.type === 'hivecore')) : S.open ? S.A.find(a => a.type === 'hivecore') : null); $('boss').hidden = !boss; if (boss) { setT('bossName', ALIENS[boss.type].name); $('bossBar').style.width = (boss.hp / boss.mhp * 100) + '%'; }
   const hunters = [...view.aliens.values()].filter(v => v.hunt === G.myId); $('hunt').hidden = !hunters.length || my.dead; if (hunters.length) setT('huntT', `⚠ ${hunters.length} ALIEN${hunters.length > 1 ? 'S' : ''} HUNTING YOU`);
@@ -743,9 +743,12 @@ function hud(dt, S) {
   if (G.explore) { const v = G.ex && G.ex.veh; setT('waveTxt', 'FOB VALOR'); setT('waveInfo', v ? (v.kind === 'vtol' ? `VTOL · altitude ${Math.round(v.y - G.W.T.raw(v.x, v.z))} m` : `Rover · ${Math.round(Math.abs(v.sp) * 3.6)} km/h`) : `Explore the planet · wild aliens slain: ${G.ex ? G.ex.kills || 0 : 0}`); }
 }
 function minimap(S) {
-  const BB = G.W.size || BOUNDS, cv = $('mini'), g = cv.getContext('2d'), W = cv.width, k = W / (BB * 2), X = x => (x + BB) * k, Z = z => (z + BB) * k;
-  g.clearRect(0, 0, W, W); g.drawImage(G.W.miniBg, 0, 0, W, W);
-  g.fillStyle = '#a040ff'; g.beginPath(); g.arc(X(G.W.hiveP.x), Z(G.W.hiveP.z), 6, 0, 7); g.fill(); g.fillStyle = '#60c0ff'; g.beginPath(); g.arc(X(G.W.hubP.x), Z(G.W.hubP.z), 6, 0, 7); g.fill();
+  // the small map shows the ground round you (M opens the whole map)
+  const BB = G.W.size || BOUNDS, cv = $('mini'), g = cv.getContext('2d'), W = cv.width, R = G.explore ? 110 : 70, k = W / (R * 2), me0 = G.me, X = x => (x - me0.x) * k + W / 2, Z = z => (z - me0.z) * k + W / 2;
+  g.fillStyle = '#0a0d12'; g.fillRect(0, 0, W, W); const bg = G.W.miniBg, bs = bg.width / (BB * 2); g.drawImage(bg, (me0.x - R + BB) * bs, (me0.z - R + BB) * bs, R * 2 * bs, R * 2 * bs, 0, 0, W, W);
+  // the hub and the hive: shown at the edge, pointing the way, when they are off the small map
+  const pin = (x, z, col) => { let px = X(x), py = Z(z); const m = 10, out = px < m || py < m || px > W - m || py > W - m; px = Math.max(m, Math.min(W - m, px)); py = Math.max(m, Math.min(W - m, py)); g.fillStyle = col; g.beginPath(); g.arc(px, py, out ? 5 : 7, 0, 7); g.fill(); if (out) { g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.arc(px, py, 8, 0, 7); g.stroke(); } };
+  pin(G.W.hiveP.x, G.W.hiveP.z, '#a040ff'); pin(G.W.hubP.x, G.W.hubP.z, '#60c0ff');
   for (const t of S.T) { g.fillStyle = t.owner === G.myId ? '#80ff90' : '#d0e0a0'; g.fillRect(X(t.x) - 2.5, Z(t.z) - 2.5, 5, 5); }
   G.pings = G.pings.filter(p => (p.t -= 0.1) > 0); for (const p of G.pings) { g.strokeStyle = `rgba(255,60,40,${Math.min(1, p.t)})`; g.lineWidth = 2; g.beginPath(); g.arc(X(p.x), Z(p.z), 4 + (3 - p.t) * 5 % 10, 0, 7); g.stroke(); }
   g.strokeStyle = 'rgba(80,255,130,.5)'; g.lineWidth = 1; g.beginPath(); g.arc(X(G.W.hubP.x), Z(G.W.hubP.z), 15 * k, 0, 7); g.stroke();
@@ -753,7 +756,7 @@ function minimap(S) {
   for (const m of S.L || []) { g.fillStyle = '#9fe870'; g.fillRect(X(m.x) - 2, Z(m.z) - 2, 4, 4); }
   for (const a of S.A) { if (!revealed(a)) continue; const b = ALIENS[a.type].boss || a.type === 'guardian'; g.fillStyle = b ? '#ff40ff' : '#ff4040'; g.beginPath(); g.arc(X(a.x), Z(a.z), b ? 4 : 2, 0, 7); g.fill(); }
   for (const p of S.P) if (p.id !== G.myId && !p.dead) { g.fillStyle = '#' + CLASSES[p.cls].color.toString(16).padStart(6, '0'); g.beginPath(); g.arc(X(p.x), Z(p.z), 3.5, 0, 7); g.fill(); }
-  const me = G.me; g.save(); g.translate(X(me.x), Z(me.z)); g.rotate(-me.yaw); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, -7); g.lineTo(5, 5); g.lineTo(-5, 5); g.closePath(); g.fill(); g.restore();
+  const me = G.me; g.save(); g.translate(W / 2, W / 2); g.rotate(-me.yaw); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, -7); g.lineTo(5, 5); g.lineTo(-5, 5); g.closePath(); g.fill(); g.restore();
 }
 function shopDraw(my) {
   let h = `<p>Gold: <b>${Math.floor(my.gold)}</b></p>` + [].map((u, i) => { const lv = my.ups[u.id] || 0, c = UPG_PRICES[lv]; return `<button class="up ${lv >= 5 ? 'max' : my.gold < c ? 'poor' : ''}" data-up="${u.id}"><b>${i + 1}</b><span>${u.name}<small>${u.text}</small></span><em>${'■'.repeat(lv)}${'□'.repeat(5 - lv)}</em><i>${lv >= 5 ? 'MAX' : c + 'g'}</i></button>`; }).join('');

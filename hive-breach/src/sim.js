@@ -137,7 +137,7 @@ export class Sim {
     const bonus = 0;
     this.emit({ k: 'wave', w: this.wave, first: first ? 1 : 0, b: bonus, boss: bosses[0] || '' });
     if (this.W.def.hazard === 'nests' && this.wave >= 2 && this.wave % 3 === 2) for (const n of this.W.nestP) if (!this.aliens.some(a => a.nestOf === n.i)) { const a = this.spawn('nest', n.s); a.x = n.x; a.z = n.z; a.y = n.y; a.nestOf = n.i; a.qcd = 8 + n.i * 6; a.mode = 'nest'; }
-    if (first) this.hzT = 30 + Math.random() * 15;
+    if (first) this.hzT = 300;   // the first storm comes five minutes in
   }
   dropPods(n) {
     for (let i = 0; i < n; i++) {
@@ -391,8 +391,15 @@ export class Sim {
   // Mars drops meteors; Kryos whips up blizzards. Both strike during waves.
   // Shelter from the blizzard: the hub walls, the cave, a tunnel, a heated hut, or near a turret that gives off heat
   sheltered(p, inHub) {
-    if (inHub) return true; const W = this.W; if ((W.shelters || []).some(h => Math.hypot(h.x - p.x, h.z - p.z) < h.r)) return true;
-    const n = this.path.near(p.x, p.z); if (n.d < PATH_W / 2 + 1 && W.T.tunnelAt(n.s)) return true;
+    if (inHub) return true; const W = this.W, T = W.T; if ((W.shelters || []).some(h => Math.hypot(h.x - p.x, h.z - p.z) < h.r)) return true;
+    const n = this.path.near(p.x, p.z); if (n.d < PATH_W / 2 + 1 && T.tunnelAt(n.s)) return true;
+    // under anything: a platform, a roof or an overhang above your head
+    if (T.ground(p.x, p.z, p.y + 30) > p.y + 1.6 || T.ceiling(p.x, p.z, p.y + 0.5) < p.y + 12) return true;
+    // behind something on the side the wind blows from: low cover works if you crouch or go prone, tall cover works standing
+    const wa = this.windA || 0, ux = -Math.cos(wa), uz = -Math.sin(wa), hy = p.y + (p.kn === 2 ? 0.3 : p.kn === 1 ? 0.75 : 1.45);
+    for (let d = 0.6; d <= 4; d += 0.45) { const x = p.x + ux * d, z = p.z + uz * d; if (T.solid(x, hy, z) || (T.block && T.block(x, hy, z))) return true; }
+    const tall = { barricade: 1.6, ammocache: 1.0, mortar: 1.1, missile: 1.6, minigun: 1.5, railgun: 1.6, tesla: 2, pulse: 1.4 };
+    if (this.turrets.some(t => { const dx = t.x - p.x, dz = t.z - p.z, d = Math.hypot(dx, dz); return d < 3.5 && d > 0.2 && (dx * ux + dz * uz) / d > 0.6 && t.y + (tall[t.kind] || 0) > hy; })) return true;
     return this.turrets.some(t => (t.kind === 'flamer' || t.kind === 'medbay' || t.kind === 'resupply') && Math.hypot(t.x - p.x, t.z - p.z) < 8);
   }
   // Map dangers come rarely, build up slowly, last a while and fade: Mars meteor showers, Kryos blizzards, jungle spore clouds.
@@ -402,13 +409,13 @@ export class Sim {
     for (const m of this.meteors || []) { m.t -= dt; if (m.t <= 0 && !m.done) { m.done = true; this.splash(m.x, m.y + 0.5, m.z, 4.5, 110, null); for (const p of this.living()) if (Math.hypot(p.x - m.x, p.z - m.z) < 4.5) this.hurtPlayer(p, 35, m); for (const t of this.turrets) if (Math.hypot(t.x - m.x, t.z - m.z) < 4) this.hurtTurret(t, 60); } }
     if (this.meteors) this.meteors = this.meteors.filter(m => !m.done);
     if (this.W.def.weather === 'rain') { this.boltT = (this.boltT ?? 12) - dt; if (this.boltT <= 0) { this.boltT = 14 + Math.random() * 22; this.emit({ k: 'bolt' }); } }
-    this.hzT = (this.hzT ?? 120) - dt; if (this.hzT > 0) return; this.hzT = 150 + Math.random() * 60;
+    this.hzT = (this.hzT ?? 300) - dt; if (this.hzT > 0) return; this.hzT = 300 + Math.random() * 120;
     if (hz === 'meteor') {
       this.meteors = this.meteors || []; this.emit({ k: 'toast', m: '☄ A meteor shower is starting. Stay clear of the red circles.', big: 1 });
       // sparse at first, heavy in the middle, then thinning out, over about 50 seconds
       const nm = Math.round(14 * countScale(this.players.size)); for (let i = 0; i < nm; i++) { const u = (i + Math.random() * 0.6) / nm, tm = 4 + 46 * (0.5 - Math.asin(1 - 2 * u) / Math.PI), x = (Math.random() * 2 - 1) * (BOUNDS - 8), z = (Math.random() * 2 - 1) * (BOUNDS - 8), y = this.W.top(x, z);
         this.meteors.push({ x, y, z, t: tm }); this.later.push({ t: Math.max(0, tm - 3), f: () => this.emit({ k: 'meteor', x: +x.toFixed(1), y: +y.toFixed(1), z: +z.toFixed(1), t: 3 }) }); }
-    } else if (hz === 'blizzard') { this.stormT = 90; this.emit({ k: 'toast', m: '❄ A blizzard is rolling in. When it gets heavy, shelter in the hub, a heated hut, the cave, a tunnel or by a Flame Turret.', big: 1 }); }
+    } else if (hz === 'blizzard') { this.stormT = 90; this.windA = Math.random() * 6.283; this.emit({ k: 'toast', m: '❄ A blizzard is rolling in. When it gets heavy, get under a roof or overhang, or crouch or go prone behind a rock, wall or barricade on the side the snow blows from (the hub, huts, the cave, tunnels and Flame Turrets work too).', big: 1 }); }
     else if (hz === 'nests') { for (let i = 0; i < 3; i++) this.spores.push({ x: (Math.random() - 0.5) * BOUNDS * 1.4, z: (Math.random() - 0.5) * BOUNDS * 1.4, a: Math.random() * 6.28, r: 9 + i * 2, life: 85, k: 0 }); this.emit({ k: 'toast', m: '☣ Toxic spore clouds are drifting in. Keep out of the green haze.', big: 1 }); }
   }
   face(a, dx, dz) { const want = Math.atan2(-dx, -dz); let dr = want - a.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; a.ry += dr * 0.2; }
@@ -417,7 +424,7 @@ export class Sim {
   pack() {
     const r1 = v => Math.round(v * 10) / 10;
     return {
-      w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), el: Math.floor(this.el || 0), n: this.players.size, wx: +(this.stormI || 0).toFixed(2),
+      w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), el: Math.floor(this.el || 0), n: this.players.size, wx: +(this.stormI || 0).toFixed(2), wa: +(this.windA || 0).toFixed(2),
       A: this.aliens.map(a => [a.id, a.type, r1(a.x), r1(a.y), r1(a.z), Math.round(a.hp), Math.round(a.mhp), +a.ry.toFixed(2), a.stun > 0 ? 1 : 0, a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0, a.rev > 0 || a.markT > 0 ? 1 : 0]),
       T: this.turrets.map(t => [t.id, t.kind, t.owner, r1(t.x), r1(t.z), +t.ry.toFixed(2), t.lvl, Math.round(t.hp), Math.round(t.mhp), t.tg, r1(t.y), r1(t.b || 0), t.bt || 0, t.fresh ? 1 : 0, t.ch || 0]),
       P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)]))]),

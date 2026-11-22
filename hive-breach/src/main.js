@@ -1,14 +1,14 @@
 // Hive Breach: first-person tower defense. Marines hold the hub against waves of aliens marching down the track.
 import * as THREE from 'three';
 import * as M from './models.js';
-import { scrapCost, techMul, SIDEARM, SPECIALS, MISSILE, CLASSES, TURRETS, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, MAPS, BOUNDS, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST } from './data.js';
+import { DIFFS, PLANET_ORDER, scrapCost, techMul, SIDEARM, SPECIALS, MISSILE, CLASSES, TURRETS, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, MAPS, BOUNDS, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST } from './data.js';
 import { buildWorld, placeError, LIQUID } from './world.js';
 import { Sim, upgradeCost, tStat } from './sim.js';
 import { Net, VER } from './net.js';
 import { Audio } from './audio.js';
 import { Music } from './music.js';
 import { icon } from './icons.js';
-import { Explore, buildFOB, cinematic, victoryScene, vtol as vtolModel, rover as roverModel } from './explore.js';
+import { Explore, buildFOB, cinematic, victoryScene, stationScene, vtol as vtolModel, rover as roverModel } from './explore.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game'), renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -649,6 +649,15 @@ function refillAmmo(f) { const me = G.me, main = CLASSES[G.cls].gun; for (const 
 function vehCode() { const v = G.ex && G.ex.veh; return v ? (v.kind === 'rover' ? 1 : 2) : 0; }
 function exploreState(S) { return Object.assign({}, S, { A: [], T: [], O: [], I: [], L: [], M: [], Z: [], K: [], D: [], Q: [], S2: [], ph: 'explore', open: 0 }); }
 function updateFootless() { const gn = view2.gun; if (gn) gn.visible = false; if (view2.tool) view2.tool.visible = false; }
+// the campaign: Easy, then Medium, then Hard on each planet; after Hard, up to Station Olympus and on to the next planet
+function nextOf(map, diff) { if (diff < 2) return { map, diff: diff + 1 }; return { map: PLANET_ORDER[(PLANET_ORDER.indexOf(map) + 1) % PLANET_ORDER.length], diff: 0, planet: 1 }; }
+function nextMission(nx) {
+  if (G.cine) return; G.cine = true; document.body.classList.add('cine'); if (document.pointerLockElement) document.exitPointerLock(); for (const c of camera.children) c.visible = false;
+  const old = G.sim ? [...G.sim.players.values()].map(p => ({ id: p.id, name: p.name, cls: p.cls })) : [{ id: G.myId, name: G.name, cls: G.cls }];
+  const go = () => { G.diff = nx.diff; store.set('hb-diff', G.diff); G.map = nx.map; begin(nx.map); G.sim = new Sim(G.W, emit); for (const p of old) G.sim.addPlayer(p.id, p.name, p.cls).seen = p.id === G.myId ? 1e9 : G.time; H.fade(false); canvas.requestPointerLock(); };
+  H.caption('EXTRACTION', nx.planet ? 'Lifting off for Station Olympus' : `Next hive: ${MAPS[nx.map].name} · ${DIFFS[nx.diff].name}`); H.fade(true); audio.sfx('rotor', 0.9);
+  setTimeout(() => { if (nx.planet) { clearWorld(); if (G.ex && G.ex.dispose) G.ex.dispose(); G.ex = null; G.sim = null; G.snap = null; G.station = true; stationScene(H, nx.map, () => { G.station = false; go(); }); } else go(); }, 1600);
+}
 // after victory: the cinematic, then the forward base
 function startFob() {
   if (G.cine || G.explore) return; G.cine = true; if (document.pointerLockElement) document.exitPointerLock(); document.body.classList.add('cine'); $('end').hidden = true;
@@ -932,6 +941,7 @@ function frame(now) {
   if (hits[KB.music]) toast(music.toggle() ? 'Music on (N)' : 'Music off (N)', 2);
   if (hits[KB.map] && G.on && !G.shop) { if (G.mmap) closeMissileMap(); else openMissileMap(''); }
   if (!G.on) { music.set('title'); if (G.W) renderer.render(scene, camera); clearHits(); return; }
+  if (G.station) { renderer.render(scene, camera); clearHits(); return; }   // the Station Olympus film draws itself
   const S0 = state(); if (!S0) { clearHits(); return; } const S = G.explore ? exploreState(S0) : S0;
   // keys that work any time
   const atComms = G.W.comms && Math.hypot(G.me.x - G.W.comms.x, G.me.z - G.W.comms.z) < 5 && !G.explore; if (atComms && !G.shop) prompt(`<b>${keyName(KB.armory)}</b> Change class`);
@@ -944,13 +954,17 @@ function frame(now) {
   if (G.sim) {
     const p = G.sim.players.get(G.myId); if (p) G.sim.pose(G.myId, G.me.x, G.me.y, G.me.z, (G.ex && G.ex.veh) ? G.ex.veh.yaw : G.me.yaw, G.me.prone ? 2 : G.me.kneel ? 1 : 0, vehCode());
     if (!paused && !G.explore) G.sim.update(dt);
-    if (G.mode === 'host') { netT += dt; if (netT > 0.1) { netT = 0; G.net.send({ t: 'st', v: VER, map: G.map, ...G.sim.pack(), fx: G.out }); G.out = []; for (const q of [...G.sim.players.values()]) if (q.id !== G.myId && G.time - (q.seen || 0) > 10) G.sim.removePlayer(q.id); } }
+    if (G.mode === 'host') { netT += dt; if (netT > 0.1) { netT = 0; G.net.send({ t: 'st', v: VER, map: G.map, df: G.diff || 0, ...G.sim.pack(), fx: G.out }); G.out = []; for (const q of [...G.sim.players.values()]) if (q.id !== G.myId && G.time - (q.seen || 0) > 10) G.sim.removePlayer(q.id); } }
   } else { poseT += dt; if (poseT > 0.066) { poseT = 0; G.net.send({ t: 'pose', p: [+G.me.x.toFixed(2), +G.me.y.toFixed(2), +G.me.z.toFixed(2), +((G.ex && G.ex.veh) ? G.ex.veh.yaw : G.me.yaw).toFixed(2), G.me.prone ? 2 : G.me.kneel ? 1 : 0, vehCode()] }); } }
   updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); if (G.mmap && hits.Escape) closeMissileMap();
   if (G.W) { G.W.sun.position.set(camera.position.x + 40, 90, camera.position.z + 25); G.W.sun.target.position.set(camera.position.x, 0, camera.position.z); }
   if (S.ph === 'wave' || S.ph === 'assault') { G.artT = (G.artT ?? 8) - dt; if (G.artT <= 0) { G.artT = 5 + Math.random() * 9; audio.gun('artillery', 0.35 + Math.random() * 0.3, 1, 1); } }
   if (!paused) { updateGrenades(dt); updateMeteors(dt); updateFx(dt); updateWeather(dt, S); }
   if (G.explore && G.ex) G.ex.update(dt);
+  // at the forward base: Olympus finds the next queen, and the squad boards the extraction VTOL when the host is ready
+  if (G.explore && !G.cine) { G.fobT = (G.fobT || 0) + dt; const nx = nextOf(G.map, G.diff || 0), PN = { mars: 'Mars', ice: 'Kryos IV', jungle: 'Thessa' };
+    if (G.fobT > 9 && !G.fobMsg) { G.fobMsg = 1; radioSay('gen', nx.planet ? `Outstanding work, marines. ${PN[G.map]} is ours. Come up to Station Olympus: your next war is on ${PN[nx.map]}.` : `Good work down there. Our scans found another queen on ${PN[G.map]}, dug in deeper and better guarded. Get to the VTOL: you're going back in.`); setTimeout(() => radioSay('cmd', nx.planet ? 'Copy, Olympus. Squad, board the VTOL for the station.' : `Copy. Squad, saddle up: ${DIFFS[nx.diff].name} hive, attacking at ${DIFFS[nx.diff].time.toLowerCase()}.`), 5500); }
+    if (G.fobT > 9) { if (G.mode === 'client') prompt('Waiting for the host to board the extraction VTOL…'); else { prompt(`<b>Enter</b> board the extraction VTOL · next mission: ${nx.planet ? 'Station Olympus, then ' : ''}${MAPS[nx.map].name} · ${DIFFS[nx.diff].name}`); if (hits.Enter) nextMission(nx); } } }
   syncView(S, paused ? 0 : dt);
   hud(dt, S);
   G.fpsN = (G.fpsN || 0) + 1; G.fpsT = (G.fpsT || 0) + dt; if (G.fpsT > 0.5) { $('fps').hidden = !SET.fps; $('fps').textContent = Math.round(G.fpsN / G.fpsT) + ' fps'; G.fpsN = G.fpsT = 0; }
@@ -962,10 +976,11 @@ requestAnimationFrame(frame);
 // ---------------------------------------------------------------- starting a game
 function clearWorld() { for (const m of [view.aliens, view.turrets, view.players, view.pods, view.allies]) { for (const v of m.values()) { scene.remove(v.mesh || v); if (v.bar) scene.remove(v.bar); } m.clear(); } if (G.W) scene.remove(G.W.group); }
 function begin(mapId) {
-  clearWorld(); G.map = mapId; G.W = buildWorld(scene, mapId); newMe(); makeWeather(); applyQuality(); G.on = true; if (G.vx) { for (const m of G.vx.M.values()) scene.remove(m); for (const m of [...G.vx.Z, ...G.vx.K, ...(G.vx.S || [])]) scene.remove(m); for (const mp of [G.vx.D, G.vx.Q]) if (mp) for (const m of mp.values()) scene.remove(m); G.vx = null; }
+  if (G.ex && G.ex.dispose) G.ex.dispose(); G.ex = null; G.explore = false; G.cine = false; G.fobT = 0; G.fobMsg = 0; G.lairWarn = false; document.body.classList.remove('explore', 'cine'); $('end').hidden = true;
+  clearWorld(); G.map = mapId; G.diff = G.diff || 0; G.W = buildWorld(scene, mapId, G.diff); newMe(); makeWeather(); applyQuality(); G.on = true; if (G.vx) { for (const m of G.vx.M.values()) scene.remove(m); for (const m of [...G.vx.Z, ...G.vx.K, ...(G.vx.S || [])]) scene.remove(m); for (const mp of [G.vx.D, G.vx.Q]) if (mp) for (const m of mp.values()) scene.remove(m); G.vx = null; }
   $('kit').innerHTML = `<h3>${CLASSES[G.cls].name}</h3>` + kitHTML(G.cls) + '<p class="small">H hides this card.</p>'; $('kit').hidden = false; setTimeout(() => $('kit').hidden = true, 12000);
   $('title').hidden = true; $('hud').hidden = false; canvas.requestPointerLock();
-  setT('mapName', MAPS[mapId].name);
+  setT('mapName', G.W.def.name);
   toast(music.on ? 'Music on (N turns it off) · M opens the live map' : 'Music is off: press N to turn it on', 4);
   toast(`${MAPS[mapId].name}: hold the hub. Aliens follow the glowing track from the Brood Queen's cave.`, 6);
   banner('YOUR MISSION', 'The alien bastards know we\'re coming. Get inside the hive and kill the queen! We will extract you as soon as your mission is complete.'); bannerT = 6;
@@ -980,7 +995,7 @@ function onMsg(m) {
   } else if (G.mode === 'client') {
     if (m.t === 'st') {
       if (m.v !== VER) { if (!G.warned) { G.warned = 1; status('Your friend has a different version. Both of you reload the page.'); } return; }
-      if (!G.W || G.map !== m.map || !G.on) begin(m.map);
+      if (!G.W || G.map !== m.map || (G.diff || 0) !== (m.df || 0) || !G.on) { const newPlanet = G.W && G.map !== m.map; G.diff = m.df || 0; begin(m.map); if (newPlanet) banner('NEW PLANET', G.W.def.name); }
       G.snap = decode(m); if (!mine(G.snap)) G.net.send({ t: 'hello', n: G.name, c: G.cls, v: VER });
       for (const e of m.fx || []) if (e.f !== G.myId) fx(e);
     } else if (m.t === 'who' && m.to === G.myId) G.net.send({ t: 'hello', n: G.name, c: G.cls, v: VER });
@@ -1033,7 +1048,7 @@ $('btnFob').onclick = () => { if (G.mode === 'host') G.out.push({ k: 'fob' }); s
 $('btnEndQuit').onclick = () => location.reload();
 
 // title screen pickers
-G.name = store.get('hb-name', ''); $('name').value = G.name; G.cls = store.get('hb-cls', 'assault'); G.map = store.get('hb-map', 'mars'); if (!CLASSES[G.cls]) G.cls = 'assault'; if (!MAPS[G.map]) G.map = 'mars';
+G.name = store.get('hb-name', ''); $('name').value = G.name; G.cls = store.get('hb-cls', 'assault'); G.map = store.get('hb-map', 'mars'); G.diff = store.get('hb-diff', 0); if (!CLASSES[G.cls]) G.cls = 'assault'; if (!MAPS[G.map]) G.map = 'mars';
 // K: the full gear guide for your class: every weapon, the welder, items and structures, with what they do and their numbers
 function infoHTML(k) {
   const c = CLASSES[k], g = c.gun, th = c.throw, row = (key, ico, name, text, stats) => `<div class="gi"><div class="gk">${key}</div>${icon(ico)}<div><b>${name}</b><p>${text}</p>${stats ? `<small>${stats}</small>` : ''}</div></div>`;
@@ -1058,10 +1073,12 @@ function kitHTML(k) {
 function drawPickers() {
   const best = store.get('hb-best2', {}), mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   $('classes').innerHTML = Object.entries(CLASSES).map(([k, c]) => `<button class="pick ${k === G.cls ? 'on' : ''}" data-cls="${k}" style="--c:#${c.color.toString(16).padStart(6, '0')}"><h3>${c.name}</h3>${kitHTML(k)}</button>`).join('');
+  $('diffs').innerHTML = DIFFS.map((d, i) => `<button class="pick ${i === (G.diff || 0) ? 'on' : ''}" data-diff="${i}" style="--c:${['#50d070', '#e0a030', '#e04040'][i]}"><h3>${d.name}</h3><p>${['The planet as surveyed, by day. Threat starts at level 1.', 'The map mirrored, at dusk. Threat starts at level 3, more aliens, a tougher queen with more guards.', 'Mirrored the other way, at night. Threat starts at level 6, far more aliens, the toughest queen.'][i]}</p></button>`).join('');
   $('maps').innerHTML = Object.entries(MAPS).map(([k, m]) => `<button class="pick map ${k === G.map ? 'on' : ''}" data-map="${k}" style="--c:#${m.ground.toString(16).padStart(6, '0')}"><h3>${m.name}</h3><p>${m.sub}</p><p class="kit">${best[k] ? 'Longest hold: ' + mmss(best[k]) : 'Not yet played'}</p></button>`).join('');
 }
 $('classes').onclick = e => { const b = e.target.closest('[data-cls]'); if (b) { G.cls = b.dataset.cls; drawPickers(); } };
 $('maps').onclick = e => { const b = e.target.closest('[data-map]'); if (b) { G.map = b.dataset.map; drawPickers(); } };
+$('diffs').onclick = e => { const b = e.target.closest('[data-diff]'); if (b) { G.diff = +b.dataset.diff; store.set('hb-diff', G.diff); drawPickers(); } };
 drawPickers();
 // show a map behind the title screen
 G.W = buildWorld(scene, G.map); camera.position.set(0, 40, 70); camera.lookAt(0, 0, 0);

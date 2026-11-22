@@ -2,7 +2,7 @@
 // Every game builds the same map from the same numbers, so heights match for the host and friends.
 import * as THREE from 'three';
 import * as M from './models.js';
-import { MAPS, PATH_W, BOUNDS, TURRETS } from './data.js';
+import { MAPS, PATH_W, BOUNDS, TURRETS, mapDef } from './data.js';
 
 export class Path {
   constructor(pts, hs) {
@@ -137,8 +137,8 @@ export function placeError(kind, x, z, path, turrets, hubP, hiveP, T) {
   return '';
 }
 
-export function buildWorld(scene, mapId) {
-  const D = MAPS[mapId], path = new Path(D.pts, D.hs), W = { def: D, id: mapId, path, colliders: [], wrecks: [], group: new THREE.Group() };
+export function buildWorld(scene, mapId, diff = 0) {
+  const D = mapDef(mapId, diff), path = new Path(D.pts, D.hs), W = { def: D, id: mapId, diff, path, colliders: [], wrecks: [], group: new THREE.Group() };
   const s0 = path.pts[0], s1 = path.pts[path.pts.length - 1];
   { const a0 = path.at(0); W.hiveP = { x: s0.x + a0.tx * 6, z: s0.z + a0.tz * 6 }; } W.hubP = { x: s1.x, z: s1.z };
   const T = W.T = makeTerrain(D, path, W.hubP, W.hiveP); W.ground = T.ground; W.top = T.top;
@@ -221,7 +221,7 @@ export function buildWorld(scene, mapId) {
   if (D.hazard === 'nests') { const NR = rng(41); for (const f of [0.28, 0.5, 0.72]) { for (let k = 0; k < 40; k++) { const s = path.len * (f + (NR() - 0.5) * 0.08), q = path.at(s), side = NR() < 0.5 ? -1 : 1, dd = 13 + NR() * 6, x = q.x - q.tz * side * dd, z = q.z + q.tx * side * dd, n = path.near(x, z);
     if (n.d < 10 || Math.abs(x) > BOUNDS - 6 || Math.abs(z) > BOUNDS - 6 || T.chasm(x, z) < 0.99 || T.ridge(x, z) > 1.5) continue; W.nestP.push({ i: W.nestP.length, x, z, y: T.raw(x, z), s: n.s }); break; } } }
   // scenery, kept off the track and out of the chasms
-  const R = rng(mapId.length * 991 + 3);
+  const R = rng(mapId.length * 991 + 3 + (W.diff || 0) * 1013);
   for (let i = 0; i < (D.dense ? 700 : 420); i++) {
     const x = (R() * 2 - 1) * (BOUNDS + 40), z = (R() * 2 - 1) * (BOUNDS + 40), n = path.near(x, z), out = Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2;
     if (n.d < PATH_W + 4 && !out) continue; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < HUB_R + 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 44) continue;
@@ -340,7 +340,7 @@ function hiveCave(g, W, T, D, path) {
   if (W.hive) { W.hive.position.set(q.x - fx * 7, cy, q.z - fz * 7); W.hive.scale.set(0.9, 0.7, 0.9); }
 }
 function placePOIs(g, W, T, D, mapId, path) {
-  const R = rng(mapId.length * 7919 + 11), H = T.hub, hv = W.hiveP; W.lore = []; W.shelters = W.shelters || [];
+  const R = rng(mapId.length * 7919 + 11 + (W.diff || 0) * 1013), H = T.hub, hv = W.hiveP; W.lore = []; W.shelters = W.shelters || [];
   const ok = (x, z, clear) => Math.abs(x) < BOUNDS - 12 && Math.abs(z) < BOUNDS - 12 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 18 && Math.hypot(x - hv.x, z - hv.z) > 52 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 1.5 && !W.lore.some(l => Math.hypot(l.x - x, l.z - z) < 40);
   const spot = clear => { for (let k = 0; k < 400; k++) { const x = (R() * 2 - 1) * BOUNDS, z = (R() * 2 - 1) * BOUNDS; if (ok(x, z, clear)) return [x, z]; } return null; };
   const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };
@@ -369,7 +369,7 @@ function placePOIs(g, W, T, D, mapId, path) {
 
 // Signs of a long war: fallen marines, dead aliens, wrecked tanks and mechs, sandbag lines, tank traps, dead turrets, burnt crates, flags.
 function battlefield(g, W, T, D, mapId, path) {
-  const R = rng(mapId.length * 4447 + 5), H = T.hub, hv = W.hiveP;
+  const R = rng(mapId.length * 4447 + 5 + (W.diff || 0) * 1013), H = T.hub, hv = W.hiveP;
   const free = (x, z, clear) => Math.abs(x) < BOUNDS - 6 && Math.abs(z) < BOUNDS - 6 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 6 && Math.hypot(x - hv.x, z - hv.z) > 44 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 2;
   const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); if ([M.tank, M.mech, M.deadTurret, M.burntCrate].includes(make)) W.wrecks.push({ x, z, r: col ? col[0] : 2 }); };
   // battle lines along the track: sandbags, tank traps, bodies and wrecks 12-40 m from it
@@ -410,7 +410,7 @@ function mergeStatic(g, keep) {
 
 // High ground: sandbagged sniper nests along the ridgelines and on the mesas, and climbable watchtowers near the track
 function lookouts(g, W, T, D, mapId, path) {
-  const R = rng(mapId.length * 6151 + 2), H = T.hub;
+  const R = rng(mapId.length * 6151 + 2 + (W.diff || 0) * 1013), H = T.hub;
   const nest = (x, z) => { const y = T.raw(x, z), n = M.sniperNest(R); n.position.set(x, y, z); n.rotation.y = R() * 6; g.add(n); W.lore.push({ x, z, kind: 'nest', silent: 1 }); };
   for (const q of D.hills || []) { const [a, b] = [q.pts[0], q.pts[q.pts.length - 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let d = 20; d < L - 10; d += 45) { const x = a[0] + (b[0] - a[0]) * d / L, z = a[1] + (b[1] - a[1]) * d / L; if (Math.abs(x) < BOUNDS - 8 && Math.abs(z) < BOUNDS - 8 && path.near(x, z).d > 14) nest(x, z); } }
   for (const m of D.mesas || []) if (Math.abs(m.x) < BOUNDS - 8 && Math.abs(m.z) < BOUNDS - 8) nest(m.x, m.z);

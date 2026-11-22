@@ -1,5 +1,5 @@
 // The battle itself. Only the host (or a solo player) runs this; friends receive what it decides.
-import { scrapCost, techMul, CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
+import { DIFFS, scrapCost, techMul, CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
 import { placeError, HUB_R } from './world.js';
 import { PATH_W, SPECIALS, MISSILE, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST, MAX_ALLIES } from './data.js';
 
@@ -178,18 +178,18 @@ export class Sim {
   // ---------------------------------------------------------------- waves
   // No separate waves: the threat level rises every LEVEL_T seconds, and that level's aliens join one steady stream.
   startWave() {
-    const first = this.phase !== 'wave'; this.wave++; TECH.k = techMul(this.wave); this.commander();
+    const first = this.phase !== 'wave', DF = DIFFS[this.W.diff || 0]; if (first && this.wave === 0 && DF.startLvl) { for (let w = 1; w <= DF.startLvl; w++) { this.wave = w; this.commander(true); } } this.wave++; TECH.k = techMul(this.wave); this.commander();
     if (first) { this.radio('gen', 'Station Olympus to ground force. The queen\'s hive is confirmed in the mountain. You are cleared to engage.', 1); this.later.push({ t: 6, f: () => this.radio('cmd', 'Copy, Olympus. Marines, hold the hub, keep the turrets fed and push for that cave. I\'ll keep troops and supplies coming.', 1) }); }
     else if (this.wave % 2 === 0) this.radio('gen', ['Olympus scans show the swarm thickening. More of them are coming out of that mountain.', 'Hive activity rising on our sensors, Commander. Brace your people.', 'Hale here: the bugs are pouring out faster. Hold that line.', 'Orbital count just doubled on the north slope. Stay sharp down there.'][this.wave % 4]); this.phase = 'wave'; this.lvlT = LEVEL_T;
     const N = this.players.size, cs = countScale(N), rest = [], bosses = [];
-    for (const [type, n0] of waveList(this.wave, this.W.id)) { const boss = ALIENS[type].boss, n = boss ? n0 : Math.round(n0 * cs); for (let i = 0; i < n; i++) (boss ? bosses : rest).push(type); }
+    for (const [type, n0] of waveList(this.wave, this.W.id)) { const boss = ALIENS[type].boss, n = boss ? n0 : Math.round(n0 * cs * DIFFS[this.W.diff || 0].count); for (let i = 0; i < n; i++) (boss ? bosses : rest).push(type); }
     for (let i = rest.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [rest[i], rest[j]] = [rest[j], rest[i]]; }
     const span = LEVEL_T * 0.96; rest.forEach((type, i) => this.q.push({ type, t: this.qt + (i + Math.random() * 0.8) * span / rest.length }));
     bosses.forEach((type, i) => this.q.push({ type, t: this.qt + span * 0.3 + i * 6 })); this.q.sort((x, y) => x.t - y.t);
     const bonus = 0;
     this.emit({ k: 'wave', w: this.wave, first: first ? 1 : 0, b: bonus, boss: bosses[0] || '' });
     if (this.W.def.hazard === 'nests' && this.wave >= 2 && this.wave % 3 === 2) for (const n of this.W.nestP) if (!this.aliens.some(a => a.nestOf === n.i)) { const a = this.spawn('nest', n.s); a.x = n.x; a.z = n.z; a.y = n.y; a.nestOf = n.i; a.qcd = 8 + n.i * 6; a.mode = 'nest'; }
-    if (first) this.hzT = 300;   // the first storm comes five minutes in
+    if (first) this.hzT = 300 * DIFFS[this.W.diff || 0].hazard;   // the first storm comes five minutes in
   }
   dropPods(n) {
     for (let i = 0; i < n; i++) {
@@ -255,8 +255,8 @@ export class Sim {
         if (a.rcd <= 0 && foes.length) { let tg = null, bd = A.ranged; for (const f of foes) { const d = Math.hypot(f.x - a.x, f.z - a.z); if (d < bd) { bd = d; tg = f; } } if (tg) { a.rcd = 1.3; const isP = 'cls' in tg; this.emit({ k: 'spit', a: [a.x, a.y + 5, a.z], b: [tg.x, (tg.y || 0) + 1.2, tg.z], q: 1 }); if (isP) this.hurtPlayer(tg, A.dmg, a); else if (tg.kind) this.hurtTurret(tg, A.dmg * 1.5, a); else this.hurtAlly(tg, A.dmg * 1.5); } }
         if (!foes.length && this.time - (a.lastHit ?? -99) > 10) a.hp = Math.min(a.mhp, a.hp + a.mhp * 0.01 * dt);   // heals only when her cave is clear
         a.qcd -= dt; if (a.qcd <= 0) {
-          if (foes.length) { a.qcd = 12; if (guards < 3 + 2 * this.players.size) this.spawnGuard(a); for (let i = 0; i < 2; i++) { const c = this.spawn('crawler', 0); c.x = a.x + (Math.random() - 0.5) * 6; c.z = a.z + (Math.random() - 0.5) * 6; c.mode = 'hunt'; const tg = living.find(near); if (tg) { c.tk = 'p'; c.tid = tg.id; c.ht = 10; } else c.mode = 'path'; } this.emit({ k: 'hatch', x: a.x, z: a.z }); }
-          else { a.qcd = 20; if (guards < 4 + 2 * this.players.size) this.spawnGuard(a); }
+          if (foes.length) { a.qcd = 12; if (guards < 3 + 2 * this.players.size + DIFFS[this.W.diff || 0].guards) this.spawnGuard(a); for (let i = 0; i < 2; i++) { const c = this.spawn('crawler', 0); c.x = a.x + (Math.random() - 0.5) * 6; c.z = a.z + (Math.random() - 0.5) * 6; c.mode = 'hunt'; const tg = living.find(near); if (tg) { c.tk = 'p'; c.tid = tg.id; c.ht = 10; } else c.mode = 'path'; } this.emit({ k: 'hatch', x: a.x, z: a.z }); }
+          else { a.qcd = 20; if (guards < 4 + 2 * this.players.size + DIFFS[this.W.diff || 0].guards) this.spawnGuard(a); }
         }
         continue;
       }
@@ -399,8 +399,8 @@ export class Sim {
   // the Brood Queen in her cave at the start of the track, with her Royal Guards
   spawnHive(full, boost = 1) {
     if (!full) return; this.aliens = this.aliens.filter(a => !['hivecore', 'guardian', 'broodqueen', 'royal'].includes(a.type));
-    const p0 = this.path.at(0), Cq = this.W.cave ? this.W.cave.q : p0, q = this.spawn('broodqueen', 0); q.x = Cq.x; q.z = Cq.z; q.y = this.W.top(q.x, q.z); q.cave = 1; q.mode = 'static'; q.ry = Math.atan2(-p0.tx, -p0.tz); q.hp = q.mhp = ALIENS.broodqueen.hp * boost * bossScale(this.players.size); q.qcd = 3;
-    for (let i = 0; i < 4 + 2 * this.players.size; i++) this.spawnGuard(q, i);
+    const p0 = this.path.at(0), Cq = this.W.cave ? this.W.cave.q : p0, q = this.spawn('broodqueen', 0); q.x = Cq.x; q.z = Cq.z; q.y = this.W.top(q.x, q.z); q.cave = 1; q.mode = 'static'; q.ry = Math.atan2(-p0.tx, -p0.tz); const DF = DIFFS[this.W.diff || 0]; q.hp = q.mhp = ALIENS.broodqueen.hp * boost * bossScale(this.players.size) * DF.queen; q.qcd = 3;
+    for (let i = 0; i < 4 + 2 * this.players.size + DF.guards; i++) this.spawnGuard(q, i);
   }
   spawnGuard(q, i) { const n = this.aliens.filter(a => a.type === 'royal').length, k = i ?? n, ang = k * 2.4, r = 6 + (k % 3) * 2.5, g = this.spawn('royal', 0); g.px = q.x + Math.cos(ang) * r; g.pz = q.z + Math.sin(ang) * r; g.x = q.x + Math.cos(ang) * 2; g.z = q.z + Math.sin(ang) * 2; g.y = this.W.ground(g.x, g.z, q.y + 2); g.mode = 'guard'; g.cave = 1; return g; }
   // inside the queen's cavern? (her guards and the queen can only be hurt from in there)
@@ -442,12 +442,12 @@ export class Sim {
   // radio chatter between the commander on the ground and General Hale on Station Olympus in orbit
   radio(who, m, force) { if (!force && this.time - (this.radioT || -99) < 7) return; this.radioT = this.time; this.emit({ k: 'radio', w: who, m }); }
   // the CPU commander: as the threat level rises it speeds up drops, grows the squads and brings in new kinds of veteran
-  commander() {
+  commander(quiet) {
     const C = this.cmd, w = this.wave, plan = { 3: 'rate', 4: 'gunner', 5: 'pulsesynth', 6: 'size', 7: 'medic', 8: 'rocketeer', 9: 'flamesynth', 10: 'rate', 11: 'mech', 12: 'size', 13: 'rate', 15: 'size', 16: 'rate', 18: 'rate' }[w]; if (!plan) return; let msg = '';
     if (plan === 'rate' && C.lv < DROP_EVERY.length - 1) { C.lv++; msg = `reinforcements now every ${DROP_EVERY[C.lv]} s`; }
     else if (plan === 'size' && C.sz < SQUAD.length - 1) { C.sz++; msg = `${SQUAD[C.sz]} veterans per drop`; }
     else if (ALLIES[plan] && !C.un.includes(plan)) { C.un.push(plan); msg = `${ALLIES[plan].name}s join the reinforcements`; }
-    if (msg) { this.radio('gen', ['Olympus here. I\'m releasing more of my people to you, Commander.', 'Station Olympus authorises more troops for the push.', 'You\'ll get what you need down there, Commander. Hale out.'][Math.random() * 3 | 0], 1); this.later.push({ t: 4, f: () => this.radio('cmd', `Copy, Olympus. Marines: ${msg}.`, 1) }); }
+    if (msg && quiet) return; if (msg) { this.radio('gen', ['Olympus here. I\'m releasing more of my people to you, Commander.', 'Station Olympus authorises more troops for the push.', 'You\'ll get what you need down there, Commander. Hale out.'][Math.random() * 3 | 0], 1); this.later.push({ t: 4, f: () => this.radio('cmd', `Copy, Olympus. Marines: ${msg}.`, 1) }); }
   }
   ability(p, id, r) {
     const near = (rad, f) => { for (const q of this.players.values()) if (!q.dead && Math.hypot(q.x - p.x, q.z - p.z) < rad) f(q); }, fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);
@@ -514,7 +514,7 @@ export class Sim {
     for (const m of this.meteors || []) { m.t -= dt; if (m.t <= 0 && !m.done) { m.done = true; this.splash(m.x, m.y + 0.5, m.z, 4.5, 110, null); for (const p of this.living()) if (Math.hypot(p.x - m.x, p.z - m.z) < 4.5) this.hurtPlayer(p, 35, m); for (const t of this.turrets) if (Math.hypot(t.x - m.x, t.z - m.z) < 4) this.hurtTurret(t, 60); } }
     if (this.meteors) this.meteors = this.meteors.filter(m => !m.done);
     if (this.W.def.weather === 'rain') { this.boltT = (this.boltT ?? 12) - dt; if (this.boltT <= 0) { this.boltT = 14 + Math.random() * 22; this.emit({ k: 'bolt' }); } }
-    this.hzT = (this.hzT ?? 300) - dt; if (this.hzT > 0) return; this.hzT = 300 + Math.random() * 120;
+    this.hzT = (this.hzT ?? 300) - dt; if (this.hzT > 0) return; this.hzT = (300 + Math.random() * 120) * DIFFS[this.W.diff || 0].hazard;
     if (hz === 'meteor') {
       this.meteors = this.meteors || []; this.emit({ k: 'toast', m: '☄ A meteor shower is starting. Stay clear of the red circles.', big: 1 });
       // sparse at first, heavy in the middle, then thinning out, over about 50 seconds

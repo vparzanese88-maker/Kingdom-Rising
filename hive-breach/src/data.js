@@ -202,3 +202,22 @@ export const SQUAD = [1, 2, 2, 3], SQUAD_COST = [0, 220, 400, 650];
 export const MAX_ALLIES = 18;
 
 export const UPGRADES = [];   // no more marine upgrades: upgrades are for turrets and reinforcements
+
+// ---------------------------------------------------------------- difficulty: every map is fought three times, and each fight looks and plays differently
+// Easy is the map as drawn. Medium mirrors it left to right at dusk; Hard mirrors it top to bottom at night. Harder fights start at a higher
+// threat level, send more aliens and the queen is tougher with more guards; map hazards come more often.
+export const DIFFS = [
+  { name: 'Easy', startLvl: 0, count: 1, queen: 1, guards: 0, hazard: 1 },
+  { name: 'Medium', startLvl: 2, count: 1.25, queen: 1.4, guards: 2, hazard: 0.75, mx: -1, mz: 1, time: 'Dusk' },
+  { name: 'Hard', startLvl: 5, count: 1.5, queen: 1.9, guards: 4, hazard: 0.55, mx: 1, mz: -1, time: 'Night' },
+];
+export const PLANET_ORDER = ['mars', 'ice', 'jungle'];
+const mixC = (a, b, f) => { const r = (a >> 16) & 255, g = (a >> 8) & 255, bl = a & 255, r2 = (b >> 16) & 255, g2 = (b >> 8) & 255, b2 = b & 255; return (Math.round(r + (r2 - r) * f) << 16) | (Math.round(g + (g2 - g) * f) << 8) | Math.round(bl + (b2 - bl) * f); };
+export function mapDef(id, diff = 0) {
+  const D0 = MAPS[id], F = DIFFS[diff] || DIFFS[0]; if (!diff) return D0;
+  const mx = F.mx, mz = F.mz, P = ([x, z]) => [x * mx, z * mz], O = o => Object.assign({}, o, { x: o.x * mx, z: o.z * mz });
+  const D = Object.assign({}, D0, { pts: D0.pts.map(P), craters: D0.craters.map(O), mesas: D0.mesas.map(O), hills: D0.hills.map(h => Object.assign({}, h, { pts: h.pts.map(P) })), chasms: D0.chasms.map(c => Object.assign({}, c, { pts: c.pts.map(P) })), ridges: D0.ridges.map(c => Object.assign({}, c, { pts: c.pts.map(P) })) });
+  if (diff === 1) Object.assign(D, { sky: mixC(D0.sky, 0x6a3048, 0.55), fog: mixC(D0.fog, 0x4a2838, 0.5), sun: mixC(D0.sun, 0xff9050, 0.6), fogD: [D0.fogD[0] * 0.85, D0.fogD[1] * 0.85], sunI: (D0.sunI ?? 2.2) * 0.7, hemiI: (D0.hemiI ?? 1.1) * 0.8 });
+  else Object.assign(D, { sky: mixC(D0.sky, 0x070a14, 0.85), fog: mixC(D0.fog, 0x0c1018, 0.8), sun: 0x8090c0, fogD: [D0.fogD[0] * 0.6, D0.fogD[1] * 0.62], sunI: (D0.sunI ?? 2.2) * 0.35, hemiI: (D0.hemiI ?? 1.1) * 0.55 });
+  D.name = D0.name + ' · ' + F.name; return D;
+}

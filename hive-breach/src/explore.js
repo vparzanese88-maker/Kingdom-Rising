@@ -91,6 +91,8 @@ export function buildFOB(scene, mapId) {
 // ---------------------------------------------------------------- driving, flying and the wild aliens out there
 export class Explore {
   constructor(H) { this.H = H; this.vehs = []; this.wild = []; this.veh = null; this.hp = 100; this.nid = 1; this.engT = 0; }
+  // leaving the forward base: take everything this put in the world back out
+  dispose() { const sc = this.H.scene; for (const v of this.vehs) sc.remove(v.m); for (const n of this.npcs || []) sc.remove(n.m); for (const w of this.wild) sc.remove(w.m); this.vehs = []; this.npcs = []; this.wild = []; this.veh = null; }
   setup(W) {
     const { scene } = this.H; this.W = W;
     W.pads.forEach(([x, z], i) => { const m = vtol(); m.position.set(x, 2 + 2.2, z); m.rotation.y = -Math.PI / 2; scene.add(m); this.vehs.push({ kind: 'vtol', m, x, y: 2 + 2.2, z, yaw: -Math.PI / 2, vx: 0, vy: 0, vz: 0, id: i }); });
@@ -287,4 +289,38 @@ export function victoryScene(H, squad, swap, done) {
     requestAnimationFrame(run);
   };
   requestAnimationFrame(act1);
+}
+
+// ---------------------------------------------------------------- Station Olympus: after the Hard hive falls, the squad's VTOL docks at the orbital station,
+// and General Hale sends them on to the next planet. No skip; about 13 seconds, then the next planet's Easy hive begins.
+export function stationScene(H, nextMap, done) {
+  const { scene, camera } = H, objs = [], add = o => { scene.add(o); objs.push(o); return o; }, D = MAPS[nextMap], PN = { mars: 'Mars', ice: 'Kryos IV', jungle: 'Thessa' };
+  const bg0 = scene.background, fog0 = scene.fog; scene.background = new THREE.Color(0x02030a); scene.fog = null;
+  const n = 1800, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const u = Math.random() * 2 - 1, a = Math.random() * 6.283, r = 1500; pos[i * 3] = Math.sqrt(1 - u * u) * Math.cos(a) * r; pos[i * 3 + 1] = u * r; pos[i * 3 + 2] = Math.sqrt(1 - u * u) * Math.sin(a) * r; }
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false })));
+  const sun = add(new THREE.DirectionalLight(0xfff0e0, 2.4)); sun.position.set(300, 200, 100); add(new THREE.AmbientLight(0x304060, 0.7));
+  // the next planet, huge below the station
+  const planet = add(new THREE.Mesh(new THREE.SphereGeometry(600, 64, 32), M.mat(D.ground, { r: 0.9, flat: false }))); planet.position.set(0, -720, -200);
+  const atmo = add(new THREE.Mesh(new THREE.SphereGeometry(618, 64, 32), new THREE.MeshBasicMaterial({ color: D.sky, transparent: true, opacity: 0.25, side: THREE.BackSide })));  atmo.position.copy(planet.position);
+  // the station: a turning ring on spokes around a central spindle, with lit windows and a docking bay
+  const st = add(new THREE.Group()), hull = M.mat(0xc8ccd2, { m: 0.6, r: 0.35 }), dark = M.mat(0x3a424a, { m: 0.5 }), lights = M.mat(0x9fe0ff, { e: 0x60c0ff, ei: 2.5 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(60, 6, 16, 72), hull); ring.rotation.x = Math.PI / 2; st.add(ring); const win = new THREE.Mesh(new THREE.TorusGeometry(60, 6.2, 4, 72, 6.283), new THREE.MeshBasicMaterial({ color: 0xffe0a0, wireframe: true, transparent: true, opacity: 0.35 })); win.rotation.x = Math.PI / 2; st.add(win);
+  for (let i = 0; i < 4; i++) { const sp = M.B(st, 2.5, 2.5, 120, dark, 0, 0, 0); sp.rotation.y = i * Math.PI / 4 * 2 / 2; }
+  M.C(st, 9, 9, 70, hull, 0, 0, 0); M.C(st, 12, 12, 8, dark, 0, 20, 0); M.C(st, 12, 12, 8, dark, 0, -20, 0); const bay = M.B(st, 14, 8, 10, lights, 0, -36, 0); void bay;
+  for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283; M.S(st, 0.8, i % 2 ? 0xff4040 : 0x40ff80, Math.cos(a) * 66, 0, Math.sin(a) * 66, 1, 1, 1, { e: i % 2 ? 0xff2020 : 0x20ff60, ei: 3 }); }
+  st.position.set(0, 0, 0);
+  const heli = add(vtol()); heli.scale.setScalar(1.4); const A = new THREE.Vector3(-260, -160, 220), B = new THREE.Vector3(0, -44, 6);
+  const t0 = performance.now(); let last = t0, said = {}; H.fade(false);
+  H.caption('STATION OLYMPUS', 'High orbit · Marine Corps command');
+  const step = () => {
+    const now = performance.now(), t = (now - t0) / 1000, dt = Math.min(0.1, (now - last) / 1000); last = now; st.rotation.y += dt * 0.08; planet.rotation.y += dt * 0.01;
+    const f = Math.min(1, t / 8), e = 1 - (1 - f) ** 3; heli.position.lerpVectors(A, B, e); heli.lookAt(B.x, heli.position.y, B.z); for (const r of heli.userData.rotors) r.rotation.y += dt * 30;
+    if (t > 4 && !said.a) { said.a = 1; H.caption('', 'General Hale: Welcome aboard, marines. That planet will remember you.'); }
+    if (t > 8.5 && !said.b) { said.b = 1; H.caption('NEXT PLANET: ' + PN[nextMap].toUpperCase(), 'Hale: The swarm holds ' + PN[nextMap] + '. Drop in, find the queen, burn the hive.'); }
+    const a = 0.5 + t * 0.06, r = 150 - f * 40; camera.position.set(Math.cos(a) * r, 30 - f * 50, Math.sin(a) * r); camera.lookAt(heli.position.x * (1 - f * 0.5), heli.position.y * 0.6, heli.position.z * (1 - f * 0.5));
+    if (t > 12 && !said.c) { said.c = 1; H.fade(true); }
+    if (t > 13.4) { for (const o of objs) scene.remove(o); scene.background = bg0; scene.fog = fog0; done(); return; }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }

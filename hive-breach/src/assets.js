@@ -17,13 +17,18 @@ export const MANIFEST = [...CLS.filter(c => c !== 'assault').map(c => 'marine_' 
 let done = false;
 export const PROG = { total: 1, got: 0 };   // loading progress, for the cover screen's bar
 export const ready = () => done;
+// where the camera is, set by the game each frame: far-away models animate less often
+export const CAM = new THREE.Vector3(); const _wp = new THREE.Vector3();
+const BS = new WeakMap();   // a roomy bound per skinned geometry (clones share the geometry)
+const fixBounds = root => root.traverse(o => { const b = o.isSkinnedMesh && BS.get(o.geometry); if (b) { o.boundingSphere = b.clone(); o.frustumCulled = true; } });
 export function loadAll(extra = []) {
   const list = [...MANIFEST, ...STRUCT_FILES, ...PROP_FILES, ...ALIEN_FILES, ...extra]; PROG.total = list.length; PROG.got = 0;
   return Promise.all(list.map(n => loader.loadAsync(BASE + n + '.glb').then(g => { prep(g); A[n] = g; if (n === 'marine_anims') A.marine_assault = g; }).catch(() => { /* missing: keep the simple model */ }).finally(() => { PROG.got++; }))).then(() => { done = true; });
 }
 function prep(g) {
   g.scene.traverse(o => {
-    if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = !o.isSkinnedMesh;
+    if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = true;
+    if (o.isSkinnedMesh) { o.geometry.computeBoundingSphere(); const b = o.geometry.boundingSphere.clone(); b.radius *= 1.6; BS.set(o.geometry, b); }   // a roomy fixed bound, so animated models are still skipped when off screen
     for (const m of [].concat(o.material)) if (m && m.isMeshStandardMaterial) {  m.metalness = Math.min(m.metalness, 0.25); m.roughness = Math.max(m.roughness, 0.45); }   // no environment map in the game, so full metal reads black
   });
 }
@@ -75,7 +80,7 @@ function clips() {
 const H = {};   // height of each marine file, measured once
 export function marineGLB(cls) {
   const n = 'marine_' + cls, src = A[n] || A.marine_assault; if (!src || !clips()) return null;
-  const root = SU.clone(src.scene), g = new THREE.Group(), holder = new THREE.Group(); holder.rotation.y = Math.PI; holder.add(root); g.add(holder);
+  const root = SU.clone(src.scene), g = new THREE.Group(), holder = new THREE.Group(); holder.rotation.y = Math.PI; holder.add(root); g.add(holder); fixBounds(root);
   if (!H[n]) { const b = new THREE.Box3().setFromObject(src.scene); H[n] = b.max.y - b.min.y || 1.85; }
   holder.scale.setScalar(2.1 / H[n]);
   const mixer = new THREE.AnimationMixer(root), act = {};
@@ -107,9 +112,11 @@ function aimGun(m) {
 export function animGLB(m, sp, opt) {
   const u = m.userData, now = performance.now(), dt = Math.min(0.1, (now - (u.lt || now)) / 1000); u.lt = now;
   let k = opt && opt.pose ? opt.pose : sp > 6.5 ? 'sprint' : sp > 3.2 ? 'run' : sp > 0.4 ? 'walk' : (opt && opt.fire ? 'walk' : 'idle');
+  const far = m.getWorldPosition(_wp).distanceToSquared(CAM); if (!u.fpArms && far > 4900) { u.acc = (u.acc || 0) + dt; return; } if (far > 900) { u.skip = !u.skip; if (u.skip) { u.acc = (u.acc || 0) + dt; return; } }
+  const dtM = Math.min(0.2, dt + (u.acc || 0)); u.acc = 0;
   setPose(m, k); const a = u.act[u.cur];
   if (u.cur === 'walk') a.timeScale = sp > 0.4 ? Math.max(0.7, sp / 2.6) : 0.12; else if (u.cur === 'run' || u.cur === 'sprint') a.timeScale = Math.max(0.8, sp / (u.cur === 'run' ? 5 : 7.5)); else a.timeScale = 1;
-  u.mixer.update(dt); aimGun(m);
+  u.mixer.update(dtM); aimGun(m);
 }
 
 // ---- turrets: one model per upgrade level. The whole model sits in the "head" so it swings round to aim.
@@ -152,7 +159,7 @@ export function propGLB(kind, rnd = Math.random) {
   const p = PROP[kind]; if (!p) return null; let list = p[0];
   if (kind === 'boulder') list = [{ mars: 'l_rock_mars1', ice: 'l_rock_ice1', jungle: 'l_rock_jungle1' }[mapId] || 'l_rock_mars1'];
   const ok = list.filter(n => A[n]); if (!ok.length) return null;
-  const n = ok[(rnd() * ok.length) | 0], o = fit(n, p[1], p[2] * (0.75 + rnd() * 0.5), false); o.children[0].position.y -= 0.15; return o;
+  const n = ok[(rnd() * ok.length) | 0], o = fit(n, p[1], p[2] * (0.75 + rnd() * 0.5), false); o.children[0].position.y -= 0.15; if (/rock|plant|tree|crate/.test(n)) o.traverse(q => { q.castShadow = false; }); return o;
 }
 
 // ---- what the marine holds on slot 4: the frag, a med kit or an ammo pack
@@ -164,13 +171,15 @@ export function item(kind) {
 // ---- first-person arms: your own class marine's arms, posed in the aiming clip and fitted onto the gun you hold.
 // mode 'two': right hand on the grip, left hand on the foregrip (rifles, shotguns, the minigun, the launcher)
 // mode 'one': right hand on the grip only (the side arm, the welders), left arm tucked away out of sight
-export const FP_ROLL = { two: -0.7, one: -0.5 };
+export const FP_ROLL = { two: -0.7, one: -0.5, hand: 0 };
+// mode 'hand': the left forearm and hand alone, fitted to the reload hand's frame (palm at the origin, forearm back along +z), so it can
+// follow the hand's reload path: down to the magazine, out, in, and back to the foregrip
 export function fpArms(cls, gun, mode = 'two') {
-  if (!gun || !gun.userData.glb) return null; const g = marineGLB(cls); if (!g) return null; const u = g.userData;
+  if (mode !== 'hand' && (!gun || !gun.userData.glb)) return null; const g = marineGLB(cls); if (!g) return null; const u = g.userData;
   if (u.gun) { g.remove(u.gun); u.gun = null; }
   setPose(g, 'walk', 0); const a = u.act.walk; a.time = a.getClip().duration * 0.15; a.timeScale = 0; u.mixer.update(0);
   // keep only the sleeves and gloves: every triangle whose skin mostly follows an arm bone; the chest, head and legs are cut away
-  const keepB = mode === 'one' ? ['RightArm', 'RightForeArm', 'RightHand'] : ['RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand'];
+  const keepB = mode === 'hand' ? ['LeftForeArm', 'LeftHand'] : ['RightArm', 'RightForeArm', 'RightHand'];   // the left arm lives on the reload hand
   u.root.traverse(o => {
     if (!o.isSkinnedMesh) return; const bones = o.skeleton.bones, ok = new Set(bones.map((b, i) => keepB.includes(b.name) ? i : -1).filter(i => i >= 0));
     const src = o.geometry, si = src.attributes.skinIndex, sw = src.attributes.skinWeight, dom = i => { let best = 0, bw = -1; for (let c = 0; c < 4; c++) { const w = sw.getComponent(i, c); if (w > bw) { bw = w; best = si.getComponent(i, c); } } return best; };
@@ -179,10 +188,11 @@ export function fpArms(cls, gun, mode = 'two') {
     const geo = src.clone(); geo.setIndex(out); o.geometry = geo;
   });
   g.updateMatrixWorld(true); const P = n => { const o = u.root.getObjectByName(n); return o ? o.getWorldPosition(new THREE.Vector3()) : null; };
-  const L = gun.userData.len || 0.9, rh = P('RightHand'), lh = P('LeftHand'), rf = P('RightForeArm'); if (!rh) return null;
+  const L = (gun && gun.userData.len) || 0.9, rh = P('RightHand'), lh = P('LeftHand'), rf = P('RightForeArm'), lf = P('LeftForeArm'); if (!rh) return null;
   // where those joints should end up, in the gun's own space (muzzle down -z, grip at the origin)
   let A, B, A2, B2;
-  if (mode === 'two' && lh) { A = rh; B = lh; A2 = new THREE.Vector3(0.035, -0.06, 0.2); B2 = new THREE.Vector3(-0.045, -0.055, -L * 0.3); }
+  if (mode === 'hand') { if (!lf || !lh) return null; A = lf; B = lh; A2 = new THREE.Vector3(0, -0.01, 0.42); B2 = new THREE.Vector3(0, 0.005, 0.06); }
+  else if (mode === 'two' && lh) { A = rh; B = lh; A2 = new THREE.Vector3(0.035, -0.06, 0.2); B2 = new THREE.Vector3(-0.045, -0.055, -L * 0.3); }
   else { A = rf; B = rh; A2 = new THREE.Vector3(0.05, -0.32, 0.3); B2 = new THREE.Vector3(0.01, -0.08, 0.12); }
   const d1 = B.clone().sub(A), d2 = B2.clone().sub(A2), s = d2.length() / d1.length();
   const basis = (d, upHint) => { const z = d.clone().normalize(), x = new THREE.Vector3().crossVectors(upHint, z).normalize(), y = new THREE.Vector3().crossVectors(z, x); return new THREE.Matrix4().makeBasis(x, y, z); };
@@ -197,10 +207,12 @@ export function fpArms(cls, gun, mode = 'two') {
 // Each one is sized to match the simple model it replaces (same length and the same height off the ground), so hit boxes still fit.
 export const ALIEN_GLB = { crawler: 'a_crawler', spitter: 'a_spitter', brute: 'a_brute', ravager: 'a_ravager', queen: 'a_queen', royal: 'a_royal', broodqueen: 'a_broodqueen', flyer: 'a_flyer' };
 export const ALIEN_FILES = Object.values(ALIEN_GLB);
+const BIG = new Set(['brute', 'ravager', 'queen', 'broodqueen']);
 const ACLIP = { run: /run/i, walk: /walk/i, pounce: /pounce/i, roar: /roar/i, idle: /idle/i, die: /death/i }, HEAVY = new Set(['brute', 'ravager', 'queen']);
 export function alienGLB(type, ref) {
   const n = ALIEN_GLB[type], src = n && A[n]; if (!src) return null;
-  const g = new THREE.Group(), body = new THREE.Group(), holder = new THREE.Group(), root = SU.clone(src.scene); g.add(body); body.add(holder); holder.add(root); holder.rotation.y = Math.PI;   // Meshy faces +z; the game's aliens face -z
+  const g = new THREE.Group(), body = new THREE.Group(), holder = new THREE.Group(), root = SU.clone(src.scene); g.add(body); body.add(holder); holder.add(root); holder.rotation.y = Math.PI; fixBounds(root);
+  if (!BIG.has(type)) root.traverse(o => { o.castShadow = false; });   // the small aliens don't cast shadows: there can be a hundred of them   // Meshy faces +z; the game's aliens face -z
   // size: as long as the simple model, standing where it stood
   if (!src.userData.box) src.userData.box = new THREE.Box3().setFromObject(src.scene);
   const sb = src.userData.box, ss = sb.getSize(new THREE.Vector3()), rs = ref.getSize(new THREE.Vector3());
@@ -231,8 +243,10 @@ export function animAlienGLB(m, t) {
   const u = m.userData, dt = Math.max(0, Math.min(0.1, t - (u.lt ?? t))); u.lt = t;
   if (u.flap) { for (const h of u.flap) h.pv.rotation.z = Math.sin(t * 14) * 0.55 * h.sd; u.body.position.y = Math.sin(t * 3) * 0.25; return; }
   if (!u.mixer) return;
+  const far = m.getWorldPosition(_wp).distanceToSquared(CAM); if (far > 6400) { u.acc = (u.acc || 0) + dt; return; } if (far > 1225) { u.skip = !u.skip; if (u.skip) { u.acc = (u.acc || 0) + dt; return; } }   // beyond 80 m: frozen; beyond 35 m: every other frame
+  const dtA = dt + (u.acc || 0); u.acc = 0;
   let k = u.cur; if (u.type === 'broodqueen') k = Math.sin(t * 0.35) > 0.6 ? 'roar' : 'idle'; else if (dt === 0) k = 'idle'; else k = HEAVY.has(u.type) ? 'walk' : 'run';
   if (u.body.position.z < -0.15 && u.act.pounce) k = 'pounce';   // the game lunges the body forward on a strike
   if (k !== u.cur && u.act[k]) { const nx = u.act[k]; nx.reset().play(); if (u.cur && u.act[u.cur]) u.act[u.cur].crossFadeTo(nx, 0.2, false); u.cur = k; }
-  u.mixer.update(dt === 0 ? 1 / 60 : dt * (u.type === 'crawler' ? 1.6 : 1.1));
+  u.mixer.update(dt === 0 ? 1 / 60 : Math.min(0.2, dtA) * (u.type === 'crawler' ? 1.6 : 1.1));
 }

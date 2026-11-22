@@ -1,23 +1,16 @@
-// The soundtrack: heroic orchestral sci-fi, played live. A monk-style choir (vowel-shaped voices with vibrato),
-// slow-swelling strings and fast battle strings, heroic brass that blooms in, taiko, timpani and cymbal swells,
-// all in a long concert-hall reverb. Original, triumphant themes in D major over D - Bm - G - A.
+// The soundtrack, played live: dark military sci-fi in D minor. Synth bass, drums, war drums, low brass, a tense arpeggio,
+// a dark pad and a distant choir, in a short hall reverb. Original themes over Dm - Bb - C - A.
 const midi = m => 440 * Math.pow(2, (m - 69) / 12);
-const ROOTS = [38, 35, 31, 33], QUAL = [[0, 4, 7], [0, 3, 7], [0, 4, 7], [0, 4, 7]];
-// [step, semitone above D4, length in 16th steps], one phrase per bar
-const CHANT = [[[0, 0, 4], [4, 4, 2], [6, 7, 2], [8, 9, 8]], [[0, 11, 4], [4, 9, 4], [8, 7, 8]], [[0, 7, 4], [4, 11, 2], [6, 12, 2], [8, 14, 8]], [[0, 12, 6], [6, 11, 2], [8, 9, 8]]];
-const THEME = [[[0, 12, 6], [6, 14, 2], [8, 16, 8]], [[0, 14, 6], [6, 12, 2], [8, 11, 8]], [[0, 7, 4], [4, 11, 4], [8, 14, 4], [12, 12, 4]], [[0, 19, 10], [10, 16, 2], [12, 14, 4]]];
-const OSTI = [0, 0, 12, 0, 0, 0, 12, 0, 0, 0, 12, 0, 7, 0, 12, 7];
-const TAIKO = [1, 0, 0, 0.5, 0, 0, 0.8, 0, 1, 0, 0, 0.5, 0, 0.7, 0.9, 0.6];
 const VOWEL = { ah: [[730, 1], [1090, 0.5], [2440, 0.18]], oo: [[320, 1], [800, 0.35], [2240, 0.1]] };
 const MIX = {
   off: { choir: 0, chant: 0, strings: 0, spicc: 0, brass: 0, drums: 0, timp: 0, synth: 0 },
   drop: { choir: 0.7, chant: 0, strings: 0.7, spicc: 0.8, brass: 0.75, drums: 0.85, timp: 0.75, synth: 0.7 },
-  title: { choir: 0.9, chant: 1, strings: 0.7, spicc: 0, brass: 0.5, drums: 0.5, timp: 0.7, synth: 0 },
-  calm: { choir: 0.7, chant: 0.6, strings: 0.6, spicc: 0, brass: 0, drums: 0.2, timp: 0.5, synth: 0 },
-  battle: { choir: 0.7, chant: 0, strings: 0.6, spicc: 1, brass: 1, drums: 1, timp: 0.8, synth: 0 },
-  boss: { choir: 1, chant: 0, strings: 0.7, spicc: 1, brass: 1, drums: 1, timp: 1, synth: 0 },
+  title: { choir: 0.3, chant: 0, strings: 0.65, spicc: 0.4, brass: 0.6, drums: 0.5, timp: 0.6, synth: 0.6 },
+  calm: { choir: 0.22, chant: 0, strings: 0.6, spicc: 0.35, brass: 0.35, drums: 0.4, timp: 0.4, synth: 0.55 },
+  battle: { choir: 0.3, chant: 0, strings: 0.5, spicc: 0.7, brass: 0.8, drums: 0.9, timp: 0.7, synth: 0.8 },
+  boss: { choir: 0.55, chant: 0, strings: 0.55, spicc: 0.8, brass: 0.9, drums: 1, timp: 0.9, synth: 0.9 },
 };
-const BPM = { title: 84, calm: 84, battle: 128, boss: 138, off: 84, drop: 132 };
+const BPM = { title: 96, calm: 90, battle: 128, boss: 140, off: 90, drop: 132 };
 // the drop-pod cue: D minor, D - Bb - C - A, a pulsing synth bass, war drums and a dark brass theme ([step, semitone above D4, length])
 const DROOT = [38, 34, 36, 33], DQUAL = [[0, 3, 7], [0, 4, 7], [0, 4, 7], [0, 4, 7]];
 const DTHEME = [[[0, 0, 4], [4, 3, 2], [6, 5, 2], [8, 7, 8]], [[0, 10, 6], [6, 8, 2], [8, 5, 8]], [[0, 7, 4], [4, 10, 4], [8, 12, 8]], [[0, 13, 6], [6, 12, 2], [8, 9, 8]]];
@@ -31,7 +24,7 @@ export class Music {
     this.master = c.createGain(); this.master.gain.value = this.on ? this.vol * 1.6 * (this.mul ?? 1) : 0;
     const comp = c.createDynamicsCompressor(); comp.threshold.value = -20; comp.ratio.value = 3; comp.attack.value = 0.02; this.master.connect(comp); comp.connect(this.a.bus || c.destination);   // through the shared limiter
     // a concert hall: a long, smooth stereo tail
-    const len = c.sampleRate * 3.6, ir = c.createBuffer(2, len, c.sampleRate);
+    const len = c.sampleRate * 2.2, ir = c.createBuffer(2, len, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < len; i++) { const t = i / len; lp += (Math.random() * 2 - 1 - lp) * (0.5 - t * 0.35); d[i] = lp * Math.pow(1 - t, 3) * (i < c.sampleRate * 0.02 ? i / (c.sampleRate * 0.02) : 1); } }
     this.hall = c.createConvolver(); this.hall.buffer = ir; const wet = c.createGain(); wet.gain.value = 0.55; this.hall.connect(wet); wet.connect(this.master);
     this.L = {}; for (const k of Object.keys(MIX.calm)) { const g = c.createGain(); g.gain.value = MIX[this.mode][k]; const dry = c.createGain(), send = c.createGain(); dry.gain.value = k === 'drums' ? 0.9 : 0.55; send.gain.value = k === 'drums' ? 0.35 : 0.8; g.connect(dry); dry.connect(this.master); g.connect(send); send.connect(this.hall); this.L[k] = g; }
@@ -60,26 +53,34 @@ export class Music {
     if (this.next < c.currentTime - 0.3) this.next = c.currentTime + 0.05;
     while (this.next < c.currentTime + 2.5) { this.play(this.step, this.next); this.next += 60 / this.bpm / 4; this.step = (this.step + 1) % 64; }
   }
+  // the soundtrack: dark military sci-fi in D minor (Dm - Bb - C - A). A growling synth bass, kick, snare and hats,
+  // war-drum fills, low brass, a tense arpeggio and a dark pad. Calm keeps it sparse and uneasy; battle and boss drive hard.
   play(step, t) {
     if (!this.on) return; if (this.mode === 'drop') return this.playDrop(step, t);
-    const bar = step >> 4, s = step & 15, root = ROOTS[bar], q = QUAL[bar], sx = 60 / this.bpm / 4, M = MIX[this.mode], fight = this.mode === 'battle' || this.mode === 'boss';
+    const bar = (step >> 4) & 3, s = step & 15, sx = 60 / this.bpm / 4, M = MIX[this.mode], mode = this.mode, fight = mode === 'battle' || mode === 'boss';
+    const root = DROOT[bar], q = DQUAL[bar];
     if (s === 0) {
-      // the choir holds each chord for the whole bar; the strings swell under it
-      if (M.choir) for (const iv of [0, q[1], 7]) this.voice(this.choirBus, midi(root + 24 + iv), sx * 16, fight ? 0.06 : 0.05, 2);
-      if (M.strings) for (const iv of [0, q[1] + 12, 19]) this.strings(t, midi(root + 12 + iv), sx * 16);
-      if (M.timp) this.timpani(t, midi(root - 12 + 24) / 2, bar === 0 ? 1 : 0.6);
-      if (bar === 0 && this.step === 0) this.crash(t);
+      if (M.strings) for (const iv of [0, q[1], 7]) this.strings(t, midi(root + 12 + iv), sx * 16);
+      if (M.choir && (fight || bar % 2 === 0)) for (const iv of [0, 7]) this.voice(this.choirBus, midi(root + 24 + iv), sx * 16, 0.04, 2);
+      if (M.timp) this.timpani(t, midi(root), bar === 0 ? 0.8 : 0.45);
+      if (bar === 0 && fight) this.crash(t);
     }
-    if (M.chant) for (const [st, iv, l] of CHANT[bar]) if (st === s) this.voice(this.chantBus, midi(62 + iv - 12), sx * l, 0.06, 2);
-    if (fight) {
-      if (M.spicc) this.spicc(t, midi(root + 12 + OSTI[s]), sx * 0.9);
-      if (M.brass) for (const [st, iv, l] of THEME[bar]) if (st === s) { this.brass(t, midi(62 + iv - 12), sx * l); this.brass(t, midi(62 + iv - 24), sx * l, 0.6); }
-      if (M.drums && TAIKO[s]) this.taiko(t, TAIKO[s] * (this.mode === 'boss' ? 1.15 : 1));
-      if (this.mode === 'boss' && s % 4 === 2) this.taiko(t, 0.4, 1.6);
-    } else if (M.drums && (s === 0 || s === 10) && bar % 2 === 0) this.taiko(t, 0.5);
+    if (M.synth) { if (fight) this.synth(t, midi(root - 12 + DBASS[s]), sx * 0.9, 0.9); else if (s === 0 || s === 6 || s === 10) this.synth(t, midi(root - 12), sx * (s === 0 ? 5 : 3), 0.5); }
+    if (M.drums) {
+      if (fight) { if (s % 4 === 0) this.kick(t, 1); if (s === 4 || s === 12) this.snare(t, 1); if (mode === 'boss' && s >= 14) this.snare(t, 0.55); if (s % 2 === 0) this.hat(t, s % 4 === 2 ? 0.5 : 0.3); if (bar === 3 && s >= 12) this.taiko(t, 0.8, 1 + (s - 12) * 0.15); }
+      else { if (s === 0 || s === 10) this.kick(t, 0.6); if (s % 4 === 2) this.hat(t, 0.18); if (bar === 3 && s === 8) this.taiko(t, 0.5); }
+    }
+    if (M.spicc) { const arp = [0, q[1], 7, 12, 7, q[1]]; if (fight) this.spicc(t, midi(root + 24 + arp[s % 6]), sx * 0.8); else if (s % 4 === 0) this.spicc(t, midi(root + 24 + arp[(s / 4) % 6]), sx * 2); }
+    if (M.brass) {
+      if (fight) { for (const [st, iv, l] of DTHEME[bar]) if (st === s) { this.brass(t, midi(50 + iv), sx * l, 0.8); this.brass(t, midi(38 + iv), sx * l, 0.5); } }
+      else if (s === 0 && bar === 0) { this.brass(t, midi(root), sx * 30, 0.45); this.brass(t, midi(root + 7), sx * 30, 0.3); }
+    }
     if (bar === 3 && s === 8) this.swell(t, sx * 8);
   }
-
+  kick(t, v) { const c = this.a.ctx, o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7 * v, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35); o.connect(g); g.connect(this.L.drums); o.start(t); o.stop(t + 0.4); }
+  snare(t, v) { const c = this.a.ctx, n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); n.buffer = this.a.buf(0.25); f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 0.7; g.gain.setValueAtTime(0.32 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18); n.connect(f); f.connect(g); g.connect(this.L.drums); n.start(t);
+    const o = c.createOscillator(), og = c.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(120, t + 0.08); og.gain.setValueAtTime(0.18 * v, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.1); o.connect(og); og.connect(this.L.drums); o.start(t); o.stop(t + 0.12); }
+  hat(t, v) { const c = this.a.ctx, n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); n.buffer = this.a.buf(0.05); f.type = 'highpass'; f.frequency.value = 7500; g.gain.setValueAtTime(0.09 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.045); n.connect(f); f.connect(g); g.connect(this.L.drums); n.start(t); }
   // ---- the drop-pod score, locked to the film's clock: a tense build, a hit on EJECT, full war drums through the burn, silence at impact, a heroic chord as the door blows
   dropScore() {
     if (!this.master) this.start(); if (!this.master) return; const c = this.a.ctx, t = c.currentTime + 0.05;

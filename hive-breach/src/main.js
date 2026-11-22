@@ -7,7 +7,7 @@ const assetsP = M.AS.loadAll();   /* Meshy models stream in behind the cover scr
   const tick = setInterval(() => { const P = M.AS.PROG; bar.style.width = Math.max(3, Math.round(100 * P.got / Math.max(1, P.total))) + '%'; if (performance.now() - t0 > 20000) ready(); }, 120);
   const ready = () => { clearInterval(tick); cv.classList.add('ready'); go.textContent = 'CLICK TO START'; };
   assetsP.then(ready);
-  const leave = () => { if (!cv.classList.contains('ready')) return; cv.remove(); document.body.classList.remove('covered'); removeEventListener('keydown', key); };
+  const leave = () => { if (!cv.classList.contains('ready')) return; try { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { } cv.remove(); document.body.classList.remove('covered'); removeEventListener('keydown', key); };
   const key = e => { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'Escape') leave(); };
   cv.addEventListener('click', leave); addEventListener('keydown', key); }
 import { DIFFS, PLANET_ORDER, scrapCost, techMul, SIDEARM, SPECIALS, MISSILE, CLASSES, TURRETS, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, MAPS, BOUNDS, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST } from './data.js';
@@ -67,7 +67,7 @@ function decode(m) {
     w: m.w, ph: m.ph, tm: m.tm, hub: m.hub, en: m.en, left: m.left, lt: m.lt, wx: m.wx, wa: m.wa || 0, n: m.n, C: m.C, open: m.open,
     L: m.L.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], tg: a[8] })),
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9], rv: a[10] })),
-    T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], carry: t[15], up: t[16], s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
+    T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], carry: t[15], up: t[16], rs: t[17] || 0, s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
     P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {} })),
     O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4], kind: o[5] === 1 ? 'ammo' : o[5] === 2 ? 'dress' : '' })), el: m.el, I: (m.I || []).map(i => ({ id: i[0], kind: i[1], x: i[2], z: i[3] })), SC: (m.SC || []).map(c => ({ id: c[0], x: c[1], z: c[2] })),
     M: (m.M || []).map(c => ({ id: c[0], x: c[1], z: c[2], life: c[3] })), Z: (m.Z || []).map(c => ({ x: c[0], z: c[1], r: c[2] })), K: (m.K || []).map(q => ({ x: q[0], y: q[1], z: q[2], r: q[3], fire: q[4] })), D: (m.D || []).map(d => ({ id: d[0], x: d[1], y: d[2], z: d[3], tg: d[4] })), Q: (m.Q || []).map(q => ({ id: q[0], x: q[1], y: q[2], z: q[3], r: q[4], t: q[5] })), S2: (m.S2 || []).map(d => ({ x: d[0], y: d[1], z: d[2], r: d[3] })),
@@ -367,13 +367,14 @@ function scrapMesh() {
     scrapK = { plate: new THREE.BoxGeometry(1.2, 0.12, 0.75), pipe: new THREE.CylinderGeometry(0.11, 0.11, 1.4, 8), gear: new THREE.CylinderGeometry(0.42, 0.42, 0.14, 8), ring: new THREE.RingGeometry(1.0, 1.35, 28), shaft: new THREE.CylinderGeometry(0.07, 0.25, 4, 8, 1, true),
       metal: M.mat(0xb8bcc2, { m: 0.85, r: 0.25 }), rust: M.mat(0xa05a30, { m: 0.4, r: 0.7 }), ringM: new THREE.MeshBasicMaterial({ color: 0xff9020, opacity: 0.75, side: THREE.DoubleSide, ...add }), shaftM: new THREE.MeshBasicMaterial({ color: 0xffa040, opacity: 0.35, side: THREE.DoubleSide, ...add }) }; }
   const K = scrapK, g = new THREE.Group(), m = (geo, mat, x, y, z, rx, ry, rz) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); g.add(o); return o; };
-  m(K.plate, K.metal, 0, 0.12, 0, 0.1, 0.3, 0.15); m(K.plate, K.rust, 0.2, 0.3, 0.1, -0.25, 1.4, 0.2); m(K.pipe, K.metal, -0.3, 0.3, 0.2, 0.2, 0, 1.3); m(K.gear, K.rust, 0.25, 0.5, -0.2, 0.6, 0, 0.3);
-  const ring = m(K.ring, K.ringM, 0, 0.06, 0, -Math.PI / 2, 0, 0), shaft = m(K.shaft, K.shaftM, 0, 2.1, 0, 0, 0, 0); g.userData = { ring, shaft }; return g;
+  // a bundle of salvage floating a little off the ground, turning slowly, like a pickup in an arena shooter
+  m(K.plate, K.metal, 0, -0.18, 0, 0.1, 0.3, 0.15); m(K.plate, K.rust, 0.15, 0, 0.05, -0.25, 1.4, 0.2); m(K.pipe, K.metal, -0.2, 0, 0.1, 0.2, 0, 1.3); m(K.gear, K.rust, 0.15, 0.2, -0.15, 0.6, 0, 0.3);
+  const piv = new THREE.Group(); for (const c of [...g.children]) piv.add(c); piv.scale.setScalar(0.85); g.add(piv); g.userData = { piv }; return g;
 }
 function syncScrap(S) {
   const L = G.explore || G.cine ? [] : S.SC || [], seen = new Set(), me = G.me;
   for (const c of L) { seen.add(c.id); let v = scrapV.get(c.id); if (!v) { v = scrapMesh(); v.position.set(c.x, G.W.top(c.x, c.z), c.z); v.rotation.y = c.id; scene.add(v); scrapV.set(c.id, v); }
-    const d = me ? Math.hypot(c.x - me.x, c.z - me.z) : 0; v.visible = d < 75; if (v.visible) { const p = 1 + Math.sin(G.time * 4 + c.id) * 0.12; v.userData.ring.scale.set(p, p, 1); v.userData.shaft.material.opacity = 0.35; } }
+    const d = me ? Math.hypot(c.x - me.x, c.z - me.z) : 0; v.visible = d < 75; if (v.visible) { const pv = v.userData.piv; pv.position.y = 0.7 + Math.sin(G.time * 2.4 + c.id) * 0.14; pv.rotation.y = G.time * 1.7 + c.id; } }
   for (const [id, v] of scrapV) if (!seen.has(id)) { scene.remove(v); scrapV.delete(id); }
 }
 function syncView(S, dt) {
@@ -424,8 +425,11 @@ function syncView(S, dt) {
     v.mesh.scale.set(sc0 * mk, sc0 * grow * mk, sc0 * mk);
     v.alert = Math.max(0, (v.alert || 0) - dt); if (v.alert > 0 && !v.mark) { v.mark = markSprite(); scene.add(v.mark); } if (v.mark) { v.mark.visible = v.alert > 0 && Math.sin(G.time * 12) > -0.3; v.mark.position.set(v.mesh.position.x, v.mesh.position.y + 4.2 * sc0, v.mesh.position.z); }
     if (t.hp < t.mhp * 0.35 && Math.random() < dt * 6) burst(t.x, 1.6, t.z, 0x303030, 1, 1, 1, 2);
+    // the Rally Beacon says what it's doing: a countdown to its next dropship, or why it's waiting; a red flare goes up as each ship is called
+    if (t.kind === 'rally') { if (!v.rl) { v.rl = timerLabel(); scene.add(v.rl); } const txt = t.rs > 0 ? `DROPSHIP ${t.rs}s` : t.rs === -1 ? 'SQUAD FULL' : t.rs === -2 ? 'READY' : ''; v.rl.visible = !!txt && dist(t.x, t.z) < 90; if (v.rl.visible) { v.rl.position.set(v.mesh.position.x, v.mesh.position.y + 6.2, v.mesh.position.z); if (v.rlT !== txt) { setLabel(v.rl, txt); v.rlT = txt; } }
+      if (v.rsPrev > 0 && v.rsPrev <= 2 && t.rs > 10) { flashAt([t.x, t.y + 5, t.z], 6); for (let i = 0; i < 24; i++) burst(t.x, t.y + 5 + i * 0.6, t.z, 0xff4020, 2, 2, 0.6); audio.sfx('alarm', vol(dist(t.x, t.z)) * 0.6); } v.rsPrev = t.rs; }
   }
-  for (const [id, v] of view.turrets) if (!seen.has(id)) { scene.remove(v.mesh); if (v.mark) scene.remove(v.mark); if (v.scaf) scene.remove(v.scaf); if (v.ping) scene.remove(v.ping); if (v.hpb) scene.remove(v.hpb); view.turrets.delete(id); }
+  for (const [id, v] of view.turrets) if (!seen.has(id)) { if (v.rl) scene.remove(v.rl); scene.remove(v.mesh); if (v.mark) scene.remove(v.mark); if (v.scaf) scene.remove(v.scaf); if (v.ping) scene.remove(v.ping); if (v.hpb) scene.remove(v.hpb); view.turrets.delete(id); }
   seen.clear();
   for (const p of S.P) {
     if (p.id === G.myId) continue; seen.add(p.id); let v = view.players.get(p.id);
@@ -479,7 +483,7 @@ function syncView(S, dt) {
 }
 
 // ---------------------------------------------------------------- the marine you play
-const view2 = { gun: null };
+const view2 = { gun: null }; G.view2 = view2;
 const curGun = () => (G.me && G.me.slot === 1) ? SIDEARM : CLASSES[G.cls].gun;
 function stats() {
   const C = CLASSES[G.cls], g = curGun(), my0 = mine(state()) || {}, u = {};
@@ -499,7 +503,7 @@ function newMe() {
   // your own marine's arms on each gun (the Meshy model); the old block glove and hand only when those aren't loaded
   view2.arms = M.AS.fpArms(G.cls, view2.gun, 'two'); if (view2.arms) view2.gun.add(view2.arms); else { const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); view2.gun.add(glove); }
   for (const k of ['pistol', 'tool']) { const a = view2[k] && M.AS.fpArms(G.cls, view2[k], 'one'); if (a) view2[k].add(a); }
-  if (view2.hand) camera.remove(view2.hand); view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); camera.add(view2.hand); for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
+  if (view2.hand) camera.remove(view2.hand); view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); camera.add(view2.hand); if (view2.arms) { const la = M.AS.fpArms(G.cls, null, 'hand'); if (la) { for (const c of view2.hand.children) c.visible = false; view2.hand.add(la); } }   /* the old glove is swapped for your marine's own left arm; magazines it carries still show */ for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
 }
 const ray = { o: new THREE.Vector3(), d: new THREE.Vector3() };
 function aimRay(spread = 0) {
@@ -651,7 +655,6 @@ function animReload(me, gn, my, dt) {
   if (held) { const m = heldMesh(g, held === 3 ? 'rocket' : held === 4 ? 'shell' : 'mag'); m.visible = true; m.position.set(0, held === 3 ? -0.09 : -(m.userData.h / 2 + 0.03), held === 3 ? 0 : -0.01); m.rotation.set(0, held === 3 ? 0 : 0, 0); }
   // let go of the empty magazine once: it tumbles out of sight
   if (f >= 0.22 && f < 0.5 && !(me.rs & 64) && u.mag) { me.rs |= 64; const m = new THREE.Mesh(u.mag.geometry, u.mag.material); m.scale.setScalar(0.55); hd.updateMatrixWorld(); const w = new THREE.Vector3(0, -(magH / 2 + 0.03), -0.01); hd.localToWorld(w); camera.worldToLocal(w); m.position.copy(w); m.quaternion.copy(hd.quaternion); camera.add(m); view2.drops.push({ m, t: 0, vy: -0.5 }); }
-  if (view2.arms) hd.visible = false;   // your real marine arms hold the gun: no floating old-style hand
 }
 function startReload(st, S) { const g = curGun(), me = G.me; if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.42; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
 function surface(me) {
@@ -978,7 +981,7 @@ function openShop(on) { G.shop = on; $('shop').hidden = !on; if (on) { G.me.plac
 let last = performance.now(), netT = 0, poseT = 0;
 function frame(now) {
   G.wdT = (G.wdT || 0) + 1; if (G.wdT > 60) { G.wdT = 0; audio.watchdog(); if (G.on && !audio.ok() && performance.now() - (G.sndWarn || 0) > 12000) { G.sndWarn = performance.now(); toast('🔇 Your browser is blocking the sound: click in the game (or press any key) to turn it on.', 5); } if (music.a && music.a.ctx && music.a.ctx.state !== 'running') music.a.ctx.resume().catch(() => { }); }
-  requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; G.time += dt;
+  requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; G.time += dt; M.AS.CAM.copy(camera.position);
   if (hits[KB.music]) toast(music.toggle() ? 'Music on (N)' : 'Music off (N)', 2);
   if (hits[KB.map] && G.on && !G.shop) { if (G.mmap) closeMissileMap(); else openMissileMap(''); }
   if (!G.on) { music.set('title'); if (G.W) renderer.render(scene, camera); clearHits(); return; }

@@ -55,10 +55,10 @@ const S = {
 export class Audio {
   constructor() { this.ctx = null; this.vol = 0.5; try { const v = +localStorage.getItem('hb-sfx'); if (localStorage.getItem('hb-sfx') !== null && v >= 0) this.vol = v; } catch (e) { } this.noise = {}; this.last = {}; }
   unlock() {
-    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.chain(); let i = 0; const kinds = ['rifle', 'pistol', 'shotgun', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
+    if (!this.ctx) { try { const AC = window.AudioContext || window.webkitAudioContext; try { this.ctx = new AC({ latencyHint: 'playback' }); } catch (e) { this.ctx = new AC(); } /* a bigger buffer: the browser can't run dry when a frame is slow */ this.chain(); let i = 0; const kinds = ['rifle', 'pistol', 'shotgun', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
     if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') this.ctx.resume().catch(() => { });
     // iPhone and iPad: playing a silent HTML audio element moves the page into the "media" sound category, so the game is heard even with the silent switch on
-    if (!this.el) { try { const n = 8000, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, s) => [...s].forEach((ch, i) => b[o + i] = ch.charCodeAt(0)); w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true); b.fill(128, 44);
+    if (!this.el && /iPad|iPhone|iPod/.test(navigator.userAgent + (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform) ? 'iPad' : ''))) { try { const n = 8000, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, s) => [...s].forEach((ch, i) => b[o + i] = ch.charCodeAt(0)); w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true); b.fill(128, 44);
       const url = URL.createObjectURL(new Blob([b], { type: 'audio/wav' })); this.el = new window.Audio(url); this.el.loop = true; this.el.volume = 0.01; this.el.setAttribute('playsinline', ''); } catch (e) { this.el = 1; } }
     if (this.el && this.el.play && this.el.paused) this.el.play().catch(() => { });
   }
@@ -85,7 +85,7 @@ export class Audio {
     this.mon = c.createAnalyser(); this.mon.fftSize = 256; this.lim.connect(this.mon); this.monBuf = new Float32Array(256);
     if (!this.out) { this.out = c.createGain(); this.out.gain.value = 0.8; } this.out.connect(this.comp);
     // a made-up impulse response: a long, dark, decaying rumble, like shots echoing off cliffs
-    const len = c.sampleRate * 2.6, ir = c.createBuffer(2, len, c.sampleRate);
+    const len = c.sampleRate * 1.6, ir = c.createBuffer(2, len, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < len; i++) { const t = i / len; lp += (Math.random() * 2 - 1 - lp) * (0.35 - t * 0.25); d[i] = lp * Math.pow(1 - t, 2.4) * (i < 400 ? i / 400 : 1); } }
     this.verb = c.createConvolver(); this.verb.buffer = ir; if (!this.verbIn) { this.verbIn = c.createGain(); this.verbIn.gain.value = 0.4; } this.verbIn.connect(this.verb); this.verb.connect(this.out);
   }
@@ -96,8 +96,7 @@ export class Audio {
     if ((this.live || 0) > 0 && performance.now() - (this.liveT || 0) > 3000) this.live = 0;
     if (this.mon && c.state === 'running') { this.mon.getFloatTimeDomainData(this.monBuf); let bad = false, peak = 0; for (let i = 0; i < this.monBuf.length; i++) { const v = this.monBuf[i]; if (!isFinite(v)) { bad = true; break; } peak = Math.max(peak, Math.abs(v)); }
       // dead air while music should be playing means the browser's audio got stuck: count it, and after a few seconds restart
-      this.dead = !bad && peak === 0 && this.expectSound && this.expectSound() ? (this.dead || 0) + 1 : 0;
-      if (bad || this.dead >= 4) { this.dead = 0; this.restart(); } }
+      if (bad) this.restart(); }
   }
   // throw the whole sound engine away and build a new one (the next click or key turns it on); used when audio gets stuck
   restart() {
@@ -158,7 +157,7 @@ export class Audio {
       const src = c.createBufferSource(); src.buffer = b; src.playbackRate.value = 0.96 + Math.random() * 0.08; const g = c.createGain(); g.gain.value = vol * this.vol * 0.8; src.connect(g); g.connect(this.out || c.destination); if (this.verbIn) { const sd = c.createGain(); sd.gain.value = 0.05; g.connect(sd); sd.connect(this.verbIn); } src.start(); return; }
     const d = S[name]; if (!c || !d || c.state !== 'running' || vol < 0.03) return; const t0 = c.currentTime;
     // never pile up too many synthesized sounds at once: that is what makes the browser drop audio
-    if ((this.sfxN || 0) > 48) return; this.sfxN = (this.sfxN || 0) + 1; setTimeout(() => { this.sfxN--; }, 600);
+    if ((this.sfxN || 0) > 32) return; this.sfxN = (this.sfxN || 0) + 1; setTimeout(() => { this.sfxN--; }, 600);
     if (this.last[name] && t0 - this.last[name] < 0.03) return; this.last[name] = t0;
     for (const p of d) {
       const g = c.createGain(); g.connect(this.out || c.destination);

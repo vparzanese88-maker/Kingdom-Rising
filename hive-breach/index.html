@@ -195,6 +195,7 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 #hud .slot.sp{color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold),0 0 10px rgba(255,201,64,.35)}
 #hud #slots .gap{width:14px}
 #hud .kits{align-self:center;font:600 16px/1 "Share Tech Mono",monospace;color:var(--hc);text-align:center;margin-right:4px;letter-spacing:1px;text-shadow:0 0 6px var(--hc)}#hud .kits small{display:block;font-size:8px;letter-spacing:.2em;color:#7fa2b6;margin-top:2px}
+#info{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(760px,94vw);max-height:80vh;overflow:auto;padding:12px 18px!important;font-size:13px}#info h2{margin:0 0 2px;color:var(--hc)}#info .gg{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:8px 0}#info .gi{display:flex;gap:8px;align-items:flex-start}#info .gi .ic{width:30px;height:30px;flex:none;color:var(--hc)}#info .gk{font:600 11px 'Share Tech Mono',monospace;color:var(--gold);min-width:30px;padding-top:2px}#info .gi p{margin:1px 0;color:#c4d2de;line-height:1.3}#info .gi small{color:#8fb0c4;font-size:11px}@media (max-width:700px){#info .gg{grid-template-columns:1fr}}
 #weld{position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);width:220px;text-align:center}#weldT{font:600 11px/1.2 Rajdhani,sans-serif;letter-spacing:.25em;color:#bff0ff;text-shadow:0 0 6px #3090ff,0 1px 2px #000}#weld .wb{height:6px;margin-top:3px;background:rgba(95,216,255,.15);box-shadow:inset 0 0 0 1px rgba(95,216,255,.5)}#weld .wb i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3090ff,#bff0ff);box-shadow:0 0 10px #5fd8ff;transition:width .1s}#weld.rep .wb i{background:linear-gradient(90deg,#3df08a,#c0ffd8);box-shadow:0 0 8px #3df08a}
 #slotName{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:#cfe6f2;text-shadow:0 1px 3px #000;white-space:nowrap}
 #prompt{background:var(--glass);border:0;border-radius:0;box-shadow:inset 0 0 0 1px var(--hcd);font-size:13px;letter-spacing:.04em}
@@ -207,16 +208,16 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795366359",
-"./src/data.js": "./src/data.js?v=1795366359",
-"./src/explore.js": "./src/explore.js?v=1795366359",
-"./src/icons.js": "./src/icons.js?v=1795366359",
-"./src/main.js": "./src/main.js?v=1795366359",
-"./src/models.js": "./src/models.js?v=1795366359",
-"./src/music.js": "./src/music.js?v=1795366359",
-"./src/net.js": "./src/net.js?v=1795366359",
-"./src/sim.js": "./src/sim.js?v=1795366359",
-"./src/world.js": "./src/world.js?v=1795366359"
+"./src/audio.js": "./src/audio.js?v=1795366585",
+"./src/data.js": "./src/data.js?v=1795366585",
+"./src/explore.js": "./src/explore.js?v=1795366585",
+"./src/icons.js": "./src/icons.js?v=1795366585",
+"./src/main.js": "./src/main.js?v=1795366585",
+"./src/models.js": "./src/models.js?v=1795366585",
+"./src/music.js": "./src/music.js?v=1795366585",
+"./src/net.js": "./src/net.js?v=1795366585",
+"./src/sim.js": "./src/sim.js?v=1795366585",
+"./src/world.js": "./src/world.js?v=1795366585"
 }
 }
 </script>
@@ -241,7 +242,7 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
   <div id="dead" hidden>YOU ARE DOWN<div id="deadT" style="font-size:16px;color:#fff"></div></div>
   <div id="bl" class="panel"><div id="clsName"></div><div id="hpBox"><span id="hpTxt"></span><div class="bar"><i id="hpBar"></i></div></div><div id="status"></div></div>
   <div id="br" class="panel"><div><span id="ammo"></span> <span id="reserve"></span></div><div id="rounds"><i id="roundsBar"></i></div><div id="gunName"></div><div id="ammoWarn" hidden></div></div>
-  <div id="kit" class="panel" hidden></div>
+  <div id="kit" class="panel" hidden></div><div id="info" class="panel" hidden></div>
   <div id="lore" class="panel" hidden><div id="loreT"></div><div id="loreX"></div></div>
   <div id="weld" hidden><div id="weldT"></div><div class="wb"><i id="weldBar"></i></div></div><div id="slotName"></div><div id="slots"></div>
   <div id="board" class="panel" hidden><table id="boardT"></table></div>
@@ -282,12 +283,12 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
     <b>X</b><span>Use the special from a supply crate</span>
     <b>Right click</b><span>Aim down the sights with any gun (zoom, tighter spread); the Sniper's rail rifle uses its scope; the Gunner's minigun also spins up</span>
     <b>E</b><span>Pick up any turret (you carry it at walking speed, it can't shoot and takes double damage; left click or a weapon change puts it down) · salvage ammo from downed dropships · vehicles</span>
-    <b>H · M · N</b><span>Class card · live map · music on or off</span>
+    <b>H · K · M · N</b><span>Class card · full gear guide (what every weapon, item and structure does) · live map · music on or off</span>
     <b>Hub</b><span>Inside the hub walls you heal and refill your spare ammo, turret kits, field dressings and welder power. Supply drops (yellow diamonds on the minimap) also carry ammo. Climb the ramps to patrol the walls</span>
     <b>Scrap</b><span>Scrap piles (gold markers, gold dots on the minimap) lie all over the map and fall from dead aliens: just run over them. Welding an upgrade onto a turret or barricade costs scrap (15 for level 2, 30 for level 3); the counter is under your gold</span>
     <b>Y</b><span>Look at one of your turrets: sell it. Weld upgrades on with the laser (3); turrets keep firing while you weld</span>
-    <b>B</b><span>At the comms console in the hub: recruit and upgrade reinforcements. No marine upgrades: spend gold on turrets and recruits</span>
-    <b>Swarm</b><span>After a 75 second build countdown the aliens never stop coming; every 60 s the threat level rises</span>
+    <b>B</b><span>At the comms console in the hub: recruit and upgrade reinforcements, or change class (your turrets and barricades are sold when you swap). No marine upgrades: spend gold on turrets and recruits</span>
+    <b>Swarm</b><span>After a 5 second countdown (everyone frozen in the hub, no head start) the aliens never stop coming; every 60 s the threat level rises</span>
     <b>M</b><span>Music on or off</span>
     <b>Tab</b><span>Squad scores</span>
   </div>
@@ -295,6 +296,6 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795366359"></script>
+<script type="module" src="./src/main.js?v=1795366585"></script>
 </body>
 </html>

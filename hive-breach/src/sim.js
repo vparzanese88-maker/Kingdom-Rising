@@ -13,7 +13,7 @@ export const SCRAP_COST = [0, 15, 30], SCRAP_PILES = 150;   // field dressings: 
 export const BUILD = { teleporter: 3, pulse: 4,  ammocache: 2,  resupply: 5, uav: 3,  minigun: 4, tesla: 5, missile: 6, barricade: 3, repair: 4, stasis: 3, flamer: 4, railgun: 6, mines: 2, beacon: 3, mortar: 5, medbay: 4 };
 export function pickSpecial() { const e = Object.entries(SPECIALS), tot = e.reduce((a, [, v]) => a + v.w, 0); let r = Math.random() * tot; for (const [k, v] of e) { r -= v.w; if (r <= 0) return k; } return 'stim'; }
 export const LEVEL_T = 60, DROP_FALL = 9, DROP_LIFE = 60;
-export const START_GOLD = 350, FIRST_COUNT = 75, NEXT_COUNT = 25;
+export const START_GOLD = 350, FIRST_COUNT = 5, NEXT_COUNT = 25;
 export function maxHp(cls, ups) { return CLASSES[cls].hp + 25 * (ups.hp || 0); }
 export function tStat(t) { const T = TURRETS[t.kind], l = t.lvl - 1; return { mark: T.mark ? T.mark + 0.1 * l : 0, range: (T.range || 0) * LV.rng[l], dmg: (T.dmg || 0) * LV.dmg[l], rate: (T.rate || 0) * LV.rate[l], heal: (T.heal || 0) * LV.dmg[l], chain: (T.chain || 0) + l, slow: T.slow ? Math.max(0.25, T.slow - l * 0.08) : 0, splash: T.splash || 0 }; }
 export function upgradeCost(t) { return t.lvl >= 3 ? 0 : Math.round(TURRETS[t.kind].cost * UPG_COST[t.lvl]); }
@@ -63,6 +63,12 @@ export class Sim {
       if (this.time - (p.salT ?? -99) < 30) return; p.salT = this.time; const pm = pwMax(p.cls); p.pw = Math.min(pm, (p.pw ?? pm) + pm * 0.5);
     } else if (r.a === 'dress') {
       if ((p.dr ?? DRESS) < 1 || p.hp >= p.mhp) return; p.dr = (p.dr ?? DRESS) - 1; p.hp = Math.min(p.mhp, p.hp + 40); this.emit({ k: 'dressed', to: id });
+    } else if (r.a === 'cls') {
+      // change class in the hub: every turret and barricade you own is sold first
+      if (!CLASSES[r.cls] || r.cls === p.cls) return; if (!this.W.T.hubAt(p.x, p.z)) return say('Change class inside the hub.');
+      let refund = 0, n = 0; this.turrets = this.turrets.filter(t => { if (t.owner !== id) return true; refund += Math.round(t.spent * 0.6 * t.hp / t.mhp); n++; this.emit({ k: 'boom', x: t.x, y: 0.5, z: t.z, r: 1.5, small: 1 }); return false; });
+      p.gold += refund; const f = p.hp / p.mhp; p.cls = r.cls; p.items = CLASSES[r.cls].throw.n; p.mhp = maxHp(r.cls, p.ups); p.hp = Math.max(1, Math.round(p.mhp * f)); p.pw = pwMax(r.cls); p.special = p.special || '';
+      this.emit({ k: 'swapped', to: id, cls: r.cls, n, refund }); this.emit({ k: 'toast', m: `${p.name} is now a ${CLASSES[r.cls].name}.` });
     } else if (r.a === 'carry') {
       const t = this.turrets.find(q => q.id === r.id); if (!t || t.carry || this.turrets.some(q => q.carry === id)) return; if (Math.hypot(t.x - p.x, t.z - p.z) > 6) return;
       t.carry = id; this.emit({ k: 'carry', id: t.id, by: id });

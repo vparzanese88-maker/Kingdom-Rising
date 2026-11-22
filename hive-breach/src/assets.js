@@ -219,7 +219,9 @@ export function alienGLB(type, ref) {
   if (!src.userData.box) src.userData.box = new THREE.Box3().setFromObject(src.scene);
   const sb = src.userData.box, ss = sb.getSize(new THREE.Vector3()), rs = ref.getSize(new THREE.Vector3());
   const s = Math.max(rs.x, rs.z) / Math.max(ss.x, ss.z, 0.001) * (type === 'flyer' ? 1.1 : 1); holder.scale.setScalar(s); holder.position.y = (type === 'flyer' ? ref.min.y : 0) - sb.min.y * s;
-  const u = { type, body, glb: true, legs: [], arms: [], wings: [], sacs: [], root };
+  // own copies of the materials, lit a little from within by their own texture (they read as black silhouettes in the warm light otherwise), so each alien can flash when hit
+  const mats = []; root.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xffffff); o.material.emissiveMap = o.material.map; o.material.emissiveIntensity = 0.3; mats.push(o.material); } });
+  const u = { type, body, glb: true, legs: [], arms: [], wings: [], sacs: [], root, mats };
   if (src.animations.length) {
     u.mixer = new THREE.AnimationMixer(root); u.act = {};
     for (const [k, re] of Object.entries(ACLIP)) { const c = src.animations.find(a => re.test(a.name)); if (!c) continue; const a = u.mixer.clipAction(c); if (k === 'die' || k === 'pounce') { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } u.act[k] = a; }

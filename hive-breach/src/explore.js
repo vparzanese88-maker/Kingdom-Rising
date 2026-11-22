@@ -427,6 +427,7 @@ export function dropIntro(H, squad, done) {
     for (const o of [space, st, ...wing.map(w => w.m)]) scene.remove(o); for (const s of streaks) pod.remove(s); for (const c of clouds) scene.remove(c);
     pod.position.set(padX, padY - 0.3, padZ); pod.rotation.set(0, doorYaw, 0); W.group.attach(pod); W.group.attach(pad); for (const o of shell) o.visible = true; fl.material.opacity = 0; pod.userData.heat.material.opacity = 0;
     if (meBody.parent) meBody.parent.remove(meBody);
+    red.intensity = 3; blue.intensity = 1.2; strobe.emissiveIntensity = 1.5;   // emergency lighting stays on in the landed pod
     // the pod's wall: a ring of small posts you can't walk through, open where the door was (straight ahead of your seat)
     pod.updateMatrixWorld(true); for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, rel = Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2)); if (Math.abs(rel) < 0.55) continue; const p = pod.localToWorld(V(Math.cos(a) * 1.95, 0, Math.sin(a) * 1.95)); W.colliders.push({ x: p.x, z: p.z, r: 0.42, h: 4.5, gy: padY }); }
     W.group.visible = true; scene.background = bg0; scene.fog = fog0; G.cineFog = false; heat.remove(); hud.remove(); document.body.classList.remove('pov'); A.rumble(0); if (MU && MU.endScore) MU.endScore();

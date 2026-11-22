@@ -88,6 +88,10 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 #title .row.six{grid-template-columns:repeat(6,1fr);gap:8px}#title .row.three{grid-template-columns:repeat(3,1fr);gap:8px}#title .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 #title .pick{padding:7px 10px}#title .pick h3{font-size:16px}#title .pick p{font-size:12px;margin:2px 0;line-height:1.3}#title .go{margin-top:14px}#title .hint{margin:8px 0 0}#title #netStatus{margin:6px 0 0;min-height:0}
 @media (max-width:900px){#title .row.six{grid-template-columns:repeat(3,1fr)}#title .two{grid-template-columns:1fr}#title{overflow:auto!important}}
+#lowhp{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,transparent 32%,rgba(140,0,0,.6) 68%,rgba(50,0,0,.97));transition:opacity .25s;mix-blend-mode:multiply}
+#kc{position:absolute;left:50%;top:calc(50% + 34px);transform:translate(-50%,0);font:700 20px 'Chakra Petch',sans-serif;color:#ffd060;text-shadow:0 0 8px #000,0 0 2px #000;letter-spacing:.12em;opacity:0;transition:opacity .4s,transform .09s;pointer-events:none;white-space:nowrap}#kc.big{color:#ff7040;font-size:26px}
+#obj{position:absolute;transform:translate(-50%,-50%);pointer-events:none;text-align:center;font:700 12px 'Chakra Petch',sans-serif;color:#9fe8ff;text-shadow:0 0 6px #000;letter-spacing:.12em}#obj i{display:block;width:14px;height:14px;margin:0 auto 3px;border:2px solid currentColor;transform:rotate(45deg)}#obj.red{color:#ff6a50}
+#endStats{display:flex;gap:18px;justify-content:center;margin:10px 0 4px;flex-wrap:wrap}#endStats div{font-size:13px;color:#9fb4c4;text-transform:uppercase;letter-spacing:.1em}#endStats b{display:block;font-size:30px;color:#fff;letter-spacing:0}
 #lbT,#lbB{position:fixed;left:0;right:0;height:0;background:#000;z-index:19;transition:height 1.2s ease}#lbT{top:0}#lbB{bottom:0}body.cine #lbT,body.cine #lbB{height:11vh}
 #cap{position:fixed;left:0;right:0;bottom:13vh;text-align:center;z-index:21;pointer-events:none;opacity:0;transition:opacity .8s;font-family:Rajdhani,'Segoe UI',sans-serif;text-shadow:0 2px 12px #000}#cap.on{opacity:1}#capA{font-size:clamp(24px,4.4vw,46px);font-weight:700;letter-spacing:.42em;color:#fff}#capB{font-size:clamp(13px,1.7vw,19px);letter-spacing:.18em;color:#cfe6f2;margin-top:6px}
 body.cine #banner{display:none!important}body.cine.pov #lbT,body.cine.pov #lbB{height:0}
@@ -140,8 +144,8 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 #prompt .bad{color:var(--warn)}
 #toasts{position:absolute;left:12px;top:110px;display:flex;flex-direction:column;gap:4px;max-width:380px}
 #toasts div{background:var(--panel);border-left:3px solid var(--acc);padding:5px 10px;font-size:13px;border-radius:3px}
-#banner{position:absolute;left:50%;top:26%;transform:translateX(-50%);text-align:center;text-shadow:0 2px 12px #000}
-#bannerA{font-size:clamp(36px,7vw,64px);font-weight:900;letter-spacing:.15em}
+#banner{position:absolute;left:50%;top:24%;transform:translateX(-50%);text-align:center;text-shadow:0 2px 12px #000}
+#bannerA{font-size:clamp(22px,3vw,38px);font-weight:900;letter-spacing:.15em}
 #bannerB{font-size:18px;color:var(--gold);letter-spacing:.1em}
 #dead{position:absolute;left:50%;top:40%;transform:translateX(-50%);text-align:center;font-size:28px;font-weight:800;color:var(--warn);text-shadow:0 2px 10px #000}
 #board{position:absolute;left:50%;top:22%;transform:translateX(-50%)}
@@ -223,7 +227,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 .small{font-size:14px}.pick p{font-size:15px}.pick .kit{font-size:14px}.keys{font-size:15px}.sub{font-size:18px}
 #waveTxt{font-size:19px;letter-spacing:.12em}#waveInfo{font-size:14px;letter-spacing:.02em;color:#d0e2ee}#hubTxt{font-size:12px;letter-spacing:.15em}
 #goldBox{font-size:21px}#scrapBox{font-size:17px}#mapName,#hudCode{font-size:12px;letter-spacing:.06em}
-#toasts{max-width:420px}#toasts div{font-size:15px;letter-spacing:0;padding:4px 12px}
+#toasts{max-width:min(420px,calc(50vw - 190px))}#toasts div{font-size:15px;letter-spacing:0;padding:4px 12px}
 #prompt{font-size:16px;letter-spacing:0;padding:7px 16px}
 #clsName{font-size:13px;letter-spacing:.2em}#hpTxt{font-size:18px}
 #status span{font-size:13px;padding:1px 6px;letter-spacing:0}
@@ -231,7 +235,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 #slotName{font-size:15px;letter-spacing:.15em;bottom:66px}
 #hud .slot b{font-size:12px}#hud .slot i{font-size:12px}
 #weldT{font-size:14px;letter-spacing:.15em}
-#bannerB{font-size:19px;letter-spacing:.06em;max-width:min(900px,90vw);margin:6px auto 0;line-height:1.35}
+#bannerB{font-size:16px;letter-spacing:.06em;max-width:min(700px,70vw);margin:6px auto 0;line-height:1.35}
 #capB{font-size:clamp(15px,1.9vw,21px);letter-spacing:.06em}
 #kit{font-size:14px;width:min(360px,42vw)}#lore{font-size:15px}
 #hunt{font-size:16px}#dead{font-size:30px}#deadT{font-size:18px!important}
@@ -251,17 +255,17 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/assets.js": "./src/assets.js?v=1795389729",
-"./src/audio.js": "./src/audio.js?v=1795389729",
-"./src/data.js": "./src/data.js?v=1795389729",
-"./src/explore.js": "./src/explore.js?v=1795389729",
-"./src/icons.js": "./src/icons.js?v=1795389729",
-"./src/main.js": "./src/main.js?v=1795389729",
-"./src/models.js": "./src/models.js?v=1795389729",
-"./src/music.js": "./src/music.js?v=1795389729",
-"./src/net.js": "./src/net.js?v=1795389729",
-"./src/sim.js": "./src/sim.js?v=1795389729",
-"./src/world.js": "./src/world.js?v=1795389729"
+"./src/assets.js": "./src/assets.js?v=1795390804",
+"./src/audio.js": "./src/audio.js?v=1795390804",
+"./src/data.js": "./src/data.js?v=1795390804",
+"./src/explore.js": "./src/explore.js?v=1795390804",
+"./src/icons.js": "./src/icons.js?v=1795390804",
+"./src/main.js": "./src/main.js?v=1795390804",
+"./src/models.js": "./src/models.js?v=1795390804",
+"./src/music.js": "./src/music.js?v=1795390804",
+"./src/net.js": "./src/net.js?v=1795390804",
+"./src/sim.js": "./src/sim.js?v=1795390804",
+"./src/world.js": "./src/world.js?v=1795390804"
 }
 }
 </script>
@@ -273,7 +277,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 <div id="lbT"></div><div id="lbB"></div><div id="cap"><div id="capA"></div><div id="capB"></div></div>
 
 <div id="hud" hidden>
-  <div id="hurt"></div>
+  <div id="hurt"></div><div id="lowhp"></div><div id="kc"></div><div id="obj" hidden><i></i><span id="objT"></span></div>
   <div id="scope" hidden></div>
   <div id="cross"></div><div id="hit"></div><div id="dirs"></div><div id="arrows"></div>
   <div id="hunt" hidden><span id="huntT"></span></div>
@@ -297,7 +301,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 <div id="shop" class="screen" hidden><div class="card"><h2>Comms console</h2><div id="shopList"></div><p class="small">B or Esc to close. The battle keeps going, so be quick.</p></div></div>
 <div id="pause" class="screen" hidden><div class="card"><h2>Paused</h2><p class="small">Click anywhere to keep fighting.</p><p><button class="btn" id="btnResume">Resume</button></p><p><button class="btn alt" id="btnSet2">Settings</button></p><p><button class="btn alt" id="btnQuit">Quit to title</button></p></div></div>
 <div id="settings" class="screen" hidden><div class="card"><h2>Settings</h2><div class="tabs"><button data-tab="video" class="on">Video</button><button data-tab="audio">Audio</button><button data-tab="controls">Controls</button></div><div id="setBody"></div><p><button class="btn" id="setClose">Done</button></p></div></div>
-<div id="end" class="screen" hidden><div class="card"><h2 id="endTitle"></h2><p id="endText"></p><p id="endKey"></p><button class="btn" id="btnFob" hidden>Continue: extraction to the forward base</button> <button class="btn" id="btnAgain">Try again</button> <button class="btn alt" id="btnEndQuit">Quit to title</button></div></div>
+<div id="end" class="screen" hidden><div class="card"><h2 id="endTitle"></h2><p id="endText"></p><div id="endStats"></div><p id="endKey"></p><button class="btn" id="btnFob" hidden>Continue: extraction to the forward base</button> <button class="btn" id="btnAgain">Try again</button> <button class="btn alt" id="btnEndQuit">Quit to title</button></div></div>
 
 <div id="title" class="screen"><div class="card">
   <h1>OWFR <span>Team Foxtrot</span></h1>
@@ -317,6 +321,6 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795389729"></script>
+<script type="module" src="./src/main.js?v=1795390804"></script>
 </body>
 </html>

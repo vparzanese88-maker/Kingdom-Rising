@@ -19,6 +19,9 @@ const S = {
   screech: [[1700, 900, 0.3, 'sawtooth', 0.07]],
   roar: [['n', 300, 1.2, 0.5], [70, 40, 1.2, 'sawtooth', 0.25]],
   spit: [['n', 1800, 0.15, 0.12], [400, 200, 0.1, 'triangle', 0.08]],
+  heart: [[62, 48, 0.12, 'sine', 0.55], [56, 44, 0.14, 'sine', 0.42, 0.17]],
+  pingS: [[1320, 1320, 0.07, 'sine', 0.12], [1760, 1760, 0.12, 'sine', 0.1, 0.08]],
+  alarmS: [[880, 880, 0.08, 'triangle', 0.12], [660, 660, 0.12, 'triangle', 0.12, 0.1]],
   alarm: [[330, 322, 0.55, 'sawtooth', 0.045], [165, 161, 0.55, 'square', 0.03], [262, 256, 0.55, 'sawtooth', 0.045, 0.62], [131, 128, 0.55, 'square', 0.03, 0.62]],   // a deep two-tone military klaxon
   wave: [[392, 392, 0.15, 'square', 0.12], [523, 523, 0.15, 'square', 0.12, 0.15], [784, 784, 0.4, 'square', 0.12, 0.3]],
   win: [[523, 523, 0.15, 'square', 0.14], [659, 659, 0.15, 'square', 0.14, 0.15], [784, 784, 0.15, 'square', 0.14, 0.3], [1047, 1047, 0.6, 'square', 0.14, 0.45]],
@@ -73,6 +76,12 @@ export class Audio {
     R.g.gain.setTargetAtTime(v * 0.55, t, 0.15); R.g2.gain.setTargetAtTime(v * v * 0.25, t, 0.2); R.lo.frequency.setTargetAtTime(80 + level * 180, t, 0.2); R.bp.frequency.setTargetAtTime(300 + level * 1400 + Math.random() * 200, t, 0.1);
     if (level <= 0 && R) { setTimeout(() => { if (this.rmb === R && R.g.gain.value < 0.01) { try { R.src.stop(); R.src2.stop(); } catch (e) { } this.rmb = null; } }, 2500); }
   }
+  // battlefield ambience: a soft bed of wind that never stops (level 0 fades it out)
+  ambient(level) {
+    const c = this.ctx; if (!c || !this.out) return;
+    if (!this.amb) { const src = c.createBufferSource(); src.buffer = this.buf(3); src.loop = true; const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.6; const g = c.createGain(); g.gain.value = 0; const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 0.09; lg.gain.value = 180; lfo.connect(lg); lg.connect(bp.frequency); src.connect(bp); bp.connect(g); g.connect(this.out); src.start(); lfo.start(); this.amb = { g }; }
+    this.amb.g.gain.setTargetAtTime(Math.max(0, level) * this.vol * 0.07, c.currentTime, 0.8);
+  }
   // is sound actually able to play right now?
   ok() { return !!this.ctx && this.ctx.state === 'running'; }
   // everything goes through a compressor (so a wall of gunfire stays loud without crackling) and a battlefield echo
@@ -100,7 +109,7 @@ export class Audio {
   }
   // throw the whole sound engine away and build a new one (the next click or key turns it on); used when audio gets stuck
   restart() {
-    const old = this.ctx; this.ctx = null; this.out = null; this.verbIn = null; this.noise = {}; this.sb = null; this.fb = null; this.rmb = null; this.last = {}; this.vox = []; try { old && old.close(); } catch (e) { }
+    const old = this.ctx; this.ctx = null; this.out = null; this.verbIn = null; this.noise = {}; this.sb = null; this.fb = null; this.rmb = null; this.amb = null; this.last = {}; this.vox = []; try { old && old.close(); } catch (e) { }
     if (this.onRestart) this.onRestart(); this.unlock();
   }
   noiseN(f0, f1, type, dur, v, t0, dest, q = 0.7) { const c = this.ctx, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = this.buf(Math.max(0.05, dur)); fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t0); if (f1 !== f0) fl.frequency.exponentialRampToValueAtTime(f1, t0 + dur); s.connect(fl); fl.connect(g); g.connect(dest); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur); s.start(t0); s.stop(t0 + dur + 0.02); return g; }

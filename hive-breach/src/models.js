@@ -20,7 +20,16 @@ export const K = (g, r, h, c, x, y, z, o) => add(g, cone(r, h), typeof c === 'nu
 // ---------------------------------------------------------------- marines
 export function gunModel(cls, color) {
   const g = new THREE.Group(), dark = 0x2a2e34, metal = 0x5a626c;
-  if (cls === 'heavy') { C(g, 0.11, 0.11, 0.9, dark, 0, 0, -0.25).rotation.x = Math.PI / 2; B(g, 0.16, 0.2, 0.3, color, 0, -0.04, 0.05); B(g, 0.06, 0.16, 0.08, dark, 0, -0.17, 0.08); C(g, 0.13, 0.13, 0.06, metal, 0, 0, -0.7).rotation.x = Math.PI / 2; B(g, 0.05, 0.08, 0.14, 0x40ff80, 0.1, 0.08, -0.1, { e: 0x20a040 }); }
+  if (cls === 'gunner') {
+    B(g, 0.22, 0.22, 0.4, color, 0, -0.02, 0.1); B(g, 0.08, 0.2, 0.1, dark, 0, -0.2, 0.15); B(g, 0.3, 0.1, 0.12, dark, 0, 0.17, 0.05);
+    const bar = new THREE.Group(); bar.position.set(0, 0, -0.15); g.add(bar); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; C(bar, 0.025, 0.025, 0.75, metal, Math.cos(a) * 0.07, Math.sin(a) * 0.07, -0.35).rotation.x = Math.PI / 2; }
+    C(bar, 0.11, 0.11, 0.05, dark, 0, 0, -0.1).rotation.x = Math.PI / 2; C(bar, 0.11, 0.11, 0.05, dark, 0, 0, -0.68).rotation.x = Math.PI / 2; g.userData.spin = bar;
+    B(g, 0.18, 0.22, 0.25, 0x3a3a2a, 0.17, -0.08, 0.15); for (let i = 0; i < 5; i++) B(g, 0.03, 0.05, 0.03, 0xc8a040, 0.13 + i * 0.015, -0.2 - i * 0.03, 0.2);
+  } else if (cls === 'sniper') {
+    B(g, 0.08, 0.13, 0.5, dark, 0, 0, 0.05); B(g, 0.09, 0.16, 0.3, color, 0, -0.04, 0.32); C(g, 0.03, 0.035, 1.0, metal, 0, 0.02, -0.65).rotation.x = Math.PI / 2;
+    C(g, 0.05, 0.05, 0.36, 0x1a1a1a, 0, 0.13, -0.05).rotation.x = Math.PI / 2; C(g, 0.06, 0.06, 0.03, 0x60c0ff, 0, 0.13, -0.23, { e: 0x3080c0 }).rotation.x = Math.PI / 2; B(g, 0.05, 0.18, 0.07, dark, 0, -0.15, 0.08);
+    for (const z of [-0.4, -0.55, -0.7]) B(g, 0.07, 0.07, 0.04, 0x40d0ff, 0, 0.02, z, { e: 0x2090c0 });
+  } else if (cls === 'heavy') { C(g, 0.11, 0.11, 0.9, dark, 0, 0, -0.25).rotation.x = Math.PI / 2; B(g, 0.16, 0.2, 0.3, color, 0, -0.04, 0.05); B(g, 0.06, 0.16, 0.08, dark, 0, -0.17, 0.08); C(g, 0.13, 0.13, 0.06, metal, 0, 0, -0.7).rotation.x = Math.PI / 2; B(g, 0.05, 0.08, 0.14, 0x40ff80, 0.1, 0.08, -0.1, { e: 0x20a040 }); }
   else if (cls === 'engineer') { B(g, 0.1, 0.13, 0.5, dark, 0, 0, -0.15); B(g, 0.11, 0.06, 0.3, color, 0, 0.09, -0.1); B(g, 0.05, 0.18, 0.06, dark, 0, -0.14, 0); C(g, 0.03, 0.03, 0.2, 0x40c0ff, 0, 0, -0.48, { e: 0x2080ff }).rotation.x = Math.PI / 2; B(g, 0.04, 0.2, 0.07, metal, 0, -0.14, -0.2); }
   else { B(g, 0.09, 0.14, 0.7, dark, 0, 0, -0.2); B(g, 0.1, 0.07, 0.36, color, 0, 0.1, -0.15); B(g, 0.06, 0.2, 0.08, dark, 0, -0.16, 0.02); B(g, 0.07, 0.22, 0.1, metal, 0, -0.16, -0.25); C(g, 0.025, 0.025, 0.2, metal, 0, 0, -0.62).rotation.x = Math.PI / 2; B(g, 0.03, 0.03, 0.05, 0xff4040, 0, 0.15, -0.3, { e: 0xff2020 }); }
   return g;
@@ -124,6 +133,21 @@ export function turret(kind, color) {
     C(g, 0.12, 0.12, 1.6, metal, 1.0, 0.9, 1.0); S(g, 0.15, 0x40ff80, 1.0, 1.75, 1.0, 1, 1, 1, { e: 0x20c050 });
     head.position.y = 2.2; g.add(head); const d = new THREE.Group(); d.position.x = 1.1; head.add(d); B(d, 0.5, 0.18, 0.5, color, 0, 0, 0); for (const s of [-1, 1]) for (const t of [-1, 1]) C(d, 0.18, 0.18, 0.03, 0x111111, s * 0.35, 0.1, t * 0.35);
     S(d, 0.08, 0x40ff80, 0, -0.12, 0, 1, 1, 1, { e: 0x40ff80 }); parts.muzzle = new THREE.Vector3(0, 1.5, 0);
+  } else if (kind === 'flamer') {
+    head.position.y = 1.3; g.add(head); B(head, 0.8, 0.6, 1.0, metal, 0, 0, 0.1); B(head, 0.82, 0.12, 0.6, accent, 0, 0.32, 0.1);
+    for (const sd of [-1, 1]) { C(head, 0.25, 0.25, 0.9, 0xb04020, sd * 0.55, 0.05, 0.3).rotation.x = Math.PI / 2; C(head, 0.26, 0.26, 0.08, 0x2a2e34, sd * 0.55, 0.05, 0.75).rotation.x = Math.PI / 2; }
+    C(head, 0.09, 0.14, 0.7, dark, 0, -0.05, -0.65).rotation.x = Math.PI / 2; const pilot = S(head, 0.07, 0x40a0ff, 0, -0.05, -1.02, 1, 1, 1, { e: 0x2080ff, ei: 2 }); parts.pilot = pilot; parts.muzzle = new THREE.Vector3(0, 1.25, -1.05);
+  } else if (kind === 'railgun') {
+    head.position.y = 1.5; g.add(head); B(head, 0.7, 0.7, 0.9, metal, 0, 0, 0.2); B(head, 0.72, 0.15, 0.5, accent, 0, 0.38, 0.2);
+    for (const sd of [-1, 1]) B(head, 0.12, 0.2, 2.2, dark, sd * 0.2, 0, -1.0); for (let z = -0.3; z > -2; z -= 0.4) B(head, 0.5, 0.06, 0.06, 0x40d0ff, 0, 0.1, z, { e: 0x2090c0, ei: 1.5 });
+    parts.muzzle = new THREE.Vector3(0, 1.5, -2.1);
+  } else if (kind === 'mines') {
+    g.add(head); for (const [x, z] of [[-1.6, 0.4], [0, -0.3], [1.6, 0.5]]) { C(head, 0.42, 0.5, 0.18, 0x3a4030, x, 0.09, z); S(head, 0.09, 0xff3020, x, 0.22, z, 1, 1, 1, { e: 0xff1000, ei: 2 }); }
+    parts.muzzle = new THREE.Vector3(0, 0.3, 0);
+  } else if (kind === 'beacon') {
+    C(g, 0.5, 0.7, 0.4, base, 0, 0.2, 0); C(g, 0.08, 0.1, 3.2, metal, 0, 1.9, 0); head.position.y = 3.4; g.add(head); B(head, 1.6, 0.06, 0.25, accent, 0, 0, 0); S(head, 0.18, 0xff8030, 0, 0.25, 0, 1, 1, 1, { e: 0xff6010, ei: 2 });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(11.7, 12, 64), mat(0xff8030, { e: 0xff6010, op: 0.4, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.08; g.add(ring);
+    parts.muzzle = new THREE.Vector3(0, 3.5, 0);
   } else if (kind === 'stasis') {
     C(g, 0.6, 0.8, 0.4, base, 0, 0.2, 0); C(g, 0.18, 0.25, 1.6, metal, 0, 1.2, 0); S(g, 0.3, 0x6080ff, 0, 2.1, 0, 1, 1, 1, { e: 0x4060ff, ei: 2 });
     head.position.y = 2.1; g.add(head); for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.55 + i * 0.12, 0.03, 4, 20), mat(0x80a0ff, { e: 0x4060ff })); r.rotation.x = Math.PI / 2 + i * 0.5; head.add(r); }

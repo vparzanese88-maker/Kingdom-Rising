@@ -15,8 +15,8 @@ const MIX = {
   boss: { drums: 1, hat: 0.9, bass: 1, arp: 0.6, pad: 0.5, lead: 0.8 },
 };
 export class Music {
-  constructor(audio) { this.a = audio; this.mode = 'calm'; this.on = true; this.vol = 0.55; try { const v = JSON.parse(localStorage.getItem('hb-music') || 'null'); if (v) { this.on = v.on; this.vol = v.vol; } } catch (e) { } }
-  save() { try { localStorage.setItem('hb-music', JSON.stringify({ on: this.on, vol: this.vol })); } catch (e) { } }
+  constructor(audio) { this.a = audio; this.mode = 'calm'; this.on = true; this.vol = 0.75; try { const v = JSON.parse(localStorage.getItem('hb-music2') || 'null'); if (v) { this.on = v.on; this.vol = v.vol; } } catch (e) { } }
+  save() { try { localStorage.setItem('hb-music2', JSON.stringify({ on: this.on, vol: this.vol })); } catch (e) { } }
   start() {
     const c = this.a.ctx; if (!c || this.master) return;
     this.master = c.createGain(); this.master.gain.value = this.on ? this.vol * 2.4 : 0;

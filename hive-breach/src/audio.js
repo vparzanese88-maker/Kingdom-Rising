@@ -116,7 +116,9 @@ export class Audio {
   buf(dur) { const c = this.ctx, k = Math.round(dur * 100); if (this.noise[k]) return this.noise[k]; const n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), ch = b.getChannelData(0); for (let i = 0; i < n; i++) ch[i] = Math.random() * 2 - 1; return this.noise[k] = b; }
   // vol can be lowered for far-away sounds; a sound is not played twice within 30 ms
   sfx(name, vol = 1) {
-    const c = this.ctx, d = S[name]; if (!c || !d || c.state !== 'running' || vol < 0.03) return; const t0 = c.currentTime;
+    const c = this.ctx; if (c && FOLEY[name] && c.state === 'running') { const t0 = c.currentTime; if (this.last[name] && t0 - this.last[name] < 0.03) return; this.last[name] = t0; this.fb ??= {}; const b = this.fb[name] ??= FOLEY[name](c);
+      const src = c.createBufferSource(); src.buffer = b; src.playbackRate.value = 0.96 + Math.random() * 0.08; const g = c.createGain(); g.gain.value = vol * this.vol * 0.8; src.connect(g); g.connect(this.out || c.destination); if (this.verbIn) { const sd = c.createGain(); sd.gain.value = 0.05; g.connect(sd); sd.connect(this.verbIn); } src.start(); return; }
+    const d = S[name]; if (!c || !d || c.state !== 'running' || vol < 0.03) return; const t0 = c.currentTime;
     if (this.last[name] && t0 - this.last[name] < 0.03) return; this.last[name] = t0;
     for (const p of d) {
       const g = c.createGain(); g.connect(this.out || c.destination);
@@ -125,3 +127,27 @@ export class Audio {
     }
   }
 }
+
+// ---------------------------------------------------------------- weapon handling foley, rendered once: metal clicks with ringing parts, spring scrapes, thuds, cloth
+function fbuf(c, dur, fn) {
+  const sr = c.sampleRate, n = Math.floor(sr * dur), b = c.createBuffer(1, n, sr), d = b.getChannelData(0);
+  const click = (t0, amp, base, ring = 0.03, snap = 1) => { const s0 = Math.floor(t0 * sr), P = [1, 1.52, 2.31, 2.94, 3.76, 4.9].map(r => base * r * (0.96 + Math.random() * 0.08)); let lp = 0;
+    for (let i = 0; i < sr * 0.15 && s0 + i < n; i++) { const t = i / sr, w = Math.random() * 2 - 1; lp += 0.5 * (w - lp); let v = (w - lp) * Math.exp(-t / 0.0018) * snap * 1.4; for (let k = 0; k < P.length; k++) v += Math.sin(6.283 * P[k] * t + k) * Math.exp(-t / (ring / (1 + k * 0.5))) * 0.4 / (1 + k * 0.4); d[s0 + i] += v * amp; } };
+  const thud = (t0, amp, f = 120, dec = 0.05) => { const s0 = Math.floor(t0 * sr); let lp = 0, ph = 0; for (let i = 0; i < sr * dec * 5 && s0 + i < n; i++) { const t = i / sr; ph += 6.283 * f * (1 + 1.5 * Math.exp(-t / 0.008)) / sr; lp += 0.08 * ((Math.random() * 2 - 1) - lp); d[s0 + i] += (Math.sin(ph) * 0.8 + lp * 2) * Math.exp(-t / dec) * amp; } };
+  const scrape = (t0, dur, amp, lpf = 5000, hpf = 1200, rough = 0.6) => { const s0 = Math.floor(t0 * sr), m = Math.floor(dur * sr), al = 1 - Math.exp(-6.283 * lpf / sr), ah = 1 - Math.exp(-6.283 * hpf / sr); let l = 0, h = 0, g = 0, gt = 0;
+    for (let i = 0; i < m && s0 + i < n; i++) { const w = Math.random() * 2 - 1; l += al * (w - l); h += ah * (l - h); if (--gt <= 0) { gt = 20 + Math.random() * 160; g = 1 - rough + rough * Math.random(); } const e = Math.sin(Math.PI * i / m) ** 0.6; d[s0 + i] += (l - h) * e * g * amp * 2.5; } };
+  fn({ click, thud, scrape }); let mx = 0; for (let i = 0; i < n; i++) mx = Math.max(mx, Math.abs(d[i])); if (mx > 0) for (let i = 0; i < n; i++) d[i] *= 0.9 / mx;
+  for (let i = 0; i < Math.min(n, 64); i++) d[i] *= i / 64; return b;
+}
+const FOLEY = {
+  magout: c => fbuf(c, 0.32, ({ click, scrape }) => { click(0.005, 0.7, 2300, 0.02); scrape(0.02, 0.13, 0.55, 6000, 1500); click(0.15, 0.35, 1700, 0.03); }),
+  magin: c => fbuf(c, 0.32, ({ click, thud, scrape }) => { scrape(0.0, 0.07, 0.45, 5000, 1200); click(0.075, 1, 1450, 0.045); thud(0.075, 0.6, 150, 0.03); click(0.1, 0.3, 3100, 0.02); }),
+  bolt: c => fbuf(c, 0.42, ({ click, thud, scrape }) => { click(0.0, 0.5, 2200, 0.02); scrape(0.01, 0.08, 0.6, 7000, 2000); click(0.09, 0.7, 2800, 0.03); scrape(0.2, 0.04, 0.5, 7000, 2000); click(0.24, 1, 1700, 0.05); thud(0.24, 0.5, 180, 0.03); }),
+  slide: c => fbuf(c, 0.32, ({ click, thud, scrape }) => { scrape(0.0, 0.06, 0.6, 7000, 2200); click(0.06, 0.6, 3200, 0.025); click(0.14, 1, 2100, 0.04); thud(0.14, 0.4, 200, 0.02); }),
+  pump: c => fbuf(c, 0.42, ({ click, thud, scrape }) => { scrape(0.0, 0.09, 0.7, 3500, 500); click(0.09, 0.9, 1300, 0.04); thud(0.09, 0.6, 110, 0.04); scrape(0.16, 0.08, 0.6, 3500, 500); click(0.25, 1, 1600, 0.05); thud(0.25, 0.6, 120, 0.04); }),
+  shell: c => fbuf(c, 0.2, ({ click, thud, scrape }) => { scrape(0.0, 0.05, 0.35, 4500, 900); click(0.05, 0.7, 2500, 0.02); thud(0.05, 0.35, 220, 0.02); }),
+  magdrop: c => fbuf(c, 0.4, ({ click, thud }) => { thud(0.0, 1, 90, 0.06); click(0.0, 0.45, 900, 0.05); click(0.11, 0.3, 1150, 0.03); click(0.19, 0.15, 1000, 0.02); }),
+  pouch: c => fbuf(c, 0.3, ({ click, scrape }) => { scrape(0.0, 0.12, 0.7, 2800, 250, 0.9); scrape(0.1, 0.12, 0.5, 2400, 250, 0.9); click(0.06, 0.15, 700, 0.02, 0.3); }),
+  rocketload: c => fbuf(c, 0.6, ({ click, thud, scrape }) => { scrape(0.0, 0.34, 0.6, 2200, 180, 0.4); thud(0.34, 1, 80, 0.09); click(0.36, 0.6, 1300, 0.05); }),
+  beltin: c => fbuf(c, 0.45, ({ click, thud, scrape }) => { click(0.0, 0.6, 1800, 0.03); scrape(0.04, 0.16, 0.45, 6000, 1500, 0.9); for (let i = 0; i < 6; i++) click(0.05 + i * 0.025, 0.15, 3500, 0.01); click(0.25, 0.9, 1500, 0.045); thud(0.25, 0.6, 140, 0.04); }),
+};

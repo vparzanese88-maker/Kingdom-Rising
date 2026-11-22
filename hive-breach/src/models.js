@@ -355,6 +355,15 @@ export function watchtower() { // platform 7 m up on four legs, rails, a roof; s
   const st = new THREE.Group(); st.position.set(0, 0, 2.4); g.add(st); for (let i = 0; i < 18; i++) { const f = (i + 0.5) / 18; B(st, 1.8, 0.15, 0.75, wood, 0, 7 * f, 13.2 * (1 - f)); }
   for (const sd of [-1, 1]) { const rail = B(st, 0.08, 0.08, 14.8, steel, sd * 0.95, 4.4, 6.6); rail.rotation.x = Math.atan2(7, 13.2); }
   S(g, 0.25, 0xffd070, 0, 9.7, 0, 1, 1, 1, { e: 0xffb040, ei: 2 }); return g; }
+// the marine's left hand and forearm for the first-person view: fingers point along -z, the sleeve trails back along +z
+export function hand(color) {
+  const g = new THREE.Group(), glove = 0x23292f, pad = 0x3a434c;
+  B(g, 0.09, 0.035, 0.1, glove, 0, 0, 0); B(g, 0.08, 0.012, 0.06, color, 0, 0.022, -0.005);
+  for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set(-0.033 + i * 0.022, 0, -0.05); f.rotation.x = -0.5; g.add(f); B(f, 0.019, 0.022, 0.035, glove, 0, 0, -0.017); const t = B(f, 0.018, 0.02, 0.03, pad, 0, -0.006, -0.045); t.rotation.x = -0.6; }
+  const th = new THREE.Group(); th.position.set(0.05, -0.005, -0.01); th.rotation.set(0, -0.7, 0.3); g.add(th); B(th, 0.022, 0.022, 0.05, glove, 0, 0, -0.025);
+  B(g, 0.085, 0.06, 0.06, pad, 0, -0.004, 0.07); C(g, 0.04, 0.045, 0.3, color, 0, -0.004, 0.25).rotation.x = Math.PI / 2; B(g, 0.055, 0.025, 0.1, 0x1a1e22, 0, 0.038, 0.19);
+  g.traverse(o => { o.castShadow = false; }); return g;
+}
 export function throwModel(kind) { // what the marine holds on slot 4
   const g = new THREE.Group();
   if (kind === 'frag') { S(g, 0.07, 0x3a4a2a, 0, 0, 0, 1, 1.2, 1); B(g, 0.03, 0.05, 0.03, 0x888888, 0, 0.09, 0); C(g, 0.02, 0.02, 0.06, 0xc8a040, 0.03, 0.1, 0).rotation.z = Math.PI / 2; }

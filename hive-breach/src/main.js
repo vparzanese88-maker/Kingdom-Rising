@@ -7,6 +7,7 @@ import { Sim, upgradeCost, tStat } from './sim.js';
 import { Net, VER } from './net.js';
 import { Audio } from './audio.js';
 import { Music } from './music.js';
+import { icon } from './icons.js';
 import { Explore, buildFOB, cinematic, vtol as vtolModel, rover as roverModel } from './explore.js';
 
 const $ = id => document.getElementById(id);
@@ -444,7 +445,8 @@ function newMe() {
   for (const k of ['pistol', 'tool', 'healer', 'thr']) { if (view2[k]) camera.remove(view2[k]); view2[k] = null; }
   const mk = (kind, x) => { const m = M.gunModel(kind, CLASSES[G.cls].color); m.scale.setScalar(0.55); m.position.set(x, -0.22, -0.45); m.visible = false; m.traverse(o => { o.castShadow = false; }); camera.add(m); return m; };
   view2.pistol = mk('pistol', 0.2); view2.tool = mk('torch', 0.18); view2.thr = M.throwModel(CLASSES[G.cls].throw.kind); view2.thr.position.set(0.22, -0.24, -0.5); view2.thr.visible = false; camera.add(view2.thr); if (CLASSES[G.cls].heal) view2.healer = mk('medigun', 0.18);
-  const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); M.B(glove, 0.13, 0.13, 0.25, CLASSES[G.cls].color, -0.12, -0.1, -0.35); view2.gun.add(glove);
+  const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); view2.gun.add(glove);
+  if (view2.hand) camera.remove(view2.hand); view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); camera.add(view2.hand); for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
 }
 const ray = { o: new THREE.Vector3(), d: new THREE.Vector3() };
 function aimRay(spread = 0) {
@@ -522,7 +524,64 @@ function setSlot(n) {
   me.slot = n; me.rel = 0; me.shells = false; if (n <= 1) { const w = me.wpn[n] || { ammo: CLASSES[G.cls].gun.mag, reserve: CLASSES[G.cls].gun.reserve }; me.ammo = w.ammo; me.reserve = w.reserve; } me.cd = 0.35; audio.sfx('magin', 0.5);
 }
 addEventListener('wheel', e => { if (!G.on || !locked() || !G.me || G.me.scope) return; const order = CLASSES[G.cls].heal ? [0, 1, 2, 3, 4] : [0, 1, 2, 3], i = order.indexOf(G.me.slot); setSlot(order[(i + (e.deltaY > 0 ? 1 : order.length - 1)) % order.length]); });
-function startReload(st, S) { const g = curGun(), me = G.me; if (g.pellets) { me.shells = true; me.shellT = 0.3; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
+// ---------------------------------------------------------------- reloading: the left hand pulls the empty magazine, drops it, takes a fresh one off the vest,
+// seats it and works the bolt (the side arm racks its slide; the rocket goes in the muzzle; the shotgun is fed shell by shell, then pumped)
+const _hp = new THREE.Vector3(), _hq = new THREE.Vector3(), _he = [0, 0, 0];
+const HANDPTS = { // in the gun's own units: where the hand rests, the bolt or slide, the muzzle and the shell port
+  assault: { rest: [0, -0.1, -0.42], bolt: [-0.07, 0.08, 0] }, medic: { rest: [0, -0.09, -0.32], bolt: [-0.06, 0.07, 0.05] }, sniper: { rest: [0, -0.08, -0.3], bolt: [0.08, 0.05, 0.12] },
+  gunner: { rest: [0, 0.23, 0.05], bolt: [-0.12, 0.06, 0.15] }, heavy: { rest: [0, -0.13, -0.3], muz: [0, 0, -0.74] }, engineer: { rest: [0, -0.12, -0.28], port: [0, -0.1, -0.02], bolt: [0, -0.12, -0.28] },
+  pistol: { rest: [-0.05, -0.13, 0.04], bolt: [0, 0.12, 0.02] } };
+const HROT = { rest: [0.1, -0.35, 2.85], grip: [0.35, -0.45, 3.14], down: [0.6, -0.5, 2.7], below: [0.4, -0.45, 3.0], pouch: [0.8, -0.6, 2.6], bolt: [0, -0.8, 1.75], boltB: [0, -0.8, 1.75], front: [-0.3, -0.4, 1.9], muzzle: [-0.2, -0.4, 1.9], port: [0.2, -0.6, 2.4], portB: [0.4, -0.6, 2.5] };
+const RKEYS = {
+  mag: [[0, 'rest', 0], [0.12, 'grip', 0], [0.22, 'down', 1], [0.33, 'pouch', 0], [0.4, 'pouch', 2], [0.5, 'below', 2], [0.56, 'grip', 2], [0.64, 'bolt', 0], [0.72, 'boltB', 0], [0.78, 'bolt', 0], [0.94, 'rest', 0], [1.01, 'rest', 0]],
+  rocket: [[0, 'rest', 0], [0.2, 'pouch', 0], [0.28, 'pouch', 3], [0.47, 'front', 3], [0.64, 'muzzle', 3], [0.74, 'muzzle', 0], [0.94, 'rest', 0], [1.01, 'rest', 0]],
+  shell: [[0, 'pouch', 4], [0.55, 'portB', 4], [0.8, 'port', 0], [1.01, 'pouch', 0]] };
+const sm = t => t * t * (3 - 2 * t);
+function heldMesh(g, kind) {
+  const u = g.userData; u.held ??= {}; if (u.held[kind]) return u.held[kind]; let m;
+  if (kind === 'mag' && u.mag) { m = new THREE.Mesh(u.mag.geometry, u.mag.material); m.userData.h = u.mag.geometry.parameters.height; }
+  else if (kind === 'rocket') { m = new THREE.Group(); M.S(m, 0.09, 0xd0d0d0, 0, 0, -0.16, 1, 1, 2); M.C(m, 0.05, 0.05, 0.3, 0x40464e, 0, 0, 0.08).rotation.x = Math.PI / 2; m.userData.h = 0.1; }
+  else { m = new THREE.Group(); M.C(m, 0.028, 0.028, 0.1, 0xc02020, 0, 0, -0.02).rotation.x = Math.PI / 2; M.C(m, 0.03, 0.03, 0.03, 0xd0a040, 0, 0, 0.045).rotation.x = Math.PI / 2; m.userData.h = 0.04; }
+  m.visible = false; view2.hand.add(m); return u.held[kind] = m;
+}
+function animReload(me, gn, my, dt) {
+  const hd = view2.hand; if (!hd) return; me.jolt = Math.max(0, (me.jolt || 0) - dt * 6);
+  for (const d of view2.drops) { d.t += dt; d.vy -= 9 * dt; d.m.position.y += d.vy * dt * 0.35; d.m.position.x -= dt * 0.05; d.m.rotation.x += dt * 3; d.m.rotation.z += dt * 2; }
+  view2.drops = view2.drops.filter(d => { if (d.t > 1.2) { camera.remove(d.m); return false; } return true; });
+  const pistol = me.slot === 1, g = pistol ? view2.pistol : gn; if (!g) return; const u = g.userData;
+  for (const k in u.held || {}) u.held[k].visible = false;
+  if (!(me.slot <= 1 && g.visible && !my.dead)) { hd.visible = false; return; }
+  if (pistol) g.rotation.set(0, 0, 0);
+  const cls = pistol ? 'pistol' : G.cls, P = HANDPTS[cls] || HANDPTS.assault, rocket = cls === 'heavy';
+  u.magY0 ??= u.mag ? u.mag.position.y : 0; const magH = u.mag ? u.mag.geometry.parameters.height : 0.2;
+  const f = me.rel > 0 ? Math.min(1, 1 - me.rel / (me.relT || 1)) : -1, shells = !pistol && me.shells;
+  // the gun tips toward you while you work on it, and jolts when the magazine seats or the bolt slams home
+  const tl = f >= 0 ? Math.sin(f * Math.PI) : shells ? 0.8 : 0;
+  if (rocket) { g.rotation.x -= tl * 0.35; g.rotation.z += tl * 0.3; g.position.y -= tl * 0.04; } else { g.rotation.z += tl * 0.22; g.rotation.x += tl * 0.12; g.rotation.y += tl * 0.1; g.position.x -= tl * 0.09; g.position.y += tl * 0.11; g.position.z -= tl * 0.03; }
+  g.position.y += me.jolt * 0.012; g.rotation.x += me.jolt * 0.05;
+  g.updateMatrix();
+  const pt = (name, out) => { // a named spot, in camera space
+    if (name === 'pouch') return out.set(-0.3, -0.62, -0.5);
+    let v; const m = u.mag ? [u.mag.position.x, u.magY0 - magH / 2 - 0.03, u.mag.position.z] : [0, -0.2, 0];
+    if (name === 'rest') v = cls === 'engineer' && u.pump ? [0, u.pump.position.y - 0.065, u.pump.position.z] : P.rest;
+    else if (name === 'grip') v = m; else if (name === 'down') v = [m[0], m[1] - 0.4, m[2] + 0.06]; else if (name === 'below') v = [m[0], m[1] - 0.14, m[2]];
+    else if (name === 'bolt') v = P.bolt || P.rest; else if (name === 'boltB') v = [(P.bolt || P.rest)[0], (P.bolt || P.rest)[1], (P.bolt || P.rest)[2] + 0.13];
+    else if (name === 'muzzle') v = P.muz || P.rest; else if (name === 'front') v = [P.muz[0], P.muz[1] + 0.06, P.muz[2] - 0.4];
+    else if (name === 'port') v = P.port || P.rest; else if (name === 'portB') v = [P.port[0], P.port[1] - 0.09, P.port[2] + 0.09]; else v = P.rest;
+    return out.set(v[0], v[1], v[2]).applyMatrix4(g.matrix);
+  };
+  let a = 'rest', b = 'rest', t = 0, held = 0;
+  const K = shells ? RKEYS.shell : f >= 0 ? (rocket ? RKEYS.rocket : RKEYS.mag) : null, ff = shells ? Math.max(0, Math.min(1, 1 - me.shellT / (me.shellP || 0.42))) : f;
+  if (K && (u.mag || rocket || shells)) { let i = 0; while (i < K.length - 2 && ff >= K[i + 1][0]) i++; a = K[i][1]; b = K[i + 1][1]; t = sm(Math.max(0, Math.min(1, (ff - K[i][0]) / (K[i + 1][0] - K[i][0])))); held = K[i][2]; }
+  else if (me.pumpAnim > 0 && cls === 'sniper') { a = 'bolt'; b = 'boltB'; t = Math.sin((0.3 - me.pumpAnim) / 0.3 * Math.PI); }
+  pt(a, _hp); pt(b, _hq); hd.position.lerpVectors(_hp, _hq, t); const ra = HROT[a], rb = HROT[b]; hd.rotation.set(ra[0] + (rb[0] - ra[0]) * t, ra[1] + (rb[1] - ra[1]) * t, ra[2] + (rb[2] - ra[2]) * t); hd.visible = true;
+  // what the hand carries; the magazine in the gun hides while it is out
+  if (u.mag) { u.mag.position.y = u.magY0; u.mag.visible = !(f >= 0.12 && f < 0.56); }
+  if (held) { const m = heldMesh(g, held === 3 ? 'rocket' : held === 4 ? 'shell' : 'mag'); m.visible = true; m.position.set(0, held === 3 ? -0.09 : -(m.userData.h / 2 + 0.03), held === 3 ? 0 : -0.01); m.rotation.set(0, held === 3 ? 0 : 0, 0); }
+  // let go of the empty magazine once: it tumbles out of sight
+  if (f >= 0.22 && f < 0.5 && !(me.rs & 64) && u.mag) { me.rs |= 64; const m = new THREE.Mesh(u.mag.geometry, u.mag.material); m.scale.setScalar(0.55); hd.updateMatrixWorld(); const w = new THREE.Vector3(0, -(magH / 2 + 0.03), -0.01); hd.localToWorld(w); camera.worldToLocal(w); m.position.copy(w); m.quaternion.copy(hd.quaternion); camera.add(m); view2.drops.push({ m, t: 0, vy: -0.5 }); }
+}
+function startReload(st, S) { const g = curGun(), me = G.me; if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.42; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
 function surface(me) {
   const T = G.W.T, W = G.W; if (W.fob) return T.hubAt(me.x, me.z) ? 'concrete' : W.def.weather === 'snow' ? 'snow' : W.def.weather === 'rain' ? 'grass' : 'sand';
   const raw = T.raw(me.x, me.z); if (me.y > raw + 0.4) return 'metal';                       // bridges, walls, towers, roofs
@@ -648,24 +707,27 @@ function updateMe(dt, S) {
   me.cd -= dt; me.gcd -= dt; me.kick = Math.max(0, me.kick - dt * 9); G.flash = Math.max(0, (G.flash || 0) - dt); view2.flash.intensity = G.flash > 0 ? 25 : 0; view2.fsp.visible = G.flash > 0; view2.fsp.scale.setScalar((G.cls === 'heavy' ? 1.6 : 0.9) * (0.7 + Math.random() * 0.8) * (1 + 0.08 * ((mine(S) || {}).ups || {}).dmg)); view2.fsp.material.rotation = Math.random() * 6;
   if (me.rel > 0) {
     me.rel -= dt; const g0 = curGun(), f = 1 - me.rel / (me.relT || 1), cue = (bit, at, snd) => { if (f > at && !(me.rs & bit)) { me.rs |= bit; audio.sfx(snd, 0.9); } };
-    if (g0.kind === 'rocket') { cue(1, 0.15, 'magout'); cue(2, 0.35, 'rocketload'); cue(4, 0.85, 'magin'); } else if (g0.spin) { cue(1, 0.1, 'magout'); cue(2, 0.5, 'beltin'); cue(4, 0.85, 'bolt'); } else { cue(1, 0.12, 'magout'); cue(2, 0.55, 'magin'); cue(4, 0.82, 'bolt'); }
+    const jolt = (bit, at, snd, j) => { if (f > at && !(me.rs & bit)) { me.jolt = j; } cue(bit, at, snd); };
+    if (g0.kind === 'rocket') { cue(1, 0.04, 'magout'); cue(2, 0.2, 'pouch'); jolt(4, 0.6, 'rocketload', 0.6); jolt(8, 0.8, 'magin', 0.8); }
+    else { cue(1, 0.12, 'magout'); cue(16, 0.28, 'pouch'); if (f > 0.36 && !(me.rs & 32)) { me.rs |= 32; audio.sfx('magdrop', 0.55); } jolt(2, 0.55, g0.spin ? 'beltin' : 'magin', 1); jolt(4, 0.72, me.slot === 1 ? 'slide' : 'bolt', 0.8); }
     if (me.rel <= 0) { const take = Math.min(st.mag - me.ammo, me.reserve); me.ammo += take; me.reserve -= take; }
   }
-  if (me.shells) { me.shellT -= dt; if (me.shellT <= 0) { if (me.ammo < st.mag && me.reserve >= 1) { me.ammo++; me.reserve--; audio.sfx('shell', 0.9); me.shellT = 0.42 * reloadMul(S); } else { me.shells = false; me.pumpAt = 0.05; } } }
+  if (me.shells) { me.shellT -= dt; if (me.shellT <= 0) { if (me.ammo < st.mag && me.reserve >= 1) { me.ammo++; me.reserve--; audio.sfx('shell', 0.9); me.shellT = me.shellP = 0.42 * reloadMul(S); me.jolt = 0.4; } else { me.shells = false; me.pumpAt = 0.05; } } }
   if (me.pumpAt > 0) { me.pumpAt -= dt; if (me.pumpAt <= 0) { audio.sfx(G.cls === 'sniper' ? 'bolt' : 'pump', 0.9); me.pumpAnim = 0.3; } }
   me.pumpAnim = Math.max(0, (me.pumpAnim || 0) - dt);
   if (me.slot <= 1 && me.reserve > st.reserve) me.reserve = st.reserve;
   // refill spare rounds inside the hub walls
   me.resup = me.slot <= 1 && G.W.T.hubAt(me.x, me.z) && me.reserve < st.reserve; if (G.W.T.hubAt(me.x, me.z)) refillAmmo(0.35 * dt);
   if (me.ammo > st.mag) me.ammo = st.mag;
-  const gn = view2.gun, rf = me.rel > 0 ? Math.sin(Math.min(1, 1 - me.rel / (me.relT || st.reload)) * Math.PI) * 0.8 : me.shells ? 0.35 : 0;
+  const gn = view2.gun, rf = 0;
   const rc = CLASSES[G.cls].rclick, rmb = mouseR && !me.holdFire && live && locked() && !me.place && !G.shop; me.scope = rc === 'scope' && rmb && me.rel <= 0; me.ads = rc === 'ads' && rmb; $('scope').hidden = !me.scope;
   me.beam = (me.slot === 2 || me.slot === 4) && mouseL && live && locked() && !me.place && !G.shop; for (const [k, n] of [['pistol', 1], ['tool', 2], ['thr', 3], ['healer', 4]]) if (view2[k]) view2[k].visible = me.slot === n && !my.dead && !me.place && !me.scope;
   if (gn.userData.spin) gn.userData.spin.rotation.z += dt * me.spin * 40;
-  { const u = gn.userData, f = me.rel > 0 ? 1 - me.rel / (me.relT || 1) : 0; if (u.mag) { u.magY0 ??= u.mag.position.y; const out = f > 0.1 && f < 0.7 ? Math.min(1, (f - 0.1) / 0.2) * (f < 0.5 ? 1 : 1 - (f - 0.5) / 0.2) : 0; u.mag.position.y = u.magY0 - out * 0.6; u.mag.visible = !(f > 0.3 && f < 0.5); }
+  { const u = gn.userData, f = me.rel > 0 ? 1 - me.rel / (me.relT || 1) : 0; 
     if (u.pump) { u.pumpZ0 ??= u.pump.position.z; u.pump.position.z = u.pumpZ0 + ((me.pumpAnim || 0) > 0 ? Math.sin((0.3 - me.pumpAnim) / 0.3 * Math.PI) * 0.18 : 0); }
-    if (u.rocket) u.rocket.visible = me.ammo > 0 && !(me.rel > 0 && f < 0.4); }
+    if (u.rocket) u.rocket.visible = me.rel > 0 ? f > 0.66 : me.ammo > 0; }
   gn.position.set(0.21 - me.kh * 0.06 + Math.sin(me.bob * 0.5) * 0.01, -0.21 + me.kh * 0.03 + Math.abs(Math.cos(me.bob * 0.5)) * 0.008 - rf * 0.12 + me.kick * 0.012, -0.42 + me.kick * (G.cls === 'heavy' ? 0.14 : 0.07)); gn.rotation.set(me.kick * (G.cls === 'heavy' ? 0.25 : 0.12) - rf * 0.7, (Math.random() - 0.5) * me.kick * 0.03, rf * 0.3 + me.kick * 0.04 - me.kh * 0.08); gn.visible = me.slot === 0 && !my.dead && !me.place && !me.scope; if (me.ads) { gn.position.x = 0.0; gn.position.y = -0.12; gn.position.z -= 0.08; } if (me.ads && view2.pistol) { view2.pistol.position.set(0, -0.15, -0.4); } else if (view2.pistol) view2.pistol.position.set(0.2, -0.22, -0.45);
+  animReload(me, gn, my, dt);
   if (!live) { me.place = null; updatePlace(S); return; }
   if (locked() && !G.shop) {
     if (hits[KB.reload] && me.rel <= 0 && !me.shells && me.ammo < st.mag && me.reserve >= 1) startReload(st, S);
@@ -711,15 +773,17 @@ let mapT = 0;
 function hud(dt, S) {
   const my = mine(S); if (!my) return; const st = stats(), C = CLASSES[G.cls];
   const hpv = G.explore && G.ex ? G.ex.hp * my.mhp / 100 : my.hp; setT('gold', Math.floor(my.gold)); setT('hpTxt', `${Math.ceil(hpv)} / ${my.mhp}`); $('hpBar').style.width = (hpv / my.mhp * 100) + '%';
-  const slotNames = [C.gun.name, SIDEARM.name, 'Welding torch' + (G.cls === 'engineer' ? ' (3x)' : ''), C.throw.name + ' (left click throws)', 'Heal beam']; setT('ammo', G.me.slot === 3 ? String(my.items ?? 0) : G.me.slot >= 2 ? '∞' : G.me.rel > 0 ? '…' : String(G.me.ammo)); setT('reserve', G.me.slot === 3 ? '/ ' + C.throw.n : G.me.slot >= 2 ? '' : '/ ' + Math.floor(G.me.reserve)); setT('gunName', `${G.me.slot + 1} · ${slotNames[G.me.slot]}`); const low = G.me.reserve < st.mag && G.me.ammo < st.mag * 0.5; $('ammoWarn').hidden = !(low || G.me.resup); setT('ammoWarn', G.me.resup ? 'RESUPPLYING' : G.me.reserve < 1 && G.me.ammo === 0 ? 'OUT OF AMMO: BACK TO THE HUB' : 'LOW AMMO'); setT('clsName', C.name);
+  const slotNames = [C.gun.name, SIDEARM.name, 'Welding torch' + (G.cls === 'engineer' ? ' (3x)' : ''), C.throw.name + ' (left click throws)', 'Heal beam']; setT('ammo', G.me.slot === 3 ? String(my.items ?? 0) : G.me.slot >= 2 ? '∞' : G.me.rel > 0 ? '--' : String(G.me.ammo)); setT('reserve', G.me.slot === 3 ? '/ ' + C.throw.n : G.me.slot >= 2 ? '' : '/ ' + Math.floor(G.me.reserve)); setT('gunName', `SLOT ${G.me.slot + 1}`); const low = G.me.reserve < st.mag && G.me.ammo < st.mag * 0.5; $('ammoWarn').hidden = !(low || G.me.resup); setT('ammoWarn', G.me.resup ? 'RESUPPLYING' : G.me.reserve < 1 && G.me.ammo === 0 ? 'OUT OF AMMO: BACK TO THE HUB' : 'LOW AMMO'); setT('clsName', C.name);
   const mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('waveTxt', S.ph === 'build' ? `BUILD ${mmss(Math.max(0, Math.ceil(S.tm)))}` : `⏱ ${mmss(S.el || 0)}`); $('hubBar').style.width = S.hub + '%'; setT('hubTxt', `HUB ${Math.ceil(S.hub)}%`);
   let info = S.ph === 'build' ? 'Build defenses before the swarm arrives' : `${S.left} aliens on the field`; if (S.open) info = 'HIVE SHIELD DOWN: destroy the hive!';
   setT('waveInfo', info);
   const mt = S.T.filter(t => t.owner === G.myId).length, sT = TURRETS[C.sentry], dT = TURRETS[C.defense];
   const sp = my.special, TH = C.throw, tT = TURRETS[C.third];
-  const wpn = [[C.gun.name.split(' ').slice(-1)[0], '🔫'], ['Side arm', '🔫'], ['Welder', '🔧'], [TH.name + ` ${my.items ?? 0}/${TH.n}`, ICON[TH.kind]], ...(C.heal ? [['Heal beam', '✚']] : [])];
-  const bslot = (key, kind) => { const T0 = TURRETS[kind]; return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${my.gold < T0.cost ? 'poor' : ''}"><b>${keyName(KB[key])}</b><u>${ICON[kind] || '▣'}</u>${T0.name}<i>${T0.cost}g</i></div>`; };
-  setH('slots', wpn.map(([n, ic], i) => `<div class="slot w ${G.me.slot === i ? 'on' : ''} ${i === 3 && !my.items ? 'poor' : ''}"><b>${i + 1}</b><u>${ic}</u>${n}</div>`).join('') + '<div class="gap"></div>' + bslot('sentry', C.sentry) + bslot('defense', C.defense) + bslot('third', C.third) + `<div class="slot ${sp ? 'ready sp' : 'poor'}"><b>${keyName(KB.special)}</b><u>${sp ? ICON[sp] : '·'}</u>${sp ? SPECIALS[sp].name : 'Special'}<i>${sp ? 'USE' : 'crates'}</i></div>`);
+  const wpn = [[C.gun.name, icon(G.cls), ''], [SIDEARM.name, icon('pistol'), ''], ['Welding torch', icon('welder'), ''], [TH.name, icon(TH.kind), `${my.items ?? 0}`], ...(C.heal ? [['Heal beam', icon('beam'), '']] : [])];
+  const bslot = (key, kind) => { const T0 = TURRETS[kind]; return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${my.gold < T0.cost ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i>${T0.cost}</i></div>`; };
+  setH('slots', wpn.map(([n, ic, c], i) => `<div class="slot w ${G.me.slot === i ? 'on' : ''} ${i === 3 && !my.items ? 'poor' : ''}"><b>${i + 1}</b>${ic}<i>${c}</i></div>`).join('') + '<div class="gap"></div>' + bslot('sentry', C.sentry) + bslot('defense', C.defense) + bslot('third', C.third) + `<div class="slot ${sp ? 'ready sp' : 'poor'}"><b>${keyName(KB.special)}</b>${sp ? icon(sp) : icon('empty')}</div>`);
+  setT('slotName', G.me.place ? TURRETS[G.me.place].name : sp && G.time - (G.spT ?? -9) < 3 ? SPECIALS[sp].name : (wpn[G.me.slot] || wpn[0])[0]); if (sp !== G.lastSp) { G.lastSp = sp; G.spT = G.time; }
+  $('roundsBar').style.width = (G.me.slot <= 1 ? Math.min(100, G.me.ammo / st.mag * 100) : 0) + '%';
   setH('status', [my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get under cover, or crouch behind something on the windward side</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
   // a boss bar while a big one is alive
   const boss = S.A.find(a => ALIENS[a.type].boss) || (S.ph === 'assault' ? (S.A.find(a => a.type === 'guardian') || S.A.find(a => a.type === 'hivecore')) : S.open ? S.A.find(a => a.type === 'hivecore') : null); $('boss').hidden = !boss; if (boss) { setT('bossName', ALIENS[boss.type].name); $('bossBar').style.width = (boss.hp / boss.mhp * 100) + '%'; }
@@ -747,7 +811,7 @@ function minimap(S) {
   const BB = G.W.size || BOUNDS, cv = $('mini'), g = cv.getContext('2d'), W = cv.width, R = G.explore ? 110 : 70, k = W / (R * 2), me0 = G.me, X = x => (x - me0.x) * k + W / 2, Z = z => (z - me0.z) * k + W / 2;
   g.fillStyle = '#0a0d12'; g.fillRect(0, 0, W, W); const bg = G.W.miniBg, bs = bg.width / (BB * 2); g.drawImage(bg, (me0.x - R + BB) * bs, (me0.z - R + BB) * bs, R * 2 * bs, R * 2 * bs, 0, 0, W, W);
   // the hub and the hive: shown at the edge, pointing the way, when they are off the small map
-  const pin = (x, z, col) => { let px = X(x), py = Z(z); const m = 10, out = px < m || py < m || px > W - m || py > W - m; px = Math.max(m, Math.min(W - m, px)); py = Math.max(m, Math.min(W - m, py)); g.fillStyle = col; g.beginPath(); g.arc(px, py, out ? 5 : 7, 0, 7); g.fill(); if (out) { g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.arc(px, py, 8, 0, 7); g.stroke(); } };
+  const pin = (x, z, col) => { let px = X(x) - W / 2, py = Z(z) - W / 2; const rr = W / 2 - 14, d = Math.hypot(px, py), out = d > rr; if (out) { px *= rr / d; py *= rr / d; } px += W / 2; py += W / 2; g.fillStyle = col; g.beginPath(); g.arc(px, py, out ? 5 : 7, 0, 7); g.fill(); if (out) { g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.arc(px, py, 8, 0, 7); g.stroke(); } };
   pin(G.W.hiveP.x, G.W.hiveP.z, '#a040ff'); pin(G.W.hubP.x, G.W.hubP.z, '#60c0ff');
   for (const t of S.T) { g.fillStyle = t.owner === G.myId ? '#80ff90' : '#d0e0a0'; g.fillRect(X(t.x) - 2.5, Z(t.z) - 2.5, 5, 5); }
   G.pings = G.pings.filter(p => (p.t -= 0.1) > 0); for (const p of G.pings) { g.strokeStyle = `rgba(255,60,40,${Math.min(1, p.t)})`; g.lineWidth = 2; g.beginPath(); g.arc(X(p.x), Z(p.z), 4 + (3 - p.t) * 5 % 10, 0, 7); g.stroke(); }

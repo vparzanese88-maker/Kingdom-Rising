@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Hive Breach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 :root{--ink:#e8f0f6;--dim:#8fa3b4;--panel:rgba(10,18,26,.82);--line:#2c4458;--acc:#3fc0ff;--warn:#ff5a4a;--gold:#ffc940}
 *{box-sizing:border-box}
@@ -147,20 +148,69 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 #pause{background:rgba(0,0,0,.35);z-index:7}
 #pause .card{text-align:center}
 @media (max-width:700px){#mini{width:110px;height:110px}#slots{bottom:90px}.slot{min-width:70px;padding:4px 6px}#bl{width:170px}}
+
+/* ---- streamlined HUD: thin glass strips with cut corners, cyan line icons ---- */
+#hud{font-family:Rajdhani,"Segoe UI",system-ui,sans-serif;--hc:#5fd8ff;--hcd:rgba(95,216,255,.35);--glass:rgba(6,14,22,.55)}
+#hud .panel{background:var(--glass);border:0;border-radius:0;padding:5px 10px;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);box-shadow:inset 0 0 0 1px var(--hcd);backdrop-filter:blur(2px)}
+#top{top:8px;min-width:0;width:min(300px,60vw);padding:3px 12px 5px}
+#waveTxt{font:600 16px/1.1 "Share Tech Mono",monospace;letter-spacing:.18em;color:#e8f6ff}
+#hud .bar{height:4px;border-radius:0;background:rgba(95,216,255,.12);margin-top:3px}
+#hud .bar i{background:linear-gradient(90deg,var(--hc),#a8ecff);box-shadow:0 0 6px var(--hc)}
+#hubTxt{font-size:10px;letter-spacing:.25em;margin-top:2px;color:var(--hc)}
+#waveInfo{font-size:11px;letter-spacing:.06em;color:#9fb8c8}
+#boss{top:72px;width:min(380px,56vw);padding:3px 12px 5px}#bossName{font-size:12px;letter-spacing:.3em}#boss .bar i{background:linear-gradient(90deg,#ff40ff,#ff9cff);box-shadow:0 0 6px #ff40ff}
+#tl{left:10px;top:8px;padding:3px 10px}
+#goldBox{font:700 18px/1.1 Rajdhani,sans-serif;color:var(--gold);letter-spacing:.05em}#goldBox:before{content:"◆ ";font-size:12px;vertical-align:2px}
+#mapName,#hudCode{font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+#mini{right:10px;top:8px;width:150px;height:150px;border:0;border-radius:50%;box-shadow:0 0 0 1px var(--hcd),0 0 0 4px rgba(6,14,22,.5),0 0 0 5px var(--hcd),0 0 14px rgba(95,216,255,.25)}
+#fps{right:170px;top:8px}
+#kit{top:172px;right:10px;width:min(300px,38vw);font-size:12px}
+#toasts{left:10px;top:62px;max-width:340px;gap:3px}
+#toasts div{background:linear-gradient(90deg,rgba(6,14,22,.7),rgba(6,14,22,0));border-left:2px solid var(--hc);border-radius:0;padding:3px 10px;font-size:12.5px;letter-spacing:.02em;text-shadow:0 1px 2px #000}
+#bl{left:10px;bottom:10px;width:230px;padding:4px 10px 6px}
+#clsName{font-size:10px;letter-spacing:.3em;color:var(--hc)}
+#hpTxt{font:600 15px/1 "Share Tech Mono",monospace}
+#hpBox .bar{height:8px;-webkit-mask:repeating-linear-gradient(90deg,#000 0 9px,transparent 9px 11px);mask:repeating-linear-gradient(90deg,#000 0 9px,transparent 9px 11px)}
+#hpBar{background:linear-gradient(90deg,#3df08a,#a6ffc8)!important;box-shadow:none!important}
+#status{gap:3px;margin-top:4px}#status span{font-size:10.5px;background:rgba(95,216,255,.08);border:1px solid var(--hcd);border-radius:0;padding:0 5px;letter-spacing:.04em}
+#br{right:10px;bottom:10px;padding:4px 12px 6px;min-width:150px}
+#ammo{font:600 30px/1 "Share Tech Mono",monospace;color:#f0faff;text-shadow:0 0 8px rgba(95,216,255,.5)}
+#reserve{font:600 15px "Share Tech Mono",monospace;color:#8fb0c4}
+#rounds{height:3px;margin:4px 0 3px;background:rgba(95,216,255,.12)}#rounds i{display:block;height:100%;background:var(--hc);box-shadow:0 0 5px var(--hc);margin-left:auto}
+#gunName{font-size:10.5px;letter-spacing:.2em;color:#9fb8c8}
+#ammoWarn{font-size:11px;letter-spacing:.2em}
+#slots{bottom:10px;gap:4px;align-items:flex-end}
+#hud .slot{position:relative;background:var(--glass);border:0;border-radius:0;min-width:0;max-width:none;width:46px;height:46px;padding:0;display:flex;align-items:center;justify-content:center;color:#a9c6d6;clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);box-shadow:inset 0 0 0 1px var(--hcd)}
+#hud .slot .ic{width:26px;height:26px}
+#hud .slot b{position:absolute;left:4px;top:1px;font:600 10px "Share Tech Mono",monospace;color:#7fa2b6;display:block}
+#hud .slot i{position:absolute;right:3px;bottom:1px;font:600 10px "Share Tech Mono",monospace;color:var(--gold);font-style:normal}
+#hud .slot.w{width:42px;height:42px}
+#hud .slot.on{color:#fff;background:rgba(95,216,255,.18);box-shadow:inset 0 0 0 1px var(--hc),0 0 12px rgba(95,216,255,.35)}
+#hud .slot.on .ic{filter:drop-shadow(0 0 4px var(--hc))}
+#hud .slot.poor{opacity:.38}
+#hud .slot.sp{color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold),0 0 10px rgba(255,201,64,.35)}
+#hud #slots .gap{width:14px}
+#slotName{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:#cfe6f2;text-shadow:0 1px 3px #000;white-space:nowrap}
+#prompt{background:var(--glass);border:0;border-radius:0;box-shadow:inset 0 0 0 1px var(--hcd);font-size:13px;letter-spacing:.04em}
+#hunt{top:100px;font-size:14px;letter-spacing:.3em}
+#bannerA{font-family:Rajdhani,sans-serif;letter-spacing:.3em}#bannerB{letter-spacing:.25em;font-size:15px}
+#cross:before,#cross:after{background:rgba(160,235,255,.9)}
+@media (max-width:700px){#mini{width:104px;height:104px}#hud .slot{width:36px;height:36px}#hud .slot.w{width:34px;height:34px}#hud .slot .ic{width:20px;height:20px}#slots{bottom:80px}#bl{width:160px}}
 </style>
 <script type="importmap">
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795361172",
-"./src/data.js": "./src/data.js?v=1795361172",
-"./src/explore.js": "./src/explore.js?v=1795361172",
-"./src/main.js": "./src/main.js?v=1795361172",
-"./src/models.js": "./src/models.js?v=1795361172",
-"./src/music.js": "./src/music.js?v=1795361172",
-"./src/net.js": "./src/net.js?v=1795361172",
-"./src/sim.js": "./src/sim.js?v=1795361172",
-"./src/world.js": "./src/world.js?v=1795361172"
+"./src/audio.js": "./src/audio.js?v=1795362136",
+"./src/data.js": "./src/data.js?v=1795362136",
+"./src/explore.js": "./src/explore.js?v=1795362136",
+"./src/icons.js": "./src/icons.js?v=1795362136",
+"./src/main.js": "./src/main.js?v=1795362136",
+"./src/models.js": "./src/models.js?v=1795362136",
+"./src/music.js": "./src/music.js?v=1795362136",
+"./src/net.js": "./src/net.js?v=1795362136",
+"./src/sim.js": "./src/sim.js?v=1795362136",
+"./src/world.js": "./src/world.js?v=1795362136"
 }
 }
 </script>
@@ -183,10 +233,10 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
   <div id="prompt" hidden></div>
   <div id="dead" hidden>YOU ARE DOWN<div id="deadT" style="font-size:16px;color:#fff"></div></div>
   <div id="bl" class="panel"><div id="clsName"></div><div id="hpBox"><span id="hpTxt"></span><div class="bar"><i id="hpBar"></i></div></div><div id="status"></div></div>
-  <div id="br" class="panel"><div><span id="ammo"></span> <span id="reserve"></span></div><div id="gunName"></div><div id="ammoWarn" hidden></div></div>
+  <div id="br" class="panel"><div><span id="ammo"></span> <span id="reserve"></span></div><div id="rounds"><i id="roundsBar"></i></div><div id="gunName"></div><div id="ammoWarn" hidden></div></div>
   <div id="kit" class="panel" hidden></div>
   <div id="lore" class="panel" hidden><div id="loreT"></div><div id="loreX"></div></div>
-  <div id="slots"></div>
+  <div id="slotName"></div><div id="slots"></div>
   <div id="board" class="panel" hidden><table id="boardT"></table></div>
 </div>
 
@@ -236,6 +286,6 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795361172"></script>
+<script type="module" src="./src/main.js?v=1795362136"></script>
 </body>
 </html>

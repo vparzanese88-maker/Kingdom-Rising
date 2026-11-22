@@ -127,12 +127,12 @@ export class Audio {
   shots(kind) {
     this.sb = this.sb || {}; if (this.sb[kind]) return this.sb[kind];
     const P = {
-      rifle: { dur: 0.9, boom: 0.3, mech: 0.3, tr: 0.8, bc0: 8000, bc1: 700, bd: 0.026, bg: 1, lo: 140, ld: 0.08, lg: 1.1, tc: 1200, td: 0.12, tg: 0.12, slap: 0.11, sg: 0.07, drive: 2 },
+      rifle: { dur: 0.7, boom: 0.22, mech: 0.3, tr: 0.8, bc0: 8000, bc1: 700, bd: 0.026, bg: 1, lo: 140, ld: 0.08, lg: 1.1, tc: 1200, td: 0.1, tg: 0.1, slap: 0.11, sg: 0.03, drive: 2 },
       pistol: { dur: 0.6, boom: 0.15, mech: 0.35, tr: 0.8, bc0: 9000, bc1: 900, bd: 0.02, bg: 0.9, lo: 180, ld: 0.05, lg: 0.8, tc: 1500, td: 0.1, tg: 0.1, slap: 0.1, sg: 0.06, drive: 2 },
       shotgun: { dur: 1.0, boom: 0.4, mech: 0.2, tr: 1, bc0: 7000, bc1: 500, bd: 0.05, bg: 1.3, lo: 110, ld: 0.12, lg: 1.6, tc: 900, td: 0.16, tg: 0.12, slap: 0.12, sg: 0.07, drive: 2.6 },
       sniper: { dur: 1.3, boom: 0.5, mech: 0.35, tr: 1, bc0: 9000, bc1: 500, bd: 0.04, bg: 1.2, lo: 100, ld: 0.16, lg: 1.6, tc: 900, td: 0.3, tg: 0.16, slap: 0.15, sg: 0.1, drive: 2.4 },
-      mini: { dur: 0.6, boom: 0.18, mech: 0.15, tr: 0.7, bc0: 7000, bc1: 800, bd: 0.02, bg: 1, lo: 150, ld: 0.055, lg: 1, tc: 1300, td: 0.09, tg: 0.1, slap: 0.09, sg: 0.05, drive: 3 },
-      smg: { dur: 0.6, boom: 0.15, mech: 0.3, tr: 0.7, bc0: 9000, bc1: 1200, bd: 0.016, bg: 0.9, lo: 200, ld: 0.04, lg: 0.8, tc: 1800, td: 0.08, tg: 0.1, slap: 0.08, sg: 0.05, drive: 2.5 },
+      mini: { dur: 0.4, boom: 0.12, mech: 0.15, tr: 0.7, bc0: 7000, bc1: 800, bd: 0.02, bg: 1, lo: 150, ld: 0.05, lg: 1, tc: 1300, td: 0.07, tg: 0.08, slap: 0.09, sg: 0, drive: 3 },
+      smg: { dur: 0.35, boom: 0.08, mech: 0.3, tr: 0.8, bc0: 9000, bc1: 1400, bd: 0.014, bg: 0.9, lo: 220, ld: 0.035, lg: 0.8, tc: 2200, td: 0.05, tg: 0.06, slap: 0.08, sg: 0, drive: 2.2 },
       rocket: { dur: 1.4, tr: 0.6, bc0: 3000, bc1: 400, bd: 0.25, bg: 0.9, lo: 90, ld: 0.2, lg: 1.4, tc: 900, td: 0.35, tg: 0.25, slap: 0.14, sg: 0.1, drive: 2.5 },
       boom: { dur: 2.2, tr: 0.8, bc0: 4500, bc1: 150, bd: 0.15, bg: 1.1, lo: 70, ld: 0.45, lg: 2, tc: 500, td: 0.6, tg: 0.45, slap: 0.2, sg: 0.12, drive: 2.5 },
       artillery: { dur: 3, tr: 0.15, bc0: 900, bc1: 120, bd: 0.3, bg: 0.7, lo: 55, ld: 0.8, lg: 2.2, tc: 300, td: 0.9, tg: 0.5, slap: 0.35, sg: 0.15, drive: 2 },
@@ -147,7 +147,7 @@ export class Audio {
     src.playbackRate.value = (0.94 + Math.random() * 0.12) / (1 + (power - 1) * 0.35);
     const g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 16000 - far * 14500; lp.Q.value = 0.5;
     g.gain.value = vol * this.vol * 0.5 * (0.85 + 0.15 * power) * (1 - far * 0.6);
-    src.connect(lp); lp.connect(g); g.connect(this.out); const send = c.createGain(); send.gain.value = 0.04 + far * 0.3; g.connect(send); send.connect(this.verbIn);
+    src.connect(lp); lp.connect(g); g.connect(this.out); const send = c.createGain(); send.gain.value = 0.015 + far * 0.3;   /* your own and nearby shots stay dry: echo only for distant fire */ g.connect(send); send.connect(this.verbIn);
     src.start(t); this.live = (this.live || 0) + 1; this.liveT = performance.now(); src.onended = () => { this.live = Math.max(0, this.live - 1); };
   }
   setVol(v) { this.vol = v; try { localStorage.setItem('hb-sfx', v); } catch (e) { } }
@@ -155,7 +155,7 @@ export class Audio {
   // vol can be lowered for far-away sounds; a sound is not played twice within 30 ms
   sfx(name, vol = 1) {
     if (!(vol >= 0)) return; const c = this.ctx; if (c && FOLEY[name] && c.state === 'running') { const t0 = c.currentTime; if (this.last[name] && t0 - this.last[name] < 0.03) return; this.last[name] = t0; this.fb ??= {}; const b = this.fb[name] ??= FOLEY[name](c);
-      const src = c.createBufferSource(); src.buffer = b; src.playbackRate.value = 0.96 + Math.random() * 0.08; const g = c.createGain(); g.gain.value = vol * this.vol * 0.8; src.connect(g); g.connect(this.out || c.destination); if (this.verbIn) { const sd = c.createGain(); sd.gain.value = 0.05; g.connect(sd); sd.connect(this.verbIn); } src.start(); return; }
+      const src = c.createBufferSource(); src.buffer = b; src.playbackRate.value = 0.96 + Math.random() * 0.08; const g = c.createGain(); g.gain.value = vol * this.vol * 0.32; const sf = c.createBiquadFilter(); sf.type = 'lowpass'; sf.frequency.value = 6500; const hf = c.createBiquadFilter(); hf.type = 'highpass'; hf.frequency.value = 140; src.connect(hf); hf.connect(sf); sf.connect(g); g.connect(this.out || c.destination);   /* reload handling noises: soft and clean, no harsh crack or boom */ if (this.verbIn) { const sd = c.createGain(); sd.gain.value = 0.05; g.connect(sd); sd.connect(this.verbIn); } src.start(); return; }
     const d = S[name]; if (!c || !d || c.state !== 'running' || vol < 0.03) return; const t0 = c.currentTime;
     // never pile up too many synthesized sounds at once: that is what makes the browser drop audio
     if ((this.sfxN || 0) > 32) return; this.sfxN = (this.sfxN || 0) + 1; setTimeout(() => { this.sfxN--; }, 600);
@@ -172,8 +172,8 @@ export class Audio {
 function fbuf(c, dur, fn) {
   const sr = c.sampleRate, n = Math.floor(sr * dur), b = c.createBuffer(1, n, sr), d = b.getChannelData(0);
   const click = (t0, amp, base, ring = 0.03, snap = 1) => { const s0 = Math.floor(t0 * sr), P = [1, 1.52, 2.31, 2.94, 3.76, 4.9].map(r => base * r * (0.96 + Math.random() * 0.08)); let lp = 0;
-    for (let i = 0; i < sr * 0.15 && s0 + i < n; i++) { const t = i / sr, w = Math.random() * 2 - 1; lp += 0.5 * (w - lp); let v = (w - lp) * Math.exp(-t / 0.0018) * snap * 1.4; for (let k = 0; k < P.length; k++) v += Math.sin(6.283 * P[k] * t + k) * Math.exp(-t / (ring / (1 + k * 0.5))) * 0.4 / (1 + k * 0.4); d[s0 + i] += v * amp; } };
-  const thud = (t0, amp, f = 120, dec = 0.05) => { const s0 = Math.floor(t0 * sr); let lp = 0, ph = 0; for (let i = 0; i < sr * dec * 5 && s0 + i < n; i++) { const t = i / sr; ph += 6.283 * f * (1 + 1.5 * Math.exp(-t / 0.008)) / sr; lp += 0.08 * ((Math.random() * 2 - 1) - lp); d[s0 + i] += (Math.sin(ph) * 0.8 + lp * 2) * Math.exp(-t / dec) * amp; } };
+    for (let i = 0; i < sr * 0.15 && s0 + i < n; i++) { const t = i / sr, w = Math.random() * 2 - 1; lp += 0.5 * (w - lp); let v = (w - lp) * Math.exp(-t / 0.0018) * snap * 0.6; for (let k = 0; k < P.length; k++) v += Math.sin(6.283 * P[k] * t + k) * Math.exp(-t / (ring / (1 + k * 0.5))) * 0.4 / (1 + k * 0.4); d[s0 + i] += v * amp; } };
+  const thud = (t0, amp, f = 120, dec = 0.05) => { const s0 = Math.floor(t0 * sr); let lp = 0, ph = 0; for (let i = 0; i < sr * dec * 5 && s0 + i < n; i++) { const t = i / sr; ph += 6.283 * f * (1 + 1.5 * Math.exp(-t / 0.008)) / sr; lp += 0.08 * ((Math.random() * 2 - 1) - lp); d[s0 + i] += (Math.sin(ph) * 0.5 + lp * 0.8) * Math.exp(-t / dec) * amp * 0.6; } };
   const scrape = (t0, dur, amp, lpf = 5000, hpf = 1200, rough = 0.6) => { const s0 = Math.floor(t0 * sr), m = Math.floor(dur * sr), al = 1 - Math.exp(-6.283 * lpf / sr), ah = 1 - Math.exp(-6.283 * hpf / sr); let l = 0, h = 0, g = 0, gt = 0;
     for (let i = 0; i < m && s0 + i < n; i++) { const w = Math.random() * 2 - 1; l += al * (w - l); h += ah * (l - h); if (--gt <= 0) { gt = 20 + Math.random() * 160; g = 1 - rough + rough * Math.random(); } const e = Math.sin(Math.PI * i / m) ** 0.6; d[s0 + i] += (l - h) * e * g * amp * 2.5; } };
   fn({ click, thud, scrape }); let mx = 0; for (let i = 0; i < n; i++) mx = Math.max(mx, Math.abs(d[i])); if (mx > 0) for (let i = 0; i < n; i++) d[i] *= 0.9 / mx;

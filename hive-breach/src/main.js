@@ -8,7 +8,7 @@ import { Net, VER } from './net.js';
 import { Audio } from './audio.js';
 import { Music } from './music.js';
 import { icon } from './icons.js';
-import { Explore, buildFOB, cinematic, victoryScene, stationScene, vtol as vtolModel, rover as roverModel } from './explore.js';
+import { Explore, buildFOB, cinematic, victoryScene, stationScene, dropIntro, vtol as vtolModel, rover as roverModel } from './explore.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game'), renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -305,7 +305,7 @@ function makeWeather() {
   const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts); wx = { pts, kind, n, fogFar: G.W.def.fogD[1], fogNear: G.W.def.fogD[0], bolt: 8 + Math.random() * 10, flash: 0 };
 }
 function updateWeather(dt, S) {
-  if (!wx) return; const a = wx.pts.geometry.attributes.position.array, c = camera.position, storm = (S && S.wx) || 0, fall = wx.kind === 'rain' ? 26 : wx.kind === 'snow' ? 2.5 + storm * 4 : 0.4, wind = wx.kind === 'snow' ? 1.5 + storm * 13 : wx.kind === 'dust' ? 5 : 2;
+  if (!wx || !scene.fog) return; /* no weather while a film is in space */ const a = wx.pts.geometry.attributes.position.array, c = camera.position, storm = (S && S.wx) || 0, fall = wx.kind === 'rain' ? 26 : wx.kind === 'snow' ? 2.5 + storm * 4 : 0.4, wind = wx.kind === 'snow' ? 1.5 + storm * 13 : wx.kind === 'dust' ? 5 : 2;
   for (let i = 0; i < wx.n; i++) { const o = i * 3, wa = wx.kind === 'snow' ? ((S && S.wa) || 0) : 0; a[o] += Math.cos(wa) * wind * dt; a[o + 2] += Math.sin(wa) * wind * dt; a[o + 1] -= fall * dt * (0.7 + (i % 5) * 0.1); if (wx.kind === 'dust') a[o + 1] += Math.sin(G.time + i) * dt * 0.5;
     if (a[o] - c.x > 30) a[o] -= 60; if (a[o] - c.x < -30) a[o] += 60; if (a[o + 2] - c.z > 30) a[o + 2] -= 60; if (a[o + 2] - c.z < -30) a[o + 2] += 60; if (a[o + 1] < c.y - 15) a[o + 1] += 30; if (a[o + 1] > c.y + 15) a[o + 1] -= 30; }
   wx.pts.geometry.attributes.position.needsUpdate = true;
@@ -650,11 +650,20 @@ function vehCode() { const v = G.ex && G.ex.veh; return v ? (v.kind === 'rover' 
 function exploreState(S) { return Object.assign({}, S, { A: [], T: [], O: [], I: [], L: [], M: [], Z: [], K: [], D: [], Q: [], S2: [], ph: 'explore', open: 0 }); }
 function updateFootless() { const gn = view2.gun; if (gn) gn.visible = false; if (view2.tool) view2.tool.visible = false; }
 // the campaign: Easy, then Medium, then Hard on each planet; after Hard, up to Station Olympus and on to the next planet
+// a new planet starts with the drop-pod film; the swarm waits until the squad is down, then the 5 s countdown runs
+function playDropIntro() {
+  G.cine = true; document.body.classList.add('cine'); for (const c of camera.children) c.visible = false; if (G.sim) G.sim.timer = 9999;
+  const S0 = state(), squad = (S0 && S0.P.length ? S0.P : [{ cls: G.cls }]).map(p => ({ cls: p.cls, color: CLASSES[p.cls].color }));
+  dropIntro(H, squad, r => {
+    G.cine = false; document.body.classList.remove('cine'); canvas.requestPointerLock();
+    if (G.sim) { G.sim.timer = 5; const P = G.W.path; for (let i = 0; i < (r.marines || 0); i++) { const s = P.len - 40 - i * 2, q = P.at(s), lat = (i - 1) * 1.6, A = ALLIES.trooper; G.sim.allies.push({ id: G.sim.nid++, type: 'trooper', s, lat, x: q.x - q.tz * lat, y: P.y(s), z: q.z + q.tx * lat, hp: A.hp, mhp: A.hp, ry: Math.atan2(q.tx, q.tz), cd: 0, tg: 0 }); } }
+  });
+}
 function nextOf(map, diff) { if (diff < 2) return { map, diff: diff + 1 }; return { map: PLANET_ORDER[(PLANET_ORDER.indexOf(map) + 1) % PLANET_ORDER.length], diff: 0, planet: 1 }; }
 function nextMission(nx) {
   if (G.cine) return; G.cine = true; document.body.classList.add('cine'); if (document.pointerLockElement) document.exitPointerLock(); for (const c of camera.children) c.visible = false;
   const old = G.sim ? [...G.sim.players.values()].map(p => ({ id: p.id, name: p.name, cls: p.cls })) : [{ id: G.myId, name: G.name, cls: G.cls }];
-  const go = () => { G.diff = nx.diff; store.set('hb-diff', G.diff); G.map = nx.map; begin(nx.map); G.sim = new Sim(G.W, emit); for (const p of old) G.sim.addPlayer(p.id, p.name, p.cls).seen = p.id === G.myId ? 1e9 : G.time; H.fade(false); canvas.requestPointerLock(); };
+  const go = () => { G.diff = nx.diff; store.set('hb-diff', G.diff); G.map = nx.map; begin(nx.map); G.sim = new Sim(G.W, emit); for (const p of old) G.sim.addPlayer(p.id, p.name, p.cls).seen = p.id === G.myId ? 1e9 : G.time; H.fade(false); if (nx.planet) playDropIntro(); else canvas.requestPointerLock(); };
   H.caption('EXTRACTION', nx.planet ? 'Lifting off for Station Olympus' : `Next hive: ${MAPS[nx.map].name} · ${DIFFS[nx.diff].name}`); H.fade(true); audio.sfx('rotor', 0.9);
   setTimeout(() => { if (nx.planet) { clearWorld(); if (G.ex && G.ex.dispose) G.ex.dispose(); G.ex = null; G.sim = null; G.snap = null; G.station = true; stationScene(H, nx.map, () => { G.station = false; go(); }); } else go(); }, 1600);
 }
@@ -995,7 +1004,7 @@ function onMsg(m) {
   } else if (G.mode === 'client') {
     if (m.t === 'st') {
       if (m.v !== VER) { if (!G.warned) { G.warned = 1; status('Your friend has a different version. Both of you reload the page.'); } return; }
-      if (!G.W || G.map !== m.map || (G.diff || 0) !== (m.df || 0) || !G.on) { const newPlanet = G.W && G.map !== m.map; G.diff = m.df || 0; begin(m.map); if (newPlanet) banner('NEW PLANET', G.W.def.name); }
+      if (!G.W || G.map !== m.map || (G.diff || 0) !== (m.df || 0) || !G.on) { const newPlanet = G.W && G.map !== m.map; G.diff = m.df || 0; begin(m.map); if (newPlanet) banner('NEW PLANET', G.W.def.name); if (!G.diff && m.ph === 'build') playDropIntro(); }
       G.snap = decode(m); if (!mine(G.snap)) G.net.send({ t: 'hello', n: G.name, c: G.cls, v: VER });
       for (const e of m.fx || []) if (e.f !== G.myId) fx(e);
     } else if (m.t === 'who' && m.to === G.myId) G.net.send({ t: 'hello', n: G.name, c: G.cls, v: VER });
@@ -1006,6 +1015,7 @@ function readTitle() { clampPick(); G.name = ($('name').value.trim() || 'Marine'
 function startLocal(mode) {
   readTitle(); G.mode = mode; G.myId = mode === 'host' ? G.net.id : 'me'; G.sim = null; G.snap = null;
   begin(G.map); G.sim = new Sim(G.W, emit); G.sim.addPlayer(G.myId, G.name, G.cls).seen = 1e9;
+  if ((G.diff || 0) === 0) playDropIntro();
 }
 $('btnSolo').onclick = () => startLocal('solo');
 $('btnHost').onclick = () => { readTitle(); G.net = new Net(onMsg, status); G.mode = 'host'; if (!G.net.host()) return; startLocal('host'); status(G.net.loop ? 'Hosting (test). Code: ' + G.net.code : 'Starting online game...'); $('hudCode').textContent = 'Online code: ' + G.net.code; };

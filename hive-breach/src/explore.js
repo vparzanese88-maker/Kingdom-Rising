@@ -176,3 +176,115 @@ export function cinematic(H, done) {
   };
   requestAnimationFrame(step);
 }
+
+// ---------------------------------------------------------------- the ending film, played after the Brood Queen dies. No skip, no player view.
+// Act 1, in the hive: the queen's death throes, the VTOL dropping to the cave mouth, the squad running out and climbing aboard one by one,
+// the VTOL lifting out of the crater. Act 2, on the surface: a huge forward base being built and filled, cranes, rising buildings, rockets and
+// VTOLs landing, troops forming ranks, and the squad stepping off at the start of a greater war.
+// Everything moves on the clock (not frame by frame), so it plays the same on slow and fast computers.
+const PLANET = { mars: 'Mars', ice: 'Kryos IV', jungle: 'Thessa' };
+export function victoryScene(H, squad, swap, done) {
+  const { scene, camera } = H, W = H.G.W, P = W.path, objs = [], add = o => { scene.add(o); objs.push(o); return o; }, clear = () => { for (const o of objs.splice(0)) scene.remove(o); };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z), sm = f => { f = Math.max(0, Math.min(1, f)); return f * f * (3 - 2 * f); }, L = (a, b, f) => a + (b - a) * f, LV = (a, b, f) => V(L(a.x, b.x, f), L(a.y, b.y, f), L(a.z, b.z, f));
+  const planet = PLANET[W.id] || PLANET[H.G.map] || 'the planet', cap = H.caption || ((a, b) => H.banner(a, b));
+  const q0 = P.at(0), qy = P.y(0), at = s => { const q = P.at(s); return V(q.x, P.y(s), q.z); }, mouth = at(15), land = at(31), side = V(-q0.tz, 0, q0.tx), fwd = V(q0.tx, 0, q0.tz);
+  // the queen, lit for her last moments
+  const queen = add(M.alien('broodqueen')); queen.position.set(q0.x, qy, q0.z); queen.rotation.order = 'YXZ'; queen.rotation.y = Math.atan2(-q0.tx, -q0.tz);
+  const key = add(new THREE.PointLight(0xffb070, 60, 40)); key.position.set(q0.x + fwd.x * 8 + side.x * 4, qy + 7, q0.z + fwd.z * 8 + side.z * 4);
+  const rim = add(new THREE.PointLight(0xa040ff, 50, 40)); rim.position.set(q0.x - fwd.x * 6, qy + 6, q0.z - fwd.z * 6);
+  // the squad where they won, between the queen and the way out
+  const men = squad.map((sq, i) => { const m = add(M.marine(sq.color, sq.cls)), o = (i - (squad.length - 1) / 2) * 2.2, x = q0.x + fwd.x * 8 + side.x * o, z = q0.z + fwd.z * 8 + side.z * o; m.position.set(x, W.top(x, z), z); m.lookAt(q0.x, m.position.y, q0.z); return { m, a: V(x, W.top(x, z), z) }; });
+  const RUN = 7, legs = men.map(g => g.a.distanceTo(mouth) + mouth.distanceTo(land)), tBoard0 = 13.2, starts = men.map((g, i) => tBoard0 + i * 1.3), ends = men.map((g, i) => starts[i] + legs[i] / RUN + 0.5), tLift = Math.max(...ends) + 1.2;
+  const heli = add(vtol()), hpA = V(land.x + side.x * 60 + fwd.x * 40, land.y + 80, land.z + side.z * 60 + fwd.z * 40), hpB = V(land.x, land.y + 2.4, land.z); heli.position.copy(hpA);
+  let t0 = performance.now(), last = t0, booms = 0, flags = {};
+  const once = (k, f) => { if (!flags[k]) { flags[k] = 1; f(); } };
+  H.fade(false);
+  const act1 = () => {
+    const now = performance.now(), t = (now - t0) / 1000, dt = Math.min(0.1, (now - last) / 1000); last = now;
+    // the queen
+    M.animAlien(queen, t * 1.7);
+    if (t < 4.2) { const k = Math.min(1, t / 2); queen.rotation.z = Math.sin(t * 10) * 0.15 * k; queen.rotation.x = Math.sin(t * 6.7) * 0.12 * k - 0.15 * k; queen.position.y = qy + Math.abs(Math.sin(t * 8)) * 0.5 * k; if (Math.random() < 0.6) H.burst(q0.x + (Math.random() - 0.5) * 6, qy + 2 + Math.random() * 6, q0.z + (Math.random() - 0.5) * 6, Math.random() < 0.6 ? 0xb0ff30 : 0xffb040, 5, 5, 0.6); if (Math.random() < dt * 2.5) H.audio.sfx('screech', 0.9); }
+    else { const f = sm((t - 4.2) / 1.6); queen.rotation.z = L(queen.rotation.z, 1.5, 0.08 + f * 0.1); queen.rotation.x *= 0.92; queen.position.y = qy - 1.6 * f; if (booms < 7 && t > 4.3 + booms * 0.3) { booms++; H.boomFx(q0.x + (Math.random() - 0.5) * 7, qy + 1 + Math.random() * 5, q0.z + (Math.random() - 0.5) * 7, 4 + Math.random() * 3); H.audio.sfx('boom', 0.9); } }
+    key.intensity = 60 + (t > 4.2 && t < 7 ? Math.random() * 120 : 0); rim.intensity = 50 + Math.sin(t * 5) * 15;
+    once('r0', () => { H.audio.sfx('roar', 1); cap('MISSION COMPLETE', 'The Brood Queen is dying'); });
+    if (t > 5.4) once('fl', () => { H.flashAt([q0.x, qy + 4, q0.z], 10); for (let i = 0; i < 5; i++) H.burst(q0.x, qy + 3, q0.z, 0xb0ff30, 30, 10, 1.3); H.audio.sfx('roar', 0.7); cap('', 'The swarm on ' + planet + ' has lost its mother'); });
+    // the VTOL
+    const hf = sm((t - 8) / 4.5); heli.position.copy(LV(hpA, hpB, 1 - (1 - hf) ** 2)); heli.position.x = L(hpA.x, hpB.x, hf); heli.position.z = L(hpA.z, hpB.z, hf); heli.rotation.y = Math.atan2(-fwd.x, -fwd.z) + Math.PI;
+    if (t > 8.2) once('rt', () => { H.audio.sfx('rotor', 1); cap('EXTRACTION', 'Dropship Valkyrie-6 inbound'); });
+    // the squad runs out, one at a time, and hops aboard
+    men.forEach((g, i) => { const u = t - starts[i]; if (u < 0) return; const d1 = g.a.distanceTo(mouth), dist = Math.min(legs[i], u * RUN), p = g.m.position;
+      if (dist < legs[i]) { const tgt = dist < d1 ? LV(g.a, mouth, dist / d1) : LV(mouth, land, (dist - d1) / (legs[i] - d1)), nxt = dist < d1 ? mouth : land; p.set(tgt.x, W.top(tgt.x, tgt.z), tgt.z); g.m.rotation.y = Math.atan2(-(nxt.x - p.x), -(nxt.z - p.z)); M.animMarine(g.m, u * 11, RUN); }
+      else { const f = (u - legs[i] / RUN) / 0.5; if (f < 1) { p.y = land.y + Math.sin(f * Math.PI) * 1.5 + f; g.m.scale.setScalar(Math.max(0.05, 1 - f)); } else { if (g.m.visible) H.audio.sfx('step_metal', 0.9); g.m.visible = false; } } });
+    if (t > tLift - 1.1) once('ab', () => cap('ALL ABOARD', squad.length > 1 ? 'Every marine is on the VTOL. Dust off!' : 'Dust off!'));
+    // lift off and climb out of the crater
+    const u = t - tLift; if (u > 0) { const up = sm(u / 2.6) * 24 + Math.max(0, u - 2) ** 2 * 5, go = Math.max(0, u - 1.8) ** 2 * 4; heli.position.set(hpB.x + fwd.x * go, hpB.y + up, hpB.z + fwd.z * go); heli.rotation.x = -Math.min(0.25, Math.max(0, u - 1.8) * 0.15); }
+    for (const r of heli.userData.rotors) r.rotation.y += dt * 30;
+    // cameras
+    let cp, cl;
+    if (t < 4.2) { const f = t / 4.2; cp = V(q0.x + fwd.x * L(10.5, 8.5, f) + side.x * L(-1.5, 1.5, f), qy + L(2.2, 3.4, f), q0.z + fwd.z * L(10.5, 8.5, f) + side.z * L(-1.5, 1.5, f)); cl = V(q0.x, qy + 3.4, q0.z); }
+    else if (t < 8) { const f = (t - 4.2) / 3.8; cp = V(q0.x + fwd.x * 11 + side.x * L(2, 1, f), qy + L(4.5, 6, f), q0.z + fwd.z * 11 + side.z * L(2, 1, f)); cl = V(q0.x, qy + 1.5, q0.z); }
+    else if (t < tBoard0) { const f = (t - 8) / (tBoard0 - 8), c = at(52); cp = V(c.x, c.y + L(1.5, 2.6, f), c.z); cl = V(heli.position.x, heli.position.y + 1, heli.position.z); }
+    else if (t < tLift + 1.5) { const f = (t - tBoard0) / (tLift + 1.5 - tBoard0), m = LV(mouth, land, 0.45); const c = at(23); cp = V(c.x + side.x * L(4.5, 3.5, f), c.y + 2.4, c.z + side.z * L(4.5, 3.5, f)); cl = V(L(mouth.x, land.x, 0.25 + f * 0.6), m.y + 1.8, L(mouth.z, land.z, 0.25 + f * 0.6)); }
+    else { const c = at(50); cp = V(c.x, c.y + 1.4, c.z); cl = heli.position.clone(); }
+    camera.position.copy(cp); camera.lookAt(cl);
+    if (u > 4.6) once('fd', () => H.fade(true));
+    if (u > 6) { clear(); act2(swap()); return; }
+    requestAnimationFrame(act1);
+  };
+  // ---- act 2: the forward base on the surface
+  const act2 = W2 => {
+    const T2 = W2.T, gy = (x, z) => T2.raw(x, z), sp = W2.spawn, pads = W2.pads || [[45, -20], [60, 5], [45, 30], [62, 40]];
+    const hullM = M.mat(0x5a646e, { m: 0.4, r: 0.6 }), steel = M.mat(0xd0a020, { m: 0.5, r: 0.5 }), conc = M.mat(0x8a9298, { r: 0.9 }), glass = M.mat(0x80c8e8, { e: 0x204060, op: 0.8 });
+    // cranes swinging loads over the building site
+    const site = V(-30, 0, -40), cranes = [];
+    for (let i = 0; i < 3; i++) { const c = new THREE.Group(), x = site.x + i * 34 - 20, z = site.z + (i % 2) * 30 - 10; c.position.set(x, gy(x, z), z); add(c); M.B(c, 1.2, 34, 1.2, steel, 0, 17, 0); const jib = new THREE.Group(); jib.position.y = 34; c.add(jib); M.B(jib, 30, 1, 1, steel, 8, 0, 0); M.B(jib, 6, 3, 3, M.mat(0x3a4048), -9, -1, 0); M.B(jib, 2, 2, 2, M.mat(0x2a3036), 0, 1.5, 0); const cab = M.B(jib, 0.1, 18, 0.1, M.mat(0x222222), 18, -9, 0); const load = M.B(jib, 4, 1.5, 4, conc, 18, -18.5, 0); void cab; void load; cranes.push({ jib, ph: i * 1.7 }); }
+    // buildings rising behind scaffolding, sparks flying at the top
+    const blds = [];
+    for (let i = 0; i < 7; i++) { const x = site.x - 30 + (i % 4) * 22, z = site.z - 25 + Math.floor(i / 4) * 40, w = 10 + (i % 3) * 4, h = 10 + (i * 7) % 16, b = new THREE.Group(); b.position.set(x, gy(x, z), z); add(b); const body = M.B(b, w, h, w * 0.8, i % 2 ? conc : hullM, 0, h / 2, 0); const win = M.B(b, w * 1.01, h * 0.12, w * 0.81, glass, 0, h * 0.7, 0);
+      for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) M.B(b, 0.25, h + 2, 0.25, steel, sx * w * 0.55, (h + 2) / 2, sz * w * 0.45); blds.push({ body, win, h, t0: 0.5 + i * 1.6, x, z, top: () => gy(x, z) + h * body.scale.y }); }
+    // ships: the squad's VTOL, more VTOLs, and huge transports hovering down far out
+    const ships = [{ m: add(vtol()), a: V(-220, 90, 60), b: V(pads[0][0], 4.2, pads[0][1]), t0: 9.5, dur: 7 }];
+    for (let i = 1; i < pads.length; i++) ships.push({ m: add(vtol()), a: V(pads[i][0] + 230 * Math.cos(i * 1.9), 110, pads[i][1] + 230 * Math.sin(i * 1.9)), b: V(pads[i][0], 4.2, pads[i][1]), t0: 0.6 + i * 1.8, dur: 7 });
+    const big = []; for (let i = 0; i < 3; i++) { const m = add(transport()), a = i * 2.1 + 0.5, r = 170 + i * 40, x = Math.cos(a) * r, z = Math.sin(a) * r; m.position.set(x, 160, z); m.rotation.y = -a; big.push({ m, x, z, y0: 160, y1: gy(x, z) + 12, t0: 1 + i * 3 }); }
+    const rockets = []; for (let i = 0; i < 9; i++) { const a = i / 9 * 6.28, r = 55 + (i % 3) * 18, x = sp.x - 40 + Math.cos(a) * r, z = sp.z + Math.sin(a) * r * 0.8; const pod = add(M.supplyPod()); pod.scale.setScalar(1.8); pod.visible = false; rockets.push({ m: pod, x, z, y: gy(x, z), t0: 1.5 + i * 0.9 }); }
+    // the muster: ranks of marines running in from the rockets and pads, and soldiers going about the base
+    const fx = sp.x - 22, fz = sp.z, troops = [], ranks = 5, files = 10;
+    for (let r = 0; r < ranks; r++) for (let c = 0; c < files; c++) { const k = r * files + c, src = rockets[k % rockets.length], m = add(M.marine(0x55704a, ['assault', 'heavy', 'sniper', 'gunner', 'medic'][k % 5])); m.visible = false; const o = V(src.x + (Math.random() - 0.5) * 4, 0, src.z + (Math.random() - 0.5) * 4), tp = V(fx - r * 2.6, 0, fz + (c - (files - 1) / 2) * 2.3); troops.push({ m, o, tp, go: src.t0 + 1.8 + (k % 6) * 0.3, dur: o.distanceTo(tp) / 6.5 }); }
+    const walkers = []; for (let i = 0; i < 14; i++) { const m = add(M.marine(0x6a7a5a, 'assault')), a = V(site.x + (Math.random() - 0.5) * 60, 0, site.z + (Math.random() - 0.5) * 50), b = V(site.x + (Math.random() - 0.5) * 60, 0, site.z + (Math.random() - 0.5) * 50); walkers.push({ m, a, b, ph: Math.random() * 10 }); }
+    const rovers = []; for (let i = 0; i < 4; i++) { const m = add(rover()), r = 26 + i * 7; rovers.push({ m, r, ph: i * 1.6, cx: sp.x - 50, cz: sp.z - 10 }); }
+    const flagA = add(M.flag(Math.random)); flagA.position.set(fx + 8, gy(fx + 8, fz), fz); flagA.scale.setScalar(1.6);
+    // the squad steps off their VTOL at the end
+    const crew = squad.map((sq, i) => { const m = add(M.marine(sq.color, sq.cls)); m.visible = false; return { m, i }; });
+    const sun = add(new THREE.PointLight(0xffd0a0, 0, 200)); sun.position.set(sp.x, 60, sp.z);
+    t0 = performance.now(); last = t0; flags = {}; H.fade(false);
+    const run = () => {
+      const now = performance.now(), t = (now - t0) / 1000, dt = Math.min(0.1, (now - last) / 1000); last = now;
+      once('c1', () => { cap('FORWARD BASE VALOR', planet + ': the Marine Corps is coming down in force'); H.audio.sfx('rotor', 0.8); });
+      if (t > 7) once('c2', () => cap('', 'One queen is dead. Her sisters still rule the rest of ' + planet + '.'));
+      if (t > 13) once('c3', () => { cap('A GREATER WAR BEGINS', 'Your squad is reassigned to the front'); H.audio.sfx('wave', 0.9); });
+      if (t > 19) once('c4', () => { cap('NEW MISSION', 'Explore the surface. Rovers to the south, VTOLs on the pads.'); H.audio.sfx('alarm', 0.5); });
+      for (const c of cranes) c.jib.rotation.y = Math.sin(t * 0.25 + c.ph) * 1.2;
+      for (const b of blds) { const f = sm((t - b.t0) / 9); b.body.scale.y = Math.max(0.03, f); b.body.position.y = b.h * f / 2; b.win.visible = f > 0.75; if (f > 0 && f < 1 && Math.random() < 0.3) H.burst(b.x + (Math.random() - 0.5) * 8, b.top() + 0.3, b.z + (Math.random() - 0.5) * 6, 0xffe080, 2, 3, 0.4); }
+      for (const s of ships) { const f = sm((t - s.t0) / s.dur), e = 1 - (1 - f) ** 2; s.m.position.set(L(s.a.x, s.b.x, f), L(s.a.y, s.b.y, e), L(s.a.z, s.b.z, f)); s.m.rotation.y = Math.atan2(-(s.b.x - s.a.x), -(s.b.z - s.a.z)); for (const r of s.m.userData.rotors) r.rotation.y += dt * 30; if (f > 0.85 && f < 1 && Math.random() < 0.5) H.burst(s.b.x + (Math.random() - 0.5) * 10, s.b.y - 2, s.b.z + (Math.random() - 0.5) * 10, 0xb09878, 2, 4, 0.9); }
+      for (const b of big) { const f = sm((t - b.t0) / 16); b.m.position.y = L(b.y0, b.y1, f); }
+      for (const r of rockets) { const f = (t - r.t0) / 1.8; if (f < 0) continue; r.m.visible = true; if (f < 1) { r.m.position.set(r.x, r.y + 300 * (1 - f) ** 1.6, r.z); H.burst(r.x, r.m.position.y + 3, r.z, Math.random() < 0.5 ? 0xffa040 : 0xffe080, 2, 2, 0.5); } else if (!r.down) { r.down = 1; r.m.position.set(r.x, r.y, r.z); H.boomFx(r.x, r.y + 0.5, r.z, 3, 1); H.audio.sfx('boom', 0.5); } }
+      for (const s of troops) { const u = t - s.go; if (u < 0) continue; s.m.visible = true; const f = Math.min(1, u / s.dur), p = LV(s.o, s.tp, f); s.m.position.set(p.x, gy(p.x, p.z), p.z); if (f < 1) { s.m.rotation.y = Math.atan2(-(s.tp.x - s.o.x), -(s.tp.z - s.o.z)); M.animMarine(s.m, u * 11, 6.5); } else { s.m.rotation.y = -Math.PI / 2; M.animMarine(s.m, 0, 0); } }
+      for (const w of walkers) { const f = (Math.sin(t * 0.18 + w.ph) + 1) / 2, p = LV(w.a, w.b, f), dir = Math.cos(t * 0.18 + w.ph) > 0 ? 1 : -1; w.m.position.set(p.x, gy(p.x, p.z), p.z); w.m.rotation.y = Math.atan2(-(w.b.x - w.a.x) * dir, -(w.b.z - w.a.z) * dir); M.animMarine(w.m, t * 8 + w.ph, 3); }
+      for (const r of rovers) { const a = t * 0.25 + r.ph, x = r.cx + Math.cos(a) * r.r, z = r.cz + Math.sin(a) * r.r; r.m.position.set(x, gy(x, z), z); r.m.rotation.y = -a; }
+      // the squad's VTOL touches down and they walk off toward the ranks
+      const sh = ships[0], dn = t - (sh.t0 + sh.dur); crew.forEach(c => { if (dn < 0.6 + c.i * 0.7) return; c.m.visible = true; const u = dn - 0.6 - c.i * 0.7, x = sh.b.x - 4 - u * 2.2, z = sh.b.z + (c.i - (crew.length - 1) / 2) * 1.6; c.m.position.set(x, gy(x, z), z); c.m.rotation.y = Math.PI / 2; M.animMarine(c.m, u * 7, 2.5); });
+      // cameras
+      let cp, cl; const by = gy(sp.x, sp.z);
+      if (t < 7) { const f = t / 7, a = 2.4 + f * 0.9; cp = V(site.x + Math.cos(a) * L(150, 110, f), by + L(70, 45, f), site.z + Math.sin(a) * L(150, 110, f)); cl = V(site.x + 10, by + 8, site.z); }
+      else if (t < 13) { const f = (t - 7) / 6; cp = V(fx + 14, by + L(4, 5.5, f), fz + L(-20, 20, f)); cl = V(fx - 4, by + 1.6, fz + L(-8, 8, f)); }
+      else if (t < 19) { const f = (t - 13) / 6, b = ships[0].b; cp = V(b.x - 22, by + L(3, 5, f), b.z + L(14, 8, f)); cl = V(b.x - 3, b.y - 1, b.z); }
+      else { const f = (t - 19) / 6; cp = V(fx + L(10, 80, f), by + L(4, 70, f), fz + L(30, 90, f)); cl = V(L(fx, site.x, f), by + L(2, 10, f), L(fz, site.z, f)); }
+      camera.position.copy(cp); camera.lookAt(cl);
+      if (t > 24) once('fd', () => H.fade(true));
+      if (t > 25.4) { clear(); done(); return; }
+      requestAnimationFrame(run);
+    };
+    requestAnimationFrame(run);
+  };
+  requestAnimationFrame(act1);
+}

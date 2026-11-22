@@ -8,7 +8,7 @@ import { Net, VER } from './net.js';
 import { Audio } from './audio.js';
 import { Music } from './music.js';
 import { icon } from './icons.js';
-import { Explore, buildFOB, cinematic, vtol as vtolModel, rover as roverModel } from './explore.js';
+import { Explore, buildFOB, cinematic, victoryScene, vtol as vtolModel, rover as roverModel } from './explore.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game'), renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -191,7 +191,7 @@ function fx(e) {
     case 'adie': burst(e.x, e.y + 1, e.z, 0xa02020, 8, 3, 0.6); break;
     case 'banner': banner(e.a, e.b); audio.sfx('wave'); break;
     case 'assault': banner('FINAL ASSAULT', 'Go into the cave and kill the Brood Queen'); audio.sfx('alarm'); toast('Wave 20 survived! No more waves: push to the hive and destroy it.', 8); break;
-    case 'win': audio.sfx('win'); record(e.el); break;
+    case 'win': audio.sfx('win'); record(e.el); setTimeout(startFob, 900); break;
     case 'lose': audio.sfx('lose'); record(e.el); break;
   }
 }
@@ -395,7 +395,7 @@ function syncView(S, dt) {
     if (p.id === G.myId) continue; seen.add(p.id); let v = view.players.get(p.id);
     if (!v || v.cls !== p.cls) { if (v) scene.remove(v.mesh); const mesh = M.marine(CLASSES[p.cls].color, p.cls), tag = nameTag(p.name, CLASSES[p.cls].color); tag.position.y = 2.7; mesh.add(tag); scene.add(mesh); v = { mesh, cls: p.cls, x: p.x, y: p.y, z: p.z, t: 0 }; view.players.set(p.id, v); }
     const kk = 1 - Math.exp(-dt * 14), ox = v.x, oz = v.z; v.x += (p.x - v.x) * kk; v.y += (p.y - v.y) * kk; v.z += (p.z - v.z) * kk; const sp = Math.hypot(v.x - ox, v.z - oz) / Math.max(dt, 1e-4);
-    v.t += dt * Math.min(sp, 9) * 1.6; M.animMarine(v.mesh, v.t, sp); v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = p.yaw; v.mesh.visible = !p.dead && !p.veh;
+    v.t += dt * Math.min(sp, 9) * 1.6; M.animMarine(v.mesh, v.t, sp); v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = p.yaw; v.mesh.visible = !p.dead && !p.veh && !G.cine;
     if (p.veh && (!v.vm || v.vk !== p.veh)) { if (v.vm) scene.remove(v.vm); v.vk = p.veh; v.vm = p.veh === 1 ? roverModel() : vtolModel(); scene.add(v.vm); } if (v.vm) { v.vm.visible = !!p.veh; v.vm.position.set(v.x, v.y, v.z); v.vm.rotation.y = p.yaw; if (v.vk === 2) for (const r of v.vm.userData.rotors) r.rotation.y += dt * 30; } M.kneel(v.mesh, p.kn); v.kick = Math.max(0, (v.kick || 0) - dt * 8); v.mesh.userData.arms.rotation.x = v.kick * 0.25;
     if (!v.hpb) { v.hpb = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x40e070, depthTest: false })); v.hpb.center.set(0, 0.5); v.hpb.position.set(-0.9, 2.35, 0); v.hpb.renderOrder = 6; v.mesh.add(v.hpb); }
     const hf = Math.max(0, p.hp / p.mhp); v.hpb.scale.set(1.8 * hf + 0.001, 0.12, 1); v.hpb.material.color.setHex(hf < 0.3 ? 0xff4040 : 0x40e070);
@@ -617,14 +617,20 @@ function updateFootless() { const gn = view2.gun; if (gn) gn.visible = false; if
 // after victory: the cinematic, then the forward base
 function startFob() {
   if (G.cine || G.explore) return; G.cine = true; if (document.pointerLockElement) document.exitPointerLock(); document.body.classList.add('cine'); $('end').hidden = true;
-  cinematic(H, () => {
-    clearWorld(); G.W = buildFOB(scene, G.map); G.explore = true; G.cine = false; G.ex = new Explore(H); G.ex.setup(G.W); makeWeather(); applyQuality();
+  // hide the battle's live pieces; the scene brings its own queen and marines
+  for (const c of camera.children) c.visible = false; if (view2.laser) view2.laser.visible = false;
+  for (const m of [view.aliens, view.players, view.allies]) for (const v of m.values()) { (v.mesh || v).visible = false; if (v.bar) v.bar.visible = false; }
+  const S0 = state(), squad = (S0 && S0.P.length ? S0.P : [{ cls: G.cls }]).map(p => ({ cls: p.cls, color: CLASSES[p.cls].color }));
+  const swap = () => { clearWorld(); G.W = buildFOB(scene, G.map); G.explore = true; makeWeather(); applyQuality(); return G.W; };
+  victoryScene(H, squad, swap, () => {
+    G.cine = false; G.ex = new Explore(H); G.ex.setup(G.W);
     const me = G.me; me.x = G.W.spawn.x; me.z = G.W.spawn.z; me.y = G.W.T.raw(me.x, me.z); me.vy = 0; me.yaw = Math.PI / 2; me.reserve = stats().reserve; document.body.classList.remove('cine'); document.body.classList.add('explore');
     H.fade(false); banner('FOB VALOR', 'The Marine Corps forward base. Explore the planet: rovers to the south, VTOLs on the pads to the east'); music.set('title'); canvas.requestPointerLock();
   });
 }
 const H = { scene, camera, audio, keys, hits, KB, G, M, toast: (m, t) => toast(m, t), prompt: h => prompt(h), banner: (a, b) => banner(a, b), burst: (...a) => burst(...a), boomFx: (...a) => boomFx(...a), tracer: (...a) => tracer(...a), flashAt: (...a) => flashAt(...a),
-  mouseL: () => mouseL && locked(), shake: v => { G.shake = Math.max(G.shake || 0, v); }, hurtFlash: () => { G.hurtT = 0.35; audio.sfx('hurt', 0.6); }, keyName: c => keyName(c), fade: on => { $('fade').style.opacity = on ? 1 : 0; } };
+  mouseL: () => mouseL && locked(), shake: v => { G.shake = Math.max(G.shake || 0, v); }, hurtFlash: () => { G.hurtT = 0.35; audio.sfx('hurt', 0.6); }, keyName: c => keyName(c), fade: on => { $('fade').style.opacity = on ? 1 : 0; },
+  caption: (a, b) => { const c = $('cap'); clearTimeout(c._t); if (a) $('capA').textContent = a; else if (!c.classList.contains('on')) $('capA').textContent = ''; $('capB').textContent = b || ''; c.classList.add('on'); c._t = setTimeout(() => c.classList.remove('on'), 5200); } };
 function reloadMul(S) { return S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? 0.75 : 1; }
 // medic heal beam and engineer plasma torch: find what is in the crosshair and tell the host ten times a second
 function updateBeam(dt, S) {
@@ -843,7 +849,7 @@ function hud(dt, S) {
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').hidden = true; }
   if (!promptSet) $('prompt').hidden = true; promptSet = false;
   // end screens
-  const end = (S.ph === 'lose' || S.ph === 'win') && !G.explore && !G.cine; $('end').hidden = !end; $('btnFob').hidden = !(S.ph === 'win' && G.mode !== 'client');
+  const end = S.ph === 'lose' && !G.explore && !G.cine; $('end').hidden = !end; $('btnFob').hidden = !(S.ph === 'win' && G.mode !== 'client');
   if (end) { setT('endTitle', S.ph === 'win' ? 'VICTORY' : 'THE HUB HAS FALLEN'); { const t = S.el || 0, ms = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('endText', S.ph === 'win' ? `The hive is destroyed after ${ms}! The colony is safe.` : `Your squad held the hub for ${ms}.`); } setT('endKey', G.mode === 'client' ? 'Waiting for the host to choose…' : ''); $('btnAgain').hidden = G.mode === 'client'; $('btnAgain').textContent = S.ph === 'win' ? 'Keep fighting (endless mode)' : 'Try again'; if (document.pointerLockElement) document.exitPointerLock(); }
   $('pause').hidden = locked() || G.shop || end || G.mmap || G.settings;
   $('board').hidden = !keys[KB.scores]; if (keys[KB.scores]) setH('boardT', '<tr><th>Marine</th><th>Class</th><th>Kills</th><th>Gold</th></tr>' + S.P.map(p => `<tr><td>${esc(p.name)}${p.dead ? ' ✝' : ''}</td><td>${CLASSES[p.cls].name}</td><td>${p.kills}</td><td>${Math.floor(p.gold)}</td></tr>`).join(''));
@@ -923,7 +929,8 @@ function begin(mapId) {
   $('title').hidden = true; $('hud').hidden = false; canvas.requestPointerLock();
   setT('mapName', MAPS[mapId].name);
   toast(music.on ? 'Music on (N turns it off) · M opens the live map' : 'Music is off: press N to turn it on', 4);
-  toast(`${MAPS[mapId].name}: hold the hub. Aliens follow the glowing track from the hive.`, 6);
+  toast(`${MAPS[mapId].name}: hold the hub. Aliens follow the glowing track from the Brood Queen's cave.`, 6);
+  banner('YOUR MISSION', 'Hold the colony hub, then fight into the hive and kill the Brood Queen'); bannerT = 6;
 }
 function onMsg(m) {
   if (G.mode === 'host') {

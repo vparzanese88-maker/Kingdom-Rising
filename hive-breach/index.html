@@ -76,6 +76,9 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 .srow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid #1a2632;font-size:14px}.srow select,.srow .kb{background:#101c26;color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:5px 10px;min-width:120px;font:inherit}
 .srow .kb.wait{border-color:var(--gold);color:var(--gold)}#fps{position:absolute;right:190px;top:12px;font:12px monospace;color:#9f9;text-shadow:0 0 3px #000}
 #pause .card p{margin:8px 0}
+#lbT,#lbB{position:fixed;left:0;right:0;height:0;background:#000;z-index:19;transition:height 1.2s ease}#lbT{top:0}#lbB{bottom:0}body.cine #lbT,body.cine #lbB{height:11vh}
+#cap{position:fixed;left:0;right:0;bottom:13vh;text-align:center;z-index:21;pointer-events:none;opacity:0;transition:opacity .8s;font-family:Rajdhani,'Segoe UI',sans-serif;text-shadow:0 2px 12px #000}#cap.on{opacity:1}#capA{font-size:clamp(24px,4.4vw,46px);font-weight:700;letter-spacing:.42em;color:#fff}#capB{font-size:clamp(13px,1.7vw,19px);letter-spacing:.18em;color:#cfe6f2;margin-top:6px}
+body.cine #banner{display:none!important}
 #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 1.4s;z-index:20}
 body.cine #hud>*:not(#banner){display:none!important}
 body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,body.explore #top .bar{display:none!important}
@@ -203,16 +206,16 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795365225",
-"./src/data.js": "./src/data.js?v=1795365225",
-"./src/explore.js": "./src/explore.js?v=1795365225",
-"./src/icons.js": "./src/icons.js?v=1795365225",
-"./src/main.js": "./src/main.js?v=1795365225",
-"./src/models.js": "./src/models.js?v=1795365225",
-"./src/music.js": "./src/music.js?v=1795365225",
-"./src/net.js": "./src/net.js?v=1795365225",
-"./src/sim.js": "./src/sim.js?v=1795365225",
-"./src/world.js": "./src/world.js?v=1795365225"
+"./src/audio.js": "./src/audio.js?v=1795365978",
+"./src/data.js": "./src/data.js?v=1795365978",
+"./src/explore.js": "./src/explore.js?v=1795365978",
+"./src/icons.js": "./src/icons.js?v=1795365978",
+"./src/main.js": "./src/main.js?v=1795365978",
+"./src/models.js": "./src/models.js?v=1795365978",
+"./src/music.js": "./src/music.js?v=1795365978",
+"./src/net.js": "./src/net.js?v=1795365978",
+"./src/sim.js": "./src/sim.js?v=1795365978",
+"./src/world.js": "./src/world.js?v=1795365978"
 }
 }
 </script>
@@ -220,6 +223,7 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 <body>
 <canvas id="game"></canvas>
 <div id="fade"></div>
+<div id="lbT"></div><div id="lbB"></div><div id="cap"><div id="capA"></div><div id="capB"></div></div>
 
 <div id="hud" hidden>
   <div id="hurt"></div>
@@ -289,6 +293,6 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795365225"></script>
+<script type="module" src="./src/main.js?v=1795365978"></script>
 </body>
 </html>

@@ -488,7 +488,9 @@ function newMe() {
   const mk = (kind, x) => { const m = M.gunModel(kind, CLASSES[G.cls].color); m.scale.setScalar(0.55); m.position.set(x, -0.22, -0.45); m.visible = false; m.traverse(o => { o.castShadow = false; }); camera.add(m); return m; };
   view2.pistol = mk('pistol', 0.2); view2.tool = mk(G.cls === 'engineer' ? 'torch' : 'welder', 0.18);   /* the Engineer's plasma welder, everyone else's welding laser */ view2.thr = M.throwModel(CLASSES[G.cls].throw.kind); view2.thr.position.set(0.22, -0.24, -0.5); view2.thr.visible = false; camera.add(view2.thr); if (view2.extra) camera.remove(view2.extra); view2.extra = null; if (CLASSES[G.cls].extra) { view2.extra = M.throwModel(CLASSES[G.cls].extra.kind); view2.extra.position.set(0.22, -0.24, -0.5); view2.extra.visible = false; camera.add(view2.extra); }
   if (view2.dress) camera.remove(view2.dress); view2.dress = new THREE.Group(); M.C(view2.dress, 0.05, 0.05, 0.07, 0xeeeae0, 0, 0, 0); M.C(view2.dress, 0.02, 0.02, 0.072, 0xb0aca0, 0, 0, 0); M.B(view2.dress, 0.06, 0.004, 0.09, 0xeeeae0, 0.03, -0.03, -0.04); M.B(view2.dress, 0.03, 0.03, 0.002, 0xd03030, 0, 0, 0.036); view2.dress.rotation.set(0.3, 0.4, 1.4); view2.dress.position.set(0.16, -0.2, -0.38); view2.dress.visible = false; camera.add(view2.dress);
-  const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); view2.gun.add(glove);
+  // your own marine's arms on each gun (the Meshy model); the old block glove and hand only when those aren't loaded
+  view2.arms = M.AS.fpArms(G.cls, view2.gun, 'two'); if (view2.arms) view2.gun.add(view2.arms); else { const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); view2.gun.add(glove); }
+  for (const k of ['pistol', 'tool']) { const a = view2[k] && M.AS.fpArms(G.cls, view2[k], 'one'); if (a) view2[k].add(a); }
   if (view2.hand) camera.remove(view2.hand); view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); camera.add(view2.hand); for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
 }
 const ray = { o: new THREE.Vector3(), d: new THREE.Vector3() };
@@ -641,6 +643,7 @@ function animReload(me, gn, my, dt) {
   if (held) { const m = heldMesh(g, held === 3 ? 'rocket' : held === 4 ? 'shell' : 'mag'); m.visible = true; m.position.set(0, held === 3 ? -0.09 : -(m.userData.h / 2 + 0.03), held === 3 ? 0 : -0.01); m.rotation.set(0, held === 3 ? 0 : 0, 0); }
   // let go of the empty magazine once: it tumbles out of sight
   if (f >= 0.22 && f < 0.5 && !(me.rs & 64) && u.mag) { me.rs |= 64; const m = new THREE.Mesh(u.mag.geometry, u.mag.material); m.scale.setScalar(0.55); hd.updateMatrixWorld(); const w = new THREE.Vector3(0, -(magH / 2 + 0.03), -0.01); hd.localToWorld(w); camera.worldToLocal(w); m.position.copy(w); m.quaternion.copy(hd.quaternion); camera.add(m); view2.drops.push({ m, t: 0, vy: -0.5 }); }
+  if (view2.arms) hd.visible = false;   // your real marine arms hold the gun: no floating old-style hand
 }
 function startReload(st, S) { const g = curGun(), me = G.me; if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.42; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
 function surface(me) {

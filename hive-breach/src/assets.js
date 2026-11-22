@@ -159,3 +159,35 @@ export function item(kind) {
   if (kind === 'frag') return weapon('frag');
   const n = kind === 'medkit' ? 's_medkit' : kind === 'ammo' ? 's_ammopack' : null; if (!n || !A[n]) return null; return fit(n, 'w', 0.3, true);
 }
+
+// ---- first-person arms: your own class marine's arms, posed in the aiming clip and fitted onto the gun you hold.
+// mode 'two': right hand on the grip, left hand on the foregrip (rifles, shotguns, the minigun, the launcher)
+// mode 'one': right hand on the grip only (the side arm, the welders), left arm tucked away out of sight
+export const FP_ROLL = { two: -0.7, one: -0.5 };
+export function fpArms(cls, gun, mode = 'two') {
+  if (!gun || !gun.userData.glb) return null; const g = marineGLB(cls); if (!g) return null; const u = g.userData;
+  if (u.gun) { g.remove(u.gun); u.gun = null; }
+  setPose(g, 'walk', 0); const a = u.act.walk; a.time = a.getClip().duration * 0.15; a.timeScale = 0; u.mixer.update(0);
+  // keep only the sleeves and gloves: every triangle whose skin mostly follows an arm bone; the chest, head and legs are cut away
+  const keepB = mode === 'one' ? ['RightArm', 'RightForeArm', 'RightHand'] : ['RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand'];
+  u.root.traverse(o => {
+    if (!o.isSkinnedMesh) return; const bones = o.skeleton.bones, ok = new Set(bones.map((b, i) => keepB.includes(b.name) ? i : -1).filter(i => i >= 0));
+    const src = o.geometry, si = src.attributes.skinIndex, sw = src.attributes.skinWeight, dom = i => { let best = 0, bw = -1; for (let c = 0; c < 4; c++) { const w = sw.getComponent(i, c); if (w > bw) { bw = w; best = si.getComponent(i, c); } } return best; };
+    const idx = src.index ? src.index.array : null, n = idx ? idx.length : src.attributes.position.count, out = [];
+    for (let t = 0; t < n; t += 3) { const a = idx ? idx[t] : t, b = idx ? idx[t + 1] : t + 1, c = idx ? idx[t + 2] : t + 2; if (ok.has(dom(a)) && ok.has(dom(b)) && ok.has(dom(c))) out.push(a, b, c); }
+    const geo = src.clone(); geo.setIndex(out); o.geometry = geo;
+  });
+  g.updateMatrixWorld(true); const P = n => { const o = u.root.getObjectByName(n); return o ? o.getWorldPosition(new THREE.Vector3()) : null; };
+  const L = gun.userData.len || 0.9, rh = P('RightHand'), lh = P('LeftHand'), rf = P('RightForeArm'); if (!rh) return null;
+  // where those joints should end up, in the gun's own space (muzzle down -z, grip at the origin)
+  let A, B, A2, B2;
+  if (mode === 'two' && lh) { A = rh; B = lh; A2 = new THREE.Vector3(0.035, -0.06, 0.2); B2 = new THREE.Vector3(-0.045, -0.055, -L * 0.3); }
+  else { A = rf; B = rh; A2 = new THREE.Vector3(0.05, -0.32, 0.3); B2 = new THREE.Vector3(0.01, -0.08, 0.12); }
+  const d1 = B.clone().sub(A), d2 = B2.clone().sub(A2), s = d2.length() / d1.length();
+  const basis = (d, upHint) => { const z = d.clone().normalize(), x = new THREE.Vector3().crossVectors(upHint, z).normalize(), y = new THREE.Vector3().crossVectors(z, x); return new THREE.Matrix4().makeBasis(x, y, z); };
+  const m1 = basis(d1, new THREE.Vector3(0, 1, 0)), m2 = basis(d2, new THREE.Vector3(0, 1, 0)), R = m2.clone().multiply(m1.clone().invert());
+  const q = new THREE.Quaternion().setFromRotationMatrix(R); q.premultiply(new THREE.Quaternion().setFromAxisAngle(d2.clone().normalize(), FP_ROLL[mode]));   // swing the elbows and shoulders down, out of view
+  g.quaternion.copy(q); g.scale.setScalar(s); g.position.copy(A2).sub(A.clone().multiplyScalar(s).applyQuaternion(q));
+  g.traverse(o => { o.castShadow = false; if (o.isMesh) { o.frustumCulled = false; o.material = o.material.clone(); o.material.side = THREE.DoubleSide; } }); g.userData.fpArms = true;   // double-sided so the cut sleeve ends look solid
+  return g;
+}

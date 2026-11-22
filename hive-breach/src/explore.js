@@ -396,7 +396,7 @@ export function dropIntro(H, squad, done) {
   const crew = [], seatsA = [3, 5, 10.3, 13.7].map(i => i / 16 * 6.283);   /* beside you and by the door, so the windows stay clear */
   [{ cls: 'assault', color: 0xd8d8d8, cmd: 1 }, { cls: 'assault', color: 0x5a7a4a }, { cls: 'gunner', color: 0x5a7a4a }, { cls: 'medic', color: 0x5a7a4a }].forEach((r, i) => { const m = M.marine(r.color, r.cls), a = seatsA[i]; m.scale.setScalar(0.88); m.position.set(Math.cos(a) * 1.3, -0.05, Math.sin(a) * 1.25); m.lookAt(0, -0.05, 0); m.rotateY(Math.PI); m.userData.legL.rotation.x = m.userData.legR.rotation.x = -1.45; if (m.userData.glb) { M.kneel(m, 2); m.position.y = 0.25; } cabin.add(m); crew.push({ m, a, cmd: r.cmd }); });   /* lookAt points the back at the middle, so turn them round to face in */
   // you: strapped into your own seat, in your class's armour (head hidden, since you're looking out of it)
-  const meBody = M.marine(0, G.cls || 'assault'); if (meBody.userData.glb) { const a = Math.PI / 2; meBody.scale.setScalar(0.88); meBody.position.set(Math.cos(a) * 1.3, 0.25, Math.sin(a) * 1.3); meBody.lookAt(0, 0.25, 0); meBody.rotateY(Math.PI); M.kneel(meBody, 2); const hd = meBody.userData.root.getObjectByName('Head'); if (hd) hd.scale.setScalar(0.001); cabin.add(meBody); }
+  const meBody = M.marine(0, G.cls || 'assault'); if (meBody.userData.glb) { const a = Math.PI / 2; meBody.scale.setScalar(0.88); meBody.position.set(Math.cos(a) * 0.95, 0.25, Math.sin(a) * 0.95); meBody.lookAt(0, 0.25, 0); meBody.rotateY(Math.PI); M.kneel(meBody, 2); const hd = meBody.userData.root.getObjectByName('Head'); if (hd) hd.scale.setScalar(0.001); cabin.add(meBody); }
   for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2, b = B(st, 1.2, 14, 1.2, darkM, 0, -19, 0), o = rot(Math.cos(a) * 2.7, Math.sin(a) * 2.7); b.position.set(o.x, -19, o.z); }   /* clamps on the diagonals, clear of the windows */
   const wing = [[-13, -4, 0.35], [14, 3, 0.6], [-15, 9, 0.9], [12, -10, 1.2]].map(([x, z, dl], i) => { const m = add(dropPod([0x30a0d0, 0xd04030, 0x80c040, 0xc0c0c0][i])); const o = rot(x, z); m.rotation.y = doorYaw + i; return { m, o, dl, sx: Math.sign(x) }; });
   for (const w of wing) for (const o of [-1, 1]) { const b = B(st, 1.2, 14, 1.2, darkM, 0, -19, 0); b.position.set(w.o.x + o * 2.4, -19, w.o.z); }
@@ -470,7 +470,7 @@ export function dropIntro(H, squad, done) {
     hud.innerHTML = t > 29 ? '' : `ALT&nbsp; ${Math.max(0, Math.round(alt)).toLocaleString()} m<br>VEL&nbsp; ${t < 7 ? 0 : Math.round(spd).toLocaleString()} m/s<br>HULL ${Math.round(temp)}°C${temp > 900 && Math.sin(t * 10) > 0 ? ' <span style="color:#ff5040">⚠</span>' : ''}`;
     // first-person camera in your seat: mouse look, plus the pod's violence
     shakeK = Math.max(0, shakeK - dt * 2.2); const sh = shake + shakeK; A.rumble(rum);
-    pod.updateMatrixWorld(); const eye = pod.localToWorld(V(0, 1.55, t > 29 ? 1.1 : 1.15));   /* your head, in your seat */ G.me.pitch = Math.max(-1.2, Math.min(1.2, G.me.pitch));
+    pod.updateMatrixWorld(); const eye = pod.localToWorld(V(0, 1.62, 1.22));   /* your head, in your seat */ G.me.pitch = Math.max(-1.2, Math.min(1.2, G.me.pitch));
     camera.position.set(eye.x + (Math.random() - 0.5) * sh * 0.07, eye.y + (Math.random() - 0.5) * sh * 0.07, eye.z + (Math.random() - 0.5) * sh * 0.07);
     camera.rotation.set(G.me.pitch + (Math.random() - 0.5) * sh * 0.02 + pod.rotation.x, G.me.yaw + doorYaw + (Math.random() - 0.5) * sh * 0.02, (Math.random() - 0.5) * sh * 0.03 + pod.rotation.z, 'YXZ');
     if (t > 29 + 10) {

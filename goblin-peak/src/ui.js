@@ -46,9 +46,9 @@ export class UI {
       x.fillStyle = '#eef4fa'; x.beginPath(); x.moveTo(204, 245); x.lineTo(300, 60); x.lineTo(396, 245); x.fill();
       x.strokeStyle = '#5a3c1c'; x.lineWidth = 3; x.setLineDash([8, 7]); x.beginPath(); x.moveTo(110, 545); for (let i = 0; i <= 60; i++) { const q = i / 60, yy = 545 - q * 470, half = (560 - yy) / 500 * 250 * 0.8; x.lineTo(300 + Math.sin(q * 26) * half, yy); } x.stroke(); x.setLineDash([]);
       x.font = 'bold 20px Fredoka, sans-serif'; x.textAlign = 'center';
-      ORDER.forEach((id, i) => { const L = LEVELS[id], yy = [480, 320, 165][i], open = i === 0 || S.done[ORDER[i - 1]]; x.fillStyle = 'rgba(40,25,10,.78)'; x.fillRect(180, yy - 24, 240, 54); x.fillStyle = open ? '#ffe9a8' : '#998'; x.fillText(`${i + 1}. ${L.name} · ${L.tag}`, 300, yy); x.font = '15px Fredoka, sans-serif'; x.fillText(S.done[id] ? `Cleared ✔   Relics ${(S.jewels[id] || []).filter(Boolean).length}/3` : open ? 'Open' : 'Locked', 300, yy + 21); x.font = 'bold 20px Fredoka, sans-serif'; });
-      x.fillStyle = '#b5332a'; x.fillText('▲ Princess Wrenna', 300, 46); x.fillStyle = '#3a2a1c'; x.fillText('● Bramblewick (you are here)', 300, 590);
-      obj += tick(S.done.l1, 'Climb Greenfoot Slopes (west gate)') + tick(S.done.l2, 'Cross Thunder Gorge (north gate)') + tick(S.won, 'Climb the Frostfang Stair and free the Princess (east gate)');
+      ORDER.forEach((id, i) => { const L = LEVELS[id], yy = [480, 320, 165][i], open = true; x.fillStyle = 'rgba(40,25,10,.78)'; x.fillRect(180, yy - 24, 240, 54); x.fillStyle = open ? '#ffe9a8' : '#998'; x.fillText(`${i + 1}. ${L.name} · ${L.tag}`, 300, yy); x.font = '15px Fredoka, sans-serif'; x.fillText(S.done[id] ? `Cleared ✔   Relics ${(S.jewels[id] || []).filter(Boolean).length}/3` : open ? 'Open' : 'Locked', 300, yy + 21); x.font = 'bold 20px Fredoka, sans-serif'; });
+      x.fillStyle = '#3a2a1c'; x.fillText('● Bramblewick (you are here)', 300, 590);
+      obj += ORDER.map((id, k) => tick(S.done[id], `${LEVELS[id].name} · ${LEVELS[id].tag} (${['west', 'north', 'east'][k]} of town)` + (S.best[id] ? ' · best ' + G.fmt(S.best[id]) : ''))).join('');
       const jw = ORDER.reduce((a, id) => a + (S.jewels[id] || []).filter(Boolean).length, 0); obj += tick(jw >= 9, `Find the nine hidden relics: each unlocks an upgrade (${jw}/9)`);
       { const an = Object.keys(S.acts || {}).length; obj += tick(an >= 100, `Lowland adventures: treasure, races, goblin camps, spires and more, all around the village (${an}/100)`); }
       obj += `<li>○ Visit Nib's stall to spend coins (${S.coins})</li>`;
@@ -61,7 +61,7 @@ export class UI {
       x.font = 'bold 15px Fredoka, sans-serif'; x.textAlign = 'center';
       for (const c of W.camps) { x.fillStyle = c.lit ? '#d8362c' : '#777'; x.beginPath(); x.arc(X(c.x), Z(c.z), 7, 0, 7); x.fill(); x.fillStyle = '#3a2a1c'; x.fillText(c.sec.name || 'Camp', X(c.x), Z(c.z) - 11); }
       for (const j of W.jewels) { x.fillStyle = j.got ? '#ff4fa0' : 'rgba(255,79,160,.45)'; x.fillText(j.got ? '◆' : '?', X(j.x), Z(j.z) + 5); }
-      x.fillStyle = '#3a2a1c'; x.fillText('START', X(W.start.x), Z(W.start.z) + 20); x.fillStyle = '#b5332a'; x.fillText(W.boss ? '♛ Chieftain' : '⚑ Gate', X(0), Z(0) + 5);
+      x.fillStyle = '#3a2a1c'; x.fillText('START', X(W.start.x), Z(W.start.z) + 20); x.fillStyle = '#b5332a'; x.fillText('⚑ Top gate', X(0), Z(0) + 5);
       const p = G.player; x.save(); x.translate(X(p.pos.x), Z(p.pos.z)); x.rotate(-p.yaw); x.fillStyle = '#1a6fd8'; x.strokeStyle = '#fff'; x.lineWidth = 2; x.beginPath(); x.moveTo(0, -11); x.lineTo(7, 8); x.lineTo(0, 4); x.lineTo(-7, 8); x.closePath(); x.fill(); x.stroke(); x.restore();
       const id = W.def.id, jn = (S.jewels[id] || []).filter(Boolean).length, lit = W.camps.filter(c => c.lit).length;
       obj += tick(S.done[id] || S.won && id === 'l3', W.def.goal) + tick(lit >= W.camps.length, `Light the campfires (${lit}/${W.camps.length})`) + tick(jn >= 3, `Find the hidden relics (${jn}/3)`);
@@ -72,6 +72,11 @@ export class UI {
   splat(kind, secs) { const el = $('splat'); el.className = kind; el.textContent = kind === 'cat' ? '🐈' : kind === 'rabbit' ? '🐇' : ''; this.splatT = secs; this.show('splat', true); el.style.opacity = 1; }
   count(v) { this.show('countBox', v !== null); if (v !== null) this.set('countBox', String(v)); }
   closeAll() { if (this.mapOpen) this.toggleMap(false); if (this.shopOpen) this.closeShop(); if (this.dlg) { this.dlg = null; this.show('dialog', false); } }
+  soloMenu(pick, at) {
+    if (!pick || !at) { if (this.last.solo) { this.last.solo = ''; this.show('lobbyBox', false); } return; } const S = this.G.save;
+    const h = '<h2>Choose your mountain</h2>' + ORDER.map((id, i) => `<p class="${id === pick ? 'pick' : ''}"><b>${i + 1}</b> ${LEVELS[id].name} <i>${LEVELS[id].tag}</i>${S.best[id] ? ' · best ' + this.G.fmt(S.best[id]) : ''}</p>`).join('') + '<p class="keys2"><b>ENTER</b> go to the start line</p><p class="small">You can also just walk to any mountain: west, north or east of town.</p>';
+    if (this.last.solo !== h) { this.last.solo = h; $('lobbyBox').innerHTML = h; this.show('lobbyBox', true); }
+  }
   lobby(N, L, at) {
     this.show('lobbyBox', true); const names = [N.name + ' (you)', ...[...N.peers.values()].map(q => q.n)], lv = LEVELS[L.map], mode = L.mode === 'race' ? 'RACE' : 'TEAM';
     let h = `<p>Code <b class="code">${N.code}</b> · ${names.length} player${names.length > 1 ? 's' : ''}: ${names.join(', ')}</p><p>Next climb: <b>${lv.name}</b> (${lv.tag}) · <b>${mode}</b></p>`;

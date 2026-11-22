@@ -354,7 +354,7 @@ export class Ambush {
   constructor(W, sec, box, mesh, mobs) { this.W = W; this.s = sec; this.box = box; this.mesh = mesh; this.mobs = mobs; this.open = false; this.said = false; }
   update(dt) {
     const W = this.W, G = W.G, rt = W.route;
-    if (!this.said && rt && rt.phi > this.s.p0 + 6 / W.spiral.R(this.s.p0) && rt.phi < this.s.p1) { this.said = true; G.ui.bark('Chieftain Grizzlegut', "AMBUSH! GET 'IM, LADS! NOBODY OPENS THAT GATE TILL HE IS FLAT!"); G.ui.toast('Beat every goblin here to bring the barricade down.', 5); }
+    if (!this.said && rt && rt.phi > this.s.p0 + 6 / W.spiral.R(this.s.p0) && rt.phi < this.s.p1) { this.said = true; G.ui.bark('Goblin captain', "AMBUSH! GET 'IM, LADS! NOBODY OPENS THAT GATE TILL HE IS FLAT!"); G.ui.toast('Beat every goblin here to bring the barricade down.', 5); }
     if (!this.open && this.mobs.every(m => m.dead)) { this.open = true; this.box.solid = false; G.audio.sfx('crumble'); G.audio.sfx('camp'); G.ui.toast('The barricade is down!', 3); W.dropCoins(this.box.x, this.box.y, this.box.z, 8); W.puff(this.box.x, this.box.y, this.box.z, 0xcfc8ba, 16); }
     if (this.open && this.mesh.position.y > -20) { this.mesh.position.y -= 9 * dt; this.mesh.rotation.x += dt * 0.6; }
   }
@@ -365,7 +365,7 @@ export class Chase {
   update(dt) {
     const W = this.W, G = W.G, s = this.s, rt = W.route; this.t += dt; this.cool -= dt; M.animBiped(this.gob, this.t * 4, 0, this.b && !this.b.dead ? 'cheer' : 'idle'); this.gob.position.y = this.gy; if (!rt) return;
     const a = (rt.phi - s.p0) / (s.p1 - s.p0) * s.len;
-    if ((!this.b || this.b.dead) && this.cool <= 0 && a > 9 && a < s.len - 14 && Math.abs(rt.lat) < s.w + 2 && !G.locked) { this.b = W.add(new Boulder(W, { sec: s, a: 0.5, dir: 1, sp: 8, r: 2.5, end: s.len - 2, wob: 0.5, col: 0x6f6a62 })); this.cool = 22; G.ui.bark('Chieftain Grizzlegut', 'RELEASE THE BIG ONE!'); G.ui.toast('RUN! Sprint (SHIFT) and jump the logs!', 4); }
+    if ((!this.b || this.b.dead) && this.cool <= 0 && a > 9 && a < s.len - 14 && Math.abs(rt.lat) < s.w + 2 && !G.locked) { this.b = W.add(new Boulder(W, { sec: s, a: 0.5, dir: 1, sp: 8, r: 2.5, end: s.len - 2, wob: 0.5, col: 0x6f6a62 })); this.cool = 22; G.ui.bark('Goblin captain', 'RELEASE THE BIG ONE!'); G.ui.toast('RUN! Sprint (SHIFT) and jump the logs!', 4); }
     if (this.b && !this.b.dead && (G.frame % 40) === 0) { G.audio.sfx('rumble', 0.6); G.player.shake = Math.max(G.player.shake, 0.12); }
   }
 }

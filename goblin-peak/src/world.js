@@ -105,7 +105,7 @@ export class World {
       s.p0 = rec.p0; s.p1 = rec.p1; s.y0 = rec.y0; s.y1 = rec.y1; s.at = (a, l = 0, u = 0) => sp.frame(s.p0 + (a / s.len) * (s.p1 - s.p0), l, u); s.idx = this.secs.length; this.secs.push(s);
     };
     for (const s0 of list) {
-      let s = Object.assign({}, s0); if (this.G.coop && s.t === 'arena') s = { t: 'goal', len: 30, rise: 0, w: 8 };      // online there is no story: the top is a finish line
+      let s = Object.assign({}, s0); if (s.t === 'arena') s = { t: 'goal', len: 30, rise: 0, w: 8 };      // online there is no story: the top is a finish line
       if (rv && crossN < rv.loops) {
         const cross = rv.th + TAU * crossN, start = cross - 17 / sp.R(cross);
         if (sp.PHI + s.len / sp.R(sp.PHI) > start) { const fill = (start - sp.PHI) * sp.R(sp.PHI); if (fill > 1.5) lay({ t: 'path', len: fill, rise: fill * 0.03 }); lay({ t: 'river', len: 34, rise: 0, w: 6, style: def.river.styles[crossN], cross }); crossN++; }
@@ -120,7 +120,7 @@ export class World {
     const f = this.secs[0].at(3, 0, 0); this.start = { x: f.x, y: f.y, z: f.z, yaw: Math.atan2(-f.tx, -f.tz) };
     // the trailhead gate: barred until the trail before it has been cleared
     const idx = ['l1', 'l2', 'l3'].indexOf(def.id), prev = idx > 0 ? ['l1', 'l2', 'l3'][idx - 1] : null, b = this.secs[0].at(this.realm ? this.secs[0].len - 3 : -6, 0, 0);
-    this.add(new Gate(this, b.x, b.z, b.yaw, { w: 6, title: this.realm ? `${idx + 1}. ${def.name} · ${def.tag}` : 'Back to the village', sub: 'The trail starts here', lockSub: `LOCKED: clear trail ${idx} first`, col: def.col || 0x3f8a3a, locked: g => this.realm && !g.coop && prev && !g.save.done[prev], lockText: 'This trail starts where the one before it ends. Climb that first.', go: G => { if (!this.realm) G.loadLevel('hub'); } }));
+    this.add(new Gate(this, b.x, b.z, b.yaw, { w: 6, title: this.realm ? `${idx + 1}. ${def.name} · ${def.tag}` : 'Back to the village', sub: 'The trail starts here', lockSub: `LOCKED: clear trail ${idx} first`, col: def.col || 0x3f8a3a, locked: g => false, lockText: 'This trail starts where the one before it ends. Climb that first.', go: G => { if (!this.realm) G.loadLevel('hub'); } }));
   }
   common(s) {
     const sp = this.spiral, G = this.G;
@@ -130,9 +130,9 @@ export class World {
     if ((s.t === 'path' || s.t === 'ramp' || s.t === 'traps' || s.t === 'chase' || s.t === 'ambush') && s.coins !== 0) this.coinLine(s, 2, s.len - 2, a => Math.sin(a * 0.16 + s.idx) * (s.w - 2.2), 1, Math.floor(s.len / 4.5));
     for (const m of s.mobs || []) { const f = s.at(m[1] * s.len, m[2] || 0, 0); this.add(new Mob(this, m[0], f.x, f.z, { range: m[3] || Math.min(16, s.len / 2) })); if (G.coop && this.def.diff > 0 && ['grunt', 'brute', 'shield', 'boar', 'ram'].includes(m[0])) { const g = s.at(Math.min(s.len - 2, m[1] * s.len + 4), -(m[2] || 0) + 1.5, 0); this.add(new Mob(this, m[0], g.x, g.z, { range: m[3] || Math.min(16, s.len / 2) })); } }
     if (s.chest) { const f = s.at(s.len / 2, -s.w + 2, 0); this.add(new Chest(this, f.x, f.z, s.chest, f.yaw + Math.PI / 2)); }
-    for (const n0 of s.npcs || []) { if (G.coop && !n0.stall) continue; const n = G.coop ? Object.assign({}, n0, { lines: [] }) : n0; const f = s.at(n.a === undefined ? s.len / 2 : n.a, n.lat === undefined ? -s.w + 1.6 : n.lat, 0); if (n.stall) { const st = M.stall(); st.position.set(f.x - f.nx * 1.4, this.T.hAt(f.x, f.z), f.z - f.nz * 1.4); st.rotation.y = Math.atan2(f.nx, f.nz); this.scene.add(st); } this.add(new NPC(this, f.x, f.z, { name: n.name, model: n.model(), lines: n.lines, after: n.after, prompt: n.prompt })); }
+    for (const n0 of s.npcs || []) { if (!n0.stall) continue; const n = Object.assign({}, n0, { lines: [] }); const f = s.at(n.a === undefined ? s.len / 2 : n.a, n.lat === undefined ? -s.w + 1.6 : n.lat, 0); if (n.stall) { const st = M.stall(); st.position.set(f.x - f.nx * 1.4, this.T.hAt(f.x, f.z), f.z - f.nz * 1.4); st.rotation.y = Math.atan2(f.nx, f.nz); this.scene.add(st); } this.add(new NPC(this, f.x, f.z, { name: n.name, model: n.model(), lines: n.lines, after: n.after, prompt: n.prompt })); }
     if (s.tip) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 't' + this.def.id + s.idx, fn: () => G.ui.toast(s.tip, 9) });
-    if (s.bark && !G.coop) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 'b' + this.def.id + s.idx, fn: () => G.ui.bark(s.bark[0], s.bark[1]) });
+    if (false) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 'b' + this.def.id + s.idx, fn: () => G.ui.bark(s.bark[0], s.bark[1]) });
     if (s.name) this.triggers.push({ p0: s.p0, p1: s.p0 + 8 / sp.R(s.p0), fn: () => G.ui.area(s.name), repeat: 40 });
     if (s.jewel) {
       const j = s.jewel, f = s.at(j.a === undefined ? s.len / 2 : j.a, j.lat || 0, 0), gy = j.abs ? f.y : this.T.hAt(f.x, f.z), y = gy + (j.up || 0) + 1.3; const idx = this.jewelN++;
@@ -352,7 +352,7 @@ export class World {
       return this.add(new NPC(this, x, z, Object.assign({ name: title, model, yaw: Math.PI, fixed: true, reach: 3.6 }, o)));
     };
     const tm = station(-8, -8, 0xd8362c, 'CLIMBS', 'choose the mountain here', M.biped({ shirt: 0xb5332a, pants: 0x4a4030, hair: 0xdddddd, beard: 0xdddddd, hat: 0x5a4630, cape: 0xb5332a }), { prompt: 'Choose the climb', lines: [] });
-    tm.use = () => !G.coop ? G.ui.dialog(LEVELS.hub.story.barnaby(G)) : G.ui.toast(G.net.isHost ? 'You are the host: 1 2 3 picks the mountain, G switches Race or Team, ENTER starts the countdown.' : 'Only the host can choose. Stand by and get ready.', 5); this.mapAt = { x: -8, z: -8 };
+    tm.use = () => G.ui.toast(G.coop && !G.net.isHost ? 'Only the host can choose. Stand by and get ready.' : '1 2 3 picks the mountain' + (G.coop ? ', G switches Race or Team,' : ' and') + ' ENTER starts.', 5); this.mapAt = { x: -8, z: -8 };
     put(M.stall(), 8, -9.6, 0); this.addBox(8, 0.5, -9.6, 1.4, 0.6, 0.6, 0, null);
     station(8, -8, 0xe2b33a, 'UPGRADES', 'spend your coins here', M.goblin({ hat: 0xe2b33a, shirt: 0x3b6fb5 }), { prompt: 'Buy upgrades', lines: [], after: g => g.ui.shop() });
     put(M.cyl(0x8a8378, 1.6, 0.9, 0, 0, 0), 0, 2).position.y += 0.45; this.addCyl(0, 0.45, 2, 1.6, 0.5, null);
@@ -378,7 +378,7 @@ export class World {
 
   // Where should the player head next? Village: the first gate not yet cleared. Mountain: a point a little way up the trail.
   guide() {
-    const G = this.G, S = G.save, p = G.player.pos, sp = this.spiral; if (this.def.lobby) return null; if (G.callMark && G.callMark.t > 0 && G.callMark.r === this.def.id) return { x: G.callMark.x, y: G.callMark.y + 2.2, z: G.callMark.z, label: G.callMark.n, text: G.callMark.n + ' needs help: follow the arrow to them' };
+    const G = this.G, S = G.save, p = G.player.pos, sp = this.spiral; if (this.def.lobby) return null; if (!sp && this.mapAt) return Math.hypot(p.x - this.mapAt.x, p.z - this.mapAt.z) < 7 ? null : { x: this.mapAt.x, y: 3.2, z: this.mapAt.z, label: 'Climbs', text: 'Pick a mountain at the red CLIMBS beam: Easy, Medium or Hard' }; if (G.callMark && G.callMark.t > 0 && G.callMark.r === this.def.id) return { x: G.callMark.x, y: G.callMark.y + 2.2, z: G.callMark.z, label: G.callMark.n, text: G.callMark.n + ' needs help: follow the arrow to them' };
     if (!sp) {
       const lv = this.def.levels, i = lv.findIndex(L => !S.done[L.id]) < 0 || S.won ? -1 : lv.findIndex(L => !S.done[L.id]); if (i < 0) return null;
       const g = G.trailhead ? G.trailhead(i) : [[-46, -30], [0, -62], [46, -30]][i]; return { x: g[0], y: 3, z: g[1], label: lv[i].name, text: G.trailhead ? `Head ${['west', 'north', 'east'][i]} to the foot of ${lv[i].name}` : `Walk through the ${['west', 'north', 'east'][i]} gate to ${lv[i].name}` };

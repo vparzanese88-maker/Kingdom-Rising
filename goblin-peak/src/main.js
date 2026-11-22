@@ -27,7 +27,7 @@ class Game {
     this.camera = new THREE.PerspectiveCamera(78, 1, 0.1, 1600);
     this.player = new Player(this); this.player.third = !!this.save.third; if (this.save.camDist) this.player.camDist = this.save.camDist; this.camera.add(this.player.hands);
     this.net = new Net(this); this.ui = new UI(this); this.bind(); this.resize(); addEventListener('resize', () => this.resize());
-    $('btnContinue').hidden = !this.save.played; $('btnNew').textContent = this.save.played ? 'New game' : 'Start the climb';
+    $('btnContinue').hidden = !this.save.played; $('btnNew').textContent = this.save.played ? 'New game' : 'Play';
     this.last = performance.now(); requestAnimationFrame(t => this.loop(t));
     const q = new URLSearchParams(location.search); this.debug = q.has('debug'); if (q.get('level')) { this.begin(q.get('level')); }
     else if (!q.has('split')) { this.buildRealm(); this.loadLevel(this.save.played ? this.save.cur : 'hub', true); }
@@ -149,8 +149,8 @@ class Game {
   completeLevel() {
     if (this.coop) return this.net.finished();
     const id = this.world.def.id, S = this.save, first = !S.done[id]; S.done[id] = 1; const t = S.run[id] || this.levelT; S.run[id] = 0; if (!S.best[id] || t < S.best[id]) S.best[id] = t; this.audio.sfx('win'); if (first) S.coins += 50; S.camp[id] = 0; this.saveNow();
-    const nx = ORDER[ORDER.indexOf(id) + 1]; if (document.pointerLockElement) document.exitPointerLock();
-    this.ui.levelDone({ title: this.world.def.name + ' cleared!', body: `<p>Time on the trail: <b>${this.fmt(t)}</b> (best ${this.fmt(S.best[id])})</p><p>Relics found: <b>${(S.jewels[id] || []).filter(Boolean).length}/3</b></p><p>Coins: <b>${S.coins}</b>${first ? ' (including a 50 coin bonus)' : ''}</p><p>${nx ? `The way to <b>${LEVELS[nx].name}</b> is now open, back in the village.` : ''}</p>` }, () => this.loadLevel('hub'));
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.ui.levelDone({ title: `${this.world.def.name} (${this.world.def.tag}) cleared!`, body: `<p>Your time: <b>${this.fmt(t)}</b> (best ${this.fmt(S.best[id])})</p><p>Relics found: <b>${(S.jewels[id] || []).filter(Boolean).length}/3</b></p><p>Coins: <b>${S.coins}</b>${first ? ' (including a 50 coin bonus)' : ''}</p><p>Back to town. Pick your next mountain at the red beam.</p>` }, () => this.loadLevel('hub'));
   }
   finishGame() {
     const S = this.save; if (S.won) return; S.won = true; S.done.l3 = 1; this.saveNow(); this.audio.sfx('win'); if (document.pointerLockElement) document.exitPointerLock(); const st = S.stats, jw = ORDER.reduce((a, id) => a + (S.jewels[id] || []).filter(Boolean).length, 0);
@@ -160,6 +160,11 @@ class Game {
     this.time += dt; this.frame++; this.levelT += dt; this.save.played += dt; { const S = this.save, id = this.world.def.id; S.run = S.run || {}; if (!this.world.def.hub && !this.locked) S.run[id] = (S.run[id] || 0) + dt; }
     this.world.update(dt); this.player.update(dt); if (this.count > 0) { const c0 = Math.ceil(this.count); this.count -= dt; const c1 = Math.ceil(this.count); this.locked = true; this.ui.count(this.count > 0 ? c1 : 'GO!'); if (c1 !== c0 && (c1 <= 5 || c1 % 5 === 0)) this.audio.sfx(this.count > 0 ? 'coin' : 'win'); if (this.count <= 0) { this.locked = false; this.save.run = {}; setTimeout(() => this.ui.count(null), 900); } }
     if (this.coop && this.world.def.lobby) { const P = this.player.pos; for (const h of this.holes) { const dx = P.x - h.x, dz = P.z - h.z, d = Math.hypot(dx, dz), lim = h.r + 124; if (d < lim) { P.x = h.x + dx / d * lim; P.z = h.z + dz / d * lim; if (!this.wallT || this.time - this.wallT > 6) { this.wallT = this.time; this.ui.toast('The mountains stay closed until the host starts a climb at the red CLIMBS beam in town.', 4); } } } }
+    if (!this.coop && this.world.def.hub && this.world.mapAt) { // alone: the same choice of three mountains at the red beam
+      const W = this.world, P = this.player.pos, I = this.input, at = Math.hypot(P.x - W.mapAt.x, P.z - W.mapAt.z) < 7; this.pick = this.pick || 'l1';
+      if (at && !this.locked && !this.ui.shopOpen) { for (let i = 0; i < 3; i++) if (I.hit('Digit' + (i + 1))) this.pick = ORDER[i]; if (I.hit('Enter')) { const id = this.pick; this.save.camp[id] = 0; this.loadLevel(id); this.count = 2.99; this.locked = true; this.ui.soloMenu(null, false); return; } }
+      this.ui.soloMenu(this.pick, at);
+    } else if (!this.coop) this.ui.soloMenu(null, false);
     if (this.regions) this.handoff(); this.lucky(dt); this.net.update(dt); this.ui.update(dt);
     if (this.frame % 600 === 0) this.saveNow();
   }

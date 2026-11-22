@@ -28,6 +28,8 @@ const S = {
   tick: [[880, 880, 0.12, 'square', 0.12]],
   thunder: [['n', 220, 2.2, 0.6], [55, 35, 1.8, 'sine', 0.3]],
   grenade: [[400, 300, 0.1, 'triangle', 0.08]],
+  headshot: [[2200, 2200, 0.05, 'square', 0.09], [3300, 3300, 0.08, 'square', 0.07, 0.04]],
+  torch: [['n', 3500, 0.15, 0.06]],
   spin: [[200, 900, 0.45, 'sawtooth', 0.05]],
   flame: [['n', 1200, 0.25, 0.12]],
   rail: [[3000, 200, 0.35, 'sawtooth', 0.1], ['n', 5000, 0.2, 0.15]],
@@ -35,7 +37,7 @@ const S = {
 export class Audio {
   constructor() { this.ctx = null; this.vol = 0.5; try { const v = +localStorage.getItem('hb-sfx'); if (localStorage.getItem('hb-sfx') !== null && v >= 0) this.vol = v; } catch (e) { } this.noise = {}; this.last = {}; }
   unlock() {
-    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.chain(); let i = 0; const kinds = ['rifle', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
+    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.chain(); let i = 0; const kinds = ['rifle', 'shotgun', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   }
   // everything goes through a compressor (so a wall of gunfire stays loud without crackling) and a battlefield echo
@@ -70,6 +72,7 @@ export class Audio {
     this.sb = this.sb || {}; if (this.sb[kind]) return this.sb[kind];
     const P = {
       rifle: { dur: 0.5, tr: 0.8, bc0: 8000, bc1: 700, bd: 0.026, bg: 1, lo: 140, ld: 0.08, lg: 1.1, tc: 1200, td: 0.12, tg: 0.12, slap: 0.11, sg: 0.07, drive: 2 },
+      shotgun: { dur: 0.7, tr: 1, bc0: 7000, bc1: 500, bd: 0.05, bg: 1.3, lo: 110, ld: 0.12, lg: 1.6, tc: 900, td: 0.16, tg: 0.12, slap: 0.12, sg: 0.07, drive: 2.6 },
       sniper: { dur: 1.0, tr: 1, bc0: 9000, bc1: 500, bd: 0.04, bg: 1.2, lo: 100, ld: 0.16, lg: 1.6, tc: 900, td: 0.3, tg: 0.16, slap: 0.15, sg: 0.1, drive: 2.4 },
       mini: { dur: 0.4, tr: 0.7, bc0: 7000, bc1: 800, bd: 0.02, bg: 1, lo: 150, ld: 0.055, lg: 1, tc: 1300, td: 0.09, tg: 0.1, slap: 0.09, sg: 0.05, drive: 3 },
       smg: { dur: 0.4, tr: 0.7, bc0: 9000, bc1: 1200, bd: 0.016, bg: 0.9, lo: 200, ld: 0.04, lg: 0.8, tc: 1800, td: 0.08, tg: 0.1, slap: 0.08, sg: 0.05, drive: 2.5 },

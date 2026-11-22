@@ -19,7 +19,7 @@ h1 span{color:var(--warn)}
 .sub{color:var(--dim);margin:2px 0 18px;font-size:17px}
 h2{font-size:14px;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin:18px 0 8px}
 .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
-#classes{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+#classes{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
 input[type=range]{padding:0;vertical-align:middle;width:130px;border:0;background:none}
 .pick{text-align:left;background:var(--panel);border:2px solid var(--line);border-left:6px solid var(--c);border-radius:6px;padding:10px 14px}
 .pick.on{border-color:var(--c);box-shadow:0 0 0 2px var(--c) inset}
@@ -51,6 +51,25 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 #scope:before,#scope:after{content:"";position:absolute;background:rgba(0,0,0,.85)}
 #scope:before{left:50%;top:14vh;bottom:14vh;width:2px;transform:translateX(-50%)}
 #scope:after{top:50%;left:calc(50% - 36vh);right:calc(50% - 36vh);height:2px;transform:translateY(-50%)}
+#clsName{font-size:12px;letter-spacing:.15em;color:var(--dim);text-transform:uppercase}
+#status{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+#status span{font-size:11px;background:#1a2632;border-radius:3px;padding:2px 6px;color:#ffd060}
+#status .g{color:#60ff90}#status .b{color:#80c0ff}#status .t{color:#a0ff60}
+#reserve{font-size:16px;color:var(--dim);font-weight:700}
+#ammoWarn{color:var(--warn);font-weight:800;font-size:12px;letter-spacing:.1em;animation:pulse .5s infinite alternate}
+.slot u{display:block;text-decoration:none;font-size:18px;line-height:1.2}
+.slot.ready{border-color:#3fc0ff}.slot.sp{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+#lore{position:absolute;left:50%;top:18%;transform:translateX(-50%);width:min(520px,86vw);border-left:3px solid #40ffb0;font-size:14px}
+#loreT{color:#40ffb0;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+#kit{position:absolute;right:12px;top:190px;width:min(330px,40vw);font-size:12px;line-height:1.35}
+#kit h3{margin:0 0 4px;color:var(--acc)}#kit p{margin:4px 0}#kit b{color:var(--gold)}
+#mmap{background:rgba(0,0,0,.6);z-index:9}#mmap .card{background:rgba(8,14,20,.96);border:1px solid var(--line);border-radius:8px;padding:14px 18px;text-align:center}
+#mmapCv{width:min(640px,80vh,90vw);height:min(640px,80vh,90vw);cursor:crosshair;border:1px solid var(--line);border-radius:6px}
+#mmap h2{margin:0 0 4px}
+#hit.head:before,#hit.head:after{background:#ff2020;box-shadow:0 0 6px #ff0}
+.pick .role{color:var(--c);font-weight:600;filter:brightness(1.3)}
+.pick p b{color:var(--gold)}
+#waveTxt{font-size:20px}
 #dirs,#arrows{position:absolute;left:50%;top:50%;width:0;height:0}
 .dmgdir{position:absolute;left:0;top:0;width:220px;height:220px;border-radius:50%;border-top:10px solid rgba(255,40,30,.85);animation:fade .9s forwards}
 @keyframes fade{from{opacity:1}to{opacity:0}}
@@ -122,14 +141,14 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795319853",
-"./src/data.js": "./src/data.js?v=1795319853",
-"./src/main.js": "./src/main.js?v=1795319853",
-"./src/models.js": "./src/models.js?v=1795319853",
-"./src/music.js": "./src/music.js?v=1795319853",
-"./src/net.js": "./src/net.js?v=1795319853",
-"./src/sim.js": "./src/sim.js?v=1795319853",
-"./src/world.js": "./src/world.js?v=1795319853"
+"./src/audio.js": "./src/audio.js?v=1795321904",
+"./src/data.js": "./src/data.js?v=1795321904",
+"./src/main.js": "./src/main.js?v=1795321904",
+"./src/models.js": "./src/models.js?v=1795321904",
+"./src/music.js": "./src/music.js?v=1795321904",
+"./src/net.js": "./src/net.js?v=1795321904",
+"./src/sim.js": "./src/sim.js?v=1795321904",
+"./src/world.js": "./src/world.js?v=1795321904"
 }
 }
 </script>
@@ -141,8 +160,8 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
   <div id="hurt"></div>
   <div id="scope" hidden></div>
   <div id="cross"></div><div id="hit"></div><div id="dirs"></div><div id="arrows"></div>
-  <div id="hunt" hidden><span id="huntT"></span></div><div id="regen" hidden>+ HUB REPAIRING YOUR ARMOR</div>
-  <div id="top" class="panel"><div id="waveTxt">PREPARE</div><div id="waveInfo"></div><div class="bar"><i id="hubBar" style="width:100%"></i></div><div id="hubTxt">HUB 100%</div></div>
+  <div id="hunt" hidden><span id="huntT"></span></div>
+  <div id="top" class="panel"><div id="waveTxt">BUILD</div><div class="bar"><i id="hubBar" style="width:100%"></i></div><div id="hubTxt">HUB 100%</div><div id="waveInfo"></div></div>
   <div id="boss" class="panel" hidden><div id="bossName"></div><div class="bar"><i id="bossBar"></i></div></div>
   <div id="tl" class="panel"><div id="goldBox"><span id="gold">0</span></div><div id="mapName"></div><div id="hudCode"></div></div>
   <canvas id="mini" width="340" height="340"></canvas>
@@ -150,19 +169,22 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
   <div id="banner" hidden><div id="bannerA"></div><div id="bannerB"></div></div>
   <div id="prompt" hidden></div>
   <div id="dead" hidden>YOU ARE DOWN<div id="deadT" style="font-size:16px;color:#fff"></div></div>
-  <div id="bl" class="panel"><div id="hpBox"><span id="hpTxt"></span><div class="bar"><i id="hpBar"></i></div></div></div>
-  <div id="br" class="panel"><div id="ammo"></div><div id="gunName"></div></div>
+  <div id="bl" class="panel"><div id="clsName"></div><div id="hpBox"><span id="hpTxt"></span><div class="bar"><i id="hpBar"></i></div></div><div id="status"></div></div>
+  <div id="br" class="panel"><div><span id="ammo"></span> <span id="reserve"></span></div><div id="gunName"></div><div id="ammoWarn" hidden></div></div>
+  <div id="kit" class="panel" hidden></div>
+  <div id="lore" class="panel" hidden><div id="loreT"></div><div id="loreX"></div></div>
   <div id="slots"></div>
   <div id="board" class="panel" hidden><table id="boardT"></table></div>
 </div>
 
+<div id="mmap" class="screen" hidden><div class="card"><h2 id="mmapT">Live map</h2><p class="small" id="mmapD"></p><canvas id="mmapCv" width="640" height="640"></canvas><p><button class="btn alt" id="mmapX">Close (Esc)</button></p></div></div>
 <div id="shop" class="screen" hidden><div class="card"><h2>Armory</h2><div id="shopList"></div><p class="small">Click an upgrade or press its key. B or Esc to close. The battle keeps going online, so be quick.</p></div></div>
-<div id="pause" class="screen" hidden><div class="card"><h2>Click to fight</h2><p class="small">Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p><p class="small">Music <input type="range" id="mvol" min="0" max="1" step="0.05" value="0.75"> · Effects <input type="range" id="svol" min="0" max="1" step="0.05" value="0.5"> · M turns music on or off</p><button class="btn alt" id="btnQuit" style="pointer-events:auto">Quit to title</button></div></div>
+<div id="pause" class="screen" hidden><div class="card"><h2>Click to fight</h2><p class="small">Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p><p class="small">Music <input type="range" id="mvol" min="0" max="1" step="0.05" value="0.75"> · Effects <input type="range" id="svol" min="0" max="1" step="0.05" value="0.5"> · N turns music on or off</p><button class="btn alt" id="btnQuit" style="pointer-events:auto">Quit to title</button></div></div>
 <div id="end" class="screen" hidden><div class="card"><h2 id="endTitle"></h2><p id="endText"></p><p id="endKey"></p><button class="btn" id="btnAgain">Try again</button> <button class="btn alt" id="btnEndQuit">Quit to title</button></div></div>
 
 <div id="title" class="screen"><div class="card">
   <h1>Hive <span>Breach</span></h1>
-  <p id="soundHint" class="small" style="color:var(--gold)">🔊 Click anywhere to turn on the sound and music (M turns music on or off).</p>
+  <p id="soundHint" class="small" style="color:var(--gold)">🔊 Click anywhere to turn on the sound and music (N turns music on or off).</p>
   <p class="small">Music <input type="range" id="mvol2" min="0" max="1" step="0.05" value="0.75"> · Effects <input type="range" id="svol2" min="0" max="1" step="0.05" value="0.5"></p>
   <p class="sub">The year is 2387. Alien swarms pour out of the hive and march down the track toward your colony's power hub. Fight them yourself, build sentries in their path, and destroy the alien hive to win. There are no waves: the swarm never stops, and the threat level rises every 50 seconds. The hive's shield drops when both Hive Guardians are destroyed.</p>
   <h2>Your name</h2>
@@ -185,8 +207,11 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
     <b>C or Ctrl</b><span>Kneel: steadier aim, half the recoil</span>
     <b>Q</b><span>Build your class sentry (click to place, right click cancels)</span>
     <b>E</b><span>Build your class defense</span>
+    <b>F · T</b><span>Class special ability · use the special from a supply crate</span>
+    <b>Right click</b><span>Your class action: aim, scope, plasma torch, heal beam or spin up</span>
+    <b>H · M · N</b><span>Class card · live map · music on or off</span>
     <b>G</b><span>Throw a grenade</span>
-    <b>Hub</b><span>Stand inside the green ring round the hub to heal</span>
+    <b>Hub</b><span>Inside the hub walls you heal and refill your spare ammo. Climb the ramps to patrol the walls</span>
     <b>U · X</b><span>Look at a turret: upgrade it (any turret, up to level 3) · sell your own</span>
     <b>B</b><span>Armory: upgrade damage, fire rate, magazine, speed, health and armor, and buy hub reinforcements (faster drops, bigger squads, Heavy Gunners, Rocketeers, Field Medics)</span>
     <b>Swarm</b><span>After a 45 second build countdown the aliens never stop coming; every 50 s the threat level rises</span>
@@ -197,6 +222,6 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795319853"></script>
+<script type="module" src="./src/main.js?v=1795321904"></script>
 </body>
 </html>

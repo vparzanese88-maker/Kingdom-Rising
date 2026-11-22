@@ -30,7 +30,16 @@ export function gunModel(cls, color) {
     C(g, 0.05, 0.05, 0.36, 0x1a1a1a, 0, 0.13, -0.05).rotation.x = Math.PI / 2; C(g, 0.06, 0.06, 0.03, 0x60c0ff, 0, 0.13, -0.23, { e: 0x3080c0 }).rotation.x = Math.PI / 2; B(g, 0.05, 0.18, 0.07, dark, 0, -0.15, 0.08);
     for (const z of [-0.4, -0.55, -0.7]) B(g, 0.07, 0.07, 0.04, 0x40d0ff, 0, 0.02, z, { e: 0x2090c0 });
   } else if (cls === 'heavy') { C(g, 0.11, 0.11, 0.9, dark, 0, 0, -0.25).rotation.x = Math.PI / 2; B(g, 0.16, 0.2, 0.3, color, 0, -0.04, 0.05); B(g, 0.06, 0.16, 0.08, dark, 0, -0.17, 0.08); C(g, 0.13, 0.13, 0.06, metal, 0, 0, -0.7).rotation.x = Math.PI / 2; B(g, 0.05, 0.08, 0.14, 0x40ff80, 0.1, 0.08, -0.1, { e: 0x20a040 }); }
-  else if (cls === 'engineer') { B(g, 0.1, 0.13, 0.5, dark, 0, 0, -0.15); B(g, 0.11, 0.06, 0.3, color, 0, 0.09, -0.1); B(g, 0.05, 0.18, 0.06, dark, 0, -0.14, 0); C(g, 0.03, 0.03, 0.2, 0x40c0ff, 0, 0, -0.48, { e: 0x2080ff }).rotation.x = Math.PI / 2; B(g, 0.04, 0.2, 0.07, metal, 0, -0.14, -0.2); }
+  else if (cls === 'engineer') { // pump shotgun
+    B(g, 0.11, 0.12, 0.42, dark, 0, 0, 0.05); C(g, 0.045, 0.045, 0.8, metal, 0, 0.04, -0.45).rotation.x = Math.PI / 2; C(g, 0.035, 0.035, 0.62, dark, 0, -0.05, -0.38).rotation.x = Math.PI / 2;
+    B(g, 0.1, 0.09, 0.2, color, 0, -0.06, -0.28); B(g, 0.07, 0.17, 0.08, dark, 0, -0.15, 0.12); B(g, 0.09, 0.14, 0.32, 0x5a3a20, 0, -0.05, 0.36); B(g, 0.02, 0.03, 0.03, 0xff4040, 0, 0.09, -0.8, { e: 0xff2020 }); }
+  else if (cls === 'torch') { // plasma torch
+    C(g, 0.07, 0.09, 0.4, metal, 0, 0, -0.05).rotation.x = Math.PI / 2; C(g, 0.03, 0.05, 0.25, dark, 0, 0, -0.35).rotation.x = Math.PI / 2; B(g, 0.06, 0.16, 0.07, dark, 0, -0.12, 0.05); C(g, 0.09, 0.09, 0.22, 0xe0b22e, 0, 0.1, 0.05).rotation.x = Math.PI / 2;
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.22, 8), mat(0x60c0ff, { e: 0x4090ff, ei: 3, op: 0.8 })); fl.rotation.x = -Math.PI / 2; fl.position.z = -0.58; g.add(fl); }
+  else if (cls === 'medigun') { // heal beam emitter
+    B(g, 0.12, 0.14, 0.36, 0xe8e8f0, 0, 0, 0); C(g, 0.06, 0.08, 0.3, metal, 0, 0.02, -0.3).rotation.x = Math.PI / 2; S(g, 0.07, 0x40ff80, 0, 0.02, -0.48, 1, 1, 1, { e: 0x20ff60, ei: 2 }); B(g, 0.13, 0.04, 0.2, 0xd03030, 0, 0.09, 0); B(g, 0.04, 0.13, 0.04, 0xd03030, 0, 0.09, 0); B(g, 0.06, 0.16, 0.07, dark, 0, -0.14, 0.06); }
+  else if (cls === 'medic') { // compact carbine
+    B(g, 0.09, 0.13, 0.55, 0xd8d8e0, 0, 0, -0.12); B(g, 0.1, 0.05, 0.26, 0xd03030, 0, 0.09, -0.12); C(g, 0.025, 0.025, 0.2, metal, 0, 0.01, -0.5).rotation.x = Math.PI / 2; B(g, 0.06, 0.18, 0.07, dark, 0, -0.15, 0.02); B(g, 0.06, 0.2, 0.09, metal, 0, -0.15, -0.18); }
   else { B(g, 0.09, 0.14, 0.7, dark, 0, 0, -0.2); B(g, 0.1, 0.07, 0.36, color, 0, 0.1, -0.15); B(g, 0.06, 0.2, 0.08, dark, 0, -0.16, 0.02); B(g, 0.07, 0.22, 0.1, metal, 0, -0.16, -0.25); C(g, 0.025, 0.025, 0.2, metal, 0, 0, -0.62).rotation.x = Math.PI / 2; B(g, 0.03, 0.03, 0.05, 0xff4040, 0, 0.15, -0.3, { e: 0xff2020 }); }
   return g;
 }
@@ -144,6 +153,13 @@ export function turret(kind, color) {
   } else if (kind === 'mines') {
     g.add(head); for (const [x, z] of [[-1.6, 0.4], [0, -0.3], [1.6, 0.5]]) { C(head, 0.42, 0.5, 0.18, 0x3a4030, x, 0.09, z); S(head, 0.09, 0xff3020, x, 0.22, z, 1, 1, 1, { e: 0xff1000, ei: 2 }); }
     parts.muzzle = new THREE.Vector3(0, 0.3, 0);
+  } else if (kind === 'mortar') {
+    head.position.y = 1.0; g.add(head); C(head, 0.6, 0.7, 0.3, metal, 0, 0, 0); const tube = C(head, 0.28, 0.32, 1.6, 0x3a5a30, 0, 0.7, -0.2); tube.rotation.x = 0.6; C(head, 0.3, 0.3, 0.1, 0x80ff40, 0, 1.35, -0.62, { e: 0x40c020 }).rotation.x = 0.6;
+    for (const sd of [-1, 1]) C(head, 0.18, 0.18, 0.5, 0x5a8a3a, sd * 0.55, 0.2, 0.25, { e: 0x204010 }); parts.muzzle = new THREE.Vector3(0, 2.2, -0.7);
+  } else if (kind === 'medbay') {
+    C(g, 1.4, 1.5, 0.3, base, 0, 0.15, 0); const cross = mat(0xff4040, { e: 0xc02020 }); B(g, 1.3, 0.06, 0.38, cross, 0, 0.32, 0); B(g, 0.38, 0.06, 1.3, cross, 0, 0.32, 0);
+    head.position.y = 1.6; g.add(head); B(head, 1.0, 1.4, 0.6, 0xe8e8f0, 0, 0, -1.1); B(head, 0.5, 0.15, 0.62, cross, 0, 0.3, -1.1); B(head, 0.15, 0.5, 0.62, cross, 0, 0.3, -1.1);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.05, 6, 32), mat(0x60ff90, { e: 0x30c060 })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.6; head.add(ring); parts.muzzle = new THREE.Vector3(0, 1.6, 0);
   } else if (kind === 'beacon') {
     C(g, 0.5, 0.7, 0.4, base, 0, 0.2, 0); C(g, 0.08, 0.1, 3.2, metal, 0, 1.9, 0); head.position.y = 3.4; g.add(head); B(head, 1.6, 0.06, 0.25, accent, 0, 0, 0); S(head, 0.18, 0xff8030, 0, 0.25, 0, 1, 1, 1, { e: 0xff6010, ei: 2 });
     const ring = new THREE.Mesh(new THREE.RingGeometry(11.7, 12, 64), mat(0xff8030, { e: 0xff6010, op: 0.4, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.08; g.add(ring);
@@ -185,6 +201,68 @@ export function parachute() {
   for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283 + 0.5; const stripe = B(g, 0.5, 0.05, 1.2, 0xd04020, Math.cos(a) * 1.6, 5.15, Math.sin(a) * 1.6); stripe.rotation.y = -a; stripe.castShadow = false; }
   return g;
 }
+// what each turret gains at level 2 and level 3: armour, extra weapons, sensors, a gold trim
+export function upgradeParts(kind, lvl, color) {
+  const g = new THREE.Group(); if (lvl < 2) return g; const steel = 0x5a646e, gold = mat(0xffc840, { m: 0.8, r: 0.3, e: 0x402800 }), acc = mat(color, { m: 0.3 }), glow = mat(0x60e0ff, { e: 0x30a0ff, ei: 2 });
+  const sentry = !['barricade', 'mines', 'repair', 'stasis', 'beacon', 'medbay'].includes(kind);
+  if (sentry) { for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; const pl = B(g, 0.7, 0.5, 0.14, i % 2 ? steel : color, Math.cos(a) * 1.05, 0.35, Math.sin(a) * 1.05); pl.rotation.y = -a + Math.PI / 2; } }
+  if (kind === 'barricade') for (let i = -2; i <= 2; i++) { K(g, 0.18, 0.8, 0x8a8a8a, i * 1.3, 2.1, 0.3).rotation.x = 0.4; K(g, 0.18, 0.8, 0x8a8a8a, i * 1.3, 2.1, -0.3).rotation.x = -0.4; }
+  if (lvl >= 3) {
+    if (sentry) { C(g, 0.04, 0.04, 1.6, 0x333333, 0.7, 2.6, 0.5); S(g, 0.12, 0xff3020, 0.7, 3.45, 0.5, 1, 1, 1, { e: 0xff1000, ei: 2 }); const rim = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.07, 6, 24), gold); rim.rotation.x = Math.PI / 2; rim.position.y = 0.62; g.add(rim); }
+    if (kind === 'minigun' || kind === 'flamer' || kind === 'railgun') { const pod = B(g, 0.5, 0.4, 0.9, steel, 0.75, 1.75, 0); B(g, 0.15, 0.15, 0.6, 0x222222, 0.75, 1.75, -0.7); void pod; }
+    if (kind === 'missile') for (let i = 0; i < 2; i++) B(g, 0.35, 0.35, 0.9, steel, i ? -0.85 : 0.85, 1.6, 0);
+    if (kind === 'tesla') { for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.7 + i * 0.25, 0.04, 6, 24), glow); r.position.y = 3.2 + i * 0.25; r.rotation.x = Math.PI / 2; g.add(r); } }
+    if (kind === 'barricade') { const f = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.2, 0.08), mat(0x60c0ff, { op: 0.35, e: 0x3080ff, ds: true })); f.position.y = 2.4; g.add(f); }
+    if (['repair', 'stasis', 'beacon', 'medbay'].includes(kind)) { const r = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.08, 6, 32), gold); r.rotation.x = Math.PI / 2; r.position.y = 0.4; g.add(r); C(g, 0.05, 0.05, 2, 0x333333, 1.2, 1.2, 0); S(g, 0.12, 0x60e0ff, 1.2, 2.25, 0, 1, 1, 1, { e: 0x30a0ff, ei: 2 }); }
+    if (kind === 'mortar') for (const sd of [-1, 1]) C(g, 0.18, 0.2, 1.1, 0x3a5a30, sd * 0.75, 1.2, 0);
+  }
+  return g;
+}
+export function ammoCrate() { const g = new THREE.Group(); B(g, 1.3, 0.8, 0.9, 0x4a5a3a, 0, 0.4, 0); B(g, 1.32, 0.18, 0.92, 0xe0b22e, 0, 0.62, 0, { e: 0x604000 }); for (let i = 0; i < 4; i++) C(g, 0.06, 0.06, 0.3, 0xc8a040, -0.4 + i * 0.27, 0.95, 0, { m: 0.8 }); const L = S(g, 0.12, 0xffd040, 0, 1.3, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); void L; return g; }
+// ---------------------------------------------------------------- points of interest
+export function satellite(rnd) {
+  const g = new THREE.Group(), foil = mat(0xd8a838, { m: 0.8, r: 0.35 }), panel = mat(0x1a3a7a, { m: 0.6, r: 0.25, e: 0x081830 }), frame = 0x8a929a;
+  const body = B(g, 2.2, 1.8, 2.6, foil, 0, 0.9, 0); body.rotation.set(0.3, 0.4, 0.25);
+  for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(sd * 1.4, 1.1, 0); arm.rotation.set(rnd() - 0.5, 0, sd * (0.3 + rnd() * 0.6)); g.add(arm); B(arm, 0.1, 0.1, 0.1, frame, 0, 0, 0); for (let i = 0; i < 3; i++) { const pn = B(arm, 1.6, 0.06, 1.8, panel, sd * (1 + i * 1.7), 0, 0); pn.rotation.z = (rnd() - 0.5) * 0.5 * i; } }
+  const dish = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 6, 0, 6.29, 0, 1.0), mat(0xd0d4d8, { ds: true })); dish.position.set(0.2, 2.2, 1.2); dish.rotation.set(1.9, 0, 0.6); g.add(dish);
+  for (let i = 0; i < 8; i++) { const d = B(g, 0.2 + rnd() * 0.8, 0.05, 0.2 + rnd() * 0.6, rnd() < 0.5 ? frame : foil, (rnd() - 0.5) * 9, 0.05, (rnd() - 0.5) * 9); d.rotation.y = rnd() * 6; }
+  const scorch = new THREE.Mesh(new THREE.CircleGeometry(4, 16), mat(0x1a1410, { op: 0.6 })); scorch.rotation.x = -Math.PI / 2; scorch.position.y = 0.04; g.add(scorch); return g;
+}
+export function capsule(rnd) {
+  const g = new THREE.Group(), hull = mat(0xc8ccd0, { m: 0.5, r: 0.5 }), heat = mat(0x2a2420, { r: 0.9 });
+  const c = new THREE.Group(); c.rotation.set(0.5 + rnd() * 0.3, rnd() * 6, 0.2); c.position.y = 0.8; g.add(c);
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.9, 2.8, 16), hull); cone.castShadow = true; c.add(cone); const shield = new THREE.Mesh(new THREE.CylinderGeometry(1.95, 1.95, 0.3, 16), heat); shield.position.y = -1.5; c.add(shield);
+  B(c, 0.9, 1.0, 0.1, 0x101418, 0, 0.1, 1.45).rotation.x = -0.35; const hatch = B(c, 0.9, 1.0, 0.1, hull, 0.9, 0.1, 1.5); hatch.rotation.set(-0.35, 0.9, 0);
+  B(c, 0.25, 0.08, 0.25, 0xff3020, 0, 1.45, 0, { e: 0xff1000, ei: 2 });
+  const chute = new THREE.Mesh(new THREE.SphereGeometry(3.5, 14, 6, 0, 6.29, 0, 0.9), mat(0xe8702a, { ds: true, r: 1 })); chute.scale.y = 0.2; chute.position.set(4, 0.2, 2); chute.rotation.z = 0.2; g.add(chute);
+  const scorch = new THREE.Mesh(new THREE.CircleGeometry(3, 16), mat(0x1a1410, { op: 0.5 })); scorch.rotation.x = -Math.PI / 2; scorch.position.y = 0.04; g.add(scorch); return g;
+}
+export function wreck(rnd) {
+  const g = new THREE.Group(), hull = mat(0x5a646e, { m: 0.5, r: 0.6 }), burnt = mat(0x2a2624, { r: 0.9 }), stripe = mat(0xd09030, {});
+  const f1 = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 9, 12), hull); f1.rotation.set(0.1, 0, Math.PI / 2 + 0.15); f1.position.set(-4, 1.8, 0); f1.castShadow = true; g.add(f1);
+  const f2 = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.2, 6, 12), burnt); f2.rotation.set(0.3, 0.5, Math.PI / 2 - 0.3); f2.position.set(4.5, 1.6, 2); f2.castShadow = true; g.add(f2);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.5, 12), hull); nose.rotation.z = Math.PI / 2 + 0.15; nose.position.set(-10, 2.4, 0); g.add(nose); B(g, 1.2, 0.6, 2.5, 0x80c0e0, -9.5, 3.2, 0, { op: 0.6, m: 0.8 });
+  for (const sd of [-1, 1]) { const w = B(g, 6, 0.3, 3, hull, -3, 1.2, sd * 4.5); w.rotation.set(sd * 0.2, 0.2, 0.1); B(g, 1.4, 1.4, 3, burnt, -1, 1.4, sd * 6.5); }
+  B(g, 4, 0.2, 0.6, stripe, -4, 3.9, 0); for (let i = 0; i < 14; i++) { const d = B(g, 0.3 + rnd(), 0.1, 0.3 + rnd(), rnd() < 0.5 ? 0x5a646e : 0x2a2624, (rnd() - 0.5) * 22, 0.06, (rnd() - 0.5) * 14); d.rotation.set(rnd(), rnd() * 6, rnd()); }
+  const scorch = new THREE.Mesh(new THREE.CircleGeometry(9, 20), mat(0x1a1410, { op: 0.55 })); scorch.rotation.x = -Math.PI / 2; scorch.position.y = 0.04; g.add(scorch); return g;
+}
+export function rover(rnd) {
+  const g = new THREE.Group(), body = mat(0xe8e0d0, { m: 0.3 }), dark = 0x2a2e34; const r = new THREE.Group(); r.rotation.set(0, rnd() * 6, 0.35); r.position.y = 0.5; g.add(r);
+  B(r, 3.2, 1.0, 2.0, body, 0, 0.9, 0); B(r, 1.2, 0.8, 1.8, 0x4a6a8a, -0.9, 1.7, 0, { op: 0.7, m: 0.6 }); for (const x of [-1.2, 0, 1.2]) for (const z of [-1.15, 1.15]) C(r, 0.45, 0.45, 0.35, dark, x, 0.45, z).rotation.x = Math.PI / 2;
+  C(r, 0.04, 0.04, 1.8, 0x888888, 1.2, 2.2, 0.6); S(r, 0.1, 0xff3020, 1.2, 3.1, 0.6, 1, 1, 1, { e: 0xff1000, ei: 2 }); B(r, 1.0, 0.05, 0.8, 0x1a3a7a, 0.6, 1.45, 0, { e: 0x081830 }); return g;
+}
+export function debris(rnd) {
+  const g = new THREE.Group(); for (let i = 0; i < 10; i++) { const k = rnd(); const d = k < 0.5 ? B(g, 0.4 + rnd() * 1.6, 0.08, 0.3 + rnd() * 1.2, k < 0.25 ? 0x6a727a : 0x3a3430, (rnd() - 0.5) * 8, 0.1, (rnd() - 0.5) * 8) : C(g, 0.08, 0.08, 1 + rnd() * 2.5, 0x5a5a5a, (rnd() - 0.5) * 8, 0.3, (rnd() - 0.5) * 8); d.rotation.set(rnd() * 3, rnd() * 6, rnd() * 3); } return g;
+}
+export function terminal() {
+  const g = new THREE.Group(); B(g, 0.8, 1.2, 0.5, 0x3a424a, 0, 0.6, 0, { m: 0.4 }); const sc = B(g, 0.7, 0.45, 0.05, 0x40ffb0, 0, 1.15, 0.2, { e: 0x20c080, ei: 2 }); sc.rotation.x = -0.4;
+  const L = new THREE.PointLight(0x40ffb0, 6, 6); L.position.set(0, 1.5, 0.6); g.add(L); return g;
+}
+export function spire(rnd, color) { const g = new THREE.Group(); const h = 8 + rnd() * 9; const m = new THREE.Mesh(new THREE.ConeGeometry(1.6 + rnd(), h, 7), mat(color, { flat: false, r: 1 })); m.position.y = h / 2 - 0.5; m.rotation.set((rnd() - 0.5) * 0.2, rnd() * 6, (rnd() - 0.5) * 0.2); m.castShadow = true; g.add(m); return g; }
+export function dropship() { const g = new THREE.Group(), hull = mat(0x5a6670, { m: 0.5, r: 0.5 }); B(g, 3, 2.2, 9, hull, 0, 0, 0); B(g, 2.4, 1.2, 2.5, 0x80c0e0, 0, 0.9, -3.8, { op: 0.7, m: 0.8 }); for (const sd of [-1, 1]) { B(g, 4, 0.3, 3, hull, sd * 3.2, 0.2, 1); C(g, 0.8, 0.9, 2.2, 0x2a2e34, sd * 4.8, 0, 1).rotation.x = Math.PI / 2; S(g, 0.6, 0x80c0ff, sd * 4.8, 0, 2.2, 1, 1, 1, { e: 0x4080ff, ei: 2 }); } B(g, 3.2, 0.3, 1.5, 0xd09030, 0, 1.2, 2); return g; }
+export function jet() { const g = new THREE.Group(), hull = mat(0x4a525a, { m: 0.6, r: 0.4 }); B(g, 1.4, 1.0, 8, hull, 0, 0, 0); const n = new THREE.Mesh(new THREE.ConeGeometry(0.7, 2.5, 8), hull); n.rotation.x = -Math.PI / 2; n.position.z = -5.2; g.add(n); B(g, 9, 0.2, 2.5, hull, 0, 0, 1); B(g, 0.2, 2, 1.6, hull, 0, 1, 3.4); S(g, 0.5, 0xffa040, 0, 0, 4.2, 1, 1, 1, { e: 0xff6000, ei: 2 }); return g; }
+export function drone() { const g = new THREE.Group(); B(g, 0.8, 0.3, 0.8, 0x3a424a, 0, 0, 0, { m: 0.5 }); for (const [x, z] of [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]]) { C(g, 0.4, 0.4, 0.04, 0x222222, x, 0.15, z); } S(g, 0.12, 0xff4040, 0, -0.2, -0.4, 1, 1, 1, { e: 0xff2020, ei: 2 }); C(g, 0.05, 0.05, 0.5, 0x222222, 0, -0.25, -0.2).rotation.x = Math.PI / 2; return g; }
+export function medCrate(r) { const g = new THREE.Group(); B(g, 1.3, 0.9, 1.0, 0xe8e8f0, 0, 0.45, 0); const red = mat(0xff3030, { e: 0xa01010 }); B(g, 1.32, 0.18, 0.3, red, 0, 0.92, 0); B(g, 0.3, 0.18, 1.02, red, 0, 0.92, 0); const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.3, r, 48), new THREE.MeshBasicMaterial({ color: 0x60ff90, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.15; g.add(ring); return g; }
 export function supplyPod() {
   const g = new THREE.Group(); B(g, 1.1, 0.9, 1.1, 0x50606a, 0, 0.45, 0, { m: 0.5 }); B(g, 1.15, 0.2, 1.15, 0xe0b22e, 0, 0.55, 0, { e: 0x604000 });
   C(g, 0.05, 0.05, 1.6, 0x888888, 0, 1.6, 0); S(g, 0.15, 0xffd040, 0, 2.4, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); return g;
@@ -202,6 +280,7 @@ export function prop(kind, rnd) {
   else if (kind === 'dish') { C(g, 0.3, 0.5, 4, 0x8a96a2, 0, 2, 0); const d = new THREE.Mesh(new THREE.SphereGeometry(2.4, 14, 6, 0, 6.29, 0, 1.0), mat(0xd8e4ee, { ds: true, m: 0.4 })); d.position.set(0, 4.4, 0); d.rotation.x = 2.3; g.add(d); C(g, 0.06, 0.06, 2, 0x404040, 0, 5, -0.6).rotation.x = 0.8; B(g, 2, 1.2, 1.6, 0x5a6670, 1.6, 0.6, 0); }
   else if (kind === 'spire') { const h = 6 + rnd() * 6; K(g, 1.2, h, 0x9fd8ff, 0, h / 2, 0, { e: 0x2060a0, m: 0.3, r: 0.1 }); K(g, 0.7, h * 0.6, 0xbfe8ff, 1, h * 0.3, 0.5, { e: 0x204060 }).rotation.z = -0.3; }
   else if (kind === 'shroom') { const h = 3 + rnd() * 4, c = [0x40ffd0, 0xc060ff, 0x60a0ff][(rnd() * 3) | 0]; C(g, 0.3, 0.45, h, 0xd8d0b0, 0, h / 2, 0); const cap = S(g, 1.6 + rnd(), c, 0, h, 0, 1, 0.45, 1, { e: c, ei: 0.8 }); cap.castShadow = false; for (let i = 0; i < 4; i++) S(g, 0.14, 0xffffff, Math.cos(i * 1.6) * 1.1, h + 0.5, Math.sin(i * 1.6) * 1.1, 1, 1, 1, { e: 0xffffff }); if (rnd() < 0.1) { const L = new THREE.PointLight(c, 12, 12); L.position.y = h; g.add(L); } }
+  else if (kind === 'boulder') { const n = 1 + (rnd() * 3 | 0); for (let i = 0; i < n; i++) { const r0 = 0.8 + rnd() * 2.4, m = new THREE.Mesh(new THREE.DodecahedronGeometry(r0, 1), mat(0x6a6058, { flat: false, r: 1 })); m.position.set((rnd() - 0.5) * 3, r0 * 0.5, (rnd() - 0.5) * 3); m.scale.set(1, 0.55 + rnd() * 0.5, 0.8 + rnd() * 0.4); m.rotation.set(rnd(), rnd() * 6, rnd()); m.castShadow = true; m.receiveShadow = true; g.add(m); } }
   else if (kind === 'tower') { B(g, 3, 6, 3, 0x6a747e, 0, 3, 0, { m: 0.3 }); B(g, 3.4, 0.4, 3.4, 0x3a424a, 0, 6.2, 0); S(g, 0.3, 0xff4040, 0, 6.8, 0, 1, 1, 1, { e: 0xff2020 }); }
   return g;
 }

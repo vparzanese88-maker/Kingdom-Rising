@@ -36,23 +36,25 @@ export class Path {
 export function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function lineDist(pts, x, z) { let best = 1e9; for (let i = 1; i < pts.length; i++) { const [ax, az] = pts[i - 1], [bx, bz] = pts[i], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, f = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)); best = Math.min(best, Math.hypot(x - ax - dx * f, z - az - dz * f)); } return best; }
-export const FLOOR = -8, LIQUID = -6.8, ROOF_GAP = 4.6;
+export const FLOOR = -8, LIQUID = -6.8, ROOF_GAP = 4.6, HUB_R = 24, WALL_T = 1.2, WALL_H = 4.5, RAMP_W = 3.2;
 
 // The shape of the land, for every game and the simulation.
 export function makeTerrain(D, path, hubP, hiveP) {
   const T = {};
-  const hills = (x, z) => 1.8 + 1.5 * Math.sin(x * 0.071 + 1.3) * Math.cos(z * 0.063 - 0.4) + 0.9 * Math.sin(x * 0.13 + z * 0.11) + 0.5 * Math.cos(x * 0.21 - z * 0.17);
+  const hills = (x, z) => 2.6 + 3.4 * Math.sin(x * 0.034 + 1.3) * Math.cos(z * 0.029 - 0.4) + 1.8 * Math.sin(x * 0.063 + z * 0.052 + 2) + 0.9 * Math.cos(x * 0.12 - z * 0.105) + 0.35 * Math.sin(x * 0.29 + z * 0.24) + 0.18 * Math.cos(x * 0.61 - z * 0.53);
+  const feats = (x, z) => { let h = 0; for (const c of D.craters || []) { const u = Math.hypot(x - c.x, z - c.z) / c.r; if (u < 1) h -= c.d * (1 - u * u); else if (u < 1.35) h += c.d * 0.4 * Math.sin((u - 1) / 0.35 * Math.PI); }
+    for (const m of D.mesas || []) { const u = Math.hypot(x - m.x, z - m.z) / m.r; h += m.h * sstep(1.3, 0.92, u) * (0.92 + 0.08 * Math.sin(x * 0.4 + z * 0.3)); } return h; };
   const ridge = (x, z) => { let r = 0; for (const q of D.ridges || []) { const u = lineDist(q.pts, x, z) / (q.w / 2); if (u < 1) r = Math.max(r, q.h * (Math.cos(u * Math.PI) + 1) / 2); } return r; };
   const chasm = (x, z) => { let k = 1; for (const q of D.chasms || []) k = Math.min(k, sstep(q.w / 2, q.w / 2 + 1.4, lineDist(q.pts, x, z))); return k; };
   T.hills = hills; T.ridge = ridge; T.chasm = chasm;
   const hubY = path.y(path.len), hiveY = path.y(0);
   // ground without bridges and tunnel roofs
-  T.raw = (x, z) => {
+  T.raw = (x, z, noPath) => {
     const out = Math.max(Math.abs(x), Math.abs(z)) - (BOUNDS - 2);
-    let h = hills(x, z) + ridge(x, z) + (out > 0 ? out * 1.6 : 0);
+    let h = hills(x, z) + ridge(x, z) + feats(x, z) + (out > 0 ? out * 1.8 + Math.max(0, Math.sin(x * 0.05) * Math.cos(z * 0.06)) * out * 0.8 : 0);
     const n = path.near(x, z), py = path.y(n.s), R = ridge(n.x, n.z), bw = 7 - 5.6 * Math.min(1, R / 3);     // a narrow cut where the track goes under a ridge
-    const f = sstep(PATH_W / 2 + 0.3, PATH_W / 2 + 0.3 + bw, n.d); h = py - 0.02 + (h - py + 0.02) * f;
-    for (const [p, y] of [[hubP, hubY], [hiveP, hiveY]]) { const g = sstep(10, 16, Math.hypot(x - p.x, z - p.z)); h = y + (h - y) * g; }
+    const f = noPath ? 1 : sstep(PATH_W / 2 + 0.3, PATH_W / 2 + 0.3 + bw, n.d); h = py - 0.02 + (h - py + 0.02) * f;
+    for (const [p, y, a, b] of [[hubP, hubY, HUB_R + 4, HUB_R + 12], [hiveP, hiveY, 10, 18]]) { const g = sstep(a, b, Math.hypot(x - p.x, z - p.z)); h = y + (h - y) * g; }
     const k = chasm(x, z); h = FLOOR + (h - FLOOR) * k;
     return h;
   };
@@ -68,6 +70,13 @@ export function makeTerrain(D, path, hubP, hiveP) {
   for (const t of T.tunnels) { let top = 0; for (let s = t.s0; s <= t.s1; s += 0.5) { const p = path.at(s); top = Math.max(top, hills(p.x, p.z) + ridge(p.x, p.z)); } t.bottom = Math.max(path.y(t.s0), path.y(t.s1)) + ROOF_GAP; t.top = Math.max(top, t.bottom + 2); }
   T.bridgeAt = s => T.bridges.find(b => s >= b.s0 && s <= b.s1);
   T.tunnelAt = (s, pad = 0) => T.tunnels.find(t => s >= t.s0 - pad && s <= t.s1 + pad);
+  { const q = path.at(path.len - HUB_R - 2); T.hub = { x: hubP.x, z: hubP.z, y: hubY, ga: Math.atan2(q.z - hubP.z, q.x - hubP.x), gh: (PATH_W / 2 + 2.6) / HUB_R }; T.hub.ramps = [T.hub.ga + Math.PI - 1.15, T.hub.ga + Math.PI + 0.6].map(a0 => ({ a0, a1: a0 + 0.55 })); }
+  const ad = (a, b) => { let d = a - b; while (d > Math.PI) d -= 6.2832; while (d < -Math.PI) d += 6.2832; return d; };
+  // inside the wall ring, on the wall, or on a ramp (with its height)
+  T.hubAt = (x, z) => { const H = T.hub, r = Math.hypot(x - H.x, z - H.z); if (r > HUB_R + WALL_T) return null; const a = Math.atan2(z - H.z, x - H.x);
+    if (r > HUB_R - WALL_T && Math.abs(ad(a, H.ga)) > H.gh) return { wall: 1, h: H.y + WALL_H };
+    if (r > HUB_R - WALL_T - RAMP_W && r <= HUB_R - WALL_T) for (const p of H.ramps) { const f = ad(a, p.a0) / (p.a1 - p.a0); if (f >= 0 && f <= 1) return { ramp: 1, h: H.y + WALL_H * f }; }
+    return r < HUB_R - WALL_T ? { yard: 1 } : null; };
   // walking height at (x, z) for something now at height y (so you can be on a bridge or under it, on a tunnel roof or inside)
   T.ground = (x, z, y = 1e9) => {
     const h = T.raw(x, z), n = path.near(x, z);
@@ -75,6 +84,7 @@ export function makeTerrain(D, path, hubP, hiveP) {
       const b = T.bridgeAt(n.s); if (b) { const deck = path.y(n.s); if (y >= deck - 1.3) return deck; }
       const t = T.tunnelAt(n.s); if (t && n.d < PATH_W / 2 + 1.6 && y >= t.top - 1.6) return t.top;
     }
+    const hb = T.hubAt(x, z); if (hb && hb.h !== undefined && y >= hb.h - (hb.wall ? 1.6 : 1.3)) return Math.max(h, hb.h);
     return h;
   };
   T.top = (x, z) => T.ground(x, z, 1e9);
@@ -82,11 +92,12 @@ export function makeTerrain(D, path, hubP, hiveP) {
   T.solid = (x, y, z) => {
     const n = path.near(x, z);
     if (n.d < PATH_W / 2 + 1.6) { const t = T.tunnelAt(n.s); if (t && y > t.bottom && y < t.top) return true; }
+    const hb = T.hubAt(x, z); if (hb && hb.h !== undefined && y > T.hub.y - 1 && y < hb.h - (hb.ramp ? 0.25 : 0)) return true;
     return y < T.ground(x, z, y);
   };
   T.ceiling = (x, z, y) => { const n = path.near(x, z); if (n.d < PATH_W / 2 + 1.6) { const t = T.tunnelAt(n.s); if (t && y < t.bottom) return t.bottom; } return 1e9; };
   // distance along a ray before it hits the land, or Infinity
-  T.ray = (o, d, max) => { for (let t = 0.6; t < max; t += 0.6) { if (T.solid(o.x + d.x * t, o.y + d.y * t, o.z + d.z * t)) return t; } return Infinity; };
+  T.ray = (o, d, max) => { for (let t = 0.6; t < max; t += 0.6) { const x = o.x + d.x * t, y = o.y + d.y * t, z = o.z + d.z * t; if (T.solid(x, y, z) || (T.block && T.block(x, y, z))) return t; } return Infinity; };
   return T;
 }
 
@@ -94,7 +105,8 @@ export function makeTerrain(D, path, hubP, hiveP) {
 export function placeError(kind, x, z, path, turrets, hubP, hiveP, T) {
   const K = TURRETS[kind], n = path.near(x, z);
   if (Math.abs(x) > BOUNDS - 3 || Math.abs(z) > BOUNDS - 3) return 'Too close to the edge';
-  if (Math.hypot(x - hubP.x, z - hubP.z) < 10) return 'Too close to the hub';
+  if (Math.hypot(x - hubP.x, z - hubP.z) < 11) return 'Too close to the hub core';
+  if (T) { const hb = T.hubAt(x, z); if (hb && hb.ramp) return 'Not on a ramp'; }
   if (Math.hypot(x - hiveP.x, z - hiveP.z) < 11) return 'Too close to the hive';
   if (K.onPath) {
     if (n.d > PATH_W / 2) return `${K.name} goes on the alien track`; if (n.s < 14 || n.s > path.len - 14) return 'Too close to the end of the track';
@@ -105,7 +117,7 @@ export function placeError(kind, x, z, path, turrets, hubP, hiveP, T) {
   if (T) {
     if (T.chasm(x, z) < 0.9) return 'Not in the chasm';
     if (n.d < PATH_W / 2 + 2 && T.tunnelAt(n.s, 1)) return 'Not on a tunnel roof';
-    const h = T.top(x, z); for (const [dx, dz] of [[1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2]]) if (Math.abs(T.top(x + dx, z + dz) - h) > 1.3) return 'Too steep here';
+    const hb = T.hubAt(x, z), h = T.top(x, z); if (!(hb && hb.wall)) for (const [dx, dz] of [[1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2]]) if (Math.abs(T.top(x + dx, z + dz) - h) > 1.3) return 'Too steep here';
   }
   for (const t of turrets) if (!TURRETS[t.kind].onPath && Math.hypot(t.x - x, t.z - z) < 2.6) return 'Too close to another turret';
   return '';
@@ -120,38 +132,36 @@ export function buildWorld(scene, mapId) {
   scene.background = new THREE.Color(D.sky); scene.fog = new THREE.Fog(D.fog, D.fogD[0], D.fogD[1]);
   const hemi = new THREE.HemisphereLight(mapId === 'jungle' ? 0x506a80 : D.sky, D.amb, D.hemiI || 1.1); W.hemi = hemi; g.add(hemi);
   const sun = new THREE.DirectionalLight(D.sun, D.sunI || 2.2); W.sun = sun; sun.position.set(40, 70, 25); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 10, far: 220 }); g.add(sun, sun.target);
+  Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 10, far: 260 }); g.add(sun, sun.target);
 
   // the land: a height grid coloured by height and steepness
-  const SZ = BOUNDS * 2 + 60, N = 170, gr = new THREE.PlaneGeometry(SZ, SZ, N, N); gr.rotateX(-Math.PI / 2);
+  const SZ = BOUNDS * 2 + 140, N = 230, gr = new THREE.PlaneGeometry(SZ, SZ, N, N); gr.rotateX(-Math.PI / 2);
   const pos = gr.attributes.position, col = [], c1 = new THREE.Color(D.ground), c2 = new THREE.Color(D.ground2), cr = new THREE.Color(D.rock), cd = new THREE.Color(0x1a1410), r = rng(7), H = [];
   for (let i = 0; i < pos.count; i++) { const h = T.raw(pos.getX(i), pos.getZ(i)); H.push(h); pos.setY(i, h); }
   for (let i = 0; i < pos.count; i++) {
     const ix = i % (N + 1), iz = (i / (N + 1)) | 0, hx = H[i + (ix < N ? 1 : -1)], hz = H[i + (iz < N ? N + 1 : -(N + 1))], slope = Math.max(Math.abs(hx - H[i]), Math.abs(hz - H[i])) / (SZ / N);
-    const c = c1.clone().lerp(c2, r() * 0.5 + Math.min(0.4, Math.max(0, H[i] - 3) * 0.05));
+    const px = pos.getX(i), pz = pos.getZ(i), patch = 0.5 + 0.5 * Math.sin(px * 0.09 + Math.sin(pz * 0.07) * 2) * Math.cos(pz * 0.08 - px * 0.03);
+    const c = c1.clone().lerp(c2, patch * 0.7 + r() * 0.12 + Math.min(0.3, Math.max(0, H[i] - 6) * 0.03));
     if (slope > 0.6) c.lerp(cr, Math.min(1, (slope - 0.6) * 1.5)); if (H[i] < -1) c.lerp(cd, Math.min(1, (-1 - H[i]) / 5));
     if (mapId === 'ice' && H[i] > 7 && slope < 0.8) c.lerp(new THREE.Color(0xffffff), 0.6);
     col.push(c.r, c.g, c.b);
   }
   gr.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); gr.computeVertexNormals();
-  const ground = new THREE.Mesh(gr, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true })); ground.receiveShadow = true; g.add(ground);
+  const ground = new THREE.Mesh(gr, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: false })); ground.receiveShadow = true; g.add(ground);
   // lava, water or icy sea at the bottom of the chasms
   const liq = new THREE.Mesh(new THREE.PlaneGeometry(SZ, SZ), new THREE.MeshStandardMaterial({ color: D.liquid, emissive: mapId === 'mars' ? D.liquid : 0x000000, emissiveIntensity: 0.9, roughness: 0.3, metalness: 0.2 }));
   liq.rotation.x = -Math.PI / 2; liq.position.y = LIQUID; g.add(liq); W.liquid = liq;
   if (mapId === 'mars') for (const q of D.chasms) { const a = q.pts[0], b = q.pts[q.pts.length - 1]; for (let f = 0.1; f < 1; f += 0.3) { const L = new THREE.PointLight(0xff6020, 30, 22); L.position.set(a[0] + (b[0] - a[0]) * f, LIQUID + 2, a[1] + (b[1] - a[1]) * f); g.add(L); } }
 
   // the track: a ribbon that follows its height, one leg at a time, and a disc at each bend
-  const pm = M.mat(D.path, { r: 1 }), em = M.mat(0xff6020, { e: 0xff4010, ei: 1.5 });
+  const trailC = new THREE.Color(D.ground).lerp(new THREE.Color(D.path), 0.45), trailM = new THREE.MeshStandardMaterial({ color: trailC, roughness: 1, side: THREE.DoubleSide, transparent: true, opacity: 0.75, depthWrite: false }), pm = trailM;
   for (let i = 1; i < path.pts.length; i++) {
     const a = path.pts[i - 1], b = path.pts[i], L = path.cum[i] - path.cum[i - 1], tx = (b.x - a.x) / L, tz = (b.z - a.z) / L, n = Math.ceil(L), v = [], idx = [];
     for (let k = 0; k <= n; k++) { const d = L * k / n, y = path.y(path.cum[i - 1] + d) + 0.06, x = a.x + tx * d, z = a.z + tz * d; v.push(x - tz * PATH_W / 2, y, z + tx * PATH_W / 2, x + tz * PATH_W / 2, y, z - tx * PATH_W / 2); if (k) { const o = (k - 1) * 2; idx.push(o, o + 2, o + 1, o + 1, o + 2, o + 3); } }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); geo.setIndex(idx); geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: D.path, roughness: 1, side: THREE.DoubleSide })); m.receiveShadow = true; g.add(m);
-    for (let d = 2; d < L - 1; d += 5) { const s = path.cum[i - 1] + d; if (T.tunnelAt(s)) continue; for (const sd of [-1, 1]) { const q = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.3), em); q.position.set(a.x + tx * d - tz * sd * (PATH_W / 2 + 0.3), path.y(s) + 0.1, a.z + tz * d + tx * sd * (PATH_W / 2 + 0.3)); g.add(q); } }
+    const m = new THREE.Mesh(geo, trailM); m.receiveShadow = true; g.add(m);
   }
   path.pts.forEach((p, i) => { const m = new THREE.Mesh(new THREE.CircleGeometry(PATH_W / 2, 16), pm); m.rotation.x = -Math.PI / 2; m.position.set(p.x, path.hs[i] + 0.055, p.z); m.receiveShadow = true; g.add(m); });
-  const am = M.mat(0xffffff, { op: 0.25, e: 0x404040 });
-  for (let s = 12; s < path.len - 10; s += 16) { const p = path.at(s), a = new THREE.Mesh(new THREE.CircleGeometry(1.1, 3), am); a.rotation.x = -Math.PI / 2; a.rotation.z = Math.atan2(p.tx, p.tz) - Math.PI / 2; a.position.set(p.x, p.y + 0.09, p.z); g.add(a); }
 
   // bridges over the chasms
   const steel = M.mat(0x5a646e, { m: 0.5, r: 0.5 }), dark = M.mat(0x2c3238, { m: 0.4 }), lamp = M.mat(0xffd070, { e: 0xffb040, ei: 2 });
@@ -187,27 +197,112 @@ export function buildWorld(scene, mapId) {
   }
 
   const hv = M.hive(); hv.position.set(s0.x, path.y(0), s0.z); g.add(hv); W.hive = hv; const hsh = new THREE.Mesh(new THREE.SphereGeometry(8.5, 24, 14), M.mat(0xc040ff, { op: 0.18, e: 0x6020a0, ds: true, flat: false })); hsh.position.set(s0.x, path.y(0), s0.z); g.add(hsh); W.hiveShield = hsh; W.colliders.push({ x: s0.x, z: s0.z, r: 6 });
-  const hb = M.hub(); hb.position.set(s1.x, path.y(path.len), s1.z); g.add(hb); W.hub = hb; W.colliders.push({ x: s1.x, z: s1.z, r: 7.6 });
-  const ring = new THREE.Mesh(new THREE.RingGeometry(14.6, 15, 64), M.mat(0x40ff80, { e: 0x20c050, op: 0.55, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.set(s1.x, path.y(path.len) + 0.3, s1.z); g.add(ring); W.healRing = ring;
-  const pe = path.at(path.len - 1); W.spawn = { x: s1.x + pe.tx * 13, z: s1.z + pe.tz * 13 };
-  if (Math.abs(W.spawn.x) > BOUNDS - 4 || Math.abs(W.spawn.z) > BOUNDS - 4) W.spawn = { x: s1.x - pe.tz * 13, z: s1.z + pe.tx * 13 };
+  const hb = M.hub(); hb.scale.setScalar(1.25); hb.position.set(s1.x, path.y(path.len), s1.z); g.add(hb); W.hub = hb; W.colliders.push({ x: s1.x, z: s1.z, r: 9.5 });
+  buildCompound(g, T.hub, W);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(HUB_R - WALL_T - 0.6, HUB_R - WALL_T - 0.2, 96), M.mat(0x40ff80, { e: 0x20c050, op: 0.55, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.set(s1.x, path.y(path.len) + 0.12, s1.z); g.add(ring); W.healRing = ring;
+  W.spawn = { x: s1.x - Math.cos(T.hub.ga) * 14, z: s1.z - Math.sin(T.hub.ga) * 14 };
 
   W.nestP = [];
   if (D.hazard === 'nests') { const NR = rng(41); for (const f of [0.28, 0.5, 0.72]) { for (let k = 0; k < 40; k++) { const s = path.len * (f + (NR() - 0.5) * 0.08), q = path.at(s), side = NR() < 0.5 ? -1 : 1, dd = 13 + NR() * 6, x = q.x - q.tz * side * dd, z = q.z + q.tx * side * dd, n = path.near(x, z);
     if (n.d < 10 || Math.abs(x) > BOUNDS - 6 || Math.abs(z) > BOUNDS - 6 || T.chasm(x, z) < 0.99 || T.ridge(x, z) > 1.5) continue; W.nestP.push({ i: W.nestP.length, x, z, y: T.raw(x, z), s: n.s }); break; } } }
   // scenery, kept off the track and out of the chasms
   const R = rng(mapId.length * 991 + 3);
-  for (let i = 0; i < (D.dense ? 160 : 90); i++) {
-    const x = (R() * 2 - 1) * (BOUNDS + 22), z = (R() * 2 - 1) * (BOUNDS + 22), n = path.near(x, z), out = Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2;
-    if (n.d < PATH_W + 4 && !out) continue; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < 16 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 14) continue;
+  for (let i = 0; i < (D.dense ? 520 : 300); i++) {
+    const x = (R() * 2 - 1) * (BOUNDS + 40), z = (R() * 2 - 1) * (BOUNDS + 40), n = path.near(x, z), out = Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2;
+    if (n.d < PATH_W + 4 && !out) continue; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < HUB_R + 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 14) continue;
     if (T.chasm(x, z) < 0.99 || T.ridge(x, z) > 3) continue;
     if (!out && R() < (D.dense ? 0.35 : 0.55)) continue; if (W.nestP.some(n => Math.hypot(n.x - x, n.z - z) < 6)) continue;
-    const kind = !out && R() < 0.35 ? (R() < 0.3 ? 'crate' : D.extra[(R() * D.extra.length) | 0]) : D.prop, p = M.prop(kind, R); p.position.set(x, T.raw(x, z) - 0.1, z); p.rotation.y = R() * 6; g.add(p);
-    if (!out) W.colliders.push({ x, z, r: { tower: 2.2, crate: 1.1, tree: 0.7, dome: 4, derrick: 1.8, dish: 1.5, spire: 1.2, shroom: 0.8 }[kind] || 1.6 });
+    const kind = !out && R() < 0.3 ? (R() < 0.2 ? 'crate' : D.extra[(R() * D.extra.length) | 0]) : R() < 0.3 ? 'boulder' : D.prop, p = M.prop(kind, R); p.position.set(x, T.raw(x, z) - 0.1, z); p.rotation.y = R() * 6; g.add(p);
+    if (!out) W.colliders.push({ x, z, r: { tower: 2.2, crate: 1.1, tree: 0.7, dome: 4, derrick: 1.8, dish: 1.5, spire: 1.2, shroom: 0.8, boulder: 1.8 }[kind] || 1.6, h: { tower: 7, crate: 1.4, tree: 9, dome: 5, derrick: 9, dish: 5, spire: 8, shroom: 5, boulder: 3, rock: 3, ice: 4 }[kind] || 3 });
   }
+  const sky = { mars: [[0xd8c0a0, 26, -0.6, 0.35], [0xa09080, 9, 0.9, 0.5]], ice: [[0x6a8ad0, 60, 0.4, 0.3], [0xe0d0c0, 12, -0.9, 0.55]], jungle: [[0xb0a0e0, 45, -0.3, 0.32], [0xf0e0c0, 14, 1.1, 0.6], [0xc0f0d0, 7, 1.6, 0.45]] }[mapId];
+  for (const [c, rad, a, el] of sky) { const pl = new THREE.Mesh(new THREE.SphereGeometry(rad, 32, 16), new THREE.MeshBasicMaterial({ color: c, fog: false })); pl.position.set(Math.cos(a) * 650, Math.sin(el) * 650, Math.sin(a) * 650); g.add(pl); if (rad > 20) { const rg = new THREE.Mesh(new THREE.RingGeometry(rad * 1.3, rad * 1.9, 64), new THREE.MeshBasicMaterial({ color: c, fog: false, transparent: true, opacity: 0.35, side: THREE.DoubleSide })); rg.position.copy(pl.position); rg.lookAt(0, 0, 0); rg.rotateX(1.1); g.add(rg); } }
+  placePOIs(g, W, T, D, mapId, path);
+  // bullets: big props stop them (a grid of colliders with heights, looked up by cell)
+  const cell = 16, grid = new Map(); for (const c of W.colliders) { c.gy = c.gy ?? T.raw(c.x, c.z); c.h = c.h ?? 3; const x0 = Math.floor((c.x - c.r) / cell), x1 = Math.floor((c.x + c.r) / cell), z0 = Math.floor((c.z - c.r) / cell), z1 = Math.floor((c.z + c.r) / cell); for (let a = x0; a <= x1; a++) for (let b = z0; b <= z1; b++) { const k = a + ',' + b; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(c); } }
+  T.block = (x, y, z) => { const l = grid.get(Math.floor(x / cell) + ',' + Math.floor(z / cell)); if (!l) return false; for (const c of l) if (y < c.gy + c.h && y > c.gy - 1 && (x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true; return false; };
   // a picture of the land for the minimap
   const mc = document.createElement('canvas'); mc.width = mc.height = 170; const mg = mc.getContext('2d'), im = mg.createImageData(170, 170);
-  for (let j = 0; j < 170; j++) for (let i = 0; i < 170; i++) { const x = -BOUNDS + (i + 0.5) / 170 * BOUNDS * 2, z = -BOUNDS + (j + 0.5) / 170 * BOUNDS * 2, h = T.raw(x, z), o = (j * 170 + i) * 4, v = h < -1 ? 15 : Math.max(20, Math.min(110, 40 + h * 7)); im.data[o] = h < -1 ? (mapId === 'mars' ? 120 : 20) : v * 0.8; im.data[o + 1] = h < -1 ? 30 : v; im.data[o + 2] = h < -1 ? (mapId === 'mars' ? 10 : 90) : v * 1.1; im.data[o + 3] = 200; }
+  for (let j = 0; j < 170; j++) for (let i = 0; i < 170; i++) { const hb0 = T.hubAt(-BOUNDS + (i + 0.5) / 170 * BOUNDS * 2, -BOUNDS + (j + 0.5) / 170 * BOUNDS * 2); const x = -BOUNDS + (i + 0.5) / 170 * BOUNDS * 2, z = -BOUNDS + (j + 0.5) / 170 * BOUNDS * 2, h = T.raw(x, z, true), o = (j * 170 + i) * 4, v = h < -1 ? 15 : Math.max(20, Math.min(110, 40 + h * 7)); im.data[o] = h < -1 ? (mapId === 'mars' ? 120 : 20) : v * 0.8; im.data[o + 1] = h < -1 ? 30 : v; im.data[o + 2] = h < -1 ? (mapId === 'mars' ? 10 : 90) : v * 1.1; im.data[o + 3] = 200; if (hb0 && hb0.wall) { im.data[o] = im.data[o + 1] = im.data[o + 2] = 210; } }
   mg.putImageData(im, 0, 0); W.miniBg = mc;
   return W;
+}
+
+// The hub compound: ring wall with a walkway and battlements, a gate where the track comes in, ramps up to the walkway,
+// corner towers, the reactor in the middle, ammo crates, a landing pad and barracks.
+function buildCompound(g, H, W) {
+  const C = new THREE.Group(); C.position.set(H.x, H.y, H.z); g.add(C);
+  const wallM = M.mat(0x6a737c, { m: 0.3, r: 0.7 }), dark = M.mat(0x343b42, { m: 0.4 }), stripe = M.mat(0xffc020, { e: 0x604000 }), lamp = M.mat(0x80e0ff, { e: 0x40a0ff, ei: 2 }), red = M.mat(0xff3020, { e: 0xff1000, ei: 2 });
+  const ad = (a, b) => { let d = a - b; while (d > Math.PI) d -= 6.2832; while (d < -Math.PI) d += 6.2832; return d; };
+  const seg = 64;
+  for (let i = 0; i < seg; i++) {
+    const a = (i + 0.5) / seg * 6.2832; if (Math.abs(ad(a, H.ga)) < H.gh + 0.03) continue; const len = HUB_R * 6.2832 / seg + 0.05;
+    const w = new THREE.Mesh(new THREE.BoxGeometry(WALL_T * 2, WALL_H, len), wallM); w.position.set(Math.cos(a) * HUB_R, WALL_H / 2, Math.sin(a) * HUB_R); w.rotation.y = -a; w.castShadow = w.receiveShadow = true; C.add(w);
+    const walk = new THREE.Mesh(new THREE.BoxGeometry(WALL_T * 2 + 0.1, 0.12, len), dark); walk.position.set(Math.cos(a) * HUB_R, WALL_H + 0.06, Math.sin(a) * HUB_R); walk.rotation.y = -a; walk.receiveShadow = true; C.add(walk);
+    if (i % 2 === 0) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, len * 0.6), wallM); m.position.set(Math.cos(a) * (HUB_R + WALL_T - 0.2), WALL_H + 0.5, Math.sin(a) * (HUB_R + WALL_T - 0.2)); m.rotation.y = -a; m.castShadow = true; C.add(m); }
+    if (i % 4 === 0) { const st = new THREE.Mesh(new THREE.BoxGeometry(WALL_T * 2 + 0.05, 0.3, len), stripe); st.position.set(Math.cos(a) * HUB_R, 1.0, Math.sin(a) * HUB_R); st.rotation.y = -a; C.add(st); }
+  }
+  // the gate: tall pillars, a lit beam overhead, warning lights
+  for (const sd of [-1, 1]) { const a = H.ga + sd * (H.gh + 0.02), p = new THREE.Mesh(new THREE.BoxGeometry(2.8, WALL_H + 3.5, 2.8), dark); p.position.set(Math.cos(a) * HUB_R, (WALL_H + 3.5) / 2, Math.sin(a) * HUB_R); p.rotation.y = -a; p.castShadow = true; C.add(p); const b = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 6), red); b.position.set(Math.cos(a) * HUB_R, WALL_H + 3.9, Math.sin(a) * HUB_R); C.add(b); }
+  { const a = H.ga, beam = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 2 * HUB_R * Math.sin(H.gh) + 2.8), dark); beam.position.set(Math.cos(a) * HUB_R, WALL_H + 3.0, Math.sin(a) * HUB_R); beam.rotation.y = -a; C.add(beam); const lt = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.25, 2 * HUB_R * Math.sin(H.gh)), stripe); lt.position.set(Math.cos(a) * HUB_R, WALL_H + 2.45, Math.sin(a) * HUB_R); lt.rotation.y = -a; C.add(lt); }
+  // ramps up to the walkway, as steps
+  for (const rp of H.ramps) for (let k = 0; k < 12; k++) { const f0 = k / 12, a = rp.a0 + (rp.a1 - rp.a0) * (k + 0.5) / 12, h = WALL_H * (k + 1) / 12, r = HUB_R - WALL_T - RAMP_W / 2, len = r * (rp.a1 - rp.a0) / 12 + 0.05;
+    const st = new THREE.Mesh(new THREE.BoxGeometry(RAMP_W, h, len), k % 2 ? wallM : dark); st.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r); st.rotation.y = -a; st.castShadow = st.receiveShadow = true; C.add(st); void f0; }
+  // corner towers outside the wall
+  for (const da of [0.9, 2.2, -0.9, -2.2]) { const a = H.ga + Math.PI + da, x = Math.cos(a) * (HUB_R + 3.2), z = Math.sin(a) * (HUB_R + 3.2), t = new THREE.Group(); t.position.set(x, 0, z); C.add(t);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.6, WALL_H + 5, 8), wallM); body.position.y = (WALL_H + 5) / 2; body.castShadow = true; t.add(body);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.2, 1.2, 8), dark); top.position.y = WALL_H + 5.6; t.add(top); const l = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), lamp); l.position.y = WALL_H + 6.6; t.add(l);
+    W.colliders.push({ x: H.x + x, z: H.z + z, r: 2.6 }); }
+  // inside: ammo crates by the spawn, a landing pad, barracks
+  const back = H.ga + Math.PI, ax = Math.cos(back) * 9, az = Math.sin(back) * 9;
+  for (let i = 0; i < 6; i++) { const cr = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 0.9), M.mat(0x4a5a3a, { r: 0.8 })); cr.position.set(ax + (i % 3 - 1) * 1.3 - Math.sin(back) * 3, 0.45 + (i >= 3 ? 0.9 : 0), az + (i % 3 - 1) * 1.3 * 0 + Math.cos(back) * 3); cr.castShadow = true; C.add(cr); const st2 = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.15, 0.92), stripe); st2.position.copy(cr.position); C.add(st2); }
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.2, 24), dark); pad.position.set(Math.cos(back + 1.3) * 15, 0.1, Math.sin(back + 1.3) * 15); C.add(pad);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(4, 4.4, 32), M.mat(0xffc020, { e: 0x806000, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.set(pad.position.x, 0.22, pad.position.z); C.add(ring);
+  for (const da of [-1.4, 1.6]) { const a = back + da, x = Math.cos(a) * 15.5, z = Math.sin(a) * 15.5, b = new THREE.Mesh(new THREE.BoxGeometry(7, 3.4, 4.5), wallM); b.position.set(x, 1.7, z); b.rotation.y = -a; b.castShadow = true; C.add(b); const roof = new THREE.Mesh(new THREE.BoxGeometry(7.3, 0.4, 4.8), dark); roof.position.set(x, 3.6, z); roof.rotation.y = -a; C.add(roof); W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.4 }); }
+  // floodlights on the walls
+  for (let i = 0; i < 4; i++) { const a = H.ga + Math.PI / 4 + i * Math.PI / 2; const L = new THREE.PointLight(0xc0e0ff, 25, 40); L.position.set(Math.cos(a) * (HUB_R - 2), WALL_H + 4, Math.sin(a) * (HUB_R - 2)); C.add(L); }
+}
+
+// Logs the marines can find, one per point of interest on each map
+const LORE = {
+  mars: {
+    cave: ['Mining Shaft 7-C', 'Day 112. The drill broke into a hollow under the red rock and warm air came up. Gonzales swears it was breathing. We sealed the shaft. Something keeps scratching at the seal from below.'],
+    satellite: ['Relay satellite ARGUS-4', 'Telemetry, last packet 03:14. Impact detected north of Outpost 7. Before impact: strong signal from beneath the surface. Signal type: organic. Signal count: rising.'],
+    capsule: ['Supply capsule IRIS', 'Manifest: 40 crates of rations, 12 pulse rifles, 1 sealed blue crate. Scrawled on the hatch in marker: DO NOT OPEN THE BLUE CRATE.'],
+    wreck: ['Dropship Valkyrie-2, flight recorder', '"...they came up out of the sand all at once, hundreds of them. Pull up, pull up, I said PULL UP—" (recording ends)'],
+    rover: ['Survey rover SR-11', 'Sample bay: 6 rock cores, 1 egg-shaped object, cracked open. Rover was found 2 km from where it was parked.'],
+  },
+  ice: {
+    cave: ['Ice cave research post', 'Sample K-19 thawed overnight. It moved. Dr. Hale says it is just the ice settling. Dr. Hale has not come back from the lower tunnels.'],
+    satellite: ['Kryos weather satellite', 'Storm cell analysis: heat signatures beneath the ice sheet. Thousands. They are moving toward Kryos Station.'],
+    capsule: ['Escape pod 3', 'If anyone finds this: the station is gone. Get to the hub. Do not stop in the blizzard. Do not follow the lights in the crevasse.'],
+    wreck: ['Cargo hauler Whiteout', '"Engines iced, going down. Tell my wife the turrets were working. It was just never enough turrets."'],
+    rover: ['Snowcat 4', 'Tracks circle the crevasse twice, then lead straight into it. Heater still running.'],
+  },
+  jungle: {
+    cave: ['Overgrown temple cave', 'The carvings on these walls show the same hive shape we found at the nests. Someone built this long before the colony, before the jungle. The carvings end with a hive that covers the whole sky.'],
+    satellite: ['Colony beacon', 'Beacon still transmitting on loop: "Verdant Colony requests immediate evacuation. Nest count unknown. Repeat, nest count unknown."'],
+    capsule: ['Seed vault pod', 'Botanical samples intact. Note: the vines grew through the hull in a single night. They are warm to the touch.'],
+    wreck: ['Gunship Thorn', 'Pilot log, final entry: "The nests are spreading faster than we can burn them. If you are reading this, burn them before they hatch."'],
+    rover: ['Colony buggy', 'Glovebox: a photo of a family, a half-eaten ration bar, and a map with the hive circled three times.'],
+  },
+};
+function placePOIs(g, W, T, D, mapId, path) {
+  const R = rng(mapId.length * 7919 + 11), H = T.hub, hv = W.hiveP; W.lore = [];
+  const ok = (x, z, clear) => Math.abs(x) < BOUNDS - 12 && Math.abs(z) < BOUNDS - 12 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 18 && Math.hypot(x - hv.x, z - hv.z) > 30 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 1.5 && !W.lore.some(l => Math.hypot(l.x - x, l.z - z) < 40);
+  const spot = clear => { for (let k = 0; k < 400; k++) { const x = (R() * 2 - 1) * BOUNDS, z = (R() * 2 - 1) * BOUNDS; if (ok(x, z, clear)) return [x, z]; } return null; };
+  const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };
+  put('satellite', 18, M.satellite, [[0, 0, 2.2, 3]]); put('wreck', 22, M.wreck, [[-4, 0, 2.6, 4], [4.5, 2, 2.4, 3.5], [-10, 0, 2, 4]]); put('capsule', 16, M.capsule, [[0, 0, 2, 3]]); put('rover', 14, M.rover, [[0, 0, 1.8, 2.5]]);
+  for (let i = 0; i < 7; i++) put('debris' + i, 10, M.debris, []);
+  // the cave: a ring of great rocks with a rock roof, open on one side, a log terminal inside
+  const p = spot(26); if (p) {
+    const [cx, cz] = p, cy = T.raw(cx, cz), open = Math.atan2(-cz, -cx), rockM = M.mat(D.rock, { flat: false, r: 1 }), C = new THREE.Group(); C.position.set(cx, cy, cz); g.add(C);
+    for (let i = 0; i < 16; i++) { const a = open + 0.5 + i / 16 * (6.28 - 1.0), rr = 2.4 + R() * 1.2, m = new THREE.Mesh(new THREE.DodecahedronGeometry(rr, 1), rockM); m.position.set(Math.cos(a) * 7.5, rr * 0.8, Math.sin(a) * 7.5); m.scale.y = 1.6; m.rotation.set(R(), R() * 6, R()); m.castShadow = true; C.add(m); W.colliders.push({ x: cx + Math.cos(a) * 7.5, z: cz + Math.sin(a) * 7.5, r: rr * 0.95, h: 7, gy: cy }); }
+    const roof = new THREE.Mesh(new THREE.SphereGeometry(10, 18, 10, 0, 6.29, 0, 1.25), rockM); roof.scale.y = 0.6; roof.position.y = 2.4; roof.material.side = THREE.DoubleSide; C.add(roof);
+    const L = new THREE.PointLight(0x60a0ff, 18, 16); L.position.set(0, 3, 0); C.add(L); for (let i = 0; i < 5; i++) { const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.4 + R() * 0.6), M.mat(0x80d0ff, { e: 0x3080c0, ei: 1.5 })); cr.position.set((R() - 0.5) * 8, 0.4, (R() - 0.5) * 8); C.add(cr); }
+    const t = M.terminal(); t.position.set(-Math.cos(open) * 3, 0, -Math.sin(open) * 3); t.rotation.y = -open - Math.PI / 2; C.add(t);
+    const lo = LORE[mapId].cave; W.lore.push({ x: cx - Math.cos(open) * 3, z: cz - Math.sin(open) * 3, kind: 'cave', title: lo[0], text: lo[1] });
+  }
+  // rock spires round the hive: you have to come close to hit its guardians
+  for (let i = 0; i < 18; i++) { const a = i / 18 * 6.28 + R() * 0.2, rr = 24 + R() * 8, x = hv.x + Math.cos(a) * rr, z = hv.z + Math.sin(a) * rr; if (path.near(x, z).d < 8 || Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2) continue; const sp = M.spire(R, D.rock); sp.position.set(x, T.raw(x, z), z); g.add(sp); W.colliders.push({ x, z, r: 1.9, h: 12 }); }
 }

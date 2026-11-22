@@ -171,11 +171,11 @@ export function buildWorld(scene, mapId) {
   const trailC = new THREE.Color(D.ground).lerp(new THREE.Color(D.path), 0.45), trailM = new THREE.MeshStandardMaterial({ color: trailC, roughness: 1, side: THREE.DoubleSide, transparent: true, opacity: 0.75, depthWrite: false }), pm = trailM;
   for (let i = 1; i < path.pts.length; i++) {
     const a = path.pts[i - 1], b = path.pts[i], L = path.cum[i] - path.cum[i - 1], tx = (b.x - a.x) / L, tz = (b.z - a.z) / L, n = Math.ceil(L), v = [], idx = [];
-    for (let k = 0; k <= n; k++) { const d = L * k / n, y = path.y(path.cum[i - 1] + d) + 0.06, x = a.x + tx * d, z = a.z + tz * d; v.push(x - tz * PATH_W / 2, y, z + tx * PATH_W / 2, x + tz * PATH_W / 2, y, z - tx * PATH_W / 2); if (k) { const o = (k - 1) * 2; idx.push(o, o + 2, o + 1, o + 1, o + 2, o + 3); } }
+    for (let k = 0; k <= n; k++) { const d = L * k / n, x = a.x + tx * d, z = a.z + tz * d, y = path.y(path.cum[i - 1] + d) + (Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 31 ? -0.3 : 0.06); /* inside the queen's cavern the slime floor covers the track */ v.push(x - tz * PATH_W / 2, y, z + tx * PATH_W / 2, x + tz * PATH_W / 2, y, z - tx * PATH_W / 2); if (k) { const o = (k - 1) * 2; idx.push(o, o + 2, o + 1, o + 1, o + 2, o + 3); } }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); geo.setIndex(idx); geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, trailM); m.receiveShadow = true; g.add(m);
   }
-  path.pts.forEach((p, i) => { const m = new THREE.Mesh(new THREE.CircleGeometry(PATH_W / 2, 16), pm); m.rotation.x = -Math.PI / 2; m.position.set(p.x, path.hs[i] + 0.055, p.z); m.receiveShadow = true; g.add(m); });
+  path.pts.forEach((p, i) => { const m = new THREE.Mesh(new THREE.CircleGeometry(PATH_W / 2, 16), pm); m.rotation.x = -Math.PI / 2; m.position.set(p.x, path.hs[i] + (Math.hypot(p.x - W.hiveP.x, p.z - W.hiveP.z) < 31 ? -0.3 : 0.055), p.z); m.receiveShadow = true; g.add(m); });
 
   // bridges over the chasms
   const steel = M.mat(0x5a646e, { m: 0.5, r: 0.5 }), dark = M.mat(0x2c3238, { m: 0.4 }), lamp = M.mat(0xffd070, { e: 0xffb040, ei: 2 });

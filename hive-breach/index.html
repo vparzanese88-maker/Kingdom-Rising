@@ -111,7 +111,8 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 #ammo{font-size:30px;font-weight:800}
 #gunName{color:var(--dim);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
 #slots{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:6px}
-.slot{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 10px;min-width:96px;font-size:12px;text-align:center}
+.slot{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 7px;min-width:78px;max-width:110px;font-size:11px;text-align:center}
+.slot.ab{border-style:dashed}
 .slot b{display:block;color:var(--gold);font-size:16px}
 .slot i{display:block;font-style:normal;color:var(--dim)}
 .slot.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset}
@@ -149,15 +150,15 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795355811",
-"./src/data.js": "./src/data.js?v=1795355811",
-"./src/explore.js": "./src/explore.js?v=1795355811",
-"./src/main.js": "./src/main.js?v=1795355811",
-"./src/models.js": "./src/models.js?v=1795355811",
-"./src/music.js": "./src/music.js?v=1795355811",
-"./src/net.js": "./src/net.js?v=1795355811",
-"./src/sim.js": "./src/sim.js?v=1795355811",
-"./src/world.js": "./src/world.js?v=1795355811"
+"./src/audio.js": "./src/audio.js?v=1795356926",
+"./src/data.js": "./src/data.js?v=1795356926",
+"./src/explore.js": "./src/explore.js?v=1795356926",
+"./src/main.js": "./src/main.js?v=1795356926",
+"./src/models.js": "./src/models.js?v=1795356926",
+"./src/music.js": "./src/music.js?v=1795356926",
+"./src/net.js": "./src/net.js?v=1795356926",
+"./src/sim.js": "./src/sim.js?v=1795356926",
+"./src/world.js": "./src/world.js?v=1795356926"
 }
 }
 </script>
@@ -188,7 +189,7 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 </div>
 
 <div id="mmap" class="screen" hidden><div class="card"><h2 id="mmapT">Live map</h2><p class="small" id="mmapD"></p><canvas id="mmapCv" width="640" height="640"></canvas><p><button class="btn alt" id="mmapX">Close (Esc)</button></p></div></div>
-<div id="shop" class="screen" hidden><div class="card"><h2>Armory</h2><div id="shopList"></div><p class="small">Click an upgrade or press its key. B or Esc to close. The battle keeps going online, so be quick.</p></div></div>
+<div id="shop" class="screen" hidden><div class="card"><h2>Recruitment</h2><div id="shopList"></div><p class="small">Click an upgrade or press its key. B or Esc to close. The battle keeps going online, so be quick.</p></div></div>
 <div id="pause" class="screen" hidden><div class="card"><h2>Paused</h2><p class="small">Click anywhere to keep fighting.</p><p><button class="btn" id="btnResume">Resume</button></p><p><button class="btn alt" id="btnSet2">Settings</button></p><p><button class="btn alt" id="btnQuit">Quit to title</button></p></div></div>
 <div id="settings" class="screen" hidden><div class="card"><h2>Settings</h2><div class="tabs"><button data-tab="video" class="on">Video</button><button data-tab="audio">Audio</button><button data-tab="controls">Controls</button></div><div id="setBody"></div><p><button class="btn" id="setClose">Done</button></p></div></div>
 <div id="end" class="screen" hidden><div class="card"><h2 id="endTitle"></h2><p id="endText"></p><p id="endKey"></p><button class="btn" id="btnFob" hidden>Continue: extraction to the forward base</button> <button class="btn" id="btnAgain">Try again</button> <button class="btn alt" id="btnEndQuit">Quit to title</button></div></div>
@@ -219,14 +220,15 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
     <b>C or Ctrl · Z</b><span>Hold to kneel (steadier aim, half the recoil) · Z to go prone (the steadiest aim, but slow)</span>
     <b>Q</b><span>Build your class sentry (click to place, right click cancels)</span>
     <b>E</b><span>Build your class defense</span>
-    <b>F · T</b><span>Class special ability · use the special from a supply crate</span>
+    <b>1 2 3 4</b><span>Main gun · side arm · welding torch (repairs; Engineers 3x faster) · heal beam (Medic). Mouse wheel switches</span>
+    <b>F 5 6 7</b><span>Your four class abilities</span>
+    <b>T</b><span>Use the special from a supply crate</span>
     <b>Right click</b><span>Your class action: aim, scope, plasma torch, heal beam or spin up</span>
     <b>H · M · N</b><span>Class card · live map · music on or off</span>
-    <b>G</b><span>Throw a grenade</span>
+    <b>G</b><span>Throw your class item: frag grenade, sticky charge, claymore, health kit or ammo pack (restock at the hub or a Forward Resupply)</span>
     <b>Hub</b><span>Inside the hub walls you heal and refill your spare ammo. Climb the ramps to patrol the walls</span>
-    <b>V</b><span>Hold near a damaged turret, wall or mine to repair it (Engineers repair 3x faster with the plasma torch)</span>
     <b>U · X</b><span>Look at a turret: upgrade it (any turret, up to level 3) · sell your own</span>
-    <b>B</b><span>Armory: upgrade damage, fire rate, magazine, speed, health and armor, and buy hub reinforcements (faster drops, bigger squads, Heavy Gunners, Rocketeers, Field Medics)</span>
+    <b>B</b><span>At the comms console in the hub: recruit and upgrade reinforcements. No marine upgrades: spend gold on turrets and recruits</span>
     <b>Swarm</b><span>After a 45 second build countdown the aliens never stop coming; every 50 s the threat level rises</span>
     <b>M</b><span>Music on or off</span>
     <b>Tab</b><span>Squad scores</span>
@@ -235,6 +237,6 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795355811"></script>
+<script type="module" src="./src/main.js?v=1795356926"></script>
 </body>
 </html>

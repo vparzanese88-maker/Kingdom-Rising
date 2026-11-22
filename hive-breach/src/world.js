@@ -274,6 +274,11 @@ function buildCompound(g, H, W) {
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.2, 24), dark); pad.position.set(Math.cos(back + 1.3) * 15, 0.1, Math.sin(back + 1.3) * 15); C.add(pad);
   const ring = new THREE.Mesh(new THREE.RingGeometry(4, 4.4, 32), M.mat(0xffc020, { e: 0x806000, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.set(pad.position.x, 0.22, pad.position.z); C.add(ring);
   for (const da of [-1.4, 1.6]) { const a = back + da, x = Math.cos(a) * 15.5, z = Math.sin(a) * 15.5, b = new THREE.Mesh(new THREE.BoxGeometry(7, 3.4, 4.5), wallM); b.position.set(x, 1.7, z); b.rotation.y = -a; b.castShadow = true; C.add(b); const roof = new THREE.Mesh(new THREE.BoxGeometry(7.3, 0.4, 4.8), dark); roof.position.set(x, 3.6, z); roof.rotation.y = -a; C.add(roof); W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.4 }); }
+  // the comms building: recruitment console out front
+  { const a = back - 0.55, x = Math.cos(a) * 17.5, z = Math.sin(a) * 17.5, b = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 5), wallM); b.position.set(x, 2, z); b.rotation.y = -a; b.castShadow = true; C.add(b);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 9, 6), dark); mast.position.set(x, 8, z); C.add(mast); const dsh = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 6, 0, 6.29, 0, 1), M.mat(0xd8dde2, { ds: true })); dsh.position.set(x + 1.5, 4.8, z); dsh.rotation.x = 2.1; C.add(dsh);
+    const cx = Math.cos(a) * 13.8, cz = Math.sin(a) * 13.8, con = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 0.7), dark); con.position.set(cx, 0.6, cz); con.rotation.y = -a + Math.PI / 2; C.add(con); const scr = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.05), M.mat(0x40c0ff, { e: 0x2080c0, ei: 2 })); scr.position.set(cx, 1.45, cz); scr.rotation.y = -a + Math.PI / 2; C.add(scr);
+    W.comms = { x: H.x + cx, z: H.z + cz }; W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.2 }); }
   // floodlights on the walls
   for (let i = 0; i < 2; i++) { const a = H.ga + Math.PI / 2 + i * Math.PI; const L = new THREE.PointLight(0xc0e0ff, 30, 50); L.position.set(Math.cos(a) * (HUB_R - 2), WALL_H + 4, Math.sin(a) * (HUB_R - 2)); C.add(L); }
 }

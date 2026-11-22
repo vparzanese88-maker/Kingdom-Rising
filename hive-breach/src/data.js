@@ -1,54 +1,87 @@
 // Everything that sets the numbers: classes, guns, turrets, aliens, maps and waves.
 
-// Each class: a gun that fits the role, a right-click action, a special ability on F, a bonus for the team,
-// and its own sentry (Q) and defense (E). reserve = spare rounds carried; refill at the hub or from a Gunner's ammo crate.
+// Each class: a main gun at full power, a side arm and a welding torch for everyone, a right-click zoom, a throwable on G,
+// four abilities (F, 5, 6, 7), a team bonus, and its own turret (Q) and second device (E).
+// reserve = spare rounds carried; ammo runs short on purpose: refill at the hub (fast) or a Forward Resupply (slow).
+export const SIDEARM = { name: 'P-11 Side Arm', dmg: 22, rate: 4, mag: 12, reserve: 48, reload: 1.3, spread: 0.012, kind: 'hit', sound: 'pistol', recoil: 0.02, near: 15, far: 45, max: 70 };
 export const CLASSES = {
   assault: {
     name: 'Assault', color: 0x3b7bd6, hp: 130, speed: 8.2, role: 'Front-line rifleman',
-    gun: { name: 'M9 Pulse Rifle', dmg: 12, rate: 9, mag: 30, reserve: 210, reload: 1.8, spread: 0.014, kind: 'hit', sound: 'rifle', recoil: 0.016, near: 20, far: 60, max: 85 },
-    rclick: 'ads', rname: 'Aim down sights', rdesc: 'Zoom in for tighter, steadier shots.',
-    ability: { id: 'adrenaline', name: 'Adrenaline', cd: 40, desc: '8 s of 40% faster fire and 30% faster movement.' },
+    gun: { name: 'M9 Pulse Rifle', dmg: 17, rate: 10, mag: 32, reserve: 128, reload: 1.8, spread: 0.014, kind: 'hit', sound: 'rifle', recoil: 0.016, near: 22, far: 60, max: 90 },
+    throw: { kind: 'frag', name: 'Frag grenade', n: 2 },
+    abilities: [
+      { id: 'adrenaline', name: 'Adrenaline', cd: 40, desc: '8 s of 40% faster fire and 30% faster movement.' },
+      { id: 'volley', name: 'Frag Volley', cd: 30, desc: 'Throw three grenades in a fan.' },
+      { id: 'rally', name: 'Rally Cry', cd: 50, desc: 'Every marine within 20 m deals 25% more damage for 10 s.' },
+      { id: 'airburst', name: 'Airburst Rounds', cd: 35, desc: 'Your next 12 rifle shots burst on impact, hurting aliens around the target.' },
+    ],
     team: 'Squad Leader: teammates near you deal 15% more damage and reload 25% faster.',
     sentry: 'minigun', defense: 'barricade',
   },
   engineer: {
-    name: 'Engineer', color: 0xe0b22e, hp: 115, speed: 8.4, role: 'Builder and repairer',
-    gun: { name: 'Breacher Pump Shotgun', dmg: 10, pellets: 8, rate: 1.4, mag: 8, reserve: 56, reload: 2.4, spread: 0.07, kind: 'hit', sound: 'shotgun', recoil: 0.05, near: 7, far: 22, max: 32 },
-    rclick: 'ads', rname: 'Aim down sights', rdesc: 'Zoom in for tighter shots.', tool: 'repair', tname: 'Plasma torch (hold V)', tdesc: 'Repairs any turret, wall or mine three times faster than anyone else. Cannot repair the hub.',
-    ability: { id: 'overclock', name: 'Overclock', cd: 45, desc: 'Turrets within 18 m fire 60% faster for 10 s.' },
-    team: 'Keeps the whole squad\'s turrets and walls standing with the plasma torch.',
-    sentry: 'tesla', defense: 'repair',
+    name: 'Engineer', color: 0xe0b22e, hp: 120, speed: 8.4, role: 'Builder, repairer, resupply',
+    gun: { name: 'Breacher Pump Shotgun', dmg: 13, pellets: 8, rate: 1.4, mag: 8, reserve: 32, reload: 2.4, spread: 0.07, kind: 'hit', sound: 'shotgun', recoil: 0.05, near: 8, far: 24, max: 34 },
+    throw: { kind: 'frag', name: 'Sticky charge', n: 2 },
+    abilities: [
+      { id: 'overclock', name: 'Overclock', cd: 45, desc: 'Turrets within 18 m fire 60% faster for 10 s.' },
+      { id: 'shieldwall', name: 'Shield Wall', cd: 40, desc: 'Throws up an energy wall across the track ahead of you for 15 s.' },
+      { id: 'emp', name: 'EMP Pulse', cd: 35, desc: 'Stuns every alien within 12 m for 3 s.' },
+      { id: 'fixall', name: 'Emergency Repairs', cd: 60, desc: 'Fully repairs every turret, wall and resupply within 15 m.' },
+    ],
+    team: 'Builds Forward Resupplies and welds three times faster than anyone.',
+    sentry: 'tesla', defense: 'resupply',
   },
   heavy: {
     name: 'Heavy', color: 0xc94a3a, hp: 175, speed: 7.0, role: 'Demolitions and protector',
-    gun: { name: 'RL-4 Rocket Launcher', dmg: 80, rate: 1.1, mag: 4, reserve: 20, reload: 2.6, spread: 0, kind: 'rocket', splash: 4.2, sound: 'rocket', recoil: 0.07, life: 1.8 },
-    rclick: 'ads', rname: 'Aim', rdesc: 'Zoom in to place rockets precisely.',
-    ability: { id: 'shockwave', name: 'Shockwave', cd: 30, desc: 'Slam the ground: 200 damage within 9 m, aliens stunned and knocked back.' },
+    gun: { name: 'RL-4 Rocket Launcher', dmg: 110, rate: 1.2, mag: 4, reserve: 12, reload: 2.5, spread: 0, kind: 'rocket', splash: 4.6, sound: 'rocket', recoil: 0.07, life: 1.8 },
+    throw: { kind: 'frag', name: 'Frag grenade', n: 3 },
+    abilities: [
+      { id: 'shockwave', name: 'Shockwave', cd: 30, desc: 'Slam the ground: 200 damage within 9 m, aliens stunned and knocked back.' },
+      { id: 'barrage', name: 'Rocket Barrage', cd: 45, desc: 'Fires six rockets at the spot you aim at.' },
+      { id: 'ironskin', name: 'Iron Skin', cd: 40, desc: 'Take 60% less damage for 8 s.' },
+      { id: 'napalmround', name: 'Napalm Round', cd: 30, desc: 'Your next rocket leaves a burning pool for 6 s.' },
+    ],
     team: 'Bulwark: teammates near you take 20% less damage.',
-    sentry: 'missile', defense: 'stasis',
+    sentry: 'missile', defense: 'mines',
   },
   gunner: {
     name: 'Gunner', color: 0x6a8a3a, hp: 190, speed: 6.8, role: 'Suppression and ammo carrier',
-    gun: { name: 'M-56 Hand Minigun', dmg: 5, rate: 36, mag: 360, reserve: 1440, reload: 3.6, spread: 0.032, kind: 'hit', sound: 'mini', recoil: 0.0022, tracers: 1, near: 15, far: 50, max: 70, spin: 0.5 },
-    rclick: 'ads', rname: 'Aim and spin up', rdesc: 'Zoom in while the barrels spin, ready to fire instantly.',
-    ability: { id: 'ammo', name: 'Ammo Drop', cd: 30, desc: 'Drop an ammo crate that refills every marine who walks over it, for 40 s.' },
-    team: 'Supplies ammo with Ammo Drop, and his bullets slow the aliens they hit.',
-    sentry: 'flamer', defense: 'mines',
+    gun: { name: 'M-56 Hand Minigun', dmg: 6.5, rate: 36, mag: 360, reserve: 720, reload: 3.6, spread: 0.032, kind: 'hit', sound: 'mini', recoil: 0.0022, tracers: 1, near: 15, far: 50, max: 70, spin: 0.5 },
+    throw: { kind: 'ammo', name: 'Ammo pack', n: 3 },
+    abilities: [
+      { id: 'ammo', name: 'Ammo Drop', cd: 35, desc: 'Drop an ammo crate that refills every marine who walks over it, for 40 s.' },
+      { id: 'storm', name: 'Bullet Storm', cd: 45, desc: '6 s of fire that costs no ammo.' },
+      { id: 'suppress', name: 'Suppression', cd: 30, desc: 'Aliens within 25 m in front of you move at half speed for 6 s.' },
+      { id: 'fortify', name: 'Fortify', cd: 40, desc: 'Plant your feet: no recoil, tight spread and 30% more damage for 10 s, but you move slowly.' },
+    ],
+    team: 'Carries three ammo packs to throw to teammates, and his bullets slow the aliens they hit.',
+    sentry: 'flamer', defense: 'stasis',
   },
   sniper: {
-    name: 'Sniper', color: 0x4aa8a0, hp: 95, speed: 8.2, role: 'Long-range spotter',
-    gun: { name: 'XR-9 Rail Rifle', dmg: 150, rate: 0.85, mag: 5, reserve: 30, reload: 2.5, spread: 0.035, scoped: 0.0006, kind: 'hit', sound: 'sniper', recoil: 0.09, near: 400, far: 400, max: 260, pierce: 3 },
-    rclick: 'scope', rname: 'Scope', rdesc: 'Zoom right in. Hip shots are wild, scoped shots are dead on.',
-    ability: { id: 'overcharge', name: 'Overcharge', cd: 30, desc: 'Your next shot does 4x damage and pierces everything in its line.' },
-    team: 'Spotter: aliens you hit are marked for 6 s and take 25% more damage from everyone.',
-    sentry: 'railgun', defense: 'beacon',
+    name: 'Sniper', color: 0x4aa8a0, hp: 100, speed: 8.2, role: 'Long-range spotter',
+    gun: { name: 'XR-9 Rail Rifle', dmg: 160, rate: 0.85, mag: 5, reserve: 20, reload: 2.5, spread: 0.035, scoped: 0.0006, kind: 'hit', sound: 'sniper', recoil: 0.09, near: 400, far: 400, max: 260, pierce: 3 },
+    throw: { kind: 'claymore', name: 'Claymore', n: 3 },
+    abilities: [
+      { id: 'overcharge', name: 'Overcharge', cd: 30, desc: 'Your next shot does 4x damage and pierces everything in its line.' },
+      { id: 'cloak', name: 'Cloak', cd: 45, desc: 'Aliens ignore you for 8 s.' },
+      { id: 'recon', name: 'Recon Ping', cd: 40, desc: 'Every alien on the map shows on everyone\'s minimap for 10 s.' },
+      { id: 'markall', name: 'Marked for Death', cd: 50, desc: 'Aliens within 35 m in front of you take 50% more damage for 8 s.' },
+    ],
+    team: 'Spotter: aliens you hit are marked: they show on the minimap and take 25% more damage.',
+    sentry: 'railgun', defense: 'uav',
   },
   medic: {
-    name: 'Medic', color: 0xe8e8f0, hp: 115, speed: 8.4, role: 'Healer',
-    gun: { name: 'K-7 Carbine', dmg: 9, rate: 8, mag: 36, reserve: 252, reload: 1.6, spread: 0.016, kind: 'hit', sound: 'smg', recoil: 0.011, near: 16, far: 50, max: 75 },
-    rclick: 'ads', rname: 'Aim down sights', rdesc: 'Zoom in for tighter shots.', tool: 'heal', tname: 'Heal beam (hold V)', tdesc: 'Heals the teammate or reinforcement in your sights fast, or yourself slowly if nobody is.',
-    ability: { id: 'revive', name: 'Revive Pulse', cd: 45, desc: 'Heal every marine within 18 m by 80 and bring downed marines nearby straight back.' },
-    team: 'Keeps everyone alive with the heal beam and Revive Pulse.',
+    name: 'Medic', color: 0xe8e8f0, hp: 120, speed: 8.4, role: 'Healer',
+    gun: { name: 'K-7 Carbine', dmg: 12, rate: 8, mag: 36, reserve: 144, reload: 1.6, spread: 0.016, kind: 'hit', sound: 'smg', recoil: 0.011, near: 18, far: 55, max: 80 },
+    throw: { kind: 'medkit', name: 'Health kit', n: 3 },
+    heal: 1,
+    abilities: [
+      { id: 'revive', name: 'Revive Pulse', cd: 45, desc: 'Heal every marine within 18 m by 80 and bring downed marines nearby straight back.' },
+      { id: 'stimshot', name: 'Stim Shot', cd: 30, desc: 'Stims you and every marine within 10 m: 50% more damage and 30% more speed for 10 s.' },
+      { id: 'healnade', name: 'Healing Grenade', cd: 35, desc: 'A healing cloud where you aim, for 10 s.' },
+      { id: 'nano', name: 'Nano Shield', cd: 50, desc: 'Marines within 15 m take 40% less damage for 8 s.' },
+    ],
+    team: 'Heal beam (4), three health kits to throw, and Revive Pulse.',
     sentry: 'mortar', defense: 'medbay',
   },
 };
@@ -80,20 +113,21 @@ export const TURRETS = {
   tesla: { name: 'Tesla Tower', cost: 140, hp: 220, range: 13, rate: 1.1, dmg: 42, chain: 3, key: 'sentry', desc: 'Lightning that jumps between aliens and stuns them.' },
   missile: { name: 'Missile Turret', cost: 180, hp: 240, range: 28, rate: 0.55, dmg: 90, splash: 4, key: 'sentry', desc: 'Long range missiles that blow up groups.' },
   barricade: { name: 'Barricade', cost: 60, hp: 600, onPath: true, key: 'defense', desc: 'An energy wall across the track. Every alien, flyers too, must stop and tear it down.' },
-  repair: { name: 'Repair Station', cost: 120, hp: 200, range: 10, heal: 9, key: 'defense', desc: 'Repairs turrets, walls and mines nearby.' },
+  resupply: { name: 'Forward Resupply', cost: 130, hp: 320, range: 6, key: 'defense', desc: 'Refills ammo and carried items slowly and heals very slowly. Upgrade it to work faster. Aliens go out of their way to wreck one built near their track.' },
   mortar: { name: 'Toxin Mortar', cost: 150, hp: 220, range: 30, rate: 0.4, dmg: 40, splash: 5, key: 'sentry', desc: 'Lobs acid shells that leave a burning pool for 4 s.' },
   medbay: { name: 'Med Bay', cost: 110, hp: 220, range: 9, heal: 14, key: 'defense', desc: 'Heals marines and reinforcements standing nearby.' },
   flamer: { name: 'Flame Turret', cost: 120, hp: 300, range: 9, rate: 10, dmg: 4.5, cone: 0.6, key: 'sentry', desc: 'Sprays fire over every alien in a cone. Ignores armor.' },
   railgun: { name: 'Railgun Tower', cost: 200, hp: 220, range: 42, rate: 0.35, dmg: 230, key: 'sentry', desc: 'A long-range beam that pierces every alien in its line.' },
   mines: { name: 'Mine Field', cost: 70, hp: 99999, range: 2.6, dmg: 260, splash: 4.5, charges: 3, onPath: true, mine: true, key: 'defense', desc: 'Three proximity charges on the track. Walkers that step on them blow up.' },
-  beacon: { name: 'Sensor Beacon', cost: 80, hp: 160, range: 12, mark: 1.25, anyPlace: true, key: 'defense', desc: 'Aliens nearby take 25% more damage, and aliens in tunnels show up for turrets.' },
+  claymore: { name: 'Claymore', cost: 0, hp: 99999, range: 5, mine: true, thrown: true, desc: 'A directional mine: blasts aliens that walk in front of it.' },
+  uav: { name: 'Recon UAV', cost: 90, hp: 140, range: 40, anyPlace: true, key: 'defense', desc: 'Hovers overhead and shows every alien within 40 m on the minimap (more when upgraded). Aliens in tunnels can be targeted near it.' },
   stasis: { name: 'Stasis Field', cost: 90, hp: 200, range: 7.5, slow: 0.45, anyPlace: true, key: 'defense', desc: 'Aliens inside move at half speed.' },
 };
 export const UPG_COST = [0, 0.8, 1.3];      // cost to go from lvl 1->2, 2->3
 export const MAX_TURRETS = 8;               // per marine, sentries and defenses together
 
 // Marine upgrades bought in the armory (B). Five levels each.
-export const UPGRADES = [
+export const UPGRADES_OLD = [
   { id: 'dmg', name: 'Weapon damage', text: '+10% damage per level' },
   { id: 'rate', name: 'Fire rate', text: '+8% fire rate per level' },
   { id: 'mag', name: 'Magazine', text: '+20% magazine, faster reload' },
@@ -142,7 +176,7 @@ function waveBase(w) {
 // guardians and the hive get 60% more health instead), so 2 marines face about 2x, 3 face 3.2x, 4 face 4.75x.
 export const squad = n => Math.max(1, n);
 export const countScale = n => 1 + 0.5 * (squad(n) - 1);
-export const hpScale = (w, players) => (1 + 0.24 * (w - 1) + (w > 20 ? 0.12 * (w - 20) ** 1.3 : 0)) * (1 + 0.3 * (squad(players) - 1));
+export const hpScale = (w, players) => (1 + 0.15 * (w - 1) + (w > 20 ? 0.12 * (w - 20) ** 1.3 : 0)) * (1 + 0.3 * (squad(players) - 1));
 export const bossScale = n => 1 + 0.6 * (squad(n) - 1);
 
 export const MAPS = {
@@ -184,3 +218,5 @@ export const ALLIES = {
 export const DROP_EVERY = [26, 21, 17, 13, 10, 7], DROP_COST = [0, 150, 250, 380, 550, 750];
 export const SQUAD = [1, 2, 3, 4], SQUAD_COST = [0, 300, 550, 850];
 export const MAX_ALLIES = 28;
+
+export const UPGRADES = [];   // no more marine upgrades: upgrades are for turrets and reinforcements

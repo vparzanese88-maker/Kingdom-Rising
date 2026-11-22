@@ -33,6 +33,7 @@ export function gunModel(cls, color) {
   else if (cls === 'engineer') { // pump shotgun
     B(g, 0.11, 0.12, 0.42, dark, 0, 0, 0.05); C(g, 0.045, 0.045, 0.8, metal, 0, 0.04, -0.45).rotation.x = Math.PI / 2; C(g, 0.035, 0.035, 0.62, dark, 0, -0.05, -0.38).rotation.x = Math.PI / 2;
     g.userData.pump = B(g, 0.1, 0.09, 0.2, color, 0, -0.06, -0.28); B(g, 0.07, 0.17, 0.08, dark, 0, -0.15, 0.12); B(g, 0.09, 0.14, 0.32, 0x5a3a20, 0, -0.05, 0.36); B(g, 0.02, 0.03, 0.03, 0xff4040, 0, 0.09, -0.8, { e: 0xff2020 }); }
+  else if (cls === 'pistol') { B(g, 0.08, 0.1, 0.32, dark, 0, 0.02, -0.12); B(g, 0.07, 0.18, 0.1, 0x3a3a3a, 0, -0.1, 0.02); B(g, 0.085, 0.05, 0.3, color, 0, 0.08, -0.12); g.userData.mag = B(g, 0.05, 0.12, 0.07, metal, 0, -0.17, 0.02); }
   else if (cls === 'torch') { // plasma torch
     C(g, 0.07, 0.09, 0.4, metal, 0, 0, -0.05).rotation.x = Math.PI / 2; C(g, 0.03, 0.05, 0.25, dark, 0, 0, -0.35).rotation.x = Math.PI / 2; B(g, 0.06, 0.16, 0.07, dark, 0, -0.12, 0.05); C(g, 0.09, 0.09, 0.22, 0xe0b22e, 0, 0.1, 0.05).rotation.x = Math.PI / 2;
     const fl = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.22, 8), mat(0x60c0ff, { e: 0x4090ff, ei: 3, op: 0.8 })); fl.rotation.x = -Math.PI / 2; fl.position.z = -0.58; g.add(fl); }
@@ -153,6 +154,16 @@ export function turret(kind, color) {
   } else if (kind === 'mines') {
     g.add(head); for (const [x, z] of [[-1.6, 0.4], [0, -0.3], [1.6, 0.5]]) { C(head, 0.42, 0.5, 0.18, 0x3a4030, x, 0.09, z); S(head, 0.09, 0xff3020, x, 0.22, z, 1, 1, 1, { e: 0xff1000, ei: 2 }); }
     parts.muzzle = new THREE.Vector3(0, 0.3, 0);
+  } else if (kind === 'resupply') {
+    B(g, 2.2, 1.4, 1.6, 0x4a5a3a, 0, 0.7, 0); B(g, 2.25, 0.25, 1.65, 0xe0b22e, 0, 1.25, 0, { e: 0x604000 }); C(g, 0.5, 0.5, 1.6, 0x8a96a2, -1.6, 0.8, 0); C(g, 0.5, 0.5, 1.6, 0x8a96a2, 1.6, 0.8, 0);
+    head.position.y = 2.1; g.add(head); C(head, 0.06, 0.06, 1.2, 0x333333, 0, 0, 0); S(head, 0.18, 0x40ff80, 0, 0.7, 0, 1, 1, 1, { e: 0x20c050, ei: 2 }); for (let i = 0; i < 4; i++) B(head, 0.12, 0.3, 0.12, 0xc8a040, Math.cos(i * 1.57) * 0.5, -0.5, Math.sin(i * 1.57) * 0.5, { m: 0.8 });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(5.6, 6, 48), mat(0x40ff80, { e: 0x20c050, op: 0.35, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.08; g.add(ring); parts.muzzle = new THREE.Vector3(0, 2, 0);
+  } else if (kind === 'uav') {
+    C(g, 0.6, 0.8, 0.3, base, 0, 0.15, 0); head.position.y = 6; g.add(head); B(head, 0.9, 0.3, 0.9, 0x3a424a, 0, 0, 0, { m: 0.5 }); for (const [x, z] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) C(head, 0.45, 0.45, 0.04, 0x222222, x, 0.18, z);
+    S(head, 0.15, 0x40c0ff, 0, -0.25, 0, 1, 1, 1, { e: 0x2090ff, ei: 2 }); const cone = new THREE.Mesh(new THREE.ConeGeometry(2.5, 5.5, 16, 1, true), mat(0x40c0ff, { op: 0.08, ds: true, e: 0x2060a0 })); cone.position.y = -2.9; head.add(cone); parts.muzzle = new THREE.Vector3(0, 6, 0);
+  } else if (kind === 'claymore') {
+    g.add(head); const cb = B(head, 0.5, 0.35, 0.12, 0x3a4a2a, 0, 0.3, 0); cb.rotation.x = -0.15; for (const sd of [-1, 1]) B(head, 0.04, 0.3, 0.04, 0x333333, sd * 0.2, 0.1, 0.05); S(head, 0.04, 0xff2010, 0, 0.42, -0.07, 1, 1, 1, { e: 0xff0000, ei: 3 });
+    const laser = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, 4.5), new THREE.MeshBasicMaterial({ color: 0xff2020, transparent: true, opacity: 0.5 })); laser.position.set(0, 0.35, -2.3); head.add(laser); parts.muzzle = new THREE.Vector3(0, 0.3, 0);
   } else if (kind === 'mortar') {
     head.position.y = 1.0; g.add(head); C(head, 0.6, 0.7, 0.3, metal, 0, 0, 0); const tube = C(head, 0.28, 0.32, 1.6, 0x3a5a30, 0, 0.7, -0.2); tube.rotation.x = 0.6; C(head, 0.3, 0.3, 0.1, 0x80ff40, 0, 1.35, -0.62, { e: 0x40c020 }).rotation.x = 0.6;
     for (const sd of [-1, 1]) C(head, 0.18, 0.18, 0.5, 0x5a8a3a, sd * 0.55, 0.2, 0.25, { e: 0x204010 }); parts.muzzle = new THREE.Vector3(0, 2.2, -0.7);
@@ -204,7 +215,7 @@ export function parachute() {
 // what each turret gains at level 2 and level 3: armour, extra weapons, sensors, a gold trim
 export function upgradeParts(kind, lvl, color) {
   const g = new THREE.Group(); if (lvl < 2) return g; const steel = 0x5a646e, gold = mat(0xffc840, { m: 0.8, r: 0.3, e: 0x402800 }), acc = mat(color, { m: 0.3 }), glow = mat(0x60e0ff, { e: 0x30a0ff, ei: 2 });
-  const sentry = !['barricade', 'mines', 'repair', 'stasis', 'beacon', 'medbay'].includes(kind);
+  const sentry = !['barricade', 'mines', 'resupply', 'stasis', 'uav', 'claymore', 'medbay'].includes(kind);
   if (sentry) { for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; const pl = B(g, 0.7, 0.5, 0.14, i % 2 ? steel : color, Math.cos(a) * 1.05, 0.35, Math.sin(a) * 1.05); pl.rotation.y = -a + Math.PI / 2; } }
   if (kind === 'barricade') for (let i = -2; i <= 2; i++) { K(g, 0.18, 0.8, 0x8a8a8a, i * 1.3, 2.1, 0.3).rotation.x = 0.4; K(g, 0.18, 0.8, 0x8a8a8a, i * 1.3, 2.1, -0.3).rotation.x = -0.4; }
   if (lvl >= 3) {
@@ -213,7 +224,7 @@ export function upgradeParts(kind, lvl, color) {
     if (kind === 'missile') for (let i = 0; i < 2; i++) B(g, 0.35, 0.35, 0.9, steel, i ? -0.85 : 0.85, 1.6, 0);
     if (kind === 'tesla') { for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.7 + i * 0.25, 0.04, 6, 24), glow); r.position.y = 3.2 + i * 0.25; r.rotation.x = Math.PI / 2; g.add(r); } }
     if (kind === 'barricade') { const f = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.2, 0.08), mat(0x60c0ff, { op: 0.35, e: 0x3080ff, ds: true })); f.position.y = 2.4; g.add(f); }
-    if (['repair', 'stasis', 'beacon', 'medbay'].includes(kind)) { const r = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.08, 6, 32), gold); r.rotation.x = Math.PI / 2; r.position.y = 0.4; g.add(r); C(g, 0.05, 0.05, 2, 0x333333, 1.2, 1.2, 0); S(g, 0.12, 0x60e0ff, 1.2, 2.25, 0, 1, 1, 1, { e: 0x30a0ff, ei: 2 }); }
+    if (['resupply', 'stasis', 'uav', 'medbay'].includes(kind)) { const r = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.08, 6, 32), gold); r.rotation.x = Math.PI / 2; r.position.y = 0.4; g.add(r); C(g, 0.05, 0.05, 2, 0x333333, 1.2, 1.2, 0); S(g, 0.12, 0x60e0ff, 1.2, 2.25, 0, 1, 1, 1, { e: 0x30a0ff, ei: 2 }); }
     if (kind === 'mortar') for (const sd of [-1, 1]) C(g, 0.18, 0.2, 1.1, 0x3a5a30, sd * 0.75, 1.2, 0);
   }
   return g;

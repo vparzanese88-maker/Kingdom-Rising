@@ -54,7 +54,7 @@ const S = {
 export class Audio {
   constructor() { this.ctx = null; this.vol = 0.5; try { const v = +localStorage.getItem('hb-sfx'); if (localStorage.getItem('hb-sfx') !== null && v >= 0) this.vol = v; } catch (e) { } this.noise = {}; this.last = {}; }
   unlock() {
-    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.chain(); let i = 0; const kinds = ['rifle', 'shotgun', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
+    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.chain(); let i = 0; const kinds = ['rifle', 'pistol', 'shotgun', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   }
   // everything goes through a compressor (so a wall of gunfire stays loud without crackling) and a battlefield echo
@@ -90,6 +90,7 @@ export class Audio {
     this.sb = this.sb || {}; if (this.sb[kind]) return this.sb[kind];
     const P = {
       rifle: { dur: 0.9, boom: 0.3, mech: 0.3, tr: 0.8, bc0: 8000, bc1: 700, bd: 0.026, bg: 1, lo: 140, ld: 0.08, lg: 1.1, tc: 1200, td: 0.12, tg: 0.12, slap: 0.11, sg: 0.07, drive: 2 },
+      pistol: { dur: 0.6, boom: 0.15, mech: 0.35, tr: 0.8, bc0: 9000, bc1: 900, bd: 0.02, bg: 0.9, lo: 180, ld: 0.05, lg: 0.8, tc: 1500, td: 0.1, tg: 0.1, slap: 0.1, sg: 0.06, drive: 2 },
       shotgun: { dur: 1.0, boom: 0.4, mech: 0.2, tr: 1, bc0: 7000, bc1: 500, bd: 0.05, bg: 1.3, lo: 110, ld: 0.12, lg: 1.6, tc: 900, td: 0.16, tg: 0.12, slap: 0.12, sg: 0.07, drive: 2.6 },
       sniper: { dur: 1.3, boom: 0.5, mech: 0.35, tr: 1, bc0: 9000, bc1: 500, bd: 0.04, bg: 1.2, lo: 100, ld: 0.16, lg: 1.6, tc: 900, td: 0.3, tg: 0.16, slap: 0.15, sg: 0.1, drive: 2.4 },
       mini: { dur: 0.6, boom: 0.18, mech: 0.15, tr: 0.7, bc0: 7000, bc1: 800, bd: 0.02, bg: 1, lo: 150, ld: 0.055, lg: 1, tc: 1300, td: 0.09, tg: 0.1, slap: 0.09, sg: 0.05, drive: 3 },

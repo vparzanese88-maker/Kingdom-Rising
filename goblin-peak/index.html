@@ -121,25 +121,27 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 #lobbyBox h2{margin:0 0 4px;color:var(--red);font-size:22px}
 #lobbyBox p{margin:5px 0}
 #lobbyBox .code{font-size:22px;letter-spacing:.12em;background:var(--ink);color:var(--gold);border-radius:8px;padding:1px 10px}
+#lobbyBox .pick{background:var(--gold);border-radius:8px;padding:2px 8px;font-weight:600}
+#lobbyBox i{font-style:normal;font-size:12px;letter-spacing:.08em;opacity:.7}
 #lobbyBox .keys2{background:rgba(43,28,14,.1);border-radius:10px;padding:6px 8px}
 </style>
 <script type="importmap">
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795281426",
-"./src/entities.js": "./src/entities.js?v=1795281426",
-"./src/levels.js": "./src/levels.js?v=1795281426",
-"./src/lowland.js": "./src/lowland.js?v=1795281426",
-"./src/main.js": "./src/main.js?v=1795281426",
-"./src/models.js": "./src/models.js?v=1795281426",
-"./src/net.js": "./src/net.js?v=1795281426",
-"./src/player.js": "./src/player.js?v=1795281426",
-"./src/terrain.js": "./src/terrain.js?v=1795281426",
-"./src/ui.js": "./src/ui.js?v=1795281426",
-"./src/util.js": "./src/util.js?v=1795281426",
-"./src/village.js": "./src/village.js?v=1795281426",
-"./src/world.js": "./src/world.js?v=1795281426"
+"./src/audio.js": "./src/audio.js?v=1795310806",
+"./src/entities.js": "./src/entities.js?v=1795310806",
+"./src/levels.js": "./src/levels.js?v=1795310806",
+"./src/lowland.js": "./src/lowland.js?v=1795310806",
+"./src/main.js": "./src/main.js?v=1795310806",
+"./src/models.js": "./src/models.js?v=1795310806",
+"./src/net.js": "./src/net.js?v=1795310806",
+"./src/player.js": "./src/player.js?v=1795310806",
+"./src/terrain.js": "./src/terrain.js?v=1795310806",
+"./src/ui.js": "./src/ui.js?v=1795310806",
+"./src/util.js": "./src/util.js?v=1795310806",
+"./src/village.js": "./src/village.js?v=1795310806",
+"./src/world.js": "./src/world.js?v=1795310806"
 }
 }
 </script>
@@ -189,7 +191,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
   <p class="sub">Chieftain Grizzlegut has carried Princess Wrenna to the top of the mountain. Jump, climb, swing, glide, crawl and zip-line your way up to bring her home.</p>
   <button class="btn" id="btnContinue" hidden>Continue the climb</button>
   <button class="btn alt" id="btnNew">Start the climb</button>
-  <div class="online"><b>Play with friends</b><input id="netName" maxlength="12" placeholder="Your name"><div><button class="btn plain" id="btnHost">Host online game</button><span><input id="netCode" maxlength="6" placeholder="CODE"><button class="btn plain" id="btnJoin">Join</button></span></div><small>One player hosts and tells the others the code. Everyone gathers in a small starting camp. The host picks the mountain and the mode, a countdown runs, and you all start on the line together. RACE: every hero for themselves, and you can knock each other about. TEAM: one clock, and obstacles that take two.</small></div>
+  <div class="online"><b>Play with friends</b><input id="netName" maxlength="12" placeholder="Your name"><div><button class="btn plain" id="btnHost">Host online game</button><span><input id="netCode" maxlength="6" placeholder="CODE"><button class="btn plain" id="btnJoin">Join</button></span></div><small>One player hosts and tells the others the code. Everyone starts in the town and can roam the countryside freely. The host goes to the red CLIMBS beam, picks the mountain (easy, medium or hard) and the mode, and everyone is taken to the start line for a 20 second countdown. RACE: every hero for themselves, and you can knock each other about. TEAM: one clock, and obstacles that take two.</small></div>
   <div class="keys">
     <b>W A S D</b><span>Move (mouse looks)</span>
     <b>Space</b><span>Jump, double jump, triple jump; hold to glide</span>
@@ -208,6 +210,6 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 
 <div id="fade"></div>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795281426"></script>
+<script type="module" src="./src/main.js?v=1795310806"></script>
 </body>
 </html>

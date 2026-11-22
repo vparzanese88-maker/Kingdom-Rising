@@ -46,7 +46,7 @@ export class UI {
       x.fillStyle = '#eef4fa'; x.beginPath(); x.moveTo(204, 245); x.lineTo(300, 60); x.lineTo(396, 245); x.fill();
       x.strokeStyle = '#5a3c1c'; x.lineWidth = 3; x.setLineDash([8, 7]); x.beginPath(); x.moveTo(110, 545); for (let i = 0; i <= 60; i++) { const q = i / 60, yy = 545 - q * 470, half = (560 - yy) / 500 * 250 * 0.8; x.lineTo(300 + Math.sin(q * 26) * half, yy); } x.stroke(); x.setLineDash([]);
       x.font = 'bold 20px Fredoka, sans-serif'; x.textAlign = 'center';
-      ORDER.forEach((id, i) => { const L = LEVELS[id], yy = [480, 320, 165][i], open = i === 0 || S.done[ORDER[i - 1]]; x.fillStyle = 'rgba(40,25,10,.78)'; x.fillRect(180, yy - 24, 240, 54); x.fillStyle = open ? '#ffe9a8' : '#998'; x.fillText(`${i + 1}. ${L.name}`, 300, yy); x.font = '15px Fredoka, sans-serif'; x.fillText(S.done[id] ? `Cleared ✔   Relics ${(S.jewels[id] || []).filter(Boolean).length}/3` : open ? 'Open' : 'Locked', 300, yy + 21); x.font = 'bold 20px Fredoka, sans-serif'; });
+      ORDER.forEach((id, i) => { const L = LEVELS[id], yy = [480, 320, 165][i], open = i === 0 || S.done[ORDER[i - 1]]; x.fillStyle = 'rgba(40,25,10,.78)'; x.fillRect(180, yy - 24, 240, 54); x.fillStyle = open ? '#ffe9a8' : '#998'; x.fillText(`${i + 1}. ${L.name} · ${L.tag}`, 300, yy); x.font = '15px Fredoka, sans-serif'; x.fillText(S.done[id] ? `Cleared ✔   Relics ${(S.jewels[id] || []).filter(Boolean).length}/3` : open ? 'Open' : 'Locked', 300, yy + 21); x.font = 'bold 20px Fredoka, sans-serif'; });
       x.fillStyle = '#b5332a'; x.fillText('▲ Princess Wrenna', 300, 46); x.fillStyle = '#3a2a1c'; x.fillText('● Bramblewick (you are here)', 300, 590);
       obj += tick(S.done.l1, 'Climb Greenfoot Slopes (west gate)') + tick(S.done.l2, 'Cross Thunder Gorge (north gate)') + tick(S.won, 'Climb the Frostfang Stair and free the Princess (east gate)');
       const jw = ORDER.reduce((a, id) => a + (S.jewels[id] || []).filter(Boolean).length, 0); obj += tick(jw >= 9, `Find the nine hidden relics: each unlocks an upgrade (${jw}/9)`);
@@ -71,9 +71,11 @@ export class UI {
   }
   count(v) { this.show('countBox', v !== null); if (v !== null) this.set('countBox', String(v)); }
   closeAll() { if (this.mapOpen) this.toggleMap(false); if (this.shopOpen) this.closeShop(); if (this.dlg) { this.dlg = null; this.show('dialog', false); } }
-  lobby(N, L) {
-    this.show('lobbyBox', true); const names = [N.name + ' (you)', ...[...N.peers.values()].map(q => q.n)], map = LEVELS[L.map].name;
-    const h = `<h2>The Starting Camp</h2><p>Code to join: <b class="code">${N.code}</b></p><p>Players (${names.length}): ${names.join(', ')}</p><p>Mountain: <b>${map}</b></p><p>Mode: <b>${L.mode === 'race' ? 'RACE: every hero for themselves' : 'TEAM: get everyone to the top together'}</b></p>` + `<p class="small">${L.mode === 'race' ? 'First to the top wins. Punches and whip cracks land on other players. Everyone starts with the whip and triple jump.' : 'One clock for the whole team. Walls and gates that take two, shared finds, ropes, boosts, and helping each other up.'}</p>` + (N.isHost ? '<p class="keys2"><b>1 2 3</b> pick the mountain · <b>G</b> switch Race / Team · <b>ENTER</b> start</p>' : '<p class="small">Waiting for the host to start.</p>');
+  lobby(N, L, at) {
+    this.show('lobbyBox', true); const names = [N.name + ' (you)', ...[...N.peers.values()].map(q => q.n)], lv = LEVELS[L.map], mode = L.mode === 'race' ? 'RACE' : 'TEAM';
+    let h = `<p>Code <b class="code">${N.code}</b> · ${names.length} player${names.length > 1 ? 's' : ''}: ${names.join(', ')}</p><p>Next climb: <b>${lv.name}</b> (${lv.tag}) · <b>${mode}</b></p>`;
+    if (at) h = '<h2>Choose the climb</h2>' + h + ORDER.map((id, i) => `<p class="${id === L.map ? 'pick' : ''}"><b>${i + 1}</b> ${LEVELS[id].name} <i>${LEVELS[id].tag}</i></p>`).join('') + `<p class="${L.mode === 'race' ? 'pick' : ''}"><b>G</b> RACE: every hero for themselves, first to the top</p><p class="${L.mode === 'team' ? 'pick' : ''}"><b>G</b> TEAM: one clock, everyone must reach the top</p>` + (N.isHost ? '<p class="keys2"><b>ENTER</b> start: everyone is taken to the start line for a 20 second countdown</p>' : '<p class="small">Only the host can choose and start.</p>');
+    else h += `<p class="small">${N.isHost ? 'Go to the red CLIMBS beam to choose and start.' : 'The host starts the climb from the red CLIMBS beam.'} Gold beam: upgrades.</p>`;
     if (this.last.lob !== h) { this.last.lob = h; $('lobbyBox').innerHTML = h; }
   }
   levelDone(d, cb) { $('doneTitle').textContent = d.title; $('doneBody').innerHTML = d.body; this.show('done', true); this.G.locked = true; this.doneCb = cb; }

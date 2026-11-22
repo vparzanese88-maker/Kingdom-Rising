@@ -134,12 +134,12 @@ class Game {
   // Online: a fresh copy of the chosen mountain, everyone wiped clean and lined up, then a countdown.
   startRace(map, mode, slot, n) {
     const S = this.save, old = this.regions[map]; this.mode = mode; this.raceMap = map; this.fall = null; this.ui.show('lucky', false);
-    Object.assign(S, { coins: 0, items: mode === 'race' ? { whip: 1, boots: 1 } : { whip: 1 }, upg: {}, relics: {}, jewels: {}, camp: {}, run: {}, done: {}, best: {}, seen: {}, bombs: 0 }); this.lineUses = 0;
+    Object.assign(S, { items: mode === 'race' ? { whip: 1, boots: 1 } : { whip: 1 }, relics: {}, jewels: {}, camp: {}, run: {}, done: {}, best: {}, seen: {} });      // coins and bought upgrades carry on from the town this.lineUses = 0;
     this.rg.remove(old.scene); const W = new World(this, LEVELS[map], true); W.xf = old.xf; W.scene.position.copy(old.scene.position); W.scene.rotation.y = old.scene.rotation.y; W.terrainMesh.position.y = 0.03; this.rg.add(W.scene); this.regions[map] = W;
     this.setActive(W); const s0 = W.secs[0], f = s0.at(4, (slot - (n - 1) / 2) * 1.7, 0), P = this.player; P.spawn(f.x, f.y + 0.1, f.z, Math.atan2(-f.tx, -f.tz)); P.down = 0; P.daze = 0; P.safe = null;
-    this.count = 4.99; this.locked = true; this.ui.show('lobbyBox', false); this.ui.closeAll(); this.audio.sfx('camp');
+    this.count = 19.99; this.locked = true; this.ui.show('lobbyBox', false); this.ui.closeAll(); this.audio.sfx('camp');
   }
-  toLobby() { this.mode = null; this.count = 0; this.locked = false; this.loadLevel('lobby'); const a = Math.random() * 6.28; this.player.spawn(Math.cos(a) * 6, 0.2, Math.sin(a) * 6, a + Math.PI / 2); }
+  toLobby() { this.mode = null; this.count = 0; this.locked = false; this.loadLevel('lobby'); const a = Math.random() * 6.28; this.player.spawn(Math.cos(a) * 4, 0.2, 10 + Math.sin(a) * 3, 0); }
   // One of the hundred lowland adventures done.
   act(id, name, coins, x, y, z) { const S = this.save; if (S.acts[id]) return; this.net.send({ t: 'act', id, name }); S.acts[id] = 1; const n = Object.keys(S.acts).length; this.audio.sfx('jewel'); if (coins) this.world.dropCoins(x, y, z, Math.min(40, coins)); this.ui.toast(`${name}!  Lowland adventures: ${n} of ${ACT_TOTAL}` + (n === ACT_TOTAL ? '. Every single one. The stones were right about you.' : ''), 5); this.saveNow(); }
   stat(k, n = 1) { this.save.stats[k] = (this.save.stats[k] || 0) + n; }
@@ -156,7 +156,8 @@ class Game {
   }
   step(dt) {
     this.time += dt; this.frame++; this.levelT += dt; this.save.played += dt; { const S = this.save, id = this.world.def.id; S.run = S.run || {}; if (!this.world.def.hub && !this.locked) S.run[id] = (S.run[id] || 0) + dt; }
-    this.world.update(dt); this.player.update(dt); if (this.count > 0) { const c0 = Math.ceil(this.count); this.count -= dt; const c1 = Math.ceil(this.count); this.locked = true; this.ui.count(this.count > 0 ? c1 : 'GO!'); if (c1 !== c0) this.audio.sfx(this.count > 0 ? 'coin' : 'win'); if (this.count <= 0) { this.locked = false; this.save.run = {}; setTimeout(() => this.ui.count(null), 900); } }
+    this.world.update(dt); this.player.update(dt); if (this.count > 0) { const c0 = Math.ceil(this.count); this.count -= dt; const c1 = Math.ceil(this.count); this.locked = true; this.ui.count(this.count > 0 ? c1 : 'GO!'); if (c1 !== c0 && (c1 <= 5 || c1 % 5 === 0)) this.audio.sfx(this.count > 0 ? 'coin' : 'win'); if (this.count <= 0) { this.locked = false; this.save.run = {}; setTimeout(() => this.ui.count(null), 900); } }
+    if (this.coop && this.world.def.lobby) { const P = this.player.pos; for (const h of this.holes) { const dx = P.x - h.x, dz = P.z - h.z, d = Math.hypot(dx, dz), lim = h.r + 124; if (d < lim) { P.x = h.x + dx / d * lim; P.z = h.z + dz / d * lim; if (!this.wallT || this.time - this.wallT > 6) { this.wallT = this.time; this.ui.toast('The mountains stay closed until the host starts a climb at the red CLIMBS beam in town.', 4); } } } }
     if (this.regions) this.handoff(); this.lucky(dt); this.net.update(dt); this.ui.update(dt);
     if (this.frame % 600 === 0) this.saveNow();
   }

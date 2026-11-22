@@ -118,11 +118,12 @@ export class Net {
     if (!this.on) return;
     if (I.hit('KeyT') && !G.locked && G.mode !== 'race' && !W.def.lobby) this.dropRope(); if (I.hit('KeyB') && !G.locked && G.mode !== 'race') this.call(false);
     if (this.endT > 0 && G.mode === 'race') { const e0 = Math.ceil(this.endT); this.endT -= dt; if (Math.ceil(this.endT) !== e0 && !this.fin[this.id] && (Math.ceil(this.endT) % 10 === 0 || this.endT < 6)) G.ui.toast(`${Math.max(0, Math.ceil(this.endT))} seconds to reach the top!`, 1.2); if (this.endT <= 0) { if (this.isHost) this.send({ t: 'end', why: 'time' }); this.endRace('time'); } }
-    if (W.def.lobby) { // in the starting camp
-      const L = this.lob; if (this.isHost && !G.locked && !G.ui.doneCb) { for (let i = 0; i < 3; i++) if (I.hit('Digit' + (i + 1))) L.map = ['l1', 'l2', 'l3'][i]; if (I.hit('KeyG')) L.mode = L.mode === 'race' ? 'team' : 'race'; if (I.hit('Enter')) return this.start(); }
+    if (W.def.lobby) { // in town: the climb is chosen at the Trail Master
+      const L = this.lob, at = W.mapAt && Math.hypot(P.pos.x - W.mapAt.x, P.pos.z - W.mapAt.z) < 7;
+      if (this.isHost && at && !G.locked && !G.ui.doneCb && !G.ui.shopOpen) { for (let i = 0; i < 3; i++) if (I.hit('Digit' + (i + 1))) L.map = ['l1', 'l2', 'l3'][i]; if (I.hit('KeyG')) L.mode = L.mode === 'race' ? 'team' : 'race'; if (I.hit('Enter')) return this.start(); }
       this.lAcc = (this.lAcc || 0) + dt; if (this.isHost && this.lAcc > 0.5) { this.lAcc = 0; L.racing = false; this.send({ t: 'lob', l: L }); }
-      G.ui.lobby(this, L);
-    }
+      G.ui.lobby(this, L, at);
+    } else G.ui.show('lobbyBox', false);
     this.acc += dt; if (this.acc > 0.08) { this.acc = 0; const sp = Math.hypot(P.vel.x, P.vel.z), mode = P.swim ? 'swim' : P.climb ? 'climb' : P.swing || P.zip ? 'swing' : P.glide ? 'glide' : P.slideT > 0 ? 'slide' : P.crouch ? 'crouch' : P.airT > 0.2 ? 'air' : sp > 0.6 ? 'run' : 'idle'; this.send({ t: 's', v: VER, dn: P.down > 0 ? 1 : 0, pr: W.spiral && P.routePhi > 0 ? Math.min(100, Math.round(P.routePhi / W.spiral.PHI * 100)) : 0, n: this.name, r: W.def.id, p: [+P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2)], yaw: +(sp > 0.6 ? Math.atan2(-P.vel.x, -P.vel.z) : P.yaw).toFixed(2), m: mode, sp: +sp.toFixed(1) }); }
     this.mAcc = (this.mAcc || 0) + dt; if (this.mAcc > 0.12 && W.mobs && this.owns(W)) { // report the goblins this game is running
       this.mAcc = 0; const a = [], id = W.def.id, pts = [P.pos]; for (const q of this.peers.values()) if (q.r === id) pts.push(q.pos);

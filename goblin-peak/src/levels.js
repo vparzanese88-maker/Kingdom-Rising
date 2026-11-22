@@ -212,9 +212,9 @@ spice(L1, ['shield', 'bomber', 'tugger']); spice(L2, ['bomber', 'shaman', 'harpy
 export const LEVELS = {
   hub: { id: 'hub', name: 'Bramblewick', hub: true, theme: 'meadow', seed: 3, story: HUB_STORY },
   lobby: { id: 'lobby', name: 'The Starting Camp', hub: true, lobby: true, theme: 'meadow', seed: 5 },
-  l1: { id: 'l1', name: 'Greenfoot Slopes', theme: 'forest', seed: 11, col: 0x3f8a3a, sections: L1, river: { th: 2.4, loops: 2, styles: ['stones', 'log'] }, blurb: 'Forest foothills. Vines, log bridges, and your first goblins.', goal: 'Reach the gate at the top of the slopes' },
-  l2: { id: 'l2', name: 'Thunder Gorge', theme: 'gorge', seed: 23, col: 0xb5652a, sections: L2, river: { th: 4.1, loops: 3, styles: ['planks', 'swing', 'raft'] }, blurb: 'Red canyons and a river in a hurry. Bring something to hook onto.', goal: 'Cross the gorge and reach the high gate' },
-  l3: { id: 'l3', name: 'The Frostfang Stair', theme: 'snow', seed: 37, col: 0x54a6d6, sections: L3, river: { th: 1.2, loops: 3, styles: ['hook', 'stones', 'log'] }, story: BOSS, blurb: 'Ice, yetis, and the Chieftain\'s fortress at the summit.', goal: 'Reach the summit, ring the three gongs and free the Princess' },
+  l1: { diff: 0, tag: 'EASY', id: 'l1', name: 'Greenfoot Slopes', theme: 'forest', seed: 11, col: 0x3f8a3a, sections: L1, river: { th: 2.4, loops: 2, styles: ['stones', 'log'] }, blurb: 'Forest foothills. Vines, log bridges, and your first goblins.', goal: 'Reach the gate at the top of the slopes' },
+  l2: { diff: 1, tag: 'MEDIUM', id: 'l2', name: 'Thunder Gorge', theme: 'gorge', seed: 23, col: 0xb5652a, sections: L2, river: { th: 4.1, loops: 3, styles: ['planks', 'swing', 'raft'] }, blurb: 'Red canyons and a river in a hurry. Bring something to hook onto.', goal: 'Cross the gorge and reach the high gate' },
+  l3: { diff: 2, tag: 'HARD', id: 'l3', name: 'The Frostfang Stair', theme: 'snow', seed: 37, col: 0x54a6d6, sections: L3, river: { th: 1.2, loops: 3, styles: ['hook', 'stones', 'log'] }, story: BOSS, blurb: 'Ice, yetis, and the Chieftain\'s fortress at the summit.', goal: 'Reach the summit, ring the three gongs and free the Princess' },
 };
 LEVELS.hub.levels = [LEVELS.l1, LEVELS.l2, LEVELS.l3];
 export const ORDER = ['l1', 'l2', 'l3'];

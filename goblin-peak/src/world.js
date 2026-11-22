@@ -117,7 +117,7 @@ export class World {
     const f = this.secs[0].at(3, 0, 0); this.start = { x: f.x, y: f.y, z: f.z, yaw: Math.atan2(-f.tx, -f.tz) };
     // the trailhead gate: barred until the trail before it has been cleared
     const idx = ['l1', 'l2', 'l3'].indexOf(def.id), prev = idx > 0 ? ['l1', 'l2', 'l3'][idx - 1] : null, b = this.secs[0].at(this.realm ? this.secs[0].len - 3 : -6, 0, 0);
-    this.add(new Gate(this, b.x, b.z, b.yaw, { w: 6, title: this.realm ? `${idx + 1}. ${def.name}` : 'Back to the village', sub: 'The trail starts here', lockSub: `LOCKED: clear trail ${idx} first`, col: def.col || 0x3f8a3a, locked: g => this.realm && !g.coop && prev && !g.save.done[prev], lockText: 'This trail starts where the one before it ends. Climb that first.', go: G => { if (!this.realm) G.loadLevel('hub'); } }));
+    this.add(new Gate(this, b.x, b.z, b.yaw, { w: 6, title: this.realm ? `${idx + 1}. ${def.name} · ${def.tag}` : 'Back to the village', sub: 'The trail starts here', lockSub: `LOCKED: clear trail ${idx} first`, col: def.col || 0x3f8a3a, locked: g => this.realm && !g.coop && prev && !g.save.done[prev], lockText: 'This trail starts where the one before it ends. Climb that first.', go: G => { if (!this.realm) G.loadLevel('hub'); } }));
   }
   common(s) {
     const sp = this.spiral, G = this.G;
@@ -125,7 +125,7 @@ export class World {
     if (s.t === 'logs' || s.t === 'rockfall' || s.t === 'traps' || s.t === 'crawl' || s.t === 'ambush' || s.t === 'chase' || s.t === 'teamgate') this.benchWall(s);
     if (s.rain) this.add(new RockRain(this, s, s.rain === true ? 0.5 : s.rain)); if (s.wind) this.add(new Wind(this, s));
     if ((s.t === 'path' || s.t === 'ramp' || s.t === 'traps' || s.t === 'chase' || s.t === 'ambush') && s.coins !== 0) this.coinLine(s, 2, s.len - 2, a => Math.sin(a * 0.16 + s.idx) * (s.w - 2.2), 1, Math.floor(s.len / 4.5));
-    for (const m of s.mobs || []) { const f = s.at(m[1] * s.len, m[2] || 0, 0); this.add(new Mob(this, m[0], f.x, f.z, { range: m[3] || Math.min(16, s.len / 2) })); if (G.coop && ['grunt', 'brute', 'shield', 'boar', 'ram'].includes(m[0])) { const g = s.at(Math.min(s.len - 2, m[1] * s.len + 4), -(m[2] || 0) + 1.5, 0); this.add(new Mob(this, m[0], g.x, g.z, { range: m[3] || Math.min(16, s.len / 2) })); } }
+    for (const m of s.mobs || []) { const f = s.at(m[1] * s.len, m[2] || 0, 0); this.add(new Mob(this, m[0], f.x, f.z, { range: m[3] || Math.min(16, s.len / 2) })); if (G.coop && this.def.diff > 0 && ['grunt', 'brute', 'shield', 'boar', 'ram'].includes(m[0])) { const g = s.at(Math.min(s.len - 2, m[1] * s.len + 4), -(m[2] || 0) + 1.5, 0); this.add(new Mob(this, m[0], g.x, g.z, { range: m[3] || Math.min(16, s.len / 2) })); } }
     if (s.chest) { const f = s.at(s.len / 2, -s.w + 2, 0); this.add(new Chest(this, f.x, f.z, s.chest, f.yaw + Math.PI / 2)); }
     for (const n0 of s.npcs || []) { if (G.coop && !n0.stall) continue; const n = G.coop ? Object.assign({}, n0, { lines: [] }) : n0; const f = s.at(n.a === undefined ? s.len / 2 : n.a, n.lat === undefined ? -s.w + 1.6 : n.lat, 0); if (n.stall) { const st = M.stall(); st.position.set(f.x - f.nx * 1.4, this.T.hAt(f.x, f.z), f.z - f.nz * 1.4); st.rotation.y = Math.atan2(f.nx, f.nz); this.scene.add(st); } this.add(new NPC(this, f.x, f.z, { name: n.name, model: n.model(), lines: n.lines, after: n.after, prompt: n.prompt })); }
     if (s.tip) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 't' + this.def.id + s.idx, fn: () => G.ui.toast(s.tip, 9) });
@@ -339,14 +339,23 @@ export class World {
   }
 
   // The online starting camp: a fenced yard where players gather while the host picks the mountain and the mode.
+  // Online: a simple town in open country. Two people matter and both stand under a tall beam: the Trail Master (choose the climb) and Nib (upgrades).
   buildLobby() {
-    const T = this.T, S = this.scene, put = (m, x, z, yaw = 0, dy = 0) => { m.position.set(x, T.hAt(x, z) + dy, z); m.rotation.y = yaw; S.add(m); return m; };
-    for (let i = 0; i < 44; i++) { const a = i / 44 * TAU; put(M.cyl(0x6b4a2a, 0.22, 2.6, 0, 0, 0), Math.cos(a) * 25, Math.sin(a) * 25, 0, 1.3); put(M.cone(0x6b4a2a, 0.24, 0.5, 0, 0, 0), Math.cos(a) * 25, Math.sin(a) * 25, 0, 2.85); }
-    const f = M.campfire(); f.userData.flames.forEach(q => q.visible = true); put(f, 0, 0); const l = new THREE.PointLight(0xff8a30, 26, 16); l.position.set(0, 1.2, 0); S.add(l); this.addCyl(0, 0.3, 0, 0.8, 0.3, null);
-    for (const [x, z, h] of [[-9, -8, 1], [-11.4, -8, 2], [-13.8, -8, 3], [9, -9, 1.4], [12, 6, 1], [12, 8.4, 2.2]]) this.addBox(x, h / 2, z, 1.1, h / 2, 1.1, 0, ROCK);
-    put(M.whipPost(8), 14, -14); this.limb(10.4, 8.65, -14, 15.9, 9.25, -14);
-    const b1 = M.signBoard('THE STARTING CAMP', 'the host picks the mountain', '#d8362c', 9, 3); b1.position.set(0, 4.2, -22); S.add(b1); S.add(M.cyl(0x6b4a2a, 0.14, 4, -3.6, 2, -22), M.cyl(0x6b4a2a, 0.14, 4, 3.6, 2, -22));
-    for (let i = 0; i < 20; i++) { const a = i / 20 * TAU; this.coin(Math.cos(a) * 12, 1, Math.sin(a) * 12); }
+    const T = this.T, S = this.scene, G = this.G, put = (m, x, z, yaw = 0, dy = 0) => { m.position.set(x, T.hAt(x, z) + dy, z); m.rotation.y = yaw; S.add(m); return m; };
+    [[-16, 14, 0.5, 0xb5652a], [16, 16, -0.4, 0x8a4a6a], [-24, -10, 1.4, 0x3f7a8a], [24, -12, -1.4, 0xb5652a]].forEach(([x, z, yaw, c]) => { put(M.hut(c), x, z, yaw); const hy = T.hAt(x, z); this.addBox(x, hy + 1.5, z, 2.5, 1.5, 2.2, -yaw, null); for (let i = 0; i < 6; i++) { const q = 3.04 * (1 - i / 6) + 0.1; this.addBox(x, hy + 3.2 + i * 0.4, z, q, 0.2, q, -yaw, null); } });
+    const station = (x, z, col, title, sub, model, o) => {
+      const beam = M.cyl(col, 0.9, 60, x, 30, z, { e: col, op: 0.22 }); beam.castShadow = false; S.add(beam); const ring = M.cyl(col, 2.6, 0.08, x, T.hAt(x, z) + 0.05, z, { e: col, op: 0.5 }); ring.castShadow = false; S.add(ring);
+      for (const sd of [1, -1]) { const b = M.signBoard(title, sub, '#' + new THREE.Color(col).getHexString(), 8, 2.65); b.position.set(x, 5.2, z + sd * 0.06 - 1.6); b.rotation.y = sd > 0 ? 0 : Math.PI; S.add(b); } S.add(M.cyl(0x6b4a2a, 0.14, 4, x - 3.3, 2, z - 1.6), M.cyl(0x6b4a2a, 0.14, 4, x + 3.3, 2, z - 1.6));
+      return this.add(new NPC(this, x, z, Object.assign({ name: title, model, yaw: Math.PI, fixed: true, reach: 3.6 }, o)));
+    };
+    const tm = station(-8, -8, 0xd8362c, 'CLIMBS', 'choose the mountain here', M.biped({ shirt: 0xb5332a, pants: 0x4a4030, hair: 0xdddddd, beard: 0xdddddd, hat: 0x5a4630, cape: 0xb5332a }), { prompt: 'Choose the climb', lines: [] });
+    tm.use = () => G.ui.toast(G.net.isHost ? 'You are the host: 1 2 3 picks the mountain, G switches Race or Team, ENTER starts the countdown.' : 'Only the host can choose. Stand by and get ready.', 5); this.mapAt = { x: -8, z: -8 };
+    put(M.stall(), 8, -9.6, 0); this.addBox(8, 0.5, -9.6, 1.4, 0.6, 0.6, 0, null);
+    station(8, -8, 0xe2b33a, 'UPGRADES', 'spend your coins here', M.goblin({ hat: 0xe2b33a, shirt: 0x3b6fb5 }), { prompt: 'Buy upgrades', lines: [], after: g => g.ui.shop() });
+    put(M.cyl(0x8a8378, 1.6, 0.9, 0, 0, 0), 0, 2).position.y += 0.45; this.addCyl(0, 0.45, 2, 1.6, 0.5, null);
+    for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; this.coin(Math.cos(a) * 15, 1, Math.sin(a) * 15 - 2); }
+    this.start = { x: 0, y: 0, z: 10, yaw: 0 };
+    buildVillage(this, true); if (this.realm) buildLowlands(this);
   }
   scatter() {
     const T = this.T, th = this.theme, r = this.rnd, pts = [], rocks = [], sp = this.spiral, n = { x: 0, y: 1, z: 0 };

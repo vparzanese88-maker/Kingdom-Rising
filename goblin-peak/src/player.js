@@ -215,7 +215,7 @@ export class Player {
     }
     if (this.grounded) { this.dashed = false; if (!wasGrounded && this.airT > 0.5) { G.audio.sfx('land'); W.puff(p.x, p.y, p.z, 0xd8ccb0, 4); } this.jumps = 0; this.coyote = 0.12; this.airT = 0; }
     else { this.coyote -= dt; this.airT += dt; }
-    const r = Math.hypot(p.x, p.z), lim = W.def.lobby ? 23.6 : T.S - 14; if (r > lim) { p.x *= lim / r; p.z *= lim / r; }
+    const r = Math.hypot(p.x, p.z), lim = T.S - 14; if (r > lim) { p.x *= lim / r; p.z *= lim / r; }
     this.ice = ice;
   }
   updateCamera(dt, cam) {

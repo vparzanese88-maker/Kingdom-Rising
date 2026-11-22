@@ -20,7 +20,9 @@ export class Path {
   // height of the track: eased between the heights given at each bend
   y(s) {
     s = Math.max(0, Math.min(this.len, s)); const i = this.seg(s), L = this.cum[i] - this.cum[i - 1], f = L ? (s - this.cum[i - 1]) / L : 0, e = f * f * (3 - 2 * f);
-    return this.hs[i - 1] + (this.hs[i] - this.hs[i - 1]) * e;
+    const base = this.hs[i - 1] + (this.hs[i] - this.hs[i - 1]) * e, n = this.hs.length - 1;
+    // near the hub and the hive the ground is levelled flat; the track settles onto it the same way
+    const kh = sstep(HUB_R + 4, HUB_R + 12, this.len - s), kv = sstep(10, 18, s); let y = this.hs[n] + (base - this.hs[n]) * kh; y = this.hs[0] + (y - this.hs[0]) * kv; return y;
   }
   near(x, z) {
     let best = { d: 1e9, s: 0, tx: 1, tz: 0, x, z };
@@ -60,8 +62,8 @@ export function makeTerrain(D, path, hubP, hiveP) {
     const out = Math.max(Math.abs(x), Math.abs(z)) - (BOUNDS - 2);
     let h = hills(x, z) + ridge(x, z) + feats(x, z) + (out > 0 ? out * 1.8 + Math.max(0, Math.sin(x * 0.05) * Math.cos(z * 0.06)) * out * 0.8 : 0);
     const n = path.near(x, z), py = path.y(n.s), R = ridge(n.x, n.z), bw = 15 - 13.6 * Math.min(1, R / 3);     // a narrow cut where the track goes under a ridge
-    const f = noPath ? 1 : sstep(PATH_W / 2 + 0.3, PATH_W / 2 + 0.3 + bw, n.d); h = py - 0.02 + (h - py + 0.02) * f;
-    for (const [p, y, a, b] of [[hubP, hubY, HUB_R + 4, HUB_R + 12], [hiveP, hiveY, 10, 18]]) { const g = sstep(a, b, Math.hypot(x - p.x, z - p.z)); h = y + (h - y) * g; }
+    for (const [p, y, a, b] of [[hubP, hubY, HUB_R + 4, HUB_R + 12], [hiveP, hiveY, 10, 18]]) { const g = sstep(a, b, Math.hypot(x - p.x, z - p.z)); h = y + (h - y) * g; }   // level the ground round the bases first,
+    const f = noPath ? 1 : sstep(PATH_W / 2 + 0.3, PATH_W / 2 + 0.3 + bw, n.d); h = py - 0.02 + (h - py + 0.02) * f;                                                          // then lay the track on top
     const k = chasm(x, z); h = FLOOR + (h - FLOOR) * k;
     return h;
   };

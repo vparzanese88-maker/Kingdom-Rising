@@ -446,7 +446,7 @@ export function dropIntro(H, squad, done) {
       if (t > 5.2) once('c', () => { cap('', 'Vance: Here we go. Hold on to something!'); A.sfx('alarm', 0.7); });
       red.intensity = 4 + (Math.sin(t * 6) > 0 ? 6 : 0); strobe.emissiveIntensity = Math.sin(t * 6) > 0 ? 4 : 0.3; shake = 0.04; if (t > 5) shake = 0.12;
     } else if (t < 13) { // EJECT: the clamps blow, every pod drops away from the station, thrusters lit
-      once('d', () => { cap('', 'EJECT! EJECT! EJECT!'); A.sfx('boom', 0.6); A.sfx('rail', 0.4); shakeK = 1.5; });
+      once('d', () => { cap('', 'EJECT! EJECT! EJECT!'); A.sfx('boom', 0.4); A.sfx('rail', 0.3); shakeK = 1.5; });
       fl.material.opacity = 0.6; rum = 0.45; shake = 0.25; red.intensity = 3; strobe.emissiveIntensity = Math.sin(t * 9) > 0 ? 4 : 0.3;
       if (Math.random() < dt * 4) { const w = pod.localToWorld(V((Math.random() - 0.5) * 8, 6, (Math.random() - 0.5) * 8)); H.burst(w.x, w.y, w.z, 0xfff0c0, 2, 5, 0.4); }
       if (t > 10.5) once('e', () => cap('', `Vance: Clean drop. ${PN} dead ahead. Brace for the burn!`));
@@ -458,7 +458,7 @@ export function dropIntro(H, squad, done) {
       rum = 0.45 + f * 0.55; shake = 0.3 + f * 1.1; orange.intensity = 2 + f * 10 + Math.random() * 3; heat.style.opacity = (0.12 + f * 0.5 + Math.random() * 0.1).toFixed(2); streakO = cl(f * 1.6) * (0.55 + Math.random() * 0.3); temp = 200 + f * 1500;
       strobe.emissiveIntensity = Math.sin(t * 12) > 0 ? 5 : 0.3;
       for (let k = 0; k < 3; k++) { const a = Math.random() * 6.283, w = pod.localToWorld(V(Math.cos(a) * 2.6, 1 + Math.random() * 3, Math.sin(a) * 2.6)); H.burst(w.x, w.y, w.z, Math.random() < 0.5 ? 0xff7020 : 0xffd060, 2, 6, 0.35); }
-      if (Math.random() < dt * 1.5) A.sfx('thunder', 0.3 + f * 0.3);
+      if (Math.random() < dt * 0.8) A.sfx('thunder', 0.15 + f * 0.15);
       // the burning sky: black space turns to fire, then to the white of the cloud tops
       scene.background.setRGB(L(0.01, 0.35, cl(f * 1.4)), L(0.01, 0.1, cl(f * 1.4)), L(0.04, 0.03, cl(f * 1.4)));
       if (t > 20.5) { const k = cl((t - 20.5) / 1.5); scene.background.lerp(fogC, k); }
@@ -478,7 +478,7 @@ export function dropIntro(H, squad, done) {
       if (burn && y - padY < 40 && Math.random() < 0.7) H.burst(padX + (Math.random() - 0.5) * 16, padY + 0.3, padZ + (Math.random() - 0.5) * 16, 0xb09878, 2, 6, 1);
     } else { // impact, then the door blows off and the squad pours out
       const u = t - 29;
-      once('i', () => { fl.material.opacity = 0; A.sfx('boom', 0.7); H.boomFx(padX, padY + 0.5, padZ, 5, 1); shakeK = 2.8; red.intensity = 0; blue.intensity = 0; strobe.emissiveIntensity = 0; for (let k = 0; k < 30; k++) H.burst(padX + (Math.random() - 0.5) * 12, padY + 0.3, padZ + (Math.random() - 0.5) * 12, 0xb09878, 2, 5, 1.2); cap('', 'Vance: We\'re down! Door! Door!'); for (const c of clouds) scene.remove(c); clouds.length = 0; scene.fog = fog0; scene.background = bg0; G.cineFog = false; });
+      once('i', () => { fl.material.opacity = 0; A.sfx('boom', 0.45); H.boomFx(padX, padY + 0.5, padZ, 5, 1); shakeK = 2.8; red.intensity = 0; blue.intensity = 0; strobe.emissiveIntensity = 0; for (let k = 0; k < 30; k++) H.burst(padX + (Math.random() - 0.5) * 12, padY + 0.3, padZ + (Math.random() - 0.5) * 12, 0xb09878, 2, 5, 1.2); cap('', 'Vance: We\'re down! Door! Door!'); for (const c of clouds) scene.remove(c); clouds.length = 0; scene.fog = fog0; scene.background = bg0; G.cineFog = false; });
       if (u > 1.4) once('j', () => { A.sfx('boom', 0.7); A.sfx('rail', 0.5); flyDoor = 1; day.intensity = 8; heat.style.opacity = 0; for (let k = 0; k < 14; k++) { const w = pod.localToWorld(V(0, 1.4, -2.6)); H.burst(w.x, w.y, w.z, 0xd0c0a0, 3, 4, 1); } cap('', 'Vance: Marines, move out! Get to that hive! I\'ll run things from the hub.'); });
       if (flyDoor) { const k = u - 1.4; doorG.position.set(0, Math.max(-0.3, k * 2.5 - k * k * 5), -k * 9); doorG.rotation.x = -k * 2.2; if (k > 1.4) doorG.visible = false; }
       rum = Math.max(0, 0.3 - u * 0.15); shake = u < 1 ? 0.5 : 0.02;

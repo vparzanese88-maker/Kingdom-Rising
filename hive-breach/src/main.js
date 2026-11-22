@@ -27,7 +27,7 @@ function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.asp
 // switching fullscreen fires a burst of resize events: rebuild the drawing buffers once it settles, not on every one (that froze the page and the sound)
 let resizeT = 0; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 180); }); resize();
 const audio = new Audio(), music = new Music(audio); window.hbMusic = music;
-audio.onRestart = () => { music.reset(); setTimeout(() => { if (audio.ctx && audio.ctx.state === 'running') { music.start(); applyAudio(); } }, 200); };
+audio.onRestart = () => { toast('🔊 Sound engine restarted after a glitch (tell the developer if you see this often)', 4); music.reset(); setTimeout(() => { if (audio.ctx && audio.ctx.state === 'running') { music.start(); applyAudio(); } }, 200); };
 audio.expectSound = () => music.on && music.master && music.mode !== 'off' && music.vol > 0.02 && (music.mul ?? 1) > 0.02 && !document.hidden;
 addEventListener('pointerdown', () => { audio.unlock(); music.start(); const h = document.getElementById('soundHint'); if (h) h.hidden = true; });
 addEventListener('keydown', () => { audio.unlock(); music.start(); });
@@ -1121,9 +1121,9 @@ function clampPick() { const u = unlocks(); if (u[G.map] === undefined) G.map = 
 function drawPickers() {
   const U = unlocks();
   const best = store.get('hb-best2', {}), mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-  $('classes').innerHTML = Object.entries(CLASSES).map(([k, c]) => `<button class="pick ${k === G.cls ? 'on' : ''}" data-cls="${k}" style="--c:#${c.color.toString(16).padStart(6, '0')}"><h3>${c.name}</h3>${kitHTML(k)}</button>`).join('');
-  $('diffs').innerHTML = DIFFS.map((d, i) => `<button class="pick ${i === (G.diff || 0) ? 'on' : ''} ${i > (U[G.map] ?? 0) ? 'locked' : ''}" data-diff="${i}" style="--c:${['#50d070', '#e0a030', '#e04040'][i]}"><h3>${i > (U[G.map] ?? 0) ? '🔒 ' : ''}${d.name}</h3><p>${i > (U[G.map] ?? 0) ? `🔒 Campaign: win ${DIFFS[i - 1].name} here to unlock. Online games can pick it now.` : ['The planet as surveyed, by day. Threat starts at level 1.', 'The map mirrored, at dusk. Threat starts at level 3, more aliens, a tougher queen with more guards.', 'Mirrored the other way, at night. Threat starts at level 6, far more aliens, the toughest queen.'][i]}</p></button>`).join('');
-  $('maps').innerHTML = Object.entries(MAPS).map(([k, m]) => `<button class="pick map ${k === G.map ? 'on' : ''} ${U[k] === undefined ? 'locked' : ''}" data-map="${k}" style="--c:#${m.ground.toString(16).padStart(6, '0')}"><h3>${U[k] === undefined ? '🔒 ' : ''}${m.name}</h3><p>${U[k] === undefined ? '🔒 Campaign: win the Hard hive on the planet before it. Online games can pick it now.' : m.sub}</p><p class="kit">${best[k] ? 'Longest hold: ' + mmss(best[k]) : 'Not yet played'}</p></button>`).join('');
+  $('classes').innerHTML = Object.entries(CLASSES).map(([k, c]) => `<button class="pick ${k === G.cls ? 'on' : ''}" data-cls="${k}" style="--c:#${c.color.toString(16).padStart(6, '0')}"><h3>${c.name}</h3><p>${c.role}</p><p class="gun">${c.gun.name}</p></button>`).join('');
+  $('diffs').innerHTML = DIFFS.map((d, i) => `<button class="pick ${i === (G.diff || 0) ? 'on' : ''} ${i > (U[G.map] ?? 0) ? 'locked' : ''}" data-diff="${i}" style="--c:${['#50d070', '#e0a030', '#e04040'][i]}"><h3>${i > (U[G.map] ?? 0) ? '🔒 ' : ''}${d.name}</h3><p>${i > (U[G.map] ?? 0) ? `Win ${DIFFS[i - 1].name} first` : ['Day · threat 1', 'Dusk · threat 3', 'Night · threat 6'][i]}</p></button>`).join('');
+  $('maps').innerHTML = Object.entries(MAPS).map(([k, m]) => `<button class="pick map ${k === G.map ? 'on' : ''} ${U[k] === undefined ? 'locked' : ''}" data-map="${k}" style="--c:#${m.ground.toString(16).padStart(6, '0')}"><h3>${U[k] === undefined ? '🔒 ' : ''}${m.name}</h3><p>${U[k] === undefined ? 'Win Hard on the last planet' : { mars: 'Mars', ice: 'Kryos IV', jungle: 'Thessa' }[k] || ''}${best[k] ? ' · best ' + mmss(best[k]) : ''}</p></button>`).join('');
 }
 $('classes').onclick = e => { const b = e.target.closest('[data-cls]'); if (b) { G.cls = b.dataset.cls; drawPickers(); } };
 $('maps').onclick = e => { const b = e.target.closest('[data-map]'); if (b) { G.map = b.dataset.map; drawPickers(); } };

@@ -65,12 +65,12 @@ export class Audio {
   // a continuous roar for the drop pod: deep engine rumble plus wind howl; level 0..1 sets how violent it is (0 fades it out)
   rumble(level) {
     const c = this.ctx; if (!c || !this.out) return;
-    if (!this.rmb) { const n = c.sampleRate * 2, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); let lp = 0; for (let i = 0; i < n; i++) { lp += (Math.random() * 2 - 1 - lp) * 0.08; d[i] = lp * 3; }
-      const src = c.createBufferSource(); src.buffer = b; src.loop = true; const lo = c.createBiquadFilter(); lo.type = 'lowpass'; lo.frequency.value = 120; const g = c.createGain(); g.gain.value = 0;
+    if (!this.rmb) { const n = c.sampleRate * 2, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); let lp = 0; let pk = 1e-6; for (let i = 0; i < n; i++) { lp += (Math.random() * 2 - 1 - lp) * 0.08; d[i] = lp; pk = Math.max(pk, Math.abs(lp)); } for (let i = 0; i < n; i++) d[i] *= 0.5 / pk;   /* normalised: never louder than half scale */
+      const src = c.createBufferSource(); src.buffer = b; src.loop = true; const lo = c.createBiquadFilter(); lo.type = 'lowpass'; lo.frequency.value = 120; const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 45; const g = c.createGain(); g.gain.value = 0;
       const src2 = c.createBufferSource(); src2.buffer = this.buf(2); src2.loop = true; const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = 0.8; const g2 = c.createGain(); g2.gain.value = 0;
-      src.connect(lo); lo.connect(g); g.connect(this.out); src2.connect(bp); bp.connect(g2); g2.connect(this.out); src.start(); src2.start(); this.rmb = { g, g2, lo, bp, src, src2 }; }
-    const R = this.rmb, t = c.currentTime, v = Math.max(0, Math.min(1, level || 0)) * this.vol * 0.9;
-    R.g.gain.setTargetAtTime(v * 0.9, t, 0.15); R.g2.gain.setTargetAtTime(v * v * 0.45, t, 0.2); R.lo.frequency.setTargetAtTime(80 + level * 180, t, 0.2); R.bp.frequency.setTargetAtTime(300 + level * 1400 + Math.random() * 200, t, 0.1);
+      src.connect(hp); hp.connect(lo); lo.connect(g); g.connect(this.out); src2.connect(bp); bp.connect(g2); g2.connect(this.out); src.start(); src2.start(); this.rmb = { g, g2, lo, bp, src, src2 }; }
+    const R = this.rmb, t = c.currentTime, v = Math.max(0, Math.min(1, level || 0)) * this.vol * 0.5;
+    R.g.gain.setTargetAtTime(v * 0.55, t, 0.15); R.g2.gain.setTargetAtTime(v * v * 0.25, t, 0.2); R.lo.frequency.setTargetAtTime(80 + level * 180, t, 0.2); R.bp.frequency.setTargetAtTime(300 + level * 1400 + Math.random() * 200, t, 0.1);
     if (level <= 0 && R) { setTimeout(() => { if (this.rmb === R && R.g.gain.value < 0.01) { try { R.src.stop(); R.src2.stop(); } catch (e) { } this.rmb = null; } }, 2500); }
   }
   // is sound actually able to play right now?
@@ -79,8 +79,9 @@ export class Audio {
   chain() {
     const c = this.ctx;
     // one master bus for effects and music, ending in a hard limiter, so nothing can ever hit the speakers above full scale
-    this.lim = c.createDynamicsCompressor(); this.lim.threshold.value = -4; this.lim.knee.value = 0; this.lim.ratio.value = 20; this.lim.attack.value = 0.002; this.lim.release.value = 0.15;
-    this.bus = c.createGain(); this.bus.gain.value = 0.85; this.bus.connect(this.lim); this.lim.connect(c.destination);
+    this.lim = c.createDynamicsCompressor(); this.lim.threshold.value = -9; this.lim.knee.value = 6; this.lim.ratio.value = 12; this.lim.attack.value = 0.003; this.lim.release.value = 0.25;
+    this.sub = c.createBiquadFilter(); this.sub.type = 'highpass'; this.sub.frequency.value = 32; this.sub.Q.value = 0.7;   // no sub-bass: it only eats headroom and makes the limiter duck everything
+    this.bus = c.createGain(); this.bus.gain.value = 0.7; this.bus.connect(this.sub); this.sub.connect(this.lim); this.lim.connect(c.destination);
     this.comp = c.createDynamicsCompressor(); this.comp.threshold.value = -20; this.comp.knee.value = 12; this.comp.ratio.value = 3.5; this.comp.attack.value = 0.006; this.comp.release.value = 0.3; this.comp.connect(this.bus);
     this.mon = c.createAnalyser(); this.mon.fftSize = 256; this.lim.connect(this.mon); this.monBuf = new Float32Array(256);
     if (!this.out) { this.out = c.createGain(); this.out.gain.value = 0.8; } this.out.connect(this.comp);

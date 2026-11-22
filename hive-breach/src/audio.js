@@ -56,8 +56,14 @@ export class Audio {
   constructor() { this.ctx = null; this.vol = 0.5; try { const v = +localStorage.getItem('hb-sfx'); if (localStorage.getItem('hb-sfx') !== null && v >= 0) this.vol = v; } catch (e) { } this.noise = {}; this.last = {}; }
   unlock() {
     if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.chain(); let i = 0; const kinds = ['rifle', 'pistol', 'shotgun', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
-    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') this.ctx.resume().catch(() => { });
+    // iPhone and iPad: playing a silent HTML audio element moves the page into the "media" sound category, so the game is heard even with the silent switch on
+    if (!this.el) { try { const n = 8000, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, s) => [...s].forEach((ch, i) => b[o + i] = ch.charCodeAt(0)); w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true); b.fill(128, 44);
+      const url = URL.createObjectURL(new Blob([b], { type: 'audio/wav' })); this.el = new window.Audio(url); this.el.loop = true; this.el.volume = 0.01; this.el.setAttribute('playsinline', ''); } catch (e) { this.el = 1; } }
+    if (this.el && this.el.play && this.el.paused) this.el.play().catch(() => { });
   }
+  // is sound actually able to play right now?
+  ok() { return !!this.ctx && this.ctx.state === 'running'; }
   // everything goes through a compressor (so a wall of gunfire stays loud without crackling) and a battlefield echo
   chain() {
     const c = this.ctx; this.comp = c.createDynamicsCompressor(); this.comp.threshold.value = -20; this.comp.knee.value = 12; this.comp.ratio.value = 3.5; this.comp.attack.value = 0.006; this.comp.release.value = 0.3; this.comp.connect(c.destination);

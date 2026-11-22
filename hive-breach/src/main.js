@@ -42,7 +42,7 @@ const SET = { quality: 'medium', fov: 75, fps: false, invert: false, zoomSens: 1
 function saveSettings() { try { localStorage.setItem('hb-set', JSON.stringify(SET)); localStorage.setItem('hb-keys4', JSON.stringify(KB)); } catch (e) { } }
 function applyQuality() { const q = SET.quality; renderer.setPixelRatio(Math.min(q === 'low' ? 0.75 : q === 'high' ? 1.75 : 1.25, devicePixelRatio)); resize(); if (G.W) G.W.sun.castShadow = q !== 'low'; G.maxParts = q === 'low' ? 120 : q === 'high' ? 320 : 220; }
 const G = { pings: [], on: false, mode: 'solo', myId: 'me', name: 'Marine', cls: 'assault', map: 'mars', W: null, sim: null, net: null, snap: null, out: [], time: 0, shop: false, me: null };
-window.G = G; G.scene = scene;
+window.G = G; G.scene = scene; G.audio = () => audio; G.music = () => music;
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } };
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
@@ -923,7 +923,7 @@ function openShop(on) { G.shop = on; $('shop').hidden = !on; if (on) { G.me.plac
 // ---------------------------------------------------------------- the main loop
 let last = performance.now(), netT = 0, poseT = 0;
 function frame(now) {
-  G.wdT = (G.wdT || 0) + 1; if (G.wdT > 60) { G.wdT = 0; audio.watchdog(); if (music.a && music.a.ctx && music.a.ctx.state !== 'running') music.a.ctx.resume().catch(() => { }); }
+  G.wdT = (G.wdT || 0) + 1; if (G.wdT > 60) { G.wdT = 0; audio.watchdog(); if (G.on && !audio.ok() && performance.now() - (G.sndWarn || 0) > 12000) { G.sndWarn = performance.now(); toast('🔇 Your browser is blocking the sound: click in the game (or press any key) to turn it on.', 5); } if (music.a && music.a.ctx && music.a.ctx.state !== 'running') music.a.ctx.resume().catch(() => { }); }
   requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; G.time += dt;
   if (hits[KB.music]) toast(music.toggle() ? 'Music on (N)' : 'Music off (N)', 2);
   if (hits[KB.map] && G.on && !G.shop) { if (G.mmap) closeMissileMap(); else openMissileMap(''); }
@@ -1001,7 +1001,7 @@ function drawSettings() {
   const row = (label, ctl) => `<div class="srow"><span>${label}</span>${ctl}</div>`, rng = (id, min, max, step, v) => `<input type="range" data-s="${id}" min="${min}" max="${max}" step="${step}" value="${v}">`;
   let h = '';
   if (setTab === 'video') h = row('Fullscreen', `<button class="kb" data-act="full">${document.fullscreenElement ? 'On' : 'Off'}</button>`) + row('Graphics quality', `<select data-s="quality">${['low', 'medium', 'high'].map(q => `<option value="${q}" ${SET.quality === q ? 'selected' : ''}>${q[0].toUpperCase() + q.slice(1)}</option>`).join('')}</select>`) + row(`Field of view: <b>${SET.fov}</b>`, rng('fov', 60, 100, 1, SET.fov)) + row('Show frame rate', `<button class="kb" data-act="fps">${SET.fps ? 'On' : 'Off'}</button>`) + '<p class="small">Low quality turns off shadows and draws fewer pixels: use it if the game is laggy.</p>';
-  if (setTab === 'audio') h = row('Master volume', rng('master', 0, 1, 0.05, SET.master)) + row('Music volume', rng('music', 0, 1, 0.05, music.vol)) + row('Effects volume', rng('sfx', 0, 1, 0.05, audio.vol)) + row('Music', `<button class="kb" data-act="musictoggle">${music.on ? 'On' : 'Off'}</button>`);
+  if (setTab === 'audio') h = row('Master volume', rng('master', 0, 1, 0.05, SET.master)) + row('Music volume', rng('music', 0, 1, 0.05, music.vol)) + row('Effects volume', rng('sfx', 0, 1, 0.05, audio.vol)) + row('Music', `<button class="kb" data-act="musictoggle">${music.on ? 'On' : 'Off'}</button>`) + row(`Sound check · <small>${audio.ctx ? 'audio ' + audio.ctx.state : 'audio not started yet: click anywhere'}${SET.master < 0.05 ? ' · master volume is at zero' : ''}${audio.vol < 0.05 ? ' · effects volume is at zero' : ''}</small>`, '<button class="kb" data-act="testsound">Test sound</button>');
   if (setTab === 'controls') h = row('Mouse sensitivity', rng('sens', 0.3, 2.5, 0.1, sens)) + row('Scope and aim sensitivity', rng('zoomSens', 0.3, 2, 0.1, SET.zoomSens)) + row('Invert mouse up/down', `<button class="kb" data-act="invert">${SET.invert ? 'On' : 'Off'}</button>`) + '<p class="small">Click a key, then press the new key. Esc cancels.</p>' + Object.keys(KB_DEFAULT).filter(k => k !== 'upgrade').map(k => row(KB_NAMES[k], `<button class="kb ${rebinding === k ? 'wait' : ''}" data-key="${k}">${rebinding === k ? 'press a key…' : keyName(KB[k])}</button>`)).join('') + row('', '<button class="kb" data-act="resetkeys">Reset keys</button>');
   $('setBody').innerHTML = h;
 }
@@ -1014,7 +1014,7 @@ $('setBody').addEventListener('input', e => { const k = e.target.dataset.s; if (
   saveSettings(); });
 $('setBody').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.key) { rebinding = b.dataset.key; drawSettings(); return; }
-  const a = b.dataset.act; if (a === 'full') { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => { }); setTimeout(drawSettings, 300); } else if (a === 'fps') SET.fps = !SET.fps; else if (a === 'invert') SET.invert = !SET.invert; else if (a === 'musictoggle') music.toggle(); else if (a === 'resetkeys') Object.assign(KB, KB_DEFAULT);
+  const a = b.dataset.act; if (a === 'testsound') { audio.unlock(); music.start(); setTimeout(() => { audio.gun('rifle', 1, 1, 0); audio.sfx('pickup', 1); drawSettings(); }, 120); return; } if (a === 'full') { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => { }); setTimeout(drawSettings, 300); } else if (a === 'fps') SET.fps = !SET.fps; else if (a === 'invert') SET.invert = !SET.invert; else if (a === 'musictoggle') music.toggle(); else if (a === 'resetkeys') Object.assign(KB, KB_DEFAULT);
   saveSettings(); drawSettings(); });
 addEventListener('keydown', e => { if (!rebinding) return; e.preventDefault(); e.stopPropagation(); if (e.code !== 'Escape') { for (const k in KB) if (KB[k] === e.code && k !== rebinding) KB[k] = KB[rebinding]; KB[rebinding] = e.code; } rebinding = ''; saveSettings(); drawSettings(); }, true);
 applyQuality(); setTimeout(applyAudio, 0);

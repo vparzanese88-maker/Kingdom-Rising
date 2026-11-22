@@ -356,7 +356,6 @@ export class World {
     put(M.stall(), 8, -9.6, 0); this.addBox(8, 0.5, -9.6, 1.4, 0.6, 0.6, 0, null);
     station(8, -8, 0xe2b33a, 'UPGRADES', 'spend your coins here', M.goblin({ hat: 0xe2b33a, shirt: 0x3b6fb5 }), { prompt: 'Buy upgrades', lines: [], after: g => g.ui.shop() });
     put(M.cyl(0x8a8378, 1.6, 0.9, 0, 0, 0), 0, 2).position.y += 0.45; this.addCyl(0, 0.45, 2, 1.6, 0.5, null);
-    for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; this.coin(Math.cos(a) * 15, 1, Math.sin(a) * 15 - 2); }
     this.start = { x: 0, y: 0, z: 10, yaw: 0 };
     buildVillage(this, true); if (this.realm) buildLowlands(this);
   }

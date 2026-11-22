@@ -188,6 +188,9 @@ export const BOUNDS = 180;
 
 // Marines the hub sends down the track toward the hive. Trooper is free; the others are unlocked in the armory.
 export const ALLIES = {
+  pulsesynth: { name: 'Pulse Synth', hp: 650, dmg: 24, rate: 4, range: 20, speed: 5.6, color: 0x8a2020, gun: 'assault', model: 'synth', weapon: 'pulse', unlock: 0, text: 'A chrome robot soldier with a pulse rifle.' },
+  flamesynth: { name: 'Flame Synth', hp: 760, dmg: 9, rate: 10, range: 8, speed: 5.8, color: 0xb04020, gun: 'engineer', model: 'synth', weapon: 'flame', flame: 1, unlock: 0, text: 'A robot soldier that burns everything close with a flamethrower.' },
+  mech: { name: 'War Mech', hp: 3000, dmg: 9, rate: 10, range: 19, speed: 3.6, color: 0x5a6670, gun: 'gunner', model: 'mech', rocket: { dmg: 150, r: 4, cd: 2.4, range: 26 }, unlock: 0, text: 'A big walker with a minigun arm and a rocket pod.' },
   trooper: { name: 'Trooper', hp: 520, dmg: 28, rate: 3, range: 17, speed: 6.0, color: 0x5a7a4a, gun: 'assault', unlock: 0, text: 'Rifleman. Free from the start.' },
   gunner: { name: 'Heavy Gunner', hp: 900, dmg: 13, rate: 11, range: 15, speed: 4.7, color: 0x8a7a3a, gun: 'engineer', unlock: 300, text: 'Slow and tough, with a hail of bullets.' },
   rocketeer: { name: 'Rocketeer', hp: 440, dmg: 200, rate: 0.5, range: 24, speed: 5.5, splash: 3.6, color: 0x8a4a3a, gun: 'heavy', unlock: 450, text: 'Rockets that blow up packs of aliens.' },

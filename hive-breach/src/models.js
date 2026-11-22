@@ -58,6 +58,34 @@ export function marine(color, cls) {
   g.userData = { legL, legR, arms };
   return g;
 }
+// a combat synth: a chrome robot soldier with a skull-like head and red eyes, carrying a flamethrower or a pulse rifle
+export function synth(weapon) {
+  const g = new THREE.Group(), chrome = mat(0xb8c0c8, { m: 0.9, r: 0.25 }), dark = mat(0x2a2e34, { m: 0.6, r: 0.4 }), eye = mat(0xff2010, { e: 0xff1000, ei: 3 });
+  const legL = new THREE.Group(), legR = new THREE.Group(); legL.position.set(-0.2, 1.0, 0); legR.position.set(0.2, 1.0, 0); g.add(legL, legR);
+  for (const L of [legL, legR]) { C(L, 0.07, 0.07, 0.5, chrome, 0, -0.25, 0); S(L, 0.09, dark, 0, -0.52, 0); C(L, 0.06, 0.06, 0.45, chrome, 0, -0.76, 0); B(L, 0.18, 0.08, 0.34, dark, 0, -0.98, -0.05); }
+  B(g, 0.42, 0.18, 0.24, dark, 0, 1.05, 0); for (let i = 0; i < 4; i++) B(g, 0.5 - i * 0.04, 0.05, 0.28, chrome, 0, 1.22 + i * 0.1, 0); B(g, 0.12, 0.45, 0.12, dark, 0, 1.35, 0.08); B(g, 0.62, 0.14, 0.3, chrome, 0, 1.66, 0);
+  S(g, 0.19, chrome, 0, 1.98, 0, 0.95, 1.1, 1.05); B(g, 0.28, 0.06, 0.06, dark, 0, 1.97, -0.17); S(g, 0.035, eye, -0.07, 1.98, -0.19); S(g, 0.035, eye, 0.07, 1.98, -0.19); B(g, 0.18, 0.06, 0.1, dark, 0, 1.84, -0.14);
+  for (const sd of [-1, 1]) S(g, 0.12, dark, sd * 0.36, 1.66, 0);
+  const arms = new THREE.Group(); arms.position.set(0, 1.6, 0); g.add(arms);
+  C(arms, 0.05, 0.05, 0.5, chrome, -0.36, -0.2, -0.12).rotation.x = -0.9; C(arms, 0.05, 0.05, 0.5, chrome, 0.36, -0.2, -0.12).rotation.x = -0.9;
+  if (weapon === 'flame') { const f = new THREE.Group(); f.position.set(0.15, -0.35, -0.5); arms.add(f); B(f, 0.14, 0.16, 0.6, dark, 0, 0, 0); C(f, 0.05, 0.08, 0.35, chrome, 0, 0.02, -0.45).rotation.x = Math.PI / 2; S(f, 0.04, 0x40a0ff, 0, 0.02, -0.64, 1, 1, 1, { e: 0x2080ff, ei: 3 }); for (const sd of [-1, 1]) C(g, 0.11, 0.11, 0.55, 0xb04020, sd * 0.13, 1.42, 0.24); }
+  else { const gun = gunModel('assault', 0x8a2020); gun.position.set(0.15, -0.35, -0.5); gun.scale.setScalar(1.3); arms.add(gun); }
+  g.userData = { legL, legR, arms }; return g;
+}
+// the war mech: a big two-legged walker with a minigun on its left arm and a rocket pod on its right
+export function warMech() {
+  const g = new THREE.Group(), hull = mat(0x5a6670, { m: 0.6, r: 0.45 }), dark = mat(0x23282e, { m: 0.5, r: 0.5 }), stripe = mat(0xd09030), glow = mat(0x60e0ff, { e: 0x30a0ff, ei: 2.5 });
+  const legL = new THREE.Group(), legR = new THREE.Group(); legL.position.set(-0.75, 2.3, 0); legR.position.set(0.75, 2.3, 0); g.add(legL, legR);
+  for (const L of [legL, legR]) { B(L, 0.55, 1.2, 0.7, hull, 0, -0.55, 0.1); S(L, 0.3, dark, 0, -1.2, 0.15); const sh = B(L, 0.45, 1.1, 0.5, hull, 0, -1.7, -0.05); sh.rotation.x = 0.2; B(L, 0.8, 0.25, 1.2, dark, 0, -2.22, -0.1); }
+  B(g, 1.9, 1.1, 1.6, hull, 0, 3.0, 0); B(g, 1.92, 0.2, 0.6, stripe, 0, 3.4, 0.3); B(g, 1.2, 0.5, 0.2, glow, 0, 3.1, -0.82); B(g, 1.4, 0.8, 1.0, dark, 0, 2.3, 0.2); B(g, 0.8, 0.9, 0.9, hull, 0, 3.4, 0.9);
+  C(g, 0.04, 0.04, 1.2, 0x222222, 0.6, 4.1, 0.6); S(g, 0.07, 0xff3020, 0.6, 4.7, 0.6, 1, 1, 1, { e: 0xff2010, ei: 3 });
+  const arms = new THREE.Group(); arms.position.set(0, 3.0, 0); g.add(arms);
+  // left arm: a six-barrel minigun
+  const lA = new THREE.Group(); lA.position.set(-1.3, 0, -0.2); arms.add(lA); B(lA, 0.55, 0.6, 1.1, hull, 0, 0, 0); const bar = new THREE.Group(); bar.position.set(0, -0.05, -0.75); lA.add(bar); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; C(bar, 0.06, 0.06, 1.4, dark, Math.cos(a) * 0.16, Math.sin(a) * 0.16, -0.6).rotation.x = Math.PI / 2; } C(bar, 0.24, 0.24, 0.12, hull, 0, 0, -1.25).rotation.x = Math.PI / 2; B(lA, 0.35, 0.4, 0.5, 0x4a5a3a, 0.4, 0, 0.2);
+  // right arm: a 2x3 rocket pod
+  const rA = new THREE.Group(); rA.position.set(1.35, 0.1, -0.1); arms.add(rA); B(rA, 0.75, 0.75, 1.2, hull, 0, 0, 0); for (let x = 0; x < 2; x++) for (let y = 0; y < 3; y++) { C(rA, 0.1, 0.1, 0.1, 0x111111, -0.17 + x * 0.34, -0.24 + y * 0.24, -0.62).rotation.x = Math.PI / 2; K(rA, 0.07, 0.16, 0xd04030, -0.17 + x * 0.34, -0.24 + y * 0.24, -0.66).rotation.x = -Math.PI / 2; }
+  g.userData = { legL, legR, arms, spin: bar, mech: 1 }; return g;
+}
 export function kneel(m, k) { m.rotation.x = 0; if (k === 2) { const u = m.userData; u.kn = 0; m.rotation.x = 0; m.children.forEach(c => { c.userData.y0 ??= c.position.y; }); m.rotation.order = 'YXZ'; m.rotation.x = -1.45; m.position.y += 0.35; return; }
    const u = m.userData; u.kn = (u.kn || 0) + ((k ? 1 : 0) - (u.kn || 0)) * 0.2; u.legL.rotation.x = u.kn ? -1.3 * u.kn : u.legL.rotation.x; u.legR.rotation.x = u.kn ? 0.2 * u.kn : u.legR.rotation.x; m.children.forEach(c => { if (c !== u.legL && c !== u.legR) c.position.y = (c.userData.y0 ??= c.position.y) - u.kn * 0.5; }); }
 export function animMarine(m, t, sp) { const u = m.userData, a = Math.sin(t) * Math.min(1, sp / 4) * 0.8; u.legL.rotation.x = a; u.legR.rotation.x = -a; }

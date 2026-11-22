@@ -441,10 +441,12 @@ function syncView(S, dt) {
   seen.clear();
   for (const m of S.L || []) {
     seen.add(m.id); let v = view.allies.get(m.id); const AL = ALLIES[m.type];
-    if (!v) { const mesh = M.marine(AL.color, AL.gun); mesh.scale.setScalar(1.12); scene.add(mesh); v = { mesh, x: m.x, y: m.y, z: m.z, t: 0, acc: Math.random() * 0.3 }; view.allies.set(m.id, v); }
+    if (!v) { const mesh = AL.model === 'mech' ? M.warMech() : AL.model === 'synth' ? M.synth(AL.weapon) : M.marine(AL.color, AL.gun); mesh.scale.setScalar(AL.model ? 1.05 : 1.12); scene.add(mesh); v = { mesh, x: m.x, y: m.y, z: m.z, t: 0, acc: Math.random() * 0.3 }; view.allies.set(m.id, v); }
     const kk = 1 - Math.exp(-dt * 10), ox = v.x, oz = v.z; v.x += (m.x - v.x) * kk; v.y += (m.y - v.y) * kk; v.z += (m.z - v.z) * kk; const spd = Math.hypot(v.x - ox, v.z - oz) / Math.max(dt, 1e-4);
     v.t += dt * Math.min(spd, 6) * 1.8; M.animMarine(v.mesh, v.t, spd); v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = m.ry;
-    if (m.tg && !AL.splash) { v.acc += dt; const tv = view.aliens.get(m.tg); if (tv && v.acc > 1 / Math.min(AL.rate, 8)) { v.acc = 0; const mx = v.x - Math.sin(m.ry) * 0.9, mz = v.z - Math.cos(m.ry) * 0.9; tracer([mx, v.y + 1.3, mz], [tv.x, tv.y + ALIENS[tv.type].h * 0.6, tv.z], AL.gun === 'engineer' ? 0x60c0ff : 0xffe080, 0.05); const dd = dist(v.x, v.z); audio.gun(AL.gun === 'engineer' ? 'smg' : 'rifle', vol(dd) * 0.6, 1, Math.min(1, dd / 45)); flashAt([mx, v.y + 1.3, mz], 0.7); } }
+    if (v.mesh.userData.spin) v.mesh.userData.spin.rotation.z += dt * (m.tg ? 30 : 2);
+    if (m.tg && AL.flame) { const tv = view.aliens.get(m.tg); if (tv) { const fx0 = v.x - Math.sin(m.ry) * 0.9, fz0 = v.z - Math.cos(m.ry) * 0.9, dx = tv.x - fx0, dz = tv.z - fz0, d = Math.hypot(dx, dz) || 1; for (let i = 0; i < 2; i++) flame(fx0, v.y + 1.2, fz0, dx / d * 9 + (Math.random() - 0.5) * 2, dz / d * 9 + (Math.random() - 0.5) * 2); v.acc = (v.acc || 0) + dt; if (v.acc > 0.4) { v.acc = 0; audio.sfx('flame', vol(dist(v.x, v.z)) * 0.5); } } }
+    else if (m.tg && !AL.splash) { v.acc += dt; const tv = view.aliens.get(m.tg); const hgt = AL.model === 'mech' ? 2.95 : 1.3, off = AL.model === 'mech' ? 2.2 : 0.9; if (tv && v.acc > 1 / Math.min(AL.rate, 8)) { v.acc = 0; const sx = AL.model === 'mech' ? -1.3 : 0, mx = v.x - Math.sin(m.ry) * off + Math.cos(m.ry) * sx * 1.05, mz = v.z - Math.cos(m.ry) * off - Math.sin(m.ry) * sx * 1.05; tracer([mx, v.y + hgt, mz], [tv.x, tv.y + ALIENS[tv.type].h * 0.6, tv.z], AL.model === 'synth' ? 0xff5040 : AL.gun === 'engineer' ? 0x60c0ff : 0xffe080, 0.05); const dd = dist(v.x, v.z); audio.gun(AL.model === 'mech' || AL.gun === 'gunner' ? 'mini' : AL.gun === 'engineer' ? 'smg' : 'rifle', vol(dd) * 0.6, 1, Math.min(1, dd / 45)); flashAt([mx, v.y + hgt, mz], 0.7); } }
   }
   for (const [id, v] of view.allies) if (!seen.has(id)) { scene.remove(v.mesh); view.allies.delete(id); }
   // the Brood Queen's lair

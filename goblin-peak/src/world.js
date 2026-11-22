@@ -130,7 +130,7 @@ export class World {
     if ((s.t === 'path' || s.t === 'ramp' || s.t === 'traps' || s.t === 'chase' || s.t === 'ambush') && s.coins !== 0) this.coinLine(s, 2, s.len - 2, a => Math.sin(a * 0.16 + s.idx) * (s.w - 2.2), 1, Math.floor(s.len / 4.5));
     for (const m of s.mobs || []) { const f = s.at(m[1] * s.len, m[2] || 0, 0); this.add(new Mob(this, m[0], f.x, f.z, { range: m[3] || Math.min(16, s.len / 2) })); if (G.coop && this.def.diff > 0 && ['grunt', 'brute', 'shield', 'boar', 'ram'].includes(m[0])) { const g = s.at(Math.min(s.len - 2, m[1] * s.len + 4), -(m[2] || 0) + 1.5, 0); this.add(new Mob(this, m[0], g.x, g.z, { range: m[3] || Math.min(16, s.len / 2) })); } }
     if (s.chest) { const f = s.at(s.len / 2, -s.w + 2, 0); this.add(new Chest(this, f.x, f.z, s.chest, f.yaw + Math.PI / 2)); }
-    for (const n0 of s.npcs || []) { if (!n0.stall) continue; const n = Object.assign({}, n0, { lines: [] }); const f = s.at(n.a === undefined ? s.len / 2 : n.a, n.lat === undefined ? -s.w + 1.6 : n.lat, 0); if (n.stall) { const st = M.stall(); st.position.set(f.x - f.nx * 1.4, this.T.hAt(f.x, f.z), f.z - f.nz * 1.4); st.rotation.y = Math.atan2(f.nx, f.nz); this.scene.add(st); } this.add(new NPC(this, f.x, f.z, { name: n.name, model: n.model(), lines: n.lines, after: n.after, prompt: n.prompt })); }
+    for (const n0 of []) { if (!n0.stall) continue; const n = Object.assign({}, n0, { lines: [] }); const f = s.at(n.a === undefined ? s.len / 2 : n.a, n.lat === undefined ? -s.w + 1.6 : n.lat, 0); if (n.stall) { const st = M.stall(); st.position.set(f.x - f.nx * 1.4, this.T.hAt(f.x, f.z), f.z - f.nz * 1.4); st.rotation.y = Math.atan2(f.nx, f.nz); this.scene.add(st); } this.add(new NPC(this, f.x, f.z, { name: n.name, model: n.model(), lines: n.lines, after: n.after, prompt: n.prompt })); }
     if (s.tip) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 't' + this.def.id + s.idx, fn: () => G.ui.toast(s.tip, 9) });
     if (false) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 'b' + this.def.id + s.idx, fn: () => G.ui.bark(s.bark[0], s.bark[1]) });
     if (s.name) this.triggers.push({ p0: s.p0, p1: s.p0 + 8 / sp.R(s.p0), fn: () => G.ui.area(s.name), repeat: 40 });
@@ -281,7 +281,7 @@ export class World {
   }
   b_camp(s) {
     const sp = this.spiral, idx = ++this.campN, f = this.ground(s, 9, -2.5); const cmp = this.add(new Camp(this, f.x, f.z, idx)); cmp.sec = s; this.camps.push(cmp);
-    const t1 = M.tent(0xc9a25a); this.deco(s, 5, -5.5, 0, t1, Math.PI); const t2 = M.tent(0xb5652a); this.deco(s, 13, -6, 0, t2, Math.PI);
+
     // the rope net down the cliff
     const phi = s.p0 + (21 / s.len) * (s.p1 - s.p0), dY = sp.trailY(phi) - sp.groundY(phi - TAU), cw = clamp(Math.abs(dY) / 1.6, 1.5, sp.P - s.w - 5), l0 = s.w - 1.5, l1 = s.w + cw + 2.5, c = sp.frame(phi, (l0 + l1) / 2, 0), hl = (l1 - l0) / 2;
     const pts = [], uv = [], ix = []; let k = 0; for (let q = -hl; q <= hl + 0.01; q += 1, k++) { for (const sd of [-2.2, 2.2]) { const x = c.x + c.nx * q + c.tx * sd, z = c.z + c.nz * q + c.tz * sd; pts.push(x, this.T.hAt(x, z) + 0.18, z); uv.push(sd < 0 ? 0 : 3, k * 0.7); } if (k) { const a = (k - 1) * 2; ix.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }

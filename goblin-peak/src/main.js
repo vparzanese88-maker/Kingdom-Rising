@@ -125,23 +125,13 @@ class Game {
   dazed() { const P = this.player, N = this.net; if (N.count() < 2 || P.down > 0 || this.mode === 'race') return; P.daze = (P.daze || 0) + 1; P.dazeT = 9; if (P.daze >= 3) { P.daze = 0; P.down = 16; this.ui.toast('You are seeing stars. A friend can help you up (E beside you), or wait it out.', 6); N.call(true); } }
   // A real fall costs coins, and they are not left lying about: they go back to the places they were first picked up, for anyone to find.
   fallCost() { const S = this.save, n = Math.min(S.coins, Math.max(5, Math.min(40, Math.round(S.coins * 0.2)))); if (n <= 0) return; S.coins -= n; let back = 0; const took = this.took || []; while (back < n && took.length) { const [r, i] = took.pop(), W = this.regions ? this.regions[r] : (this.world.def.id === r ? this.world : null); if (W) { W.showCoin(i); this.net.send({ t: 'cr', r, i }); back++; } } this.ui.toast(`That fall cost you ${n} coins.` + (back ? ` ${back} of them are back where they were first found.` : ''), 5); }
-  // Nib's lucky line: fall off the trail and, for a price, be hauled back to where you last stood.
+  // Fall too far off the mountain and you are put back at your last lit campfire (or the trailhead).
   lucky(dt) {
-    const P = this.player, S = this.save, W = this.world; if (P.dazeT > 0 && (P.dazeT -= dt) <= 0) P.daze = 0; if (this.callMark) this.callMark.t -= dt;
-    if (!this.fall) { const sf = P.safe; if (sf && sf.r === W.def.id && !W.def.hub && P.pos.y < sf.y - 9 && !this.locked) { this.fall = { x: sf.x, y: sf.y, z: sf.z, yaw: sf.yaw, r: sf.r, t: 9 }; this.audio.sfx('nope'); this.fallCost(); } return; }
-    const f = this.fall, cost = Math.min(90, 30 + (this.lineUses || 0) * 10); f.t -= dt; if (f.t <= 0 || f.r !== W.def.id) { this.fall = null; P.safe = null; this.ui.show('lucky', false); return; }
-    this.ui.show('lucky', true); this.ui.set('luckyT', S.coins >= cost ? `Press R: Nib's lucky line hauls you back up (${cost} coins)  ·  ${Math.ceil(f.t)}` : `Nib's lucky line costs ${cost} coins. You have ${S.coins}. It is a long walk back.`);
-    if (this.input.hit('KeyR') && S.coins >= cost && !this.locked) { S.coins -= cost; this.lineUses = (this.lineUses || 0) + 1; const yaw = f.yaw; P.spawn(f.x, f.y + 0.3, f.z, yaw); P.inv = 2; this.fall = null; this.ui.show('lucky', false); this.audio.sfx('hook'); this.audio.sfx('buy'); this.ui.toast('Hauled back up. Nib says the next one costs more.', 3); }
+    const P = this.player, W = this.world; if (P.dazeT > 0 && (P.dazeT -= dt) <= 0) P.daze = 0; if (this.callMark) this.callMark.t -= dt;
+    if (!this.fall) { const sf = P.safe; if (sf && sf.r === W.def.id && !W.def.hub && P.pos.y < sf.y - 12 && !this.locked && !P.zep) { this.fall = { r: sf.r, t: 1.1 }; this.audio.sfx('nope'); this.fallCost(); $('fade').style.opacity = 0.85; } return; }
+    const f = this.fall; f.t -= dt; if (f.t > 0) return; this.fall = null; P.safe = null; $('fade').style.opacity = 0;
+    if (f.r === W.def.id) { const n = this.save.camp[W.def.id] || 0, c = n && W.camps[n - 1]; this.toCamp(true); P.inv = 2; this.audio.sfx('camp'); this.ui.toast(c ? `You fell. Back at your checkpoint: ${c.sec.name || 'the campfire'}.` : 'You fell. Back at the start of the trail: light a campfire to set a checkpoint.', 5); }
   }
-  // Online: a fresh copy of the chosen mountain, everyone wiped clean and lined up, then a countdown.
-  startRace(map, mode, slot, n) {
-    const S = this.save, old = this.regions[map]; this.mode = mode; this.raceMap = map; this.fall = null; this.ui.show('lucky', false);
-    Object.assign(S, { items: mode === 'race' ? { whip: 1, boots: 1 } : { whip: 1 }, relics: {}, jewels: {}, camp: {}, run: {}, done: {}, best: {}, seen: {} });      // coins and bought upgrades carry on from the town this.lineUses = 0;
-    this.rg.remove(old.scene); const W = new World(this, LEVELS[map], true); W.xf = old.xf; W.scene.position.copy(old.scene.position); W.scene.rotation.y = old.scene.rotation.y; W.terrainMesh.position.y = 0.03; this.rg.add(W.scene); this.regions[map] = W;
-    this.setActive(W); const s0 = W.secs[0], f = s0.at(4, (slot - (n - 1) / 2) * 1.7, 0), P = this.player; P.spawn(f.x, f.y + 0.1, f.z, Math.atan2(-f.tx, -f.tz)); P.down = 0; P.daze = 0; P.safe = null;
-    this.count = 19.99; this.locked = true; this.ui.show('lobbyBox', false); this.ui.closeAll(); this.audio.sfx('camp');
-  }
-  toLobby() { this.mode = null; this.count = 0; this.locked = false; this.player.zep = false; this.audio.music(this.world.theme.music); this.loadLevel('lobby'); const a = Math.random() * 6.28; this.player.spawn(Math.cos(a) * 4, 0.2, 10 + Math.sin(a) * 3, 0); }
   // One of the hundred lowland adventures done.
   act(id, name, coins, x, y, z) { const S = this.save; if (S.acts[id]) return; this.net.send({ t: 'act', id, name }); S.acts[id] = 1; const n = Object.keys(S.acts).length; this.audio.sfx('jewel'); if (coins) this.world.dropCoins(x, y, z, Math.min(40, coins)); this.ui.toast(`${name}!  Lowland adventures: ${n} of ${ACT_TOTAL}` + (n === ACT_TOTAL ? '. Every single one. The stones were right about you.' : ''), 5); this.saveNow(); }
   stat(k, n = 1) { this.save.stats[k] = (this.save.stats[k] || 0) + n; }

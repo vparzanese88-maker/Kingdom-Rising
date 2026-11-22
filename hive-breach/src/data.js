@@ -138,12 +138,12 @@ export const UPGRADES_OLD = [
 export const UPG_PRICES = [80, 150, 240, 360, 520];
 
 export const ALIENS = {
-  crawler: { name: 'Crawler', hp: 65, speed: 8.6, hub: 3, bounty: 6, r: 0.7, h: 0.55, dmg: 11, melee: 1, hunt: { p: 13, leash: 22, time: 7, cd: 3 } },
-  spitter: { name: 'Spitter', hp: 95, speed: 5.4, hub: 4, bounty: 11, r: 0.8, h: 1.2, dmg: 11, ranged: 18 },
-  brute: { name: 'Brute', hp: 400, speed: 3.6, hub: 10, bounty: 28, r: 1.3, h: 1.4, dmg: 26, melee: 1, armor: 0.35, hunt: { t: 12, p: 6, leash: 18, time: 12, cd: 4 } },
-  flyer: { name: 'Stinger', hp: 55, speed: 9.5, hub: 3, bounty: 9, r: 0.8, h: 4.2, dmg: 9, fly: 1, melee: 1, hunt: { p: 15, t: 9, leash: 26, time: 6, cd: 4 } },
-  ravager: { name: 'Ravager', hp: 3400, speed: 2.8, hub: 30, bounty: 220, r: 2.2, h: 2.2, dmg: 40, melee: 1, armor: 0.35, boss: 1, hunt: { t: 14, p: 9, leash: 20, time: 10, cd: 5 } },
-  queen: { name: 'Hive Queen', hp: 15000, speed: 2.0, hub: 100, bounty: 1000, r: 3.4, h: 3.3, dmg: 55, melee: 1, armor: 0.35, boss: 1, ranged: 24 },
+  crawler: { name: 'Stalker', hp: 65, speed: 8.6, hub: 3, bounty: 6, r: 0.8, h: 0.9, dmg: 11, melee: 1, hunt: { p: 13, leash: 22, time: 7, cd: 3 } },
+  spitter: { name: 'Spewer', hp: 95, speed: 5.4, hub: 4, bounty: 11, r: 0.8, h: 1.6, dmg: 11, ranged: 18 },
+  brute: { name: 'Juggernaut', hp: 400, speed: 3.6, hub: 10, bounty: 28, r: 1.4, h: 1.5, dmg: 26, melee: 1, armor: 0.35, hunt: { t: 12, p: 6, leash: 18, time: 12, cd: 4 } },
+  flyer: { name: 'Wraith', hp: 55, speed: 9.5, hub: 3, bounty: 9, r: 0.7, h: 4.2, dmg: 9, fly: 1, melee: 1, hunt: { p: 15, t: 9, leash: 26, time: 6, cd: 4 } },
+  ravager: { name: 'Behemoth', hp: 3400, speed: 2.8, hub: 30, bounty: 220, r: 1.4, h: 1.5, dmg: 40, melee: 1, armor: 0.35, boss: 1, hunt: { t: 14, p: 9, leash: 20, time: 10, cd: 5 } },
+  queen: { name: 'Hive Tyrant', hp: 15000, speed: 2.0, hub: 100, bounty: 1000, r: 3.4, h: 3.5, dmg: 55, melee: 1, armor: 0.35, boss: 1, ranged: 24 },
   nest: { name: 'Alien Nest', hp: 600, speed: 0, hub: 0, bounty: 80, r: 2.0, h: 1.0, dmg: 0, nest: 1, static: 1 },
   guardian: { name: 'Hive Guardian', hp: 2600, speed: 0, hub: 0, bounty: 150, r: 1.7, h: 3.2, dmg: 13, static: 1, armor: 0.2, guard: 26 },
   hivecore: { name: 'The Hive', hp: 12000, speed: 0, hub: 0, bounty: 1500, r: 5.5, h: 2.4, dmg: 0, static: 1 },

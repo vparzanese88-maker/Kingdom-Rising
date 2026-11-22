@@ -63,57 +63,89 @@ export function kneel(m, k) { m.rotation.x = 0; if (k === 2) { const u = m.userD
 export function animMarine(m, t, sp) { const u = m.userData, a = Math.sin(t) * Math.min(1, sp / 4) * 0.8; u.legL.rotation.x = a; u.legR.rotation.x = -a; }
 
 // ---------------------------------------------------------------- aliens
-const SKIN = { guardian: 0x2e1a3e, hivecore: 0x3a2048, nest: 0x3a2048, crawler: 0x4a2a5e, spitter: 0x3a5a2a, brute: 0x5a3030, flyer: 0x2a4a5e, ravager: 0x7a1e1e, queen: 0x2e1a3e };
-const GLOW = { guardian: 0xff3060, hivecore: 0xa040ff, nest: 0x80ff40, crawler: 0x80ff40, spitter: 0xc0ff30, brute: 0xff8020, flyer: 0x40e0ff, ravager: 0xff3020, queen: 0xff40ff };
+// ---------------------------------------------------------------- the Kharn: an armored alien war-species
+// Original designs: chitin plates over dark hide, blade limbs, glowing eyes and veins. Every model faces -Z.
+const CHITIN = { crawler: 0x4a3c30, spitter: 0x434a34, brute: 0x584638, flyer: 0x3a4652, ravager: 0x5a2a22, queen: 0x463042, guardian: 0x2e1a3e, hivecore: 0x3a2048, nest: 0x3a2048 };
+const PLATE = { crawler: 0x7a6a52, spitter: 0x667048, brute: 0x8a7a62, flyer: 0x6a7c8a, ravager: 0x8a3a2a, queen: 0x7a5270 };
+const GLOW = { guardian: 0xff3060, hivecore: 0xa040ff, nest: 0x80ff40, crawler: 0xff5020, spitter: 0xc0ff30, brute: 0xff8020, flyer: 0x40e0ff, ravager: 0xff3020, queen: 0xff40ff };
+// a limb: an upper segment and a lower one hinged at the knee, with a claw; the group swings at the hip
+function limb(parent, x, y, z, up, low, th, m, side, knee = 0.9) {
+  const hip = new THREE.Group(); hip.position.set(x, y, z); parent.add(hip);
+  const a = B(hip, th, up, th, m, 0, -up / 2, 0); a.rotation.z = side * 0.35; const kn = new THREE.Group(); kn.position.set(side * up * 0.34, -up * 0.94, 0); hip.add(kn);
+  const b = B(kn, th * 0.8, low, th * 0.8, m, 0, -low / 2, 0); kn.rotation.x = knee * 0.5; b.rotation.z = -side * 0.25; K(kn, th * 0.5, th * 2.2, 0x111111, 0, -low - th * 0.6, -th * 0.4).rotation.x = Math.PI;
+  hip.userData.knee = kn; return hip;
+}
+// a scything blade arm
+function scythe(parent, x, y, z, len, m, side) {
+  const sh = new THREE.Group(); sh.position.set(x, y, z); parent.add(sh); const up = B(sh, 0.14, len * 0.5, 0.14, m, 0, -len * 0.22, -len * 0.12); up.rotation.x = 0.5;
+  const fore = new THREE.Group(); fore.position.set(0, -len * 0.42, -len * 0.3); sh.add(fore); const bl = K(fore, 0.07, len, 0xd8d0b8, 0, -len * 0.1, -len * 0.45, { m: 0.4, r: 0.3 }); bl.rotation.x = -1.9; bl.scale.set(1, 1, 0.35);
+  sh.rotation.z = side * 0.15; return sh;
+}
 export function alien(type) {
-  const g = new THREE.Group(), body = new THREE.Group(), sk = SKIN[type], gl = mat(GLOW[type], { e: GLOW[type], ei: 1.5 }), dk = 0x1a1420, legs = [];
+  const g = new THREE.Group(), body = new THREE.Group(), legs = [], arms = [], wings = [], sacs = [], hide = mat(CHITIN[type] || 0x2a2420, { r: 0.55, m: 0.15, flat: false }), plate = mat(PLATE[type] || 0x5a4a3a, { r: 0.4, m: 0.25 }),
+    gl = mat(GLOW[type], { e: GLOW[type], ei: 2 }), dk = 0x141012; let tail = null, head = null;
   g.add(body);
-  const leg = (x, y, z, len, th, side) => { const p = new THREE.Group(); p.position.set(x, y, z); body.add(p); const a = B(p, th, len, th, dk, 0, -len / 2, 0); a.rotation.z = side * 0.5; a.position.x = side * len * 0.24; legs.push(p); return p; };
-  if (type === 'crawler') {
-    S(body, 0.5, sk, 0, 0.55, 0.1, 1, 0.6, 1.5); S(body, 0.32, sk, 0, 0.6, -0.65, 1, 0.8, 1.1); S(body, 0.07, gl, -0.13, 0.68, -0.92); S(body, 0.07, gl, 0.13, 0.68, -0.92);
-    K(body, 0.08, 0.5, 0x2a1a30, -0.15, 0.5, -0.95).rotation.x = -1.8; K(body, 0.08, 0.5, 0x2a1a30, 0.15, 0.5, -0.95).rotation.x = -1.8; K(body, 0.12, 0.8, dk, 0, 0.7, 0.8).rotation.x = 1.9;
-    for (let i = 0; i < 3; i++) for (const s of [-1, 1]) leg(s * 0.4, 0.55, -0.3 + i * 0.35, 0.7, 0.07, s);
-  } else if (type === 'spitter') {
-    S(body, 0.45, sk, 0, 1.0, 0, 0.9, 1.2, 0.9); S(body, 0.5, gl, 0, 1.4, 0.35, 1, 1, 1, ); S(body, 0.3, sk, 0, 1.75, -0.2); S(body, 0.06, gl, -0.12, 1.82, -0.45); S(body, 0.06, gl, 0.12, 1.82, -0.45);
-    C(body, 0.1, 0.18, 0.5, dk, 0, 1.65, -0.5).rotation.x = Math.PI / 2;
-    for (const s of [-1, 1]) leg(s * 0.3, 0.75, 0, 0.8, 0.12, s);
-  } else if (type === 'brute' || type === 'ravager') {
-    const big = type === 'ravager' ? 1.7 : 1;
-    S(body, 0.9, sk, 0, 1.3, 0, 1.2, 0.9, 1.3); S(body, 0.5, sk, 0, 1.4, -1.0, 1, 0.8, 1); B(body, 1.3, 0.3, 1.6, 0x3a2420, 0, 2.0, 0.1, { m: 0.3 });
-    S(body, 0.09, gl, -0.2, 1.5, -1.45); S(body, 0.09, gl, 0.2, 1.5, -1.45);
-    for (let i = 0; i < 4; i++) K(body, 0.16, 0.6, 0x2a1810, 0, 2.2, -0.6 + i * 0.45).rotation.x = 0.3;
-    for (const s of [-1, 1]) { const a = leg(s * 0.95, 1.6, -0.6, 1.4, 0.3, s); S(a, 0.25, sk, s * 0.4, -1.3, -0.1); }
-    for (const s of [-1, 1]) leg(s * 0.6, 0.9, 0.5, 0.9, 0.28, s);
-    if (type === 'ravager') for (let i = 0; i < 5; i++) K(body, 0.18, 0.9, 0xd04030, (i - 2) * 0.35, 2.4, -0.4).rotation.z = (i - 2) * 0.3;
-    g.scale.setScalar(big);
-  } else if (type === 'flyer') {
-    S(body, 0.4, sk, 0, 0, 0, 0.8, 0.7, 1.6); K(body, 0.12, 0.9, dk, 0, -0.05, 0.9).rotation.x = 1.6; S(body, 0.08, gl, -0.12, 0.1, -0.6); S(body, 0.08, gl, 0.12, 0.1, -0.6);
-    const wm = mat(0x80c0e0, { op: 0.55, ds: true, e: 0x204060 });
-    for (const s of [-1, 1]) { const p = new THREE.Group(); p.position.set(s * 0.25, 0.15, 0); body.add(p); const w = B(p, 1.4, 0.03, 0.6, wm, s * 0.7, 0, 0); w.castShadow = false; legs.push(p); }
+  const eyes = (h, x, y, z, n = 3) => { for (let i = 0; i < n; i++) for (const sd of [-1, 1]) S(h, 0.045, gl, sd * (x + i * 0.04), y + i * 0.05, z + i * 0.06); };
+  const spines = (p, n, x0, y0, z0, dz, sz) => { for (let i = 0; i < n; i++) K(p, 0.07 * sz, 0.45 * sz * (1 - Math.abs(i - n / 2) / n), plate, x0, y0, z0 + i * dz).rotation.x = 0.4; };
+  if (type === 'crawler') { // STALKER: lean four-legged hunter with scythe forelimbs
+    S(body, 0.36, hide, 0, 0.9, 0.1, 0.85, 0.75, 1.9); for (let i = 0; i < 5; i++) { const pl = B(body, 0.5 - i * 0.05, 0.08, 0.34, plate, 0, 1.18 - i * 0.02, -0.45 + i * 0.3); pl.rotation.x = 0.12; }
+    spines(body, 6, 0, 1.25, -0.5, 0.26, 1);
+    head = new THREE.Group(); head.position.set(0, 1.0, -0.85); body.add(head); const sk = K(head, 0.24, 0.75, hide, 0, 0, -0.25); sk.rotation.x = -Math.PI / 2; B(head, 0.36, 0.08, 0.5, plate, 0, 0.13, -0.15); eyes(head, 0.1, 0.05, -0.32);
+    for (const sd of [-1, 1]) { const md = K(head, 0.05, 0.4, 0xd8d0b8, sd * 0.13, -0.12, -0.5); md.rotation.set(-1.4, 0, sd * 0.4); }
+    for (const sd of [-1, 1]) arms.push(scythe(body, sd * 0.32, 1.05, -0.55, 1.2, hide, sd));
+    for (const [z, sd] of [[-0.25, -1], [-0.25, 1], [0.55, -1], [0.55, 1]]) legs.push(limb(body, sd * 0.3, 0.85, z, 0.55, 0.6, 0.12, hide, sd, z > 0 ? -0.9 : 0.9));
+    tail = new THREE.Group(); tail.position.set(0, 0.95, 0.75); body.add(tail); for (let i = 0; i < 4; i++) S(tail, 0.15 - i * 0.025, i % 2 ? plate : hide, 0, 0.05 * i, 0.22 * i, 1, 1, 1.4); K(tail, 0.06, 0.4, 0xd8d0b8, 0, 0.25, 1.05).rotation.x = 1.2;
+  } else if (type === 'spitter') { // SPEWER: hunched biped carrying glowing acid sacs
+    S(body, 0.42, hide, 0, 1.45, 0.1, 0.9, 1.1, 0.9); B(body, 0.62, 0.5, 0.12, plate, 0, 1.5, -0.32).rotation.x = -0.3;
+    for (const [x, y, z, r] of [[0, 1.75, 0.35, 0.38], [-0.3, 1.5, 0.4, 0.26], [0.3, 1.5, 0.4, 0.26]]) { const sc = S(body, r, mat(0xb0ff30, { e: 0x80c010, ei: 1.4, op: 0.85 }), x, y, z); sacs.push(sc); }
+    const neck = B(body, 0.16, 0.6, 0.16, hide, 0, 1.95, -0.3); neck.rotation.x = -0.7; head = new THREE.Group(); head.position.set(0, 2.15, -0.62); body.add(head);
+    S(head, 0.2, hide, 0, 0, 0, 1, 0.8, 1.3); B(head, 0.3, 0.06, 0.32, plate, 0, 0.12, -0.05); eyes(head, 0.08, 0.06, -0.2, 2); const jaw = B(head, 0.22, 0.06, 0.28, hide, 0, -0.14, -0.12); jaw.rotation.x = 0.35; S(head, 0.08, gl, 0, -0.06, -0.26);
+    for (const sd of [-1, 1]) { legs.push(limb(body, sd * 0.25, 1.1, 0.1, 0.62, 0.66, 0.15, hide, sd, -1.1)); arms.push(scythe(body, sd * 0.35, 1.55, -0.25, 0.6, hide, sd)); }
+  } else if (type === 'brute' || type === 'ravager') { // JUGGERNAUT / BEHEMOTH: armored siege beast
+    S(body, 0.95, hide, 0, 1.35, 0.15, 1.15, 0.85, 1.45); for (let i = 0; i < 5; i++) { const pl = B(body, 1.7 - Math.abs(i - 2) * 0.12, 0.16, 0.6, plate, 0, 2.05 - Math.abs(i - 2) * 0.05, -0.8 + i * 0.42); pl.rotation.x = 0.1 + (i - 2) * 0.12; }
+    head = new THREE.Group(); head.position.set(0, 1.25, -1.25); body.add(head); S(head, 0.48, hide, 0, 0, 0, 1, 0.8, 1.1);
+    const shield = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 8, 0, 6.29, 0, 1.2), plate); shield.rotation.x = -1.2; shield.position.set(0, 0.25, -0.15); shield.scale.set(1.2, 1, 0.7); head.add(shield); shield.castShadow = true;
+    eyes(head, 0.15, -0.02, -0.42, 2); for (const sd of [-1, 1]) { const tk = K(head, 0.1, 0.7, 0xe8e0c8, sd * 0.28, -0.25, -0.5); tk.rotation.set(-1.9, 0, sd * 0.3); }
+    for (const sd of [-1, 1]) { for (let i = 0; i < 3; i++) S(body, 0.08, gl, sd * 0.98, 1.3, -0.3 + i * 0.35, 0.6, 1.4, 0.6); }
+    for (const [z, sd] of [[-0.6, -1], [-0.6, 1], [0.75, -1], [0.75, 1]]) legs.push(limb(body, sd * 0.75, 1.2, z, 0.6, 0.65, 0.32, hide, sd, z > 0 ? -0.6 : 0.6));
+    if (type === 'ravager') { for (let i = 0; i < 7; i++) K(body, 0.12, 0.7, 0xd04030, (i - 3) * 0.24, 2.25, -0.6 + Math.abs(i - 3) * 0.1, { e: 0x601008 }).rotation.x = -0.2; for (let i = 0; i < 8; i++) { const v = B(body, 0.04, 0.04, 1.2, gl, (i % 2 ? 1 : -1) * (0.7 + (i % 3) * 0.1), 1.0 + (i % 4) * 0.15, 0.1); v.rotation.y = (i % 2 ? 1 : -1) * 0.2; } g.scale.setScalar(1.7); }
+  } else if (type === 'flyer') { // WRAITH: armored aerial predator on four rigid blade wings
+    S(body, 0.26, hide, 0, 0, 0, 0.9, 0.8, 2); B(body, 0.34, 0.06, 0.8, plate, 0, 0.2, -0.05);
+    head = new THREE.Group(); head.position.set(0, 0.05, -0.65); body.add(head); const sk = K(head, 0.15, 0.55, hide, 0, 0, -0.2); sk.rotation.x = -Math.PI / 2; eyes(head, 0.06, 0.06, -0.18, 2); const jw = K(head, 0.07, 0.4, 0xd8d0b8, 0, -0.1, -0.3); jw.rotation.x = -1.7;
+    const wm = mat(PLATE.flyer, { ds: true, m: 0.4, r: 0.3 }), edge = mat(GLOW.flyer, { e: GLOW.flyer, ei: 1.5 });
+    for (const [z, sd] of [[-0.1, -1], [-0.1, 1], [0.25, -1], [0.25, 1]]) { const p = new THREE.Group(); p.position.set(sd * 0.2, 0.15, z); body.add(p); const w = new THREE.Mesh(new THREE.ConeGeometry(0.25, 1.7, 3), wm); w.rotation.z = sd * Math.PI / 2; w.position.x = sd * 0.85; w.scale.set(1, 1, 0.15); p.add(w); const e = B(p, 1.5, 0.02, 0.03, edge, sd * 0.8, 0, -0.06); void e; wings.push(p); }
+    tail = new THREE.Group(); tail.position.set(0, 0, 0.5); body.add(tail); for (let i = 0; i < 5; i++) S(tail, 0.1 - i * 0.014, i % 2 ? plate : hide, 0, -0.03 * i, 0.2 * i, 1, 1, 1.5); K(tail, 0.05, 0.35, 0xd8d0b8, 0, -0.18, 1.05).rotation.x = 1.9;
+    for (const sd of [-1, 1]) legs.push(limb(body, sd * 0.12, -0.15, 0.1, 0.3, 0.3, 0.06, hide, sd, 1.4));
   } else if (type === 'guardian') {
     C(body, 1.4, 1.9, 1.2, 0x2e1a3e, 0, 0.6, 0); C(body, 0.7, 1.1, 3.4, 0x3a2048, 0, 2.2, 0);
     for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; K(body, 0.25, 1.8, 0x1a0e24, Math.cos(a) * 0.9, 3.2, Math.sin(a) * 0.9).rotation.set(Math.sin(a) * 0.7, 0, -Math.cos(a) * 0.7); }
-    S(body, 0.6, 0xff3060, 0, 3.7, 0, 1, 1, 1, { e: 0xff1040, ei: 2 }); const L = new THREE.PointLight(0xff3060, 14, 14); L.position.y = 3.8; body.add(L);
+    S(body, 0.6, 0xff3060, 0, 3.7, 0, 1, 1, 1, { e: 0xff1040, ei: 2 });
   } else if (type === 'hivecore') {
     // the hive mesh is part of the map; this only carries the health bar
   } else if (type === 'nest') {
     S(body, 2, 0x3a2048, 0, 0.6, 0, 1.2, 0.6, 1.2); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28; K(body, 0.4, 2.4, 0x281430, Math.cos(a) * 1.8, 1.2, Math.sin(a) * 1.8).rotation.set(Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5); }
     for (let i = 0; i < 5; i++) S(body, 0.45, gl, Math.cos(i * 1.3) * 0.9, 1.3 + (i % 2) * 0.3, Math.sin(i * 1.3) * 0.9, 1, 1.2, 1);
-  } else if (type === 'queen') {
-    S(body, 1.6, sk, 0, 2.4, 1.2, 1.1, 0.9, 1.8); S(body, 1.1, sk, 0, 2.8, -1.2, 1, 1.1, 1); S(body, 0.8, gl, 0, 2.7, 3.2, 1.2, 1, 1.4);
-    for (let i = 0; i < 7; i++) K(body, 0.25, 2.2, 0x1a0e24, (i - 3) * 0.5, 4.3, -1.6 + Math.abs(i - 3) * 0.3).rotation.x = -0.5 - Math.abs(i - 3) * 0.1;
-    S(body, 0.16, gl, -0.4, 3.0, -2.2); S(body, 0.16, gl, 0.4, 3.0, -2.2); S(body, 0.12, gl, -0.2, 3.3, -2.15); S(body, 0.12, gl, 0.2, 3.3, -2.15);
-    for (let i = 0; i < 3; i++) for (const s of [-1, 1]) leg(s * 1.3, 2.4, -0.8 + i * 1.1, 2.6, 0.3, s);
-    for (const s of [-1, 1]) { const c = leg(s * 0.8, 3.3, -1.6, 1.8, 0.25, s); c.rotation.x = -0.8; }
+  } else if (type === 'queen') { // HIVE TYRANT: armored abdomen on six legs, an upright torso with four scythe arms
+    S(body, 1.7, hide, 0, 2.2, 1.8, 1.1, 0.85, 1.7); for (let i = 0; i < 5; i++) { const pl = B(body, 2.6 - i * 0.2, 0.2, 0.8, plate, 0, 3.6 - i * 0.12, 0.6 + i * 0.75); pl.rotation.x = 0.15 + i * 0.08; }
+    const torso = new THREE.Group(); torso.position.set(0, 3.2, -0.6); body.add(torso); S(torso, 0.9, hide, 0, 1.1, 0, 1, 1.4, 0.9); B(torso, 1.5, 1.4, 0.3, plate, 0, 1.3, -0.65).rotation.x = -0.15; S(torso, 0.35, gl, 0, 1.0, -0.8, 1, 1.3, 0.5);
+    head = new THREE.Group(); head.position.set(0, 2.6, -0.4); torso.add(head); S(head, 0.6, hide, 0, 0, 0, 1, 0.9, 1.2); eyes(head, 0.18, 0.08, -0.55, 4);
+    for (let i = 0; i < 7; i++) { const h = K(head, 0.12, 1.6 - Math.abs(i - 3) * 0.2, plate, (i - 3) * 0.24, 0.6, 0.2); h.rotation.set(-0.7 - Math.abs(i - 3) * 0.06, 0, (i - 3) * -0.15); }
+    for (const sd of [-1, 1]) { const mj = K(head, 0.1, 0.7, 0xd8d0b8, sd * 0.3, -0.35, -0.6); mj.rotation.set(-1.5, 0, sd * 0.35); }
+    for (const [y, sd] of [[1.9, -1], [1.9, 1], [1.2, -1], [1.2, 1]]) arms.push(scythe(torso, sd * 0.95, y, -0.2, 2.6, hide, sd));
+    for (let i = 0; i < 3; i++) for (const sd of [-1, 1]) legs.push(limb(body, sd * 1.3, 2.2, 0.4 + i * 1.1, 1.4, 1.5, 0.34, hide, sd, i === 0 ? 0.8 : -0.8));
   }
-  g.userData = { body, legs, type, fly: type === 'flyer' };
+  g.userData = { body, legs, arms, wings, sacs, tail, head, type, fly: type === 'flyer' };
   return g;
 }
 export function animAlien(m, t) {
   const u = m.userData; if (u.type === 'guardian' || u.type === 'hivecore') { u.body.rotation.y = t * 0.6; return; } if (u.type === 'nest') { u.body.scale.setScalar(1 + Math.sin(t * 2) * 0.04); return; }
-  if (u.fly) { u.legs.forEach((p, i) => p.rotation.z = Math.sin(t * 22) * 0.7 * (i ? 1 : -1)); u.body.position.y = Math.sin(t * 3) * 0.2; return; }
-  u.legs.forEach((p, i) => { p.rotation.x = Math.sin(t * 9 + i * 1.7) * 0.5; });
-  u.body.position.y = Math.abs(Math.sin(t * 9)) * 0.05;
+  if (u.fly) { u.wings.forEach((p, i) => p.rotation.z = Math.sin(t * 30 + (i > 1 ? 1.2 : 0)) * 0.5 * (i % 2 ? 1 : -1)); u.body.position.y = Math.sin(t * 3) * 0.2; if (u.tail) u.tail.rotation.x = Math.sin(t * 4) * 0.25; return; }
+  const sp = u.type === 'brute' || u.type === 'ravager' || u.type === 'queen' ? 5 : 9;
+  u.legs.forEach((p, i) => { const ph = t * sp + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0); p.rotation.x = Math.sin(ph) * 0.45; if (p.userData.knee) p.userData.knee.rotation.x = (p.userData.knee.userData.k0 ??= p.userData.knee.rotation.x) + Math.max(0, Math.cos(ph)) * 0.5; });
+  u.arms.forEach((a, i) => { a.rotation.x = Math.sin(t * 2 + i) * 0.12 - 0.1; });
+  u.sacs.forEach((sc, i) => sc.scale.setScalar(1 + Math.sin(t * 3 + i * 2) * 0.08));
+  if (u.tail) u.tail.rotation.y = Math.sin(t * 2.5) * 0.3; if (u.head) u.head.rotation.y = Math.sin(t * 1.3) * 0.15;
+  u.body.position.y = Math.abs(Math.sin(t * sp)) * 0.04;
 }
 
 // ---------------------------------------------------------------- turrets and defenses

@@ -308,7 +308,7 @@ function updateWeather(dt, S) {
 // ---------------------------------------------------------------- view: meshes that follow the battle
 const view = { aliens: new Map(), turrets: new Map(), players: new Map(), pods: new Map(), allies: new Map() };
 const huntOf = a => a.tg !== undefined ? a.tg : a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0;
-const BAR_Y = { guardian: 5, hivecore: 9, nest: 3.4, crawler: 1.4, spitter: 2.5, brute: 3, flyer: 1.1, ravager: 4.8, queen: 6.2 };
+const BAR_Y = { guardian: 5, hivecore: 9, nest: 3.4, crawler: 1.8, spitter: 2.9, brute: 2.9, flyer: 1.1, ravager: 4.9, queen: 7.8 };
 const barGeo = new THREE.PlaneGeometry(1, 0.12), barBg = new THREE.MeshBasicMaterial({ color: 0x200000, depthTest: false, transparent: true, opacity: 0.7 }), barFg = new THREE.MeshBasicMaterial({ color: 0xff4040, depthTest: false });
 function colorOf(id, S) { const p = S.P.find(q => q.id === id); return p ? CLASSES[p.cls].color : 0x888888; }
 function nameTag(text, color) {
@@ -453,7 +453,7 @@ function aimRay(spread = 0) {
   return ray;
 }
 // nearest alien along a ray, using a sphere per alien
-const HEAD = { crawler: [0.75, 0.62, 0.36], spitter: [0.22, 1.78, 0.34], brute: [1.15, 1.45, 0.55], flyer: [0.6, 0.1, 0.3], ravager: [1.15, 1.45, 0.55], queen: [2.3, 3.0, 1.0] };
+const HEAD = { crawler: [1.1, 1.0, 0.32], spitter: [0.62, 2.15, 0.3], brute: [1.3, 1.3, 0.55], flyer: [0.7, 0.05, 0.25], ravager: [1.3, 1.3, 0.55], queen: [1.0, 5.8, 0.7] };
 function sphereHit(o, d, cx, cy, cz, r) { const ox = cx - o.x, oy = cy - o.y, oz = cz - o.z, t = ox * d.x + oy * d.y + oz * d.z; if (t < 0) return -1; const d2 = ox * ox + oy * oy + oz * oz - t * t; return d2 > r * r ? -1 : t - Math.sqrt(r * r - d2); }
 function hitAliens(o, d, maxD) {
   const out = [];

@@ -36,11 +36,11 @@ document.addEventListener('pointerlockchange', () => { if (!locked()) mouseL = m
 
 // ---------------------------------------------------------------- game state
 // key bindings (changeable in Settings) and other settings, saved in this browser
-const KB_DEFAULT = { w1: 'Digit1', w2: 'Digit2', w3: 'Digit3', w4: 'Digit4', w5: 'Digit5', w6: 'Digit6', third: 'KeyV', grenade: 'KeyG', use: 'KeyE', forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space', sprint: 'ShiftLeft', kneel: 'KeyC', prone: 'KeyZ', reload: 'KeyR', sentry: 'KeyT', defense: 'KeyF', special: 'KeyX', upgrade: 'KeyU', sell: 'KeyY', armory: 'KeyB', map: 'KeyM', kit: 'KeyH', music: 'KeyN', scores: 'Tab', info: 'KeyK' };
+const KB_DEFAULT = { w1: 'Digit1', w2: 'Digit2', w3: 'Digit3', w4: 'Digit4', w5: 'Digit5', w6: 'Digit6', third: 'KeyV', grenade: 'KeyG', use: 'KeyE', forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space', sprint: 'ShiftLeft', kneel: 'KeyC', prone: 'KeyZ', reload: 'KeyR', sentry: 'KeyF', defense: 'KeyT', special: 'KeyX', upgrade: 'KeyU', sell: 'KeyY', armory: 'KeyB', map: 'KeyM', kit: 'KeyH', music: 'KeyN', scores: 'Tab', info: 'KeyK' };
 const KB_NAMES = { w1: 'Main weapon', w2: 'Side arm', w3: 'Welding torch', w4: 'Grenade / class item', info: 'Gear guide: what everything does', w5: 'Field dressing', w6: 'Heal beam (Medic)', third: 'Build: third structure', grenade: 'Quick-throw grenade / item', use: 'Use: pick up turret, salvage, vehicles', forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', jump: 'Jump', sprint: 'Sprint', kneel: 'Kneel (hold)', prone: 'Go prone', reload: 'Reload', sentry: 'Build: turret', defense: 'Build: device', special: 'Use special',  upgrade: 'Upgrade turret', sell: 'Sell turret', armory: 'Recruitment (at the comms console)', map: 'Live map', kit: 'Class card', music: 'Music on/off', scores: 'Scores (hold)' };
-const KB = Object.assign({}, KB_DEFAULT); try { Object.assign(KB, JSON.parse(localStorage.getItem('hb-keys4') || '{}')); } catch (e) { }
+const KB = Object.assign({}, KB_DEFAULT); try { Object.assign(KB, JSON.parse(localStorage.getItem('hb-keys5') || '{}')); } catch (e) { }
 const SET = { quality: 'medium', fov: 75, fps: false, invert: false, zoomSens: 1, master: 1 }; try { Object.assign(SET, JSON.parse(localStorage.getItem('hb-set') || '{}')); } catch (e) { }
-function saveSettings() { try { localStorage.setItem('hb-set', JSON.stringify(SET)); localStorage.setItem('hb-keys4', JSON.stringify(KB)); } catch (e) { } }
+function saveSettings() { try { localStorage.setItem('hb-set', JSON.stringify(SET)); localStorage.setItem('hb-keys5', JSON.stringify(KB)); } catch (e) { } }
 function applyQuality() { const q = SET.quality; renderer.setPixelRatio(Math.min(q === 'low' ? 0.75 : q === 'high' ? 1.75 : 1.25, devicePixelRatio)); resize(); if (G.W) G.W.sun.castShadow = q !== 'low'; G.maxParts = q === 'low' ? 120 : q === 'high' ? 320 : 220; }
 const G = { pings: [], on: false, mode: 'solo', myId: 'me', name: 'Marine', cls: 'assault', map: 'mars', W: null, sim: null, net: null, snap: null, out: [], time: 0, shop: false, me: null };
 window.G = G; G.scene = scene; G.audio = () => audio; G.music = () => music;
@@ -57,7 +57,7 @@ function decode(m) {
     L: m.L.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], tg: a[8] })),
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9], rv: a[10] })),
     T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], carry: t[15], up: t[16], s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
-    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {} })),
+    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {} })),
     O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4], kind: o[5] === 1 ? 'ammo' : o[5] === 2 ? 'dress' : '' })), el: m.el, I: (m.I || []).map(i => ({ id: i[0], kind: i[1], x: i[2], z: i[3] })), SC: (m.SC || []).map(c => ({ id: c[0], x: c[1], z: c[2] })),
     M: (m.M || []).map(c => ({ id: c[0], x: c[1], z: c[2], life: c[3] })), Z: (m.Z || []).map(c => ({ x: c[0], z: c[1], r: c[2] })), K: (m.K || []).map(q => ({ x: q[0], y: q[1], z: q[2], r: q[3], fire: q[4] })), D: (m.D || []).map(d => ({ id: d[0], x: d[1], y: d[2], z: d[3], tg: d[4] })), Q: (m.Q || []).map(q => ({ id: q[0], x: q[1], y: q[2], z: q[3], r: q[4], t: q[5] })), S2: (m.S2 || []).map(d => ({ x: d[0], y: d[1], z: d[2], r: d[3] })),
   };
@@ -177,6 +177,7 @@ function fx(e) {
     case 'stowed': if (e.to === G.myId) toast(`${e.n} back in your pack`, 1.5); break;
     case 'radio': radioSay(e.w, e.m); break;
     case 'dresskit': break;
+    case 'tshot': { const v = view.turrets.get(e.id), tv = view.aliens.get(e.tg); if (v && tv) { const m = v.mesh.position, sc = v.mesh.scale.x, a = [m.x, m.y + 1.3 * sc, m.z], b = [tv.x, tv.y + ALIENS[tv.type].h * 0.6, tv.z]; tracer(a, b, e.w === 'sg' ? 0xffc070 : 0xffe080, e.w === 'sg' ? 0.03 : 0.08, 0.06); if (e.w === 'sg') for (let i = 0; i < 4; i++) tracer(a, [b[0] + (Math.random() - 0.5) * 2, b[1] + (Math.random() - 0.5), b[2] + (Math.random() - 0.5) * 2], 0xffc070, 0.02, 0.04); flashAt(a, 1); const dd = dist(m.x, m.z); audio.gun(e.w === 'sg' ? 'shotgun' : 'rifle', vol(dd) * 0.7, 1.2, Math.min(1, dd / 45)); } break; }
     case 'scrap': if (e.to === G.myId) { audio.sfx('tink', 0.9); G.scrapFlash = 0.5; } break;
     case 'ammo': if (e.to === G.myId) { refillAmmo(1); audio.sfx('pickup'); toast('Ammo: fully stocked.', 2); } break;
     case 'resup': if (e.to === G.myId) { refillAmmo(e.f); if (!G.resupT || G.time - G.resupT > 6) { G.resupT = G.time; toast('Forward Resupply: restocking slowly…', 2); } } break;
@@ -388,7 +389,7 @@ function syncView(S, dt) {
     // turrets can be carried: the one you hold floats in front of you, others glide to where the host says
     { const mine0 = t.carry && t.carry === G.myId, tx = mine0 ? G.me.x - Math.sin(G.me.yaw) * 1.7 : t.x, tz = mine0 ? G.me.z - Math.cos(G.me.yaw) * 1.7 : t.z, ty = mine0 ? G.me.y + 0.3 : t.y, m = v.mesh.position;
       if (mine0 || m.distanceToSquared(_tv.set(tx, ty, tz)) > 900) m.set(tx, ty, tz); else m.lerp(_tv.set(tx, ty, tz), Math.min(1, k * 1.5)); if (TURRETS[t.kind].onPath) v.mesh.rotation.y = t.carry ? (mine0 ? G.me.yaw : t.ry) : t.ry; v.mesh.rotation.z = t.carry ? Math.sin(G.time * 6) * 0.04 : 0; }
-    if (!['barricade', 'resupply', 'stasis', 'mines', 'uav', 'claymore', 'medbay'].includes(t.kind)) { let dr = t.ry - u.head.rotation.y; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; u.head.rotation.y += dr * Math.min(1, k * 1.5); }
+    if (!['barricade', 'resupply', 'stasis', 'mines', 'uav', 'claymore', 'medbay', 'rally', 'sandbag', 'nest', 'fieldhosp', 'teleporter'].includes(t.kind)) { let dr = t.ry - u.head.rotation.y; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; u.head.rotation.y += dr * Math.min(1, k * 1.5); }
     if (!v.hpb) { v.hpb = new THREE.Group(); const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x200000, depthTest: false })); bg.scale.set(2, 0.18, 1); const fg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x40e070, depthTest: false })); fg.center.set(0, 0.5); fg.position.x = -0.95; fg.scale.set(1.9, 0.12, 1); bg.renderOrder = 6; fg.renderOrder = 7; v.hpb.add(bg, fg); v.hpb.userData.fg = fg; scene.add(v.hpb); }
     { const f = Math.max(0, t.hp / t.mhp); v.hpb.visible = f < 0.995 && !TURRETS[t.kind].mine; if (v.hpb.visible) { v.hpb.position.set(v.mesh.position.x, v.mesh.position.y + (t.kind === 'barricade' ? 3 : 4.6) * ([1, 1.28, 1.55][t.lvl - 1] || 1), v.mesh.position.z); v.hpb.userData.fg.scale.x = 1.9 * f + 0.001; v.hpb.userData.fg.material.color.setHex(f < 0.3 ? 0xff4040 : f < 0.6 ? 0xffc040 : 0x40e070); } }
     if (v.lvl !== t.lvl) { if (v.lvl && t.lvl > v.lvl) { v.morph = 1; audio.sfx('upg', vol(dist(t.x, t.z))); flashAt([t.x, t.y + 2, t.z], 4); } if (v.up) { v.mesh.remove(v.up); if (v.up.userData.head.parent) v.up.userData.head.parent.remove(v.up.userData.head); } v.up = M.upgradeParts(t.kind, t.lvl, colorOf(t.owner, S)); v.mesh.add(v.up); (v.mesh.userData.head || v.mesh).add(v.up.userData.head); }
@@ -480,7 +481,7 @@ function newMe() {
   view2.fsp = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); view2.fsp.position.set(0.05, 0.03, -1.45); view2.gun.add(view2.fsp);
   for (const k of ['pistol', 'tool', 'healer', 'thr']) { if (view2[k]) camera.remove(view2[k]); view2[k] = null; }
   const mk = (kind, x) => { const m = M.gunModel(kind, CLASSES[G.cls].color); m.scale.setScalar(0.55); m.position.set(x, -0.22, -0.45); m.visible = false; m.traverse(o => { o.castShadow = false; }); camera.add(m); return m; };
-  view2.pistol = mk('pistol', 0.2); view2.tool = mk('torch', 0.18); view2.thr = M.throwModel(CLASSES[G.cls].throw.kind); view2.thr.position.set(0.22, -0.24, -0.5); view2.thr.visible = false; camera.add(view2.thr); if (CLASSES[G.cls].heal) view2.healer = mk('medigun', 0.18);
+  view2.pistol = mk('pistol', 0.2); view2.tool = mk('torch', 0.18); view2.thr = M.throwModel(CLASSES[G.cls].throw.kind); view2.thr.position.set(0.22, -0.24, -0.5); view2.thr.visible = false; camera.add(view2.thr); if (view2.extra) camera.remove(view2.extra); view2.extra = null; if (CLASSES[G.cls].extra) { view2.extra = M.throwModel(CLASSES[G.cls].extra.kind); view2.extra.position.set(0.22, -0.24, -0.5); view2.extra.visible = false; camera.add(view2.extra); }
   if (view2.dress) camera.remove(view2.dress); view2.dress = new THREE.Group(); M.C(view2.dress, 0.05, 0.05, 0.07, 0xeeeae0, 0, 0, 0); M.C(view2.dress, 0.02, 0.02, 0.072, 0xb0aca0, 0, 0, 0); M.B(view2.dress, 0.06, 0.004, 0.09, 0xeeeae0, 0.03, -0.03, -0.04); M.B(view2.dress, 0.03, 0.03, 0.002, 0xd03030, 0, 0, 0.036); view2.dress.rotation.set(0.3, 0.4, 1.4); view2.dress.position.set(0.16, -0.2, -0.38); view2.dress.visible = false; camera.add(view2.dress);
   const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); view2.gun.add(glove);
   if (view2.hand) camera.remove(view2.hand); view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); camera.add(view2.hand); for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
@@ -533,7 +534,7 @@ function shoot(st) {
     const m = new THREE.Group(); M.C(m, 0.1, 0.1, 0.7, 0xdddddd, 0, 0, 0).rotation.x = Math.PI / 2; M.S(m, 0.14, 0xffa040, 0, 0, 0.4, 1, 1, 1, { e: 0xff6000 }); m.position.set(...mz); scene.add(m); rk.mesh = m; me.rockets.push(rk);
     return;
   }
-  const mx = g.max, spr = (me.scope ? g.scoped : g.spread) * (me.ads ? 0.45 : 1) * (myb.fortify > 0 ? 0.4 : 1) * (me.moving ? 1.6 : 1) * (me.prone ? 0.2 : me.kneel ? 0.4 : 1) * (1 + Math.min(1.5, me.heat * 0.09)) * (me.y > G.W.ground(me.x, me.z, me.y + 0.5) + 0.2 ? 2 : 1);
+  const mx = g.max, spr = (me.scope ? g.scoped : g.spread) * (me.ads ? 0.45 : 1) * (me.braced ? 0.2 : 1) * (myb.fortify > 0 ? 0.4 : 1) * (me.moving ? 1.6 : 1) * (me.prone ? 0.2 : me.kneel ? 0.4 : 1) * (1 + Math.min(1.5, me.heat * 0.09)) * (me.y > G.W.ground(me.x, me.z, me.y + 0.5) + 0.2 ? 2 : 1);
   const col = G.cls === 'engineer' ? 0xffc070 : G.cls === 'sniper' ? 0x80f0ff : 0xffe080, oc = me.oc && G.cls === 'sniper'; me.oc = false; let hitAny = false, head = false, weak = false;
   for (let k = 0; k < (g.pellets || 1); k++) {
     const r = aimRay(spr), wall = G.W.T.ray(r.o, r.d, mx), list = hitAliens(r.o, r.d, Math.min(mx, wall)), n = g.pierce ? (oc ? 99 : g.pierce) : 1; let end;
@@ -559,6 +560,7 @@ function throwItem(my) {
 function frontOf(d) { const me = G.me; return { x: +(me.x - Math.sin(me.yaw) * d).toFixed(2), z: +(me.z - Math.cos(me.yaw) * d).toFixed(2), ry: +me.yaw.toFixed(2) }; }
 function dropNew(kind, my) {
   const T = TURRETS[kind]; if (!T) return;
+  if (T.throwExtra) { const X = CLASSES[G.cls].extra; if ((my.ex ?? X.n) <= 0) { audio.sfx('nope'); toast(`No ${X.name.toLowerCase()}s left: restock at the hub.`, 2.5); return; } const [x, z] = aimPoint(14); req({ a: 'throw', ex: 1, x: +x.toFixed(1), z: +z.toFixed(1) }); audio.sfx('grenade'); return; }
   // pressing the key of the turret in your hands puts it back in your pack
   const held = (state() || { T: [] }).T.find(t => t.carry === G.myId); if (held && held.kind === kind) { req({ a: 'stow' }); G.me.carry = 0; audio.sfx('pouch', 0.8); return; }
   if (held) { req({ a: 'stow' }); my = Object.assign({}, my, { kits: (my.kits ?? 2) + 1, scrap: (my.scrap || 0) + scrapCost(held.kind) }); }
@@ -574,7 +576,7 @@ function dropNew(kind, my) {
 function dropCarried() { if (!G.me.carry) return; req({ a: 'drop', ...frontOf(1.9) }); G.me.carry = 0; G.me.holdFire = true; audio.sfx('place', 0.8); }
 function setSlot(n) {
   if (G.me.carry) { req({ a: 'stow' }); G.me.carry = 0; audio.sfx('pouch', 0.8); }
-  const me = G.me; if (n === 4 && !CLASSES[G.cls].heal) return; if (n === me.slot) return; if (me.slot <= 1) me.wpn[me.slot] = { ammo: me.ammo, reserve: me.reserve };
+  const me = G.me; if (n === 4) return; if (n === me.slot) return; if (me.slot <= 1) me.wpn[me.slot] = { ammo: me.ammo, reserve: me.reserve };
   me.slot = n; me.rel = 0; me.shells = false; if (n <= 1) { const w = me.wpn[n] || { ammo: CLASSES[G.cls].gun.mag, reserve: CLASSES[G.cls].gun.reserve }; me.ammo = w.ammo; me.reserve = w.reserve; } me.cd = 0.35; audio.sfx('magin', 0.5);
 }
 addEventListener('wheel', e => { if (!G.on || !locked() || !G.me || G.me.scope) return; const order = CLASSES[G.cls].heal ? [0, 1, 2, 3, 5, 4] : [0, 1, 2, 3, 5], i = order.indexOf(G.me.slot); setSlot(order[(i + (e.deltaY > 0 ? 1 : order.length - 1)) % order.length]); });
@@ -762,7 +764,7 @@ function lookTurret(S) {
 function updateMe(dt, S) {
   const me = G.me, my = mine(S); if (!my || G.cine) return;
   if (G.explore && G.ex && G.ex.veh) { G.ex.drive(dt); updateFootless(); return; }
-  if (my.sp !== me.sp) { me.sp = my.sp; me.x = G.W.spawn.x; me.z = G.W.spawn.z; me.y = G.W.top(me.x, me.z); me.vy = 0; me.yaw = Math.atan2(me.x, me.z); me.ammo = stats().mag; me.rel = 0; }
+  if (my.sp !== me.sp) { me.sp = my.sp; const fh = S.T.filter(t => t.kind === 'fieldhosp' && !t.carry && !(t.b > 0)).sort((a, b) => b.id - a.id)[0]; me.x = fh ? fh.x + 2.2 : G.W.spawn.x; me.z = fh ? fh.z : G.W.spawn.z; me.y = G.W.top(me.x, me.z); me.vy = 0; me.yaw = Math.atan2(me.x, me.z); me.ammo = stats().mag; me.rel = 0; }
   if (my.hp < me.hp - 0.5 && !my.dead) { G.hurtT = 0.35; audio.sfx('hurt', 0.6); }
   if (my.hp > me.hp + 0.5 && my.hp < my.mhp && Math.random() < 0.2) audio.sfx('heal', 0.4);
   me.hp = my.hp;
@@ -795,6 +797,12 @@ function updateMe(dt, S) {
   camera.position.set(me.x + (Math.random() - 0.5) * sh, (my.dead ? 3.5 : 1.7 - me.kh * 0.75) + me.y + Math.sin(me.bob) * 0.05 + (Math.random() - 0.5) * sh, me.z);
   camera.rotation.set(me.pitch, me.yaw, 0, 'YXZ');
   // carrying a turret: the camera swings back over the shoulder so you can see where it's going
+  me.braced = G.cls === 'gunner' && S.T.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - me.x, t.z - me.z) < TURRETS.sandbag.range);
+  { // sniper nests are platforms you can stand on; E at the foot climbs up, E on top climbs down
+    const T0 = G.W.T; T0.plats = T0.plats.filter(p => !p.nest || S.T.some(t => t.id === p.nest && !t.carry)); for (const t of S.T) if (t.kind === 'nest' && !t.carry && !(t.b > 0) && !T0.plats.some(p => p.nest === t.id)) T0.plats.push({ x: t.x, z: t.z, hw: 1.55, y: t.y + 5.4, nest: t.id });
+    const nb = S.T.find(t => t.kind === 'nest' && !t.carry && !(t.b > 0) && Math.hypot(t.x - me.x, t.z - me.z) < 3);
+    if (nb && live && !me.carry) { const up = me.y > nb.y + 4; prompt(up ? `<b>${keyName(KB.use)}</b> climb down the Sniper Nest` : `<b>${keyName(KB.use)}</b> climb the Sniper Nest`); if (hits[KB.use]) { hits[KB.use] = false; if (up) { me.x = nb.x + 2.2; me.z = nb.z + 1.6; me.y = G.W.top(me.x, me.z); } else { me.x = nb.x; me.z = nb.z; me.y = nb.y + 5.45; } me.vy = 0; audio.sfx('step_metal', 0.8); } }
+  }
   me.tp = Math.max(0, Math.min(1, (me.tp || 0) + (me.carry && !my.dead ? dt : -dt) * 3));
   if (me.tp > 0) { const e = me.tp * me.tp * (3 - 2 * me.tp), fx = -Math.sin(me.yaw) * Math.cos(me.pitch), fy = Math.sin(me.pitch), fz = -Math.cos(me.yaw) * Math.cos(me.pitch), rx = Math.cos(me.yaw), rz = -Math.sin(me.yaw);
     let x = camera.position.x - fx * 6 * e + rx * 1.1 * e, y = camera.position.y - fy * 6 * e + 2.4 * e, z = camera.position.z - fz * 6 * e + rz * 1.1 * e; y = Math.max(y, G.W.top(x, z) + 0.6); camera.position.set(x, y, z); }
@@ -819,7 +827,7 @@ function updateMe(dt, S) {
   const gn = view2.gun, rf = 0;
   // right click: aim down the sights on every gun; the Sniper's rail rifle uses its scope
   const rc = me.slot === 0 && G.cls === 'sniper' ? 'scope' : me.slot <= 1 ? 'ads' : '', rmb = mouseR && !me.holdFire && !me.carry && live && locked() && !me.place && !G.shop; me.scope = rc === 'scope' && rmb && me.rel <= 0; me.ads = rc === 'ads' && rmb; $('scope').hidden = !me.scope;
-  me.beam = (me.slot === 2 || me.slot === 4) && mouseL && live && locked() && !me.place && !G.shop; for (const [k, n] of [['pistol', 1], ['tool', 2], ['thr', 3], ['healer', 4], ['dress', 5]]) if (view2[k]) view2[k].visible = me.slot === n && !my.dead && !me.place && !me.scope;
+  me.beam = me.slot === 2 && mouseL && live && locked() && !me.place && !G.shop; for (const [k, n] of [['pistol', 1], ['tool', 2], ['thr', 3], ['extra', 4], ['dress', 5]]) if (view2[k]) view2[k].visible = me.slot === n && !my.dead && !me.place && !me.scope;
   if (gn.userData.spin) gn.userData.spin.rotation.z += dt * me.spin * 40;
   { const u = gn.userData, f = me.rel > 0 ? 1 - me.rel / (me.relT || 1) : 0; 
     if (u.pump) { u.pumpZ0 ??= u.pump.position.z; u.pump.position.z = u.pumpZ0 + ((me.pumpAnim || 0) > 0 ? Math.sin((0.3 - me.pumpAnim) / 0.3 * Math.PI) * 0.18 : 0); }
@@ -893,12 +901,12 @@ function hud(dt, S) {
   setT('waveInfo', info);
   const mt = S.T.filter(t => t.owner === G.myId).length, sT = TURRETS[C.sentry], dT = TURRETS[C.defense];
   const sp = my.special, TH = C.throw, tT = TURRETS[C.third];
-  const pwPct = Math.round((my.pw ?? 100) / (G.cls === 'engineer' ? 160 : 100) * 100), wpn = [[C.gun.name, icon(G.cls), '', 0], [SIDEARM.name, icon('pistol'), '', 1], ['Welding torch', icon('welder'), pwPct + '%', 2], [TH.name, icon(TH.kind), `${my.items ?? 0}`, 3], ['Field dressing', icon('medkit'), `${my.dr ?? 2}`, 5], ...(C.heal ? [['Heal beam', icon('beam'), '', 4]] : [])];
-  const bslot = (key, kind) => { const T0 = TURRETS[kind]; return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${(my.kits ?? 2) < 1 || (my.scrap || 0) < scrapCost(kind) ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i>${scrapCost(kind)}</i></div>`; };
+  const pwPct = Math.round((my.pw ?? 100) / (G.cls === 'engineer' ? 160 : 100) * 100), wpn = [[C.gun.name, icon(G.cls), '', 0], [SIDEARM.name, icon('pistol'), '', 1], ['Welding torch', icon('welder'), pwPct + '%', 2], [TH.name, icon(TH.kind), `${my.items ?? 0}`, 3], ['Field dressing', icon('medkit'), `${my.dr ?? 2}`, 5], ];
+  const bslot = (key, kind) => { if (!kind) return ''; const T0 = TURRETS[kind]; if (T0.throwExtra) { const n = my.ex ?? C.extra.n; return `<div class="slot ${n < 1 ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i>×${n}</i></div>`; } return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${(my.kits ?? 2) < 1 || (my.scrap || 0) < scrapCost(kind) ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i>${scrapCost(kind)}</i></div>`; };
   setH('slots', wpn.map(([n, ic, c, sl], i) => `<div class="slot w ${G.me.slot === sl ? 'on' : ''} ${(sl === 3 && !my.items) || (sl === 5 && !my.dr) || (sl === 2 && (my.pw ?? 1) <= 0) ? 'poor' : ''}"><b>${i + 1}</b>${ic}<i>${c}</i></div>`).join('') + `<div class="gap"></div><div class="kits" title="turret kits">${'▮'.repeat(my.kits ?? 2)}${'▯'.repeat(Math.max(0, 2 - (my.kits ?? 2)))}<small>KITS</small></div>` + bslot('sentry', C.sentry) + bslot('defense', C.defense) + bslot('third', C.third) + `<div class="slot ${sp ? 'ready sp' : 'poor'}"><b>${keyName(KB.special)}</b>${sp ? icon(sp) : icon('empty')}</div>`);
   setT('slotName', G.me.place ? TURRETS[G.me.place].name : sp && G.time - (G.spT ?? -9) < 3 ? SPECIALS[sp].name : (wpn.find(w => w[3] === G.me.slot) || wpn[0])[0]); if (sp !== G.lastSp) { G.lastSp = sp; G.spT = G.time; }
   $('roundsBar').style.width = (G.me.slot <= 1 ? Math.min(100, G.me.ammo / st.mag * 100) : 0) + '%';
-  setH('status', [my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get under cover, or crouch behind something on the windward side</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
+  setH('status', [my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get under cover, or crouch behind something on the windward side</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', G.me.braced ? '<span class="g">▤ Braced on sandbags</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
   // a boss bar while a big one is alive
   const nearQ = G.W.cave && Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z) < 34, boss = S.A.find(a => ALIENS[a.type].boss) || (nearQ ? S.A.find(a => a.type === 'broodqueen') : null); $('boss').hidden = !boss; if (boss) { setT('bossName', ALIENS[boss.type].name); $('bossBar').style.width = (boss.hp / boss.mhp * 100) + '%'; }
   const hunters = [...view.aliens.values()].filter(v => v.hunt === G.myId); $('hunt').hidden = !hunters.length || my.dead; if (hunters.length) setT('huntT', `⚠ ${hunters.length} ALIEN${hunters.length > 1 ? 'S' : ''} HUNTING YOU`);
@@ -1077,15 +1085,14 @@ function infoHTML(k) {
   h += row('3', 'welder', 'Welding laser', 'Repairs turrets, welds on upgrades, burns aliens up close.', `Upgrades cost scrap: 15, then 30${k === 'engineer' ? ' · you weld 3x faster' : ''}`);
   h += row('4·G', th.kind, th.name, thTxt, `${th.n} carried`);
   h += row('5', 'medkit', 'Field dressing', 'Click to bandage yourself.', '+40 health · 2 carried');
-  if (c.heal) h += row('6', 'beam', 'Heal beam', 'Hold on a teammate to heal them.', '');
-  for (const [key, kind] of [['T', c.sentry], ['F', c.defense], ['V', c.third]]) { const t = TURRETS[kind]; h += row(key, kind, t.name, t.desc, `${scrapCost(kind)} scrap · ` + (t.ball ? 'thrown' : 'left click places it')); }
+  for (const [key, kind] of [['F', c.sentry], ['T', c.defense], ['V', c.third]]) { if (!kind) continue; const t = TURRETS[kind]; h += row(key, kind, t.name, t.desc, t.throwExtra ? `${CLASSES[k].extra.n} carried · restock in the hub` : `${scrapCost(kind)} scrap · ` + (t.ball ? 'thrown' : 'left click places it')); }
   h += row('X', 'supply', 'Special', 'Found in supply drops. Air strikes, troops and more.', '');
   h += row('E', 'crate', 'Use', 'Pick up turrets, salvage wrecks, use teleporters.', '');
   return h + '</div><p class="sub2">Refill ammo, turret kits and dressings in the hub · B at the comms console changes class · K closes</p>';
 }
 function kitHTML(k) {
-  const c = CLASSES[k], g = c.gun, bl = (key, kind) => `<p><b>${key}</b> ${TURRETS[kind].name} (${scrapCost(kind)} scrap): ${TURRETS[kind].desc}</p>`;
-  return `<p class="role">${c.role} · ${c.hp} health</p><p><b>1</b> ${g.name}${g.pellets ? ' (pellets, deadly up close)' : g.pierce ? ' (pierces 3 aliens)' : g.kind === 'rocket' ? ' (explodes)' : g.spin ? ' (spins up first)' : ''} · <b>2</b> side arm · <b>3</b> welding torch${k === 'engineer' ? ' (3x faster)' : ''} · <b>4</b> or <b>G</b> ${c.throw.name} ×${c.throw.n}${c.heal ? ' · <b>5</b> heal beam' : ''}</p><p><b>Team</b> ${c.team}</p>` + bl(keyName(KB.sentry), c.sentry) + bl(keyName(KB.defense), c.defense) + bl(keyName(KB.third), c.third);
+  const c = CLASSES[k], g = c.gun, bl = (key, kind) => !kind ? '' : `<p><b>${key}</b> ${TURRETS[kind].name} (${scrapCost(kind)} scrap): ${TURRETS[kind].desc}</p>`;
+  return `<p class="role">${c.role} · ${c.hp} health</p><p><b>1</b> ${g.name}${g.pellets ? ' (pellets, deadly up close)' : g.pierce ? ' (pierces 3 aliens)' : g.kind === 'rocket' ? ' (explodes)' : g.spin ? ' (spins up first)' : ''} · <b>2</b> side arm · <b>3</b> welding torch${k === 'engineer' ? ' (3x faster)' : ''} · <b>4</b> or <b>G</b> ${c.throw.name} ×${c.throw.n}</p><p><b>Team</b> ${c.team}</p>` + bl(keyName(KB.sentry), c.sentry) + bl(keyName(KB.defense), c.defense) + bl(keyName(KB.third), c.third);
 }
 // campaign unlocks: Mars on Easy to start; each win opens the next difficulty, and a Hard win opens the next planet
 function unlocks() { const u = store.get('hb-unlock', null); return u && typeof u === 'object' ? u : { mars: 0 }; }

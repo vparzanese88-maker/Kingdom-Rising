@@ -235,6 +235,25 @@ export function turret(kind, color) {
   } else if (kind === 'mines') {
     g.add(head); for (const [x, z] of [[-1.6, 0.4], [0, -0.3], [1.6, 0.5]]) { C(head, 0.42, 0.5, 0.18, 0x3a4030, x, 0.09, z); S(head, 0.09, 0xff3020, x, 0.22, z, 1, 1, 1, { e: 0xff1000, ei: 2 }); }
     parts.muzzle = new THREE.Vector3(0, 0.3, 0);
+  } else if (kind === 'shotgunT' || kind === 'autocannon') { // a squat turret with two thick barrels
+    head.position.y = 1.3; g.add(head); B(head, 0.95, 0.62, 1.0, metal, 0, 0, 0.1); B(head, 0.97, 0.14, 0.55, accent, 0, 0.34, 0.1);
+    for (const sd of [-1, 1]) { C(head, kind === 'shotgunT' ? 0.12 : 0.09, kind === 'shotgunT' ? 0.12 : 0.09, kind === 'shotgunT' ? 0.9 : 1.3, dark, sd * 0.22, 0.02, -0.75).rotation.x = Math.PI / 2; C(head, 0.15, 0.15, 0.12, 0x111111, sd * 0.22, 0.02, kind === 'shotgunT' ? -1.2 : -1.4).rotation.x = Math.PI / 2; }
+    B(head, 0.3, 0.35, 0.5, 0x8a3020, 0.55, -0.05, 0.2); parts.muzzle = new THREE.Vector3(0, 1.3, -1.3);
+  } else if (kind === 'rally') { // a tall pole with a flag and a flashing landing light
+    g.add(head); C(head, 0.9, 1.0, 0.2, base, 0, 0.1, 0); C(head, 0.07, 0.07, 5, metal, 0, 2.6, 0); const fl = B(head, 1.4, 0.8, 0.04, color, 0.72, 4.6, 0); void fl;
+    S(head, 0.18, 0xff4020, 0, 5.2, 0, 1, 1, 1, { e: 0xff3010, ei: 3 }); const ring = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.0, 32), mat(0xffc020, { e: 0x805000, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; head.add(ring); parts.muzzle = new THREE.Vector3(0, 5, 0);
+  } else if (kind === 'sandbag') { // a horseshoe of sandbags, two rows high
+    g.add(head); const bag = mat(0x9a8a62, { r: 1, flat: false }); for (let r = 0; r < 2; r++) for (let i = 0; i < 9; i++) { const a = -2.2 + i / 8 * 4.4 + r * 0.24, b = S(head, 0.42, bag, Math.sin(a) * 2.4, 0.25 + r * 0.42, -Math.cos(a) * 2.4, 1.5, 0.6, 0.9); b.rotation.y = -a; }
+    parts.muzzle = new THREE.Vector3(0, 0.6, 0);
+  } else if (kind === 'nest') { // a climbable sniper tower: four legs, a ladder and a sandbagged platform
+    g.add(head); for (const [x, z] of [[-1.3, -1.3], [1.3, -1.3], [-1.3, 1.3], [1.3, 1.3]]) { const l = B(head, 0.18, 5.4, 0.18, metal, x, 2.7, z); void l; } B(head, 3.2, 0.2, 3.2, base, 0, 5.3, 0);
+    for (let i = 0; i < 8; i++) B(head, 1.1, 0.06, 0.06, dark, 0, 0.6 + i * 0.6, 1.62); for (const sd of [-1, 1]) B(head, 0.08, 5.2, 0.08, dark, sd * 0.5, 2.7, 1.62);
+    const bag = mat(0x9a8a62, { r: 1, flat: false }); for (let i = 0; i < 4; i++) for (const [x, z, ry] of [[i * 0.8 - 1.2, -1.45, 0], [-1.45, i * 0.8 - 1.2, 1.57], [1.45, i * 0.8 - 1.2, 1.57]]) { const b = S(head, 0.32, bag, x, 5.6, z, 1.3, 0.6, 0.8); b.rotation.y = ry; }
+    B(head, 3.3, 0.12, 0.12, color, 0, 6.1, -1.6); parts.muzzle = new THREE.Vector3(0, 6, 0);
+  } else if (kind === 'fieldhosp') { // a white field tent with a red cross and a glowing respawn pad
+    g.add(head); const tent = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 2.4, 2.4, 4, 1), mat(0xe8e8e0, { r: 0.9 })); tent.position.y = 1.2; tent.rotation.y = Math.PI / 4; head.add(tent);
+    const red = mat(0xd02020, { e: 0x600000 }); B(head, 0.9, 0.25, 0.05, red, 0, 1.3, -1.25); B(head, 0.25, 0.9, 0.05, red, 0, 1.3, -1.25);
+    const pad = new THREE.Mesh(new THREE.RingGeometry(0.6, 1.0, 24), mat(0x60ff90, { e: 0x30c060, ei: 2, ds: true })); pad.rotation.x = -Math.PI / 2; pad.position.set(2.2, 0.06, 0); head.add(pad); parts.muzzle = new THREE.Vector3(0, 1.5, 0);
   } else if (kind === 'teleporter') { // a ring pad with three pylons and a glowing column of light
     g.add(head); C(head, 1.3, 1.45, 0.25, 0x3a424a, 0, 0.12, 0); const disc = new THREE.Mesh(new THREE.CircleGeometry(1.1, 32), mat(0x60e0ff, { e: 0x30b0ff, ei: 2 })); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.26; head.add(disc);
     for (let i = 0; i < 3; i++) { const a = i / 3 * 6.283; B(head, 0.22, 1.6, 0.22, 0x5a646e, Math.cos(a) * 1.3, 0.9, Math.sin(a) * 1.3); S(head, 0.13, 0x80f0ff, Math.cos(a) * 1.3, 1.8, Math.sin(a) * 1.3, 1, 1, 1, { e: 0x40d0ff, ei: 3 }); B(head, 0.24, 0.1, 0.5, color, Math.cos(a) * 1.3, 0.3, Math.sin(a) * 1.3).rotation.y = -a; }

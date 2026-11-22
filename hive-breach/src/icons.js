@@ -27,6 +27,10 @@ const P = {
   mine: '<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v4.5M12 17v4.5M2.5 12H7M17 12h4.5M5.3 5.3l3 3M15.7 15.7l3 3M18.7 5.3l-3 3M8.3 15.7l-3 3"/>',
   uav: '<path d="M3 6h6M15 6h6M6 6v2.5M18 6v2.5"/><path d="M6 9.5h12l-2.5 5h-7z"/><circle cx="12" cy="17.5" r="1.5"/>',
   ball: '<circle cx="12" cy="11" r="6.5"/><path d="M5.5 11h13"/><circle cx="12" cy="8.5" r="1.3"/><path d="M8 17l-2 4M16 17l2 4M12 17.5V21"/>',
+  shotgunT: '<path d="M6 20.5l3-6h6l3 6"/><rect x="8" y="9.5" width="7" height="5" rx="1"/><path d="M15 10.8h6M15 13.2h6"/>',
+  rally: '<path d="M7 21V3"/><path d="M7 4h11l-3 4 3 4H7"/><path d="M4 21h7"/>',
+  sandbag: '<path d="M3 18h18M4 18q0-3 3-3h3q3 0 3 3M11 18q0-3 3-3h3q3 0 3 3M7 15q0-3 3-3h4q3 0 3 3"/>',
+  nest: '<path d="M6 21l2-12M18 21l-2-12M8 9h8M7 15h10"/><path d="M5 9h14l-1-3H6z"/>',
   strike: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>',
   shield: '<path d="M12 2.5l8 3v6.5c0 5-3.5 8.5-8 9.5-4.5-1-8-4.5-8-9.5V5.5z"/><path d="M12 7v10"/>',
   squad: '<path d="M4 13.5l8-6 8 6M4 19l8-6 8 6"/>',
@@ -38,6 +42,7 @@ const P = {
 const MAP = {
   pulse: 'sentry', minigun: 'minigunT', tesla: 'tesla', missile: 'missile', barricade: 'barricade', resupply: 'crate', ammocache: 'crate', mortar: 'mortar', medbay: 'medbay', stasis: 'stasis', flamer: 'flame', railgun: 'railgun', mines: 'mine', claymore: 'claymore', uav: 'ball',
   frag: 'frag', medkit: 'medkit', ammo: 'ammo', ammodrop: 'ammo', dropship: 'squad', squad: 'squad', drone: 'uav', airstrike: 'strike', orbital: 'strike', napalm: 'flame', emp: 'tesla', cryo: 'cryo', dome: 'shield', hubrepair: 'wrench', fixall: 'wrench', sentrydrop: 'sentry', barrage: 'missile', healnade: 'medkit',
+  ammopack: 'ammo', medkitT: 'medkit', shotgunT: 'shotgunT', rally: 'rally', sandbag: 'sandbag', nest: 'nest', fieldhosp: 'medbay',
   assault: 'rifle', engineer: 'shotgun', heavy: 'launcher', gunner: 'minigun', sniper: 'sniper', medic: 'carbine',
 };
 export function icon(name) { const k = P[name] ? name : MAP[name] || 'supply'; return `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${P[k]}</svg>`; }

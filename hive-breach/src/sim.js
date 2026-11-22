@@ -30,7 +30,7 @@ export class Sim {
     for (const p of this.players.values()) this.resetPlayer(p);
     this.scrap = []; this.scrapT = 0; for (let i = 0; i < SCRAP_PILES; i++) this.spawnScrap();   // after the id counter is set
   }
-  resetPlayer(p) { p.scrap = 25; p.dr = DRESS; p.kits = KITS; p.pw = pwMax(p.cls); p.special = ''; p.acd = [0, 0, 0, 0]; p.items = CLASSES[p.cls] ? CLASSES[p.cls].throw.n : 2; p.buf = {}; p.cl = 0; p.adrT = 0; p.stimT = 0; p.rv = p.rv || 0; p.gold = START_GOLD; p.ups = { dmg: 0, rate: 0, mag: 0, spd: 0, hp: 0, arm: 0 }; p.mhp = p.hp = maxHp(p.cls, p.ups); p.dead = false; p.rt = 0; p.kills = 0; p.sp = (p.sp || 0) + 1; }
+  resetPlayer(p) { p.ex = CLASSES[p.cls] && CLASSES[p.cls].extra ? CLASSES[p.cls].extra.n : 0; p.scrap = 25; p.dr = DRESS; p.kits = KITS; p.pw = pwMax(p.cls); p.special = ''; p.acd = [0, 0, 0, 0]; p.items = CLASSES[p.cls] ? CLASSES[p.cls].throw.n : 2; p.buf = {}; p.cl = 0; p.adrT = 0; p.stimT = 0; p.rv = p.rv || 0; p.gold = START_GOLD; p.ups = { dmg: 0, rate: 0, mag: 0, spd: 0, hp: 0, arm: 0 }; p.mhp = p.hp = maxHp(p.cls, p.ups); p.dead = false; p.rt = 0; p.kills = 0; p.sp = (p.sp || 0) + 1; }
   addPlayer(id, name, cls) {
     let p = this.players.get(id); if (p) { p.name = name; if (p.cls !== cls) { p.cls = cls; p.items = CLASSES[cls].throw.n; p.mhp = maxHp(cls, p.ups); p.hp = Math.min(p.hp, p.mhp); } return p; }
     { const f = bossScale(this.players.size + 1) / bossScale(this.players.size); for (const a of this.aliens) if (a.type === 'broodqueen' || a.type === 'royal') { a.hp *= f; a.mhp *= f; } }
@@ -54,7 +54,7 @@ export class Sim {
     if (r.a === 'start') { if (this.phase === 'build') this.timer = 0.01; else if (this.phase === 'lose') { this.reset(); this.emit({ k: 'toast', m: 'Defense restarted.' }); } else if (this.phase === 'win') { this.endless = true; this.phase = 'wave'; this.spawnHive(1, 1.5); this.emit({ k: 'toast', m: 'Endless mode: the hive keeps coming.' }); } return; }
     if (p.dead || this.phase === 'lose') return;
     if (r.a === 'place') {
-      const T = TURRETS[r.kind], C = CLASSES[p.cls]; if (!T || ![C.sentry, C.defense, C.third].includes(r.kind)) return;
+      const T = TURRETS[r.kind], C = CLASSES[p.cls]; if (!T || T.throwExtra || ![C.sentry, C.defense, C.third].includes(r.kind)) return;
       if ((p.kits ?? KITS) < 1) return say('No turret kits left: pick up more in the hub (you carry 2).');
       const sc = scrapCost(r.kind); if ((p.scrap || 0) < sc) return say(`Need ${sc} scrap for a ${T.name}. Run over the scrap piles around the wrecks.`);
       if (this.turrets.filter(t => t.owner === id).length >= MAX_TURRETS) return say(`You can have ${MAX_TURRETS} at once. Sell one (Y) first.`);
@@ -73,7 +73,7 @@ export class Sim {
       // change class in the hub: every turret and barricade you own is sold first
       if (!CLASSES[r.cls] || r.cls === p.cls) return; if (!this.W.T.hubAt(p.x, p.z)) return say('Change class inside the hub.');
       let refund = 0, n = 0; this.turrets = this.turrets.filter(t => { if (t.owner !== id) return true; refund += Math.round(t.spent * 0.6 * t.hp / t.mhp); n++; this.emit({ k: 'boom', x: t.x, y: 0.5, z: t.z, r: 1.5, small: 1 }); return false; });
-      p.kits = KITS; const f = p.hp / p.mhp; p.cls = r.cls; p.items = CLASSES[r.cls].throw.n; p.mhp = maxHp(r.cls, p.ups); p.hp = Math.max(1, Math.round(p.mhp * f)); p.pw = pwMax(r.cls); p.special = p.special || '';
+      p.kits = KITS; const f = p.hp / p.mhp; p.cls = r.cls; p.items = CLASSES[r.cls].throw.n; p.mhp = maxHp(r.cls, p.ups); p.hp = Math.max(1, Math.round(p.mhp * f)); p.pw = pwMax(r.cls); p.special = p.special || ''; p.ex = CLASSES[r.cls].extra ? CLASSES[r.cls].extra.n : 0;
       this.emit({ k: 'swapped', to: id, cls: r.cls, n, refund }); this.emit({ k: 'toast', m: `${p.name} is now a ${CLASSES[r.cls].name}.` });
     } else if (r.a === 'stow') { this.stow(p);
     } else if (r.a === 'carry') {
@@ -125,6 +125,7 @@ export class Sim {
     } else if (r.a === 'ability') {
       if (!CLASSES[p.cls].abilities) return; const n = Math.max(0, Math.min(3, r.n | 0)), A = CLASSES[p.cls].abilities[n]; if (p.acd[n] > 0) return; p.acd[n] = A.cd; this.ability(p, A.id, r); this.emit({ k: 'ability', id: A.id, by: id, x: p.x, y: p.y, z: p.z, n: p.name, name: A.name });
     } else if (r.a === 'throw') {
+      if (r.ex) { const X = CLASSES[p.cls].extra; if (!X || (p.ex ?? X.n) <= 0) return; const x = Math.max(-BOUNDS, Math.min(BOUNDS, +r.x)), z = Math.max(-BOUNDS, Math.min(BOUNDS, +r.z)); if (Math.hypot(x - p.x, z - p.z) > 18) return; p.ex = (p.ex ?? X.n) - 1; this.items.push({ id: this.nid++, kind: X.kind, x, z, life: 90, by: id }); return; }
       if (p.items <= 0) return say('Nothing left to throw: restock at the hub or a Forward Resupply.'); const kind = CLASSES[p.cls].throw.kind; if (kind === 'frag') { p.items--; return; }
       const x = Math.max(-BOUNDS, Math.min(BOUNDS, +r.x)), z = Math.max(-BOUNDS, Math.min(BOUNDS, +r.z)); if (Math.hypot(x - p.x, z - p.z) > 16) return; p.items--;
       if (kind === 'claymore') { if (this.turrets.filter(t => t.kind === 'claymore' && t.owner === id).length >= 3) { p.items++; return say('Three claymores are already out.'); } this.turrets.push({ id: this.nid++, kind: 'claymore', owner: id, x, z, y: this.W.top(x, z), ry: +r.ry || 0, lvl: 1, hp: 99999, mhp: 99999, cd: 0, tg: 0, spent: 0, b: 0, bt: 0 }); }
@@ -172,8 +173,9 @@ export class Sim {
   }
   closest(list, a, r, dy = 99) { let best = null, bd = r; for (const q of list) { if (q.dead) continue; const d = Math.hypot(q.x - a.x, q.z - a.z); if (d < bd && Math.abs((q.y || 0) - a.y) < dy + 3) { bd = d; best = q; } } return best; }
   aggro(a, k, id, time) { a.mode = 'hunt'; a.tk = k; a.tid = id; a.ht = time ? (ALIENS[a.type].hunt || {}).time || 8 : (ALIENS[a.type].hunt || {}).time || 8; this.emit({ k: 'aggro', x: a.x, z: a.z, to: k === 'p' ? id : '', t: a.type }); }
+  inSandbags(x, z) { return this.turrets.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - x, t.z - z) < TURRETS.sandbag.range); }
   hurtPlayer(p, d, by) {
-    if (p.dead) return; for (const dm of this.domes) if (Math.hypot(p.x - dm.x, p.z - dm.z) < dm.r) return; for (const q of this.players.values()) if (q !== p && !q.dead && q.cls === 'heavy' && Math.hypot(q.x - p.x, q.z - p.z) < 12) { d *= 0.8; break; } p.hp -= d * (p.buf.iron > 0 ? 0.4 : 1) * (p.buf.nano > 0 ? 0.6 : 1); if (by) this.emit({ k: 'hitp', to: p.id, x: +by.x.toFixed(1), z: +by.z.toFixed(1) });
+    if (p.dead) return; if (this.inSandbags(p.x, p.z)) d *= 0.5; for (const dm of this.domes) if (Math.hypot(p.x - dm.x, p.z - dm.z) < dm.r) return; for (const q of this.players.values()) if (q !== p && !q.dead && q.cls === 'heavy' && Math.hypot(q.x - p.x, q.z - p.z) < 12) { d *= 0.8; break; } p.hp -= d * (p.buf.iron > 0 ? 0.4 : 1) * (p.buf.nano > 0 ? 0.6 : 1); if (by) this.emit({ k: 'hitp', to: p.id, x: +by.x.toFixed(1), z: +by.z.toFixed(1) });
     if (p.hp <= 0) { p.hp = 0; p.dead = true; p.rt = 7; this.emit({ k: 'toast', m: p.name + ' is down! Back in 7 seconds.' }); }
   }
   hurtTurret(t, d, by) { if (t.carry) d *= 2; t.hp -= d; if (by && this.time - (t.warned || -99) > 5) { t.warned = this.time; this.emit({ k: 'tatk', id: t.id, o: t.owner, kind: t.kind, x: t.x, z: t.z }); } if (t.hp <= 0) { this.turrets = this.turrets.filter(q => q !== t); this.emit({ k: 'boom', x: t.x, y: 1, z: t.z, r: 2.5 }); this.emit({ k: 'say', to: t.owner, m: `Your ${TURRETS[t.kind].name} was destroyed.` }); } }
@@ -212,7 +214,7 @@ export class Sim {
     const P = this.path, T = this.W.T; this.time = (this.time || 0) + dt;
     // marines
     for (const p of this.players.values()) {
-      if (p.dead) { p.rt -= dt; if (p.rt <= 0) { p.dead = false; p.hp = p.mhp; p.sp++; p.x = this.W.spawn.x; p.z = this.W.spawn.z; p.y = this.W.top(p.x, p.z); } continue; }
+      if (p.dead) { p.rt -= dt; if (p.rt <= 0) { p.dead = false; p.hp = p.mhp; p.sp++; const fh = this.turrets.filter(t => t.kind === 'fieldhosp' && !t.carry && !(t.b > 0)).sort((a, b) => b.id - a.id)[0]; p.x = fh ? fh.x + 2.2 : this.W.spawn.x; p.z = fh ? fh.z : this.W.spawn.z; p.y = this.W.top(p.x, p.z); } continue; }
       if (this.phase === 'wave') p.gold += dt * (1.6 + this.wave * 0.08);
       for (let k = 0; k < 4; k++) p.acd[k] = Math.max(0, p.acd[k] - dt); for (const k in p.buf) p.buf[k] = Math.max(0, p.buf[k] - dt); p.adrT = Math.max(0, p.adrT - dt); p.stimT = Math.max(0, p.stimT - dt);
       const inHub = !!this.W.T.hubAt(p.x, p.z); p.regen = this.hub > 0 && inHub && p.hp < p.mhp; if (p.regen) p.hp = Math.min(p.mhp, p.hp + 16 * dt);
@@ -220,8 +222,9 @@ export class Sim {
       for (const sc of this.scrap) if (!sc.got && Math.abs(sc.x - p.x) < 2.6 && Math.abs(sc.z - p.z) < 2.6 && Math.hypot(sc.x - p.x, sc.z - p.z) < 2.6) { sc.got = true; p.scrap = (p.scrap || 0) + sc.n; this.emit({ k: 'scrap', to: p.id, n: sc.n }); }
       if (inHub && (p.dr ?? DRESS) < DRESS) { p.drT = (p.drT || 0) + dt; if (p.drT > 4) { p.drT = 0; p.dr = (p.dr ?? DRESS) + 1; } }
       if (inHub && (p.kits ?? KITS) < KITS) { p.kitT = (p.kitT || 0) + dt; if (p.kitT > 3) { p.kitT = 0; p.kits = (p.kits ?? KITS) + 1; this.emit({ k: 'kit', to: p.id, n: p.kits }); } }
+      { const X = CLASSES[p.cls].extra; if (X && inHub && (p.ex ?? X.n) < X.n) { p.exT = (p.exT || 0) + dt; if (p.exT > 2.5) { p.exT = 0; p.ex = (p.ex ?? X.n) + 1; } } }
       if (inHub && p.items < CLASSES[p.cls].throw.n) { p.irT = (p.irT || 0) + dt; if (p.irT > 2) { p.irT = 0; p.items++; } }
-      for (const it of this.items) if (!it.got && Math.hypot(it.x - p.x, it.z - p.z) < 2) { if (it.kind === 'medkit' && p.hp < p.mhp) { it.got = true; p.hp = Math.min(p.mhp, p.hp + 60); this.emit({ k: 'pickup', to: p.id, kind: 'medkit' }); } else if (it.kind === 'ammo' && !(it.by === p.id && it.age < 2)) { it.got = true; this.emit({ k: 'ammo', to: p.id }); } }
+      for (const it of this.items) if (!it.got && Math.hypot(it.x - p.x, it.z - p.z) < 2) { if (it.kind === 'medkit' && p.hp < p.mhp) { it.got = true; p.hp = p.mhp; this.emit({ k: 'pickup', to: p.id, kind: 'medkit' }); } else if (it.kind === 'ammo' && !(it.by === p.id && it.age < 2)) { it.got = true; this.emit({ k: 'ammo', to: p.id }); } }
       if (this.stormI > 0.5 && !this.sheltered(p, inHub)) { p.hp -= 2 * (this.stormI - 0.5) * 2 * dt; p.cold = 1; if (p.hp <= 0) this.hurtPlayer(p, 1); } else p.cold = 0;
       p.toxic = Math.max(0, (p.toxic || 0) - dt); for (const c of this.spores) if (Math.hypot(p.x - c.x, p.z - c.z) < c.r * c.k) { p.hp -= 4 * c.k * dt; p.toxic = 0.3; if (p.hp <= 0) this.hurtPlayer(p, 1); }
       for (const c of this.ammo) if (Math.hypot(p.x - c.x, p.z - c.z) < 2.6 && (c.cd[p.id] || 0) < this.time) { c.cd[p.id] = this.time + 1; this.emit({ k: 'ammo', to: p.id }); }
@@ -351,11 +354,13 @@ export class Sim {
         else { this.hurtAlien(tg, st.dmg, t.owner, true); this.emit({ k: 'rail', a: [t.x, t.y + 2.2, t.z], b: [+tg.x.toFixed(1), +(tg.y + ALIENS[tg.type].h * 0.6).toFixed(1), +tg.z.toFixed(1)] }); }   // one precise shot, no piercing
       } else if (t.kind === 'mines') {
         if (t.cd > 0) continue; for (const a of this.aliens) { if (a.dead || ALIENS[a.type].fly || ALIENS[a.type].static) continue; if (Math.hypot(a.x - t.x, a.z - t.z) < st.range) { this.splash(t.x, t.y + 0.4, t.z, TURRETS.mines.splash, st.dmg, t.owner); t.ch--; t.cd = 1.2; if (t.ch <= 0) { t.hp = 0; this.turrets = this.turrets.filter(q => q !== t); } break; } }
-      } else if (t.kind === 'minigun' || t.kind === 'pulse' || t.kind === 'tesla' || t.kind === 'missile') {
+      } else if (t.kind === 'minigun' || t.kind === 'pulse' || t.kind === 'tesla' || t.kind === 'missile' || t.kind === 'autocannon' || t.kind === 'shotgunT') {
         let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !t.inCave) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < st.range && a.s > bs) { bs = a.s; tg = a; } }
         if (!tg) continue; t.tg = tg.id; const want = Math.atan2(-(tg.x - t.x), -(tg.z - t.z)); let dr = want - t.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; t.ry += dr * Math.min(1, dt * 10);
         if (t.cd > 0) continue; t.cd = 1 / st.rate;
         if (t.kind === 'minigun' || t.kind === 'pulse') this.hurtAlien(tg, st.dmg, t.owner);
+        else if (t.kind === 'autocannon') { this.hurtAlien(tg, st.dmg, t.owner, true); this.emit({ k: 'tshot', id: t.id, tg: tg.id, w: 'ac' }); }
+        else if (t.kind === 'shotgunT') { const pel = TURRETS.shotgunT.pellets; this.hurtAlien(tg, st.dmg * pel * 0.65, t.owner); for (const a of this.aliens) if (a !== tg && !a.dead && Math.hypot(a.x - tg.x, a.z - tg.z) < 2.6) this.hurtAlien(a, st.dmg * pel * 0.3, t.owner); this.emit({ k: 'tshot', id: t.id, tg: tg.id, w: 'sg' }); }
         else if (t.kind === 'tesla') {
           const pts = [[t.x, 3.05 + 1.2 - 1.2, t.z]], hit = [tg]; let cur = tg;
           for (let i = 0; i < st.chain; i++) { let nx = null, nd = 7; for (const a of this.aliens) if (!a.dead && !a.hidden && !hit.includes(a)) { const d = Math.hypot(a.x - cur.x, a.z - cur.z); if (d < nd) { nd = d; nx = a; } } if (!nx) break; hit.push(nx); cur = nx; }
@@ -415,8 +420,8 @@ export class Sim {
     const P = this.path, C = this.cmd;
     if (this.phase === 'wave' || this.phase === 'assault') { C.t -= dt; if (C.t <= 0) { C.t = DROP_EVERY[C.lv];
       // reinforcements come down on a dropship that lands on the track just outside the hub, unloads and takes off again
-      const n = Math.min(SQUAD[C.sz], MAX_ALLIES - this.allies.length); if (n > 0) { const sL = P.len - 30, q = P.at(sL), ly = P.y(sL); this.emit({ k: 'dropship', a: [q.x - q.tz * 70, ly + 55, q.z + q.tx * 70], b: [+q.x.toFixed(1), +ly.toFixed(1), +q.z.toFixed(1)], t: 4.5, hold: 3 });
-        this.later.push({ t: 4.9, f: () => { for (let i = 0; i < n && this.allies.length < MAX_ALLIES; i++) { const type = C.un[this.allyN++ % C.un.length], A = ALLIES[type], s = sL - i * 1.6, q2 = P.at(s), lat = (Math.random() - 0.5) * 3; this.allies.push({ id: this.nid++, type, s, lat, x: q2.x - q2.tz * lat, y: P.y(s), z: q2.z + q2.tx * lat, hp: A.hp, mhp: A.hp, ry: Math.atan2(q2.tx, q2.tz), cd: Math.random(), tg: 0 }); } } });
+      const n = Math.min(SQUAD[C.sz], MAX_ALLIES - this.allies.length); if (n > 0) { const rb = this.turrets.filter(t => t.kind === 'rally' && !t.carry && !(t.b > 0)).sort((a, b) => b.id - a.id)[0]; /* an Assault's Rally Beacon calls the dropships to it */ const sL = rb ? P.near(rb.x, rb.z).s : P.len - 30, q = rb ? { x: rb.x + 3, z: rb.z, tx: P.at(sL).tx, tz: P.at(sL).tz } : P.at(sL), ly = rb ? this.W.top(rb.x + 3, rb.z) : P.y(sL); this.emit({ k: 'dropship', a: [q.x - q.tz * 70, ly + 55, q.z + q.tx * 70], b: [+q.x.toFixed(1), +ly.toFixed(1), +q.z.toFixed(1)], t: 4.5, hold: 3 });
+        this.later.push({ t: 4.9, f: () => { for (let i = 0; i < n && this.allies.length < MAX_ALLIES; i++) { const type = C.un[this.allyN++ % C.un.length], A = ALLIES[type], s = sL - i * 1.6, q2 = P.at(s), lat = (Math.random() - 0.5) * 3, ox = rb ? q.x + (Math.random() - 0.5) * 3 : q2.x - q2.tz * lat, oz = rb ? q.z + (Math.random() - 0.5) * 3 : q2.z + q2.tx * lat; this.allies.push({ id: this.nid++, type, s, lat, x: ox, y: this.W.top(ox, oz), z: oz, hp: A.hp, mhp: A.hp, ry: Math.atan2(q2.tx, q2.tz), cd: Math.random(), tg: 0 }); } } });
         if ((this.dropN = (this.dropN || 0) + 1) % 3 === 1) this.radio('cmd', [`Dropship touching down at the hub gate: ${n} veteran${n > 1 ? 's' : ''} joining the push.`, 'Fresh troops on the ground. Move up with them, marines.', 'Reinforcements landing outside the hub. Give them cover.'][this.dropN % 3]); } } }
     // the commander's airdrops: ammo on a marine every 2 minutes, field dressings every 2.5 (sooner with more marines)
     if (this.phase === 'wave') { const k = 1 + 0.3 * (this.players.size - 1), L = this.living(); this.cmdA = (this.cmdA ?? 120) - dt * k; this.cmdD = (this.cmdD ?? 150) - dt * k;
@@ -436,7 +441,7 @@ export class Sim {
     }
     if (this.allies.some(m => m.hp <= 0)) { for (const m of this.allies) if (m.hp <= 0) this.emit({ k: 'adie', x: m.x, y: m.y, z: m.z }); this.allies = this.allies.filter(m => m.hp > 0); }
   }
-  hurtAlly(m, d) { m.hp -= d * ALLY_HURT; }
+  hurtAlly(m, d) { m.hp -= d * ALLY_HURT * (this.inSandbags(m.x, m.z) ? 0.5 : 1); }
   // a parachute crate from the commander, a few metres from the marine it is meant for
   airdrop(p, kind) {
     const a = Math.random() * 6.28, x = Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, p.x + Math.cos(a) * 3.5)), z = Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, p.z + Math.sin(a) * 3.5));
@@ -536,7 +541,7 @@ export class Sim {
       w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), el: Math.floor(this.el || 0), n: this.players.size, wx: +(this.stormI || 0).toFixed(2), wa: +(this.windA || 0).toFixed(2),
       A: this.aliens.map(a => [a.id, a.type, r1(a.x), r1(a.y), r1(a.z), Math.round(a.hp), Math.round(a.mhp), +a.ry.toFixed(2), a.stun > 0 ? 1 : 0, a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0, a.rev > 0 || a.markT > 0 ? 1 : 0]),
       T: this.turrets.map(t => [t.id, t.kind, t.owner, r1(t.x), r1(t.z), +t.ry.toFixed(2), t.lvl, Math.round(t.hp), Math.round(t.mhp), t.tg, r1(t.y), r1(t.b || 0), t.bt || 0, t.fresh ? 1 : 0, t.ch || 0, t.carry || 0, t.next ? +(t.up || 0).toFixed(2) : 0]),
-      P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, Math.floor(p.scrap || 0), Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)]))]),
+      P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, Math.floor(p.scrap || 0), Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)])), p.ex ?? 0]),
       I: this.items.map(it => [it.id, it.kind, r1(it.x), r1(it.z)]), SC: this.scrap.map(s => [s.id, r1(s.x), r1(s.z)]),
       M: this.ammo.map(c => [c.id, r1(c.x), r1(c.z), Math.ceil(c.life)]), Z: this.spores.map(c => [r1(c.x), r1(c.z), +(c.r * c.k).toFixed(1)]), K: this.pools.map(q => [r1(q.x), r1(q.y), r1(q.z), q.r, q.fire ? 1 : 0]), D: this.drones.map(d => [d.id, r1(d.x + Math.cos(d.a) * 8), r1(d.y + 7), r1(d.z + Math.sin(d.a) * 8), d.tg]), Q: this.medz.map(m => [m.id, r1(m.x), r1(m.y), r1(m.z), m.r, Math.ceil(m.t)]), S2: this.domes.map(d => [r1(d.x), r1(d.y), r1(d.z), d.r]),
       O: this.pods.map(p => [p.id, r1(p.x), r1(p.z), Math.ceil(Math.max(0, p.life)), r1(Math.max(0, p.land)), p.kind === 'ammo' ? 1 : p.kind === 'dress' ? 2 : 0]),

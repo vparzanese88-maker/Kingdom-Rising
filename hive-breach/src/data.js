@@ -87,7 +87,7 @@ export const TURRETS = {
   mines: { name: 'Mine Field', cost: 70, hp: 99999, range: 2.6, dmg: 260, splash: 4.5, charges: 3, onPath: true, mine: true, key: 'defense', desc: 'Three charges on the track that blow up walkers.' },
   ammocache: { name: 'Ammo Cache', cost: 80, hp: 200, range: 3, uses: 6, key: 'defense', desc: 'A crate teammates refill ammo from.' },
   claymore: { name: 'Claymore', cost: 0, hp: 99999, range: 5, mine: true, thrown: true, desc: 'A thrown mine that blasts aliens in front of it.' },
-  uav: { name: 'Sentry Ball', cost: 90, hp: 140, range: 35, anyPlace: true, ball: 1, key: 'defense', desc: 'Throw it. It shows aliens within 35 m on the minimap.' },
+  uav: { name: 'Sentry Ball', cost: 90, hp: 140, range: 35, anyPlace: true, ball: 1, key: 'defense', desc: 'Throw it. Aliens within 35 m show on the minimap and take 20% more damage.' },
   stasis: { name: 'Stasis Field', cost: 90, hp: 200, range: 7.5, slow: 0.45, anyPlace: true, key: 'defense', desc: 'Slows every alien inside it.' },
 };
 export const UPG_COST = [0, 0.8, 1.3];      // cost to go from lvl 1->2, 2->3

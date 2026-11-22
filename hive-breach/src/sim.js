@@ -145,7 +145,7 @@ export class Sim {
 
   // ---------------------------------------------------------------- damage
   hurtAlien(a, d, owner, ap) {
-    if (a.hp <= 0) return; a.lastHit = this.time; if (a.markT > 0) d *= a.mark || 1;
+    if (a.hp <= 0) return; a.lastHit = this.time; if (a.markT > 0) d *= a.mark || 1; if (a.ballT > 0) d *= a.ballK || 1.2;   // inside a Sentry Ball's field
     const op = owner && this.players.get(owner); if (op) { if (op.stimT > 0) d *= 1.5; if (op.buf.rally > 0) d *= 1.25; if (op.buf.fortify > 0) d *= 1.3; for (const q of this.players.values()) if (q !== op && !q.dead && q.cls === 'assault' && Math.hypot(q.x - op.x, q.z - op.z) < 14) { d *= 1.15; break; } }
     const A = ALIENS[a.type]; a.hp -= d * (ap ? 1 : 1 - (A.armor || 0));
     if (a.hp <= 0) this.killAlien(a, owner);
@@ -236,7 +236,7 @@ export class Sim {
     // aliens
     const living = this.living();
     for (const a of this.aliens) {
-      if (a.dead) continue; const A = ALIENS[a.type]; a.cc -= dt; a.atk -= dt; a.rcd -= dt; if (a.markT > 0) a.markT -= dt; if (a.rev > 0) a.rev -= dt;
+      if (a.dead) continue; const A = ALIENS[a.type]; a.cc -= dt; a.atk -= dt; a.rcd -= dt; if (a.markT > 0) a.markT -= dt; if (a.rev > 0) a.rev -= dt; if (a.ballT > 0) a.ballT -= dt;
       // nests sit off the track and hatch crawlers that go for the nearest marine
       if (A.nest) { a.qcd -= dt; if (a.qcd <= 0 && this.phase === 'wave') { a.qcd = 26 + Math.random() * 10; this.emit({ k: 'hatch', x: a.x, z: a.z }); for (let i = 0, nn = Math.round(4 * countScale(this.players.size)); i < nn; i++) { const c = this.spawn('crawler', a.s); c.x = a.x + (Math.random() - 0.5) * 3; c.z = a.z + (Math.random() - 0.5) * 3; c.y = this.W.ground(c.x, c.z, a.y + 1); c.lat = (Math.random() - 0.5) * 3; const p = this.closest(living, c, 45); if (p) this.aggro(c, 'p', p.id, 1.5); else c.mode = 'return'; } } continue; }
       // the Brood Queen: heals when left alone, spits at anyone in her cave, and births Royal Guards and Stalkers while she is under attack
@@ -320,7 +320,7 @@ export class Sim {
     if (this.hub <= 0 && this.phase !== 'lose') { this.phase = 'lose'; this.emit({ k: 'lose', w: this.wave, el: Math.floor(this.el || 0) }); }
 
     // turrets
-    for (const t of this.turrets) if (t.kind === 'uav' && !t.fresh) { const st = tStat(t); for (const a of this.aliens) if (Math.hypot(a.x - t.x, a.z - t.z) < st.range) { a.rev = Math.max(a.rev || 0, 0.4); a.hidden = false; } }
+    for (const t of this.turrets) if (t.kind === 'uav' && !t.fresh && !t.carry) { const st = tStat(t), k = 1.2 + 0.1 * (t.lvl - 1); for (const a of this.aliens) if (Math.hypot(a.x - t.x, a.z - t.z) < st.range) { a.ballT = 0.4; a.ballK = Math.max(a.ballT > 0 && a.ballK || 1, k); a.rev = Math.max(a.rev || 0, 0.4); a.hidden = false; } }
     for (const t of this.turrets) if (t.life !== undefined) { t.life -= dt; if (t.life <= 0) t.hp = 0; } if (this.turrets.some(t => t.hp <= 0)) this.turrets = this.turrets.filter(t => t.hp > 0);
     for (const t of this.turrets) if (t.carry) { const c = this.players.get(t.carry); if (!c || c.dead) { t.carry = 0; this.settle(t); continue; } t.x = c.x - Math.sin(c.yaw) * 1.7; t.z = c.z - Math.cos(c.yaw) * 1.7; t.y = (c.y || 0) + 0.3; t.ry = c.yaw; }
     for (const t of this.turrets) {

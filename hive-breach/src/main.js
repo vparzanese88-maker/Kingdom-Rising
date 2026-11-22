@@ -306,7 +306,7 @@ function makeWeather() {
   const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts); wx = { pts, kind, n, fogFar: G.W.def.fogD[1], fogNear: G.W.def.fogD[0], bolt: 8 + Math.random() * 10, flash: 0 };
 }
 function updateWeather(dt, S) {
-  if (!wx || !scene.fog) return; /* no weather while a film is in space */ const a = wx.pts.geometry.attributes.position.array, c = camera.position, storm = (S && S.wx) || 0, fall = wx.kind === 'rain' ? 26 : wx.kind === 'snow' ? 2.5 + storm * 4 : 0.4, wind = wx.kind === 'snow' ? 1.5 + storm * 13 : wx.kind === 'dust' ? 5 : 2;
+  if (!wx || !scene.fog || G.cineFog) return; /* no weather while a film is in space */ const a = wx.pts.geometry.attributes.position.array, c = camera.position, storm = (S && S.wx) || 0, fall = wx.kind === 'rain' ? 26 : wx.kind === 'snow' ? 2.5 + storm * 4 : 0.4, wind = wx.kind === 'snow' ? 1.5 + storm * 13 : wx.kind === 'dust' ? 5 : 2;
   for (let i = 0; i < wx.n; i++) { const o = i * 3, wa = wx.kind === 'snow' ? ((S && S.wa) || 0) : 0; a[o] += Math.cos(wa) * wind * dt; a[o + 2] += Math.sin(wa) * wind * dt; a[o + 1] -= fall * dt * (0.7 + (i % 5) * 0.1); if (wx.kind === 'dust') a[o + 1] += Math.sin(G.time + i) * dt * 0.5;
     if (a[o] - c.x > 30) a[o] -= 60; if (a[o] - c.x < -30) a[o] += 60; if (a[o + 2] - c.z > 30) a[o + 2] -= 60; if (a[o + 2] - c.z < -30) a[o + 2] += 60; if (a[o + 1] < c.y - 15) a[o + 1] += 30; if (a[o + 1] > c.y + 15) a[o + 1] -= 30; }
   wx.pts.geometry.attributes.position.needsUpdate = true;

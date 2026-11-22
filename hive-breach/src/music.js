@@ -10,13 +10,19 @@ const OSTI = [0, 0, 12, 0, 0, 0, 12, 0, 0, 0, 12, 0, 7, 0, 12, 7];
 const TAIKO = [1, 0, 0, 0.5, 0, 0, 0.8, 0, 1, 0, 0, 0.5, 0, 0.7, 0.9, 0.6];
 const VOWEL = { ah: [[730, 1], [1090, 0.5], [2440, 0.18]], oo: [[320, 1], [800, 0.35], [2240, 0.1]] };
 const MIX = {
-  off: { choir: 0, chant: 0, strings: 0, spicc: 0, brass: 0, drums: 0, timp: 0 },
-  title: { choir: 0.9, chant: 1, strings: 0.7, spicc: 0, brass: 0.5, drums: 0.5, timp: 0.7 },
-  calm: { choir: 0.7, chant: 0.6, strings: 0.6, spicc: 0, brass: 0, drums: 0.2, timp: 0.5 },
-  battle: { choir: 0.7, chant: 0, strings: 0.6, spicc: 1, brass: 1, drums: 1, timp: 0.8 },
-  boss: { choir: 1, chant: 0, strings: 0.7, spicc: 1, brass: 1, drums: 1, timp: 1 },
+  off: { choir: 0, chant: 0, strings: 0, spicc: 0, brass: 0, drums: 0, timp: 0, synth: 0 },
+  drop: { choir: 0.9, chant: 0, strings: 0.9, spicc: 1, brass: 1.1, drums: 1.15, timp: 1, synth: 1 },
+  title: { choir: 0.9, chant: 1, strings: 0.7, spicc: 0, brass: 0.5, drums: 0.5, timp: 0.7, synth: 0 },
+  calm: { choir: 0.7, chant: 0.6, strings: 0.6, spicc: 0, brass: 0, drums: 0.2, timp: 0.5, synth: 0 },
+  battle: { choir: 0.7, chant: 0, strings: 0.6, spicc: 1, brass: 1, drums: 1, timp: 0.8, synth: 0 },
+  boss: { choir: 1, chant: 0, strings: 0.7, spicc: 1, brass: 1, drums: 1, timp: 1, synth: 0 },
 };
-const BPM = { title: 84, calm: 84, battle: 128, boss: 138, off: 84 };
+const BPM = { title: 84, calm: 84, battle: 128, boss: 138, off: 84, drop: 132 };
+// the drop-pod cue: D minor, D - Bb - C - A, a pulsing synth bass, war drums and a dark brass theme ([step, semitone above D4, length])
+const DROOT = [38, 34, 36, 33], DQUAL = [[0, 3, 7], [0, 4, 7], [0, 4, 7], [0, 4, 7]];
+const DTHEME = [[[0, 0, 4], [4, 3, 2], [6, 5, 2], [8, 7, 8]], [[0, 10, 6], [6, 8, 2], [8, 5, 8]], [[0, 7, 4], [4, 10, 4], [8, 12, 8]], [[0, 13, 6], [6, 12, 2], [8, 9, 8]]];
+const DBASS = [0, 0, 12, 0, 0, 12, 0, 0, 0, 0, 12, 0, 7, 0, 10, 12];
+const DDRUM = [1, 0, 0.4, 0, 0.8, 0, 0.4, 0.5, 1, 0, 0.4, 0, 0.8, 0.5, 0.7, 0.9];
 export class Music {
   constructor(audio) { this.a = audio; this.mode = 'calm'; this.on = true; this.vol = 0.75; try { const v = JSON.parse(localStorage.getItem('hb-music2') || 'null'); if (v) { this.on = v.on; this.vol = v.vol; } } catch (e) { } }
   save() { try { localStorage.setItem('hb-music2', JSON.stringify({ on: this.on, vol: this.vol })); } catch (e) { } }
@@ -41,7 +47,7 @@ export class Music {
   vowel(bus, v, t) { VOWEL[v].forEach(([f], i) => bus.fs[i].frequency.setTargetAtTime(f, t, 0.3)); }
   // the game asks for a mix every frame; only switch once the new one has been wanted for a few seconds, so the music doesn't flicker in and out
   set(mode) {
-    if (!MIX[mode]) return; if (mode === this.mode) { this.want = null; return; } const now = performance.now(); if (this.want !== mode) { this.want = mode; this.wantT = now; } if (mode !== 'off' && mode !== 'title' && this.mode !== 'title' && now - this.wantT < 3500) return; this.want = null; this.mode = mode; if (!this.master) return; const t = this.a.ctx.currentTime;
+    if (!MIX[mode] || this.lock) return; if (mode === this.mode) { this.want = null; return; } const now = performance.now(); if (this.want !== mode) { this.want = mode; this.wantT = now; } if (mode !== 'off' && mode !== 'title' && this.mode !== 'title' && now - this.wantT < 3500) return; this.want = null; this.mode = mode; if (!this.master) return; const t = this.a.ctx.currentTime;
     for (const k in this.L) this.L[k].gain.setTargetAtTime(MIX[mode][k], t, 1.2);
     this.bpm = BPM[mode]; this.vowel(this.choirBus, mode === 'boss' || mode === 'battle' ? 'ah' : 'oo', t);
   }
@@ -53,7 +59,7 @@ export class Music {
     while (this.next < c.currentTime + 2.5) { this.play(this.step, this.next); this.next += 60 / this.bpm / 4; this.step = (this.step + 1) % 64; }
   }
   play(step, t) {
-    if (!this.on) return;
+    if (!this.on) return; if (this.mode === 'drop') return this.playDrop(step, t);
     const bar = step >> 4, s = step & 15, root = ROOTS[bar], q = QUAL[bar], sx = 60 / this.bpm / 4, M = MIX[this.mode], fight = this.mode === 'battle' || this.mode === 'boss';
     if (s === 0) {
       // the choir holds each chord for the whole bar; the strings swell under it
@@ -70,6 +76,49 @@ export class Music {
       if (this.mode === 'boss' && s % 4 === 2) this.taiko(t, 0.4, 1.6);
     } else if (M.drums && (s === 0 || s === 10) && bar % 2 === 0) this.taiko(t, 0.5);
     if (bar === 3 && s === 8) this.swell(t, sx * 8);
+  }
+
+  // ---- the drop-pod score, locked to the film's clock: a tense build, a hit on EJECT, full war drums through the burn, silence at impact, a heroic chord as the door blows
+  dropScore() {
+    if (!this.master) this.start(); if (!this.master) return; const c = this.a.ctx, t = c.currentTime + 0.05;
+    this.lock = true; this.mode = 'drop'; this.bpm = BPM.drop; for (const k in this.L) this.L[k].gain.setTargetAtTime(MIX.drop[k], t, 0.3);
+    this.vowel(this.choirBus, 'oo', t); this.step = 0; this.next = t; this.sc0 = t;
+    this.swell(t + 4.6, 2.4); this.hit(t + 7, 38, true); this.swell(t + 11, 2); this.hit(t + 13, 34, false); this.swell(t + 26.6, 2.4); this.hit(t + 29, 26, true); this.hit(t + 30.4, 38, 'major');
+    setTimeout(() => this.vowel(this.choirBus, 'ah', c.currentTime), 7000);
+  }
+  endScore() { if (!this.lock) return; this.lock = false; this.mode = 'calm'; this.want = null; if (!this.master) return; const t = this.a.ctx.currentTime; for (const k in this.L) this.L[k].gain.setTargetAtTime(MIX.calm[k], t, 1.5); this.bpm = BPM.calm; }
+  hit(t, root, big) { // a stab: drums, timpani, crash and a full brass chord
+    this.taiko(t, 1.3, 0.8); this.taiko(t, 1, 1.3); this.timpani(t, midi(root), 1.2); this.crash(t);
+    const iv = big === 'major' ? [0, 4, 7, 12] : [0, 3, 7, 12]; for (const i of iv) { this.brass(t, midi(root + 12 + i), big === 'major' ? 4 : 1.2, 1.2); this.brass(t, midi(root + i), big === 'major' ? 4 : 1.2, 0.8); }
+    if (big === 'major') { const nx = this.next; this.next = t; for (const i of [0, 4, 7]) this.voice(this.choirBus, midi(root + 24 + i), 5, 0.08, 3); this.next = nx; }   // voice() starts at this.next
+  }
+  synth(t, f, dur, v) { // a growling saw bass with a filter that bites and closes
+    const c = this.a.ctx, g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 6; lp.frequency.setValueAtTime(180, t); lp.frequency.exponentialRampToValueAtTime(1500, t + 0.02); lp.frequency.exponentialRampToValueAtTime(220, t + dur); lp.connect(g); g.connect(this.L.synth);
+    for (const [ty, m, d] of [['sawtooth', 1, -8], ['sawtooth', 1, 8], ['square', 0.5, 0]]) { const o = c.createOscillator(); o.type = ty; o.frequency.value = f * m; o.detune.value = d; o.connect(lp); o.start(t); o.stop(t + dur + 0.1); }
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.07 * v, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.05);
+  }
+  playDrop(step, t) {
+    const ft = t - this.sc0, s = step & 15, bar = (step >> 4) & 3, sx = 60 / this.bpm / 4;
+    if (ft > 28.9 && ft < 30.3) return;                          // the impact: nothing but the crash
+    if (ft < 7) { // the build: a heartbeat, a low pulse that grows, a held minor chord
+      const k = ft / 7; if (s === 0 || s === 3) this.taiko(t, s === 0 ? 0.7 : 0.45, 0.7);
+      if (s % 2 === 0) this.synth(t, midi(26), sx * 1.6, 0.35 + k * 0.6);
+      if (s === 0 && bar % 2 === 0) { for (const i of [0, 3, 7]) this.voice(this.choirBus, midi(50 + i), sx * 32, 0.05, 2); this.strings(t, midi(62), sx * 32); this.strings(t, midi(65), sx * 32); }
+      if (ft > 4.5) this.spicc(t, midi(74 + (s % 2) * 12), sx * 0.8);
+      return;
+    }
+    if (ft > 30.3) { // after the door: heroic D major, then it settles toward the game's own music
+      if (s === 0) { for (const i of [0, 4, 7]) this.strings(t, midi(50 + 12 + i), sx * 16); this.timpani(t, midi(38), 0.6); }
+      if (s === 0 || s === 8) this.taiko(t, 0.6); return;
+    }
+    const root = DROOT[bar], q = DQUAL[bar], burn = ft > 13, hard = ft > 22;
+    this.synth(t, midi(root - 12 + DBASS[s]), sx * 0.9, 1);
+    if (DDRUM[s]) this.taiko(t, DDRUM[s] * (burn ? 1.15 : 1));
+    if (burn && s % 4 === 2) this.taiko(t, 0.45, 1.7);
+    if (hard && s % 2 === 1) this.taiko(t, 0.3, 2.2);
+    this.spicc(t, midi(root + 24 + (s % 4 === 0 ? 0 : s % 4 === 2 ? 12 : 7)), sx * 0.8);
+    for (const [st, iv, l] of DTHEME[bar]) if (st === s) { this.brass(t, midi(62 + iv - 12), sx * l); this.brass(t, midi(62 + iv - 24), sx * l, 0.7); if (burn) this.brass(t, midi(62 + iv), sx * l, 0.5); }
+    if (s === 0) { this.timpani(t, midi(root), 0.9); for (const i of [0, q[1], 7]) this.voice(this.choirBus, midi(root + 24 + i + (burn ? 12 : 0)), sx * 16, 0.06, 2); this.strings(t, midi(root + 12), sx * 16); this.strings(t, midi(root + 19), sx * 16); }
   }
   // one choir note: three slightly detuned singers with vibrato, slow in and slow out
   voice(bus, f, dur, v, voices = 2) {

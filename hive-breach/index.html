@@ -113,6 +113,8 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 #slots{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:6px}
 .slot{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 7px;min-width:78px;max-width:110px;font-size:11px;text-align:center}
 .slot.ab{border-style:dashed}
+.slot.w{min-width:58px;max-width:84px;font-size:10px}.slot.w.on{border-color:#3fc0ff;box-shadow:0 0 0 2px #3fc0ff inset}
+#slots .gap{width:10px}
 .slot b{display:block;color:var(--gold);font-size:16px}
 .slot i{display:block;font-style:normal;color:var(--dim)}
 .slot.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset}
@@ -150,15 +152,15 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795359482",
-"./src/data.js": "./src/data.js?v=1795359482",
-"./src/explore.js": "./src/explore.js?v=1795359482",
-"./src/main.js": "./src/main.js?v=1795359482",
-"./src/models.js": "./src/models.js?v=1795359482",
-"./src/music.js": "./src/music.js?v=1795359482",
-"./src/net.js": "./src/net.js?v=1795359482",
-"./src/sim.js": "./src/sim.js?v=1795359482",
-"./src/world.js": "./src/world.js?v=1795359482"
+"./src/audio.js": "./src/audio.js?v=1795359828",
+"./src/data.js": "./src/data.js?v=1795359828",
+"./src/explore.js": "./src/explore.js?v=1795359828",
+"./src/main.js": "./src/main.js?v=1795359828",
+"./src/models.js": "./src/models.js?v=1795359828",
+"./src/music.js": "./src/music.js?v=1795359828",
+"./src/net.js": "./src/net.js?v=1795359828",
+"./src/sim.js": "./src/sim.js?v=1795359828",
+"./src/world.js": "./src/world.js?v=1795359828"
 }
 }
 </script>
@@ -217,17 +219,14 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
   <div class="keys">
     <b>W A S D · Shift · Space</b><span>Move · sprint · jump (mouse looks)</span>
     <b>Left click · R</b><span>Shoot · reload (Sniper: right click to scope)</span>
-    <b>C or Ctrl · Z</b><span>Hold to kneel (steadier aim, half the recoil) · Z to go prone (the steadiest aim, but slow)</span>
-    <b>Q</b><span>Build your class sentry (click to place, right click cancels)</span>
-    <b>E</b><span>Build your class defense</span>
-    <b>1 2 3 4</b><span>Main gun · side arm · welding torch (repairs; Engineers 3x faster) · heal beam (Medic). Mouse wheel switches</span>
-    <b>F 5 6 7</b><span>Your four class abilities</span>
-    <b>T</b><span>Use the special from a supply crate</span>
+    <b>C · Z</b><span>Hold C to crouch (steadier aim, half the recoil) · Z to go prone (steadiest aim, but slow)</span>
+    <b>T · F · V</b><span>Build: your class turret, device and third structure (click to place, right click cancels)</span>
+    <b>1 2 3 4 5</b><span>Main gun · side arm · welding torch (repairs; Engineers 3x faster) · grenade or class item (left click throws; G quick-throws it) · heal beam (Medic). Mouse wheel switches</span>
+    <b>X</b><span>Use the special from a supply crate</span>
     <b>Right click</b><span>Your class action: aim, scope, plasma torch, heal beam or spin up</span>
-    <b>H · M · N</b><span>Class card · live map · music on or off</span>
-    <b>G</b><span>Throw your class item: frag grenade, sticky charge, claymore, health kit or ammo pack (restock at the hub or a Forward Resupply)</span>
+    <b>E · H · M · N</b><span>Use (vehicles) · class card · live map · music on or off</span>
     <b>Hub</b><span>Inside the hub walls you heal and refill your spare ammo. Climb the ramps to patrol the walls</span>
-    <b>U · X</b><span>Look at a turret: upgrade it (any turret, up to level 3) · sell your own</span>
+    <b>U · Y</b><span>Look at a turret: upgrade it (any turret, up to level 3) · sell your own</span>
     <b>B</b><span>At the comms console in the hub: recruit and upgrade reinforcements. No marine upgrades: spend gold on turrets and recruits</span>
     <b>Swarm</b><span>After a 45 second build countdown the aliens never stop coming; every 50 s the threat level rises</span>
     <b>M</b><span>Music on or off</span>
@@ -237,6 +236,6 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795359482"></script>
+<script type="module" src="./src/main.js?v=1795359828"></script>
 </body>
 </html>

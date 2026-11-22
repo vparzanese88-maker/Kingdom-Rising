@@ -119,8 +119,8 @@ export class Explore {
     if (this.wild.some(a => a.dead)) this.wild = this.wild.filter(a => !a.dead);
     if (this.wild.length < 25 && Math.random() < dt * 0.1) { const a = Math.random() * 6.28, d = 220 + Math.random() * 180; for (let i = 0; i < 4; i++) this.spawnWild('crawler', Math.cos(a) * d + i * 3, Math.sin(a) * d); }
     if (T.hubAt(me.x, me.z)) this.hp = Math.min(100, this.hp + 20 * dt); if (this.hp <= 0) { this.hp = 100; if (this.veh) this.exit(); me.x = this.W.spawn.x; me.z = this.W.spawn.z; me.y = 3; H.toast('You were overrun and evacuated back to the base.', 4); }
-    const u = !this.veh && this.near(); if (u) H.prompt(`<b>${H.keyName(H.KB.defense)}</b> ${u.kind === 'vtol' ? 'Fly the VTOL' : 'Drive the rover (.50 cal turret)'}`);
-    if (H.hits[H.KB.defense]) { if (this.veh) this.exit(); else if (u) this.enter(u); }
+    const u = !this.veh && this.near(); if (u) H.prompt(`<b>${H.keyName(H.KB.use)}</b> ${u.kind === 'vtol' ? 'Fly the VTOL' : 'Drive the rover (.50 cal turret)'}`);
+    if (H.hits[H.KB.use]) { if (this.veh) this.exit(); else if (u) this.enter(u); }
     for (const v of this.vehs) { v.m.position.set(v.x, v.y, v.z); v.m.rotation.y = v.yaw; }
   }
   // controls while in a vehicle; sets the camera; returns true so the marine's own walking is skipped

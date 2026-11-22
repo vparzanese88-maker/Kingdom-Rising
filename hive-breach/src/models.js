@@ -153,7 +153,10 @@ export function turret(kind, color) {
   const g = new THREE.Group(), head = new THREE.Group(), dark = 0x2c3238, metal = 0x6a7480, base = 0x3e464e;
   const accent = mat(color, { m: 0.3 }), parts = {};
   if (kind !== 'barricade' && kind !== 'stasis' && kind !== 'repair') { C(g, 0.9, 1.1, 0.4, base, 0, 0.2, 0); C(g, 0.35, 0.45, 0.9, dark, 0, 0.8, 0); B(g, 1.6, 0.1, 0.25, accent, 0, 0.42, 0).rotation.y = 0.8; }
-  if (kind === 'minigun') {
+  if (kind === 'pulse') {
+    head.position.y = 1.35; g.add(head); B(head, 0.7, 0.5, 1.0, metal, 0, 0, 0.1); B(head, 0.72, 0.12, 0.6, accent, 0, 0.28, 0.1); C(head, 0.07, 0.07, 1.3, dark, 0, 0.02, -0.9).rotation.x = Math.PI / 2; B(head, 0.16, 0.16, 0.5, dark, 0, -0.05, -0.5);
+    C(head, 0.09, 0.09, 0.35, 0x40c0ff, 0, 0.32, -0.1, { e: 0x2080ff }).rotation.x = Math.PI / 2; parts.muzzle = new THREE.Vector3(0, 1.35, -1.6);
+  } else if (kind === 'minigun') {
     head.position.y = 1.35; g.add(head); B(head, 0.8, 0.55, 0.9, metal, 0, 0, 0.1); B(head, 0.82, 0.12, 0.5, accent, 0, 0.3, 0.1); B(head, 0.4, 0.4, 0.4, 0x2a2e34, 0.55, 0, 0.2);
     const bar = new THREE.Group(); bar.position.set(0, 0, -0.4); head.add(bar);
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; C(bar, 0.05, 0.05, 1.1, dark, Math.cos(a) * 0.13, Math.sin(a) * 0.13, -0.5).rotation.x = Math.PI / 2; }
@@ -352,6 +355,14 @@ export function watchtower() { // platform 7 m up on four legs, rails, a roof; s
   const st = new THREE.Group(); st.position.set(0, 0, 2.4); g.add(st); for (let i = 0; i < 18; i++) { const f = (i + 0.5) / 18; B(st, 1.8, 0.15, 0.75, wood, 0, 7 * f, 13.2 * (1 - f)); }
   for (const sd of [-1, 1]) { const rail = B(st, 0.08, 0.08, 14.8, steel, sd * 0.95, 4.4, 6.6); rail.rotation.x = Math.atan2(7, 13.2); }
   S(g, 0.25, 0xffd070, 0, 9.7, 0, 1, 1, 1, { e: 0xffb040, ei: 2 }); return g; }
+export function throwModel(kind) { // what the marine holds on slot 4
+  const g = new THREE.Group();
+  if (kind === 'frag') { S(g, 0.07, 0x3a4a2a, 0, 0, 0, 1, 1.2, 1); B(g, 0.03, 0.05, 0.03, 0x888888, 0, 0.09, 0); C(g, 0.02, 0.02, 0.06, 0xc8a040, 0.03, 0.1, 0).rotation.z = Math.PI / 2; }
+  else if (kind === 'claymore') { const b = B(g, 0.2, 0.13, 0.05, 0x3a4a2a, 0, 0, 0); b.rotation.x = -0.2; S(g, 0.015, 0xff2010, 0, 0.07, -0.02, 1, 1, 1, { e: 0xff0000, ei: 3 }); }
+  else if (kind === 'medkit') { B(g, 0.2, 0.14, 0.12, 0xe8e8f0, 0, 0, 0); B(g, 0.12, 0.03, 0.125, 0xff3030, 0, 0.03, 0, { e: 0xa01010 }); B(g, 0.03, 0.1, 0.125, 0xff3030, 0, 0.03, 0, { e: 0xa01010 }); }
+  else { B(g, 0.2, 0.14, 0.12, 0x4a5a3a, 0, 0, 0); B(g, 0.205, 0.03, 0.125, 0xe0b22e, 0, 0.04, 0, { e: 0x604000 }); }
+  g.traverse(o => { o.castShadow = false; }); return g;
+}
 export function supplyPod() {
   const g = new THREE.Group(); B(g, 1.1, 0.9, 1.1, 0x50606a, 0, 0.45, 0, { m: 0.5 }); B(g, 1.15, 0.2, 1.15, 0xe0b22e, 0, 0.55, 0, { e: 0x604000 });
   C(g, 0.05, 0.05, 1.6, 0x888888, 0, 1.6, 0); S(g, 0.15, 0xffd040, 0, 2.4, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); return g;

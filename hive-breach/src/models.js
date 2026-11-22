@@ -179,6 +179,12 @@ export function hub() {
   g.userData = { rings, core, shield };
   return g;
 }
+export function parachute() {
+  const g = new THREE.Group(); g.userData.chute = true; const canopy = new THREE.Mesh(new THREE.SphereGeometry(2.2, 12, 6, 0, 6.29, 0, 1.1), mat(0xe8e0c8, { ds: true })); canopy.position.y = 4.6; canopy.scale.y = 0.7; g.add(canopy);
+  for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283, x = Math.cos(a) * 1.9, z = Math.sin(a) * 1.9, len = Math.hypot(x, 3.6, z); const l = B(g, 0.03, len, 0.03, 0x555555, x / 2, 1.0 + 1.8, z / 2); l.lookAt(x, 4.6, z); l.rotateX(Math.PI / 2); l.castShadow = false; }
+  for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283 + 0.5; const stripe = B(g, 0.5, 0.05, 1.2, 0xd04020, Math.cos(a) * 1.6, 5.15, Math.sin(a) * 1.6); stripe.rotation.y = -a; stripe.castShadow = false; }
+  return g;
+}
 export function supplyPod() {
   const g = new THREE.Group(); B(g, 1.1, 0.9, 1.1, 0x50606a, 0, 0.45, 0, { m: 0.5 }); B(g, 1.15, 0.2, 1.15, 0xe0b22e, 0, 0.55, 0, { e: 0x604000 });
   C(g, 0.05, 0.05, 1.6, 0x888888, 0, 1.6, 0); S(g, 0.15, 0xffd040, 0, 2.4, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); return g;

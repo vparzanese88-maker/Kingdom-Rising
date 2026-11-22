@@ -38,17 +38,17 @@ const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ==
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
 function state() {
-  if (G.sim) { const s = G.sim; return { w: s.wave, ph: s.phase, tm: s.timer, hub: s.hub, en: s.endless, n: s.players.size, left: s.q.length + s.aliens.filter(a => !ALIENS[a.type].static).length, wx: s.storm > 0 ? 1 : 0, L: s.allies, C: s.cmd, open: s.hiveOpen(), A: s.aliens, T: s.turrets, P: [...s.players.values()], O: s.pods }; }
+  if (G.sim) { const s = G.sim; return { w: s.wave, ph: s.phase, tm: s.timer, hub: s.hub, en: s.endless, n: s.players.size, left: s.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(s.lvlT || 0), wx: s.storm > 0 ? 1 : 0, L: s.allies, C: s.cmd, open: s.hiveOpen(), A: s.aliens, T: s.turrets, P: [...s.players.values()], O: s.pods }; }
   return G.snap;
 }
 function decode(m) {
   return {
-    w: m.w, ph: m.ph, tm: m.tm, hub: m.hub, en: m.en, left: m.left, wx: m.wx, n: m.n, C: m.C, open: m.open,
+    w: m.w, ph: m.ph, tm: m.tm, hub: m.hub, en: m.en, left: m.left, lt: m.lt, wx: m.wx, n: m.n, C: m.C, open: m.open,
     L: m.L.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], tg: a[8] })),
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9] })),
     T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
     P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15] })),
-    O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2] })),
+    O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4] })),
   };
 }
 const mine = S => S && S.P.find(p => p.id === G.myId);
@@ -140,11 +140,13 @@ function fx(e) {
     case 'tr': if (e.f !== G.myId) { tracer(e.a, e.b, e.c || 0xffe080, 0.05, 0.04 * (e.p || 1)); flashAt(e.a, 0.8); burst(e.b[0], e.b[1], e.b[2], 0x909090, 1, 1, 0.2); const d = dist(e.a[0], e.a[2]); audio.gun(e.s || 'rifle', vol(d), e.p || 1, Math.min(1, d / 50)); const pv = view.players.get(e.f); if (pv) pv.kick = 1; } break;
     case 'rk': if (e.f !== G.myId) { flyer('rk', e.a, e.b, e.t); flashAt(e.a, 1.4); const d = dist(e.a[0], e.a[2]); audio.gun('rocket', vol(d), 1, Math.min(1, d / 50)); } break;
     case 'gr': if (e.f !== G.myId) grenade(e.a, e.v, false); break;
-    case 'wave': banner(`WAVE ${e.w}`, e.boss ? `WARNING: ${ALIENS[e.boss].name.toUpperCase()} INBOUND` : 'Aliens inbound'); audio.sfx(e.boss ? 'alarm' : 'wave'); break;
+    case 'wave': if (e.first) { banner('THE SWARM IS COMING', 'They will not stop: hold the hub, break the hive'); audio.sfx('alarm'); } else { banner(`THREAT LEVEL ${e.w}`, e.boss ? `WARNING: ${ALIENS[e.boss].name.toUpperCase()} INBOUND` : 'More and tougher aliens'); audio.sfx(e.boss ? 'alarm' : 'wave'); } break;
     case 'clear': banner(`WAVE ${e.w} CLEARED`, `+${e.b} gold · resupply`); audio.sfx('win'); break;
     case 'roar': audio.sfx('roar'); toast(`The ${ALIENS[e.t].name} has emerged from the hive!`, 4); G.shake = 0.6; break;
     case 'hubhit': G.hubFlash = 0.5; boomFx(e.x, e.y + 1, e.z, 2, 1); if (G.time - lastHubMsg > 6) { lastHubMsg = G.time; toast('The hub is under attack!', 2.5); audio.sfx('alarm', 0.5); } break;
-    case 'pod': burst(e.x, 1, e.z, 0xffd040, 14, 5, 0.6); if (e.by === G.myId) { audio.sfx('pickup'); toast(`Supply pod: +${e.g} gold (your squad gets a share)`, 3); } break;
+    case 'pod': burst(e.x, G.W.top(e.x, e.z) + 1, e.z, 0xffd040, 14, 5, 0.6); if (e.by === G.myId) { audio.sfx('pickup'); toast(`Supply crate: +${e.g} gold (your squad gets a share)`, 3); } break;
+    case 'drop2': toast(`✈ Supply drop! ${e.n} crates parachuting in: grab them within 60 seconds of landing (yellow on the minimap).`, 5); audio.sfx('wave', 0.6); break;
+    case 'podgone': smoke(e.x, G.W.top(e.x, e.z) + 0.5, e.z, 3, 1); break;
     case 'placed': audio.sfx('place', vol(dist(e.x, e.z))); burst(e.x, 0.5, e.z, 0x80c0ff, 8, 3, 0.4); break;
     case 'upg': audio.sfx('buy', 0.6); { const v = view.turrets.get(e.id); if (v) burst(v.mesh.position.x, 2, v.mesh.position.z, 0xffd040, 12, 3, 0.6); } break;
     case 'bought': if (e.to === G.myId) audio.sfx('buy'); break;
@@ -235,6 +237,7 @@ function nameTag(text, color) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false })); s.scale.set(2.4, 0.6, 1); s.renderOrder = 5; return s;
 }
 // scaffolding with a progress bar and a countdown, over turrets being built or upgraded
+function timerLabel() { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true })); sp.userData.cv = cv; sp.scale.set(2.4, 0.6, 1); sp.renderOrder = 6; return sp; }
 function setLabel(sp, text) { const cv = sp.userData.cv, g = cv.getContext('2d'); g.clearRect(0, 0, 256, 64); g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(0, 8, 256, 48); g.fillStyle = '#ffd040'; g.font = 'bold 30px system-ui,sans-serif'; g.textAlign = 'center'; g.fillText(text, 128, 43); sp.material.map.needsUpdate = true; }
 function scaffold(w, h) {
   const g = new THREE.Group(), cage = new THREE.Group(), pole = M.mat(0xffc020, { m: 0.3 });
@@ -303,7 +306,17 @@ function syncView(S, dt) {
   }
   for (const [id, v] of view.players) if (!seen.has(id)) { scene.remove(v.mesh); view.players.delete(id); }
   seen.clear();
-  for (const o of S.O) { seen.add(o.id); let m = view.pods.get(o.id); if (!m) { m = M.supplyPod(); m.position.set(o.x, 40, o.z); scene.add(m); view.pods.set(o.id, m); } if (m.gy === undefined) m.gy = G.W.top(o.x, o.z); m.position.y = Math.max(m.gy, m.position.y - dt * 25); m.rotation.y += dt; if (m.position.y === m.gy && !m.landed) { m.landed = 1; burst(o.x, m.gy + 0.3, o.z, 0xc0a060, 10, 4, 0.6); } }
+  // supply crates float down on parachutes and vanish 60 s after landing; a countdown shows over each
+  for (const o of S.O) {
+    seen.add(o.id); let m = view.pods.get(o.id);
+    if (!m) { m = M.supplyPod(); m.add(M.parachute()); m.userData.label = timerLabel(); m.userData.label.position.y = 3.2; m.add(m.userData.label); scene.add(m); view.pods.set(o.id, m); m.gy = G.W.top(o.x, o.z); }
+    const land = Math.max(0, o.land), life = Math.ceil(o.life ?? 0);
+    m.position.set(o.x + Math.sin(G.time * 1.3 + o.id) * land * 0.15, m.gy + land * 4.5, o.z); m.rotation.y += dt * (land > 0 ? 0.4 : 1);
+    m.children.forEach(c => { if (c.userData.chute) { c.visible = land > 0; c.rotation.z = Math.sin(G.time * 2 + o.id) * 0.08; } });
+    if (land <= 0 && !m.landed) { m.landed = 1; burst(o.x, m.gy + 0.3, o.z, 0xc0a060, 12, 4, 0.6); smoke(o.x, m.gy + 2.4, o.z, 3, 1); audio.sfx('place', vol(dist(o.x, o.z))); }
+    const txt = land > 0 ? 'INCOMING' : `${life}s`; if (m.userData.txt !== txt) { m.userData.txt = txt; setLabel(m.userData.label, txt); }
+    m.userData.label.material.opacity = land <= 0 && life <= 10 ? (Math.sin(G.time * 10) > 0 ? 1 : 0.3) : 1;
+  }
   for (const [id, m] of view.pods) if (!seen.has(id)) { scene.remove(m); view.pods.delete(id); }
   // reinforcements marching from the hub
   seen.clear();
@@ -499,8 +512,8 @@ function hud(dt, S) {
   const my = mine(S); if (!my) return; const st = stats(), C = CLASSES[G.cls];
   setT('gold', Math.floor(my.gold)); setT('hpTxt', `${Math.ceil(my.hp)} / ${my.mhp}`); $('hpBar').style.width = (my.hp / my.mhp * 100) + '%';
   setT('ammo', G.me.rel > 0 ? 'RELOADING' : `${G.me.ammo} / ${st.mag}`); setT('gunName', C.gun.name);
-  setT('waveTxt', S.ph === 'assault' ? 'ASSAULT THE HIVE' : S.w ? `WAVE ${S.w}${S.en || S.w > WAVES ? '' : ' / ' + WAVES}` : 'PREPARE'); $('hubBar').style.width = S.hub + '%'; setT('hubTxt', `HUB ${Math.ceil(S.hub)}%`);
-  let info = ''; if (S.ph === 'assault') { const g = S.A.filter(a => a.type === 'guardian').length; info = g ? `FINAL ASSAULT: destroy ${g} Hive Guardian${g > 1 ? 's' : ''}, then the hive` : 'FINAL ASSAULT: the shield is down, destroy the hive!'; } else if (S.ph === 'wave') info = `${S.left} aliens left`; else if (S.ph === 'build') info = (S.w ? `Wave ${S.w + 1}` : 'First wave') + ` in ${Math.max(0, Math.ceil(S.tm))} s · build your defenses`;
+  setT('waveTxt', S.w ? `THREAT LEVEL ${S.w}` : 'PREPARE'); $('hubBar').style.width = S.hub + '%'; setT('hubTxt', `HUB ${Math.ceil(S.hub)}%`);
+  let info = ''; if (S.ph === 'assault') { const g = S.A.filter(a => a.type === 'guardian').length; info = g ? `FINAL ASSAULT: destroy ${g} Hive Guardian${g > 1 ? 's' : ''}, then the hive` : 'FINAL ASSAULT: the shield is down, destroy the hive!'; } else if (S.ph === 'wave') info = `${S.left} aliens on the field · threat rises in ${S.lt} s`; else if (S.ph === 'build') info = `The swarm arrives in ${Math.max(0, Math.ceil(S.tm))} s · build your defenses`;
   if (S.open && S.ph !== 'assault') info = 'HIVE SHIELD DOWN: destroy the hive to win! · ' + info;
   if (S.C && (S.ph === 'wave' || S.ph === 'assault')) info += ` · reinforcements in ${Math.max(0, Math.ceil(S.C.t))} s`;
   if (S.n > 1) info += ` · squad of ${S.n}: aliens x${((1 + 0.5 * (S.n - 1)) * (1 + 0.3 * (S.n - 1))).toFixed(1)}`;
@@ -516,12 +529,12 @@ function hud(dt, S) {
   $('hit').style.opacity = G.hitT > 0 ? 1 : 0; G.hitT -= dt; G.hurtT = Math.max(0, (G.hurtT || 0) - dt); $('hurt').style.opacity = Math.min(0.8, G.hurtT * 2.5 + (my.hp / my.mhp < 0.3 ? 0.25 : 0));
   $('dead').hidden = !my.dead || S.ph === 'lose'; if (my.dead) setT('deadT', `Respawning in ${my.rt} s`);
   // the last seconds before a wave are counted out loud
-  const cd = S.ph === 'build' ? Math.ceil(S.tm) : 0; if (cd !== G.lastCd) { G.lastCd = cd; if (cd >= 1 && cd <= 5) { banner(String(cd), cd === 1 ? 'GET READY' : `Wave ${S.w + 1} incoming`); bannerT = 0.9; audio.sfx('tick'); } }
+  const cd = S.ph === 'build' ? Math.ceil(S.tm) : 0; if (cd !== G.lastCd) { G.lastCd = cd; if (cd >= 1 && cd <= 5) { banner(String(cd), cd === 1 ? 'GET READY' : 'The swarm is coming'); bannerT = 0.9; audio.sfx('tick'); } }
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').hidden = true; }
   if (!promptSet) $('prompt').hidden = true; promptSet = false;
   // end screens
   const end = S.ph === 'lose' || S.ph === 'win'; $('end').hidden = !end;
-  if (end) { setT('endTitle', S.ph === 'win' ? 'VICTORY' : 'THE HUB HAS FALLEN'); setT('endText', S.ph === 'win' ? (S.w < WAVES ? `The hive is destroyed on wave ${S.w}! The colony is safe.` : 'The hive is destroyed and the colony is safe. Every wave held.') : `Your squad held out until wave ${S.w}.`); setT('endKey', G.mode === 'client' ? 'Waiting for the host to choose…' : ''); $('btnAgain').hidden = G.mode === 'client'; $('btnAgain').textContent = S.ph === 'win' ? 'Keep fighting (endless mode)' : 'Try again'; if (document.pointerLockElement) document.exitPointerLock(); }
+  if (end) { setT('endTitle', S.ph === 'win' ? 'VICTORY' : 'THE HUB HAS FALLEN'); setT('endText', S.ph === 'win' ? `The hive is destroyed at threat level ${S.w}! The colony is safe.` : `Your squad held out until threat level ${S.w}.`); setT('endKey', G.mode === 'client' ? 'Waiting for the host to choose…' : ''); $('btnAgain').hidden = G.mode === 'client'; $('btnAgain').textContent = S.ph === 'win' ? 'Keep fighting (endless mode)' : 'Try again'; if (document.pointerLockElement) document.exitPointerLock(); }
   $('pause').hidden = locked() || G.shop || end;
   $('board').hidden = !keys.Tab; if (keys.Tab) setH('boardT', '<tr><th>Marine</th><th>Class</th><th>Kills</th><th>Gold</th></tr>' + S.P.map(p => `<tr><td>${esc(p.name)}${p.dead ? ' ✝' : ''}</td><td>${CLASSES[p.cls].name}</td><td>${p.kills}</td><td>${Math.floor(p.gold)}</td></tr>`).join(''));
   if (G.shop) shopDraw(my);
@@ -537,7 +550,7 @@ function minimap(S) {
   for (const t of S.T) { g.fillStyle = t.owner === G.myId ? '#80ff90' : '#d0e0a0'; g.fillRect(X(t.x) - 2.5, Z(t.z) - 2.5, 5, 5); }
   G.pings = G.pings.filter(p => (p.t -= 0.1) > 0); for (const p of G.pings) { g.strokeStyle = `rgba(255,60,40,${Math.min(1, p.t)})`; g.lineWidth = 2; g.beginPath(); g.arc(X(p.x), Z(p.z), 4 + (3 - p.t) * 5 % 10, 0, 7); g.stroke(); }
   g.strokeStyle = 'rgba(80,255,130,.5)'; g.lineWidth = 1; g.beginPath(); g.arc(X(G.W.hubP.x), Z(G.W.hubP.z), 15 * k, 0, 7); g.stroke();
-  for (const o of S.O) { g.fillStyle = '#ffd040'; g.fillRect(X(o.x) - 3, Z(o.z) - 3, 6, 6); }
+  for (const o of S.O) { g.fillStyle = (o.land ?? 0) > 0 || o.life > 10 || Math.sin(G.time * 10) > 0 ? '#ffd040' : '#806020'; g.fillRect(X(o.x) - 4, Z(o.z) - 4, 8, 8); }
   for (const m of S.L || []) { g.fillStyle = '#9fe870'; g.fillRect(X(m.x) - 2, Z(m.z) - 2, 4, 4); }
   for (const a of S.A) { const b = ALIENS[a.type].boss || a.type === 'guardian'; g.fillStyle = b ? '#ff40ff' : '#ff4040'; g.beginPath(); g.arc(X(a.x), Z(a.z), b ? 4 : 2, 0, 7); g.fill(); }
   for (const p of S.P) if (p.id !== G.myId && !p.dead) { g.fillStyle = '#' + CLASSES[p.cls].color.toString(16).padStart(6, '0'); g.beginPath(); g.arc(X(p.x), Z(p.z), 3.5, 0, 7); g.fill(); }
@@ -632,7 +645,7 @@ G.name = store.get('hb-name', ''); $('name').value = G.name; G.cls = store.get('
 function drawPickers() {
   const best = store.get('hb-best', {});
   $('classes').innerHTML = Object.entries(CLASSES).map(([k, c]) => `<button class="pick ${k === G.cls ? 'on' : ''}" data-cls="${k}" style="--c:#${c.color.toString(16).padStart(6, '0')}"><h3>${c.name}</h3><p class="gun">${c.gun.name}</p><p>${c.blurb}</p><p class="kit"><b>Q</b> ${TURRETS[c.sentry].name} · <b>E</b> ${TURRETS[c.defense].name}</p><p class="kit">${c.hp} health</p></button>`).join('');
-  $('maps').innerHTML = Object.entries(MAPS).map(([k, m]) => `<button class="pick map ${k === G.map ? 'on' : ''}" data-map="${k}" style="--c:#${m.ground.toString(16).padStart(6, '0')}"><h3>${m.name}</h3><p>${m.sub}</p><p class="kit">${best[k] ? 'Best: wave ' + best[k] : 'Not yet played'}</p></button>`).join('');
+  $('maps').innerHTML = Object.entries(MAPS).map(([k, m]) => `<button class="pick map ${k === G.map ? 'on' : ''}" data-map="${k}" style="--c:#${m.ground.toString(16).padStart(6, '0')}"><h3>${m.name}</h3><p>${m.sub}</p><p class="kit">${best[k] ? 'Best: threat level ' + best[k] : 'Not yet played'}</p></button>`).join('');
 }
 $('classes').onclick = e => { const b = e.target.closest('[data-cls]'); if (b) { G.cls = b.dataset.cls; drawPickers(); } };
 $('maps').onclick = e => { const b = e.target.closest('[data-map]'); if (b) { G.map = b.dataset.map; drawPickers(); } };

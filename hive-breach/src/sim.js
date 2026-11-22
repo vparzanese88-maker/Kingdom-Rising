@@ -5,6 +5,7 @@ import { PATH_W, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST, MAX_ALLIES } 
 
 const LV = { dmg: [1, 1.6, 2.4], rng: [1, 1.12, 1.25], rate: [1, 1.15, 1.32] };
 export const BUILD = { minigun: 4, tesla: 5, missile: 6, barricade: 3, repair: 4, stasis: 3, flamer: 4, railgun: 6, mines: 2, beacon: 3 };
+export const LEVEL_T = 50, DROP_FALL = 9, DROP_LIFE = 60;
 export const START_GOLD = 250, FIRST_COUNT = 45, NEXT_COUNT = 25;
 export function maxHp(cls, ups) { return CLASSES[cls].hp + 25 * (ups.hp || 0); }
 export function tStat(t) { const T = TURRETS[t.kind], l = t.lvl - 1; return { mark: T.mark ? T.mark + 0.1 * l : 0, range: (T.range || 0) * LV.rng[l], dmg: (T.dmg || 0) * LV.dmg[l], rate: (T.rate || 0) * LV.rate[l], heal: (T.heal || 0) * LV.dmg[l], chain: (T.chain || 0) + l, slow: T.slow ? Math.max(0.25, T.slow - l * 0.08) : 0, splash: T.splash || 0 }; }
@@ -31,7 +32,7 @@ export class Sim {
   // ---------------------------------------------------------------- requests from marines
   request(id, r) {
     const p = this.players.get(id); if (!p) return; const say = m => this.emit({ k: 'say', to: id, m });
-    if (r.a === 'start') { if (this.phase === 'build') this.timer = 0.01; else if (this.phase === 'lose') { this.reset(); this.emit({ k: 'toast', m: 'Defense restarted.' }); } else if (this.phase === 'win') { this.endless = true; this.phase = 'build'; this.timer = NEXT_COUNT; this.spawnHive(1); this.emit({ k: 'toast', m: 'Endless mode: the hive keeps coming.' }); } return; }
+    if (r.a === 'start') { if (this.phase === 'build') this.timer = 0.01; else if (this.phase === 'lose') { this.reset(); this.emit({ k: 'toast', m: 'Defense restarted.' }); } else if (this.phase === 'win') { this.endless = true; this.phase = 'wave'; this.spawnHive(1, 1.5); this.emit({ k: 'toast', m: 'Endless mode: the hive keeps coming.' }); } return; }
     if (p.dead || this.phase === 'lose') return;
     if (r.a === 'place') {
       const T = TURRETS[r.kind], C = CLASSES[p.cls]; if (!T || (C.sentry !== r.kind && C.defense !== r.kind)) return;
@@ -93,21 +94,25 @@ export class Sim {
   hurtTurret(t, d, by) { t.hp -= d; if (by && this.time - (t.warned || -99) > 5) { t.warned = this.time; this.emit({ k: 'tatk', id: t.id, o: t.owner, kind: t.kind, x: t.x, z: t.z }); } if (t.hp <= 0) { this.turrets = this.turrets.filter(q => q !== t); this.emit({ k: 'boom', x: t.x, y: 1, z: t.z, r: 2.5 }); this.emit({ k: 'say', to: t.owner, m: `Your ${TURRETS[t.kind].name} was destroyed.` }); } }
 
   // ---------------------------------------------------------------- waves
+  // No separate waves: the threat level rises every LEVEL_T seconds, and that level's aliens join one steady stream.
   startWave() {
-    this.wave++; this.phase = 'wave'; this.q = []; let t = 0;
-    const N = this.players.size, cs = countScale(N);
-    for (const [type, n0, gap0] of waveList(this.wave, this.W.id)) { const boss = ALIENS[type].boss, n = boss ? n0 : Math.round(n0 * cs), gap = boss ? gap0 : gap0 / (1 + 0.3 * (N - 1)); for (let i = 0; i < n; i++) { this.q.push({ type, t }); t += gap; } t += 2.5; }
-    this.qt = 0; this.emit({ k: 'wave', w: this.wave, boss: this.q.some(e => ALIENS[e.type].boss) ? this.q.find(e => ALIENS[e.type].boss).type : '' });
-    this.dropPods(2);
-    if (this.W.def.hazard === 'nests' && this.wave >= 2) for (const n of this.W.nestP) if (!this.aliens.some(a => a.nestOf === n.i)) { const a = this.spawn('nest', n.s); a.x = n.x; a.z = n.z; a.y = n.y; a.nestOf = n.i; a.qcd = 8 + n.i * 6; a.mode = 'nest'; }
-    this.hzT = 25 + Math.random() * 15;
+    const first = this.phase !== 'wave'; this.wave++; this.phase = 'wave'; this.lvlT = LEVEL_T;
+    const N = this.players.size, cs = countScale(N), rest = [], bosses = [];
+    for (const [type, n0] of waveList(this.wave, this.W.id)) { const boss = ALIENS[type].boss, n = boss ? n0 : Math.round(n0 * cs); for (let i = 0; i < n; i++) (boss ? bosses : rest).push(type); }
+    for (let i = rest.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [rest[i], rest[j]] = [rest[j], rest[i]]; }
+    const span = LEVEL_T * 0.96; rest.forEach((type, i) => this.q.push({ type, t: this.qt + (i + Math.random() * 0.8) * span / rest.length }));
+    bosses.forEach((type, i) => this.q.push({ type, t: this.qt + span * 0.3 + i * 6 })); this.q.sort((x, y) => x.t - y.t);
+    const bonus = 0;
+    this.emit({ k: 'wave', w: this.wave, first: first ? 1 : 0, b: bonus, boss: bosses[0] || '' });
+    if (this.W.def.hazard === 'nests' && this.wave >= 2 && this.wave % 3 === 2) for (const n of this.W.nestP) if (!this.aliens.some(a => a.nestOf === n.i)) { const a = this.spawn('nest', n.s); a.x = n.x; a.z = n.z; a.y = n.y; a.nestOf = n.i; a.qcd = 8 + n.i * 6; a.mode = 'nest'; }
+    if (first) this.hzT = 30 + Math.random() * 15;
   }
   dropPods(n) {
     for (let i = 0; i < n; i++) {
       let x, z, ok = false; for (let k = 0; k < 30 && !ok; k++) { x = (Math.random() * 2 - 1) * (BOUNDS - 10); z = (Math.random() * 2 - 1) * (BOUNDS - 10); ok = this.path.near(x, z).d > 6 && this.W.T.chasm(x, z) > 0.99 && this.W.T.ridge(x, z) < 2 && Math.hypot(x - this.W.hiveP.x, z - this.W.hiveP.z) > 15 && !this.W.colliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 1.5); }
-      if (ok) { const pod = { id: this.nid++, x, z }; this.pods.push(pod); }
+      if (ok) { const pod = { id: this.nid++, x, z, land: DROP_FALL, life: DROP_FALL + DROP_LIFE }; this.pods.push(pod); }
     }
-    if (n) this.emit({ k: 'toast', m: 'Supply pods dropped. Grab them for gold.' });
+    if (n) this.emit({ k: 'drop2', n });
   }
   spawn(type, s = 0) {
     const A = ALIENS[type], p = this.path.at(s), lat = (Math.random() - 0.5) * (A.boss ? 0.5 : 3.2), sc = A.boss ? hpScale(this.wave, 1) * bossScale(this.players.size) : hpScale(this.wave, this.players.size), hp = A.hp * sc;
@@ -122,8 +127,9 @@ export class Sim {
       if (p.dead) { p.rt -= dt; if (p.rt <= 0) { p.dead = false; p.hp = p.mhp; p.sp++; p.x = this.W.spawn.x; p.z = this.W.spawn.z; p.y = this.W.top(p.x, p.z); } continue; }
       if (this.phase === 'wave') p.gold += dt * (1.6 + this.wave * 0.08);
       p.regen = this.hub > 0 && Math.hypot(p.x - this.W.hubP.x, p.z - this.W.hubP.z) < 15 && p.hp < p.mhp; if (p.regen) p.hp = Math.min(p.mhp, p.hp + 16 * dt);
-      for (const pod of this.pods) if (!pod.got && Math.hypot(pod.x - p.x, pod.z - p.z) < 2.2) { pod.got = true; const g = 60 + this.wave * 10; for (const q of this.players.values()) q.gold += q === p ? g : Math.round(g * 0.4); this.emit({ k: 'pod', by: p.id, g, x: pod.x, z: pod.z }); }
+      for (const pod of this.pods) if (!pod.got && pod.land <= 0 && Math.hypot(pod.x - p.x, pod.z - p.z) < 2.4) { pod.got = true; const g = 90 + this.wave * 15; for (const q of this.players.values()) q.gold += q === p ? g : Math.round(g * 0.4); this.emit({ k: 'pod', by: p.id, g, x: pod.x, z: pod.z }); }
     }
+    for (const q of this.pods) { q.land -= dt; q.life -= dt; if (q.life <= 0 && !q.got) { q.got = true; this.emit({ k: 'podgone', x: q.x, z: q.z }); } }
     if (this.pods.some(q => q.got)) this.pods = this.pods.filter(q => !q.got);
     if (this.phase === 'lose' || this.phase === 'win') return;
 
@@ -131,13 +137,9 @@ export class Sim {
     else if (this.phase === 'assault') { this.hazards(dt); }
     else if (this.phase === 'wave') {
       this.qt += dt; while (this.q.length && this.q[0].t <= this.qt) this.spawn(this.q.shift().type);
-      this.podT += dt; if (this.podT > 45) { this.podT = 0; this.dropPods(1); }
+      this.lvlT -= dt; if (this.lvlT <= 0) this.startWave();
+      this.podT += dt; if (this.podT >= 60) { this.podT = 0; this.dropPods(2); }
       this.hazards(dt);
-      if (!this.q.length && !this.aliens.some(a => !ALIENS[a.type].static)) {
-        const bonus = 60 + this.wave * 12; for (const p of this.players.values()) p.gold += bonus;
-        if (this.wave === WAVES && !this.endless) { this.phase = 'assault'; this.emit({ k: 'assault', open: this.hiveOpen() ? 1 : 0 }); }
-        else { this.phase = 'build'; this.timer = NEXT_COUNT; this.emit({ k: 'clear', w: this.wave, b: bonus }); }
-      }
     }
 
     // turrets that change aliens around them
@@ -297,11 +299,11 @@ export class Sim {
   pack() {
     const r1 = v => Math.round(v * 10) / 10;
     return {
-      w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.q.length + this.aliens.filter(a => !ALIENS[a.type].static).length, n: this.players.size, wx: this.storm > 0 ? 1 : 0,
+      w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), n: this.players.size, wx: this.storm > 0 ? 1 : 0,
       A: this.aliens.map(a => [a.id, a.type, r1(a.x), r1(a.y), r1(a.z), Math.round(a.hp), Math.round(a.mhp), +a.ry.toFixed(2), a.stun > 0 ? 1 : 0, a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0]),
       T: this.turrets.map(t => [t.id, t.kind, t.owner, r1(t.x), r1(t.z), +t.ry.toFixed(2), t.lvl, Math.round(t.hp), Math.round(t.mhp), t.tg, r1(t.y), r1(t.b || 0), t.bt || 0, t.fresh ? 1 : 0, t.ch || 0]),
       P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0]),
-      O: this.pods.map(p => [p.id, r1(p.x), r1(p.z)]),
+      O: this.pods.map(p => [p.id, r1(p.x), r1(p.z), Math.ceil(Math.max(0, p.life)), r1(Math.max(0, p.land))]),
       L: this.allies.map(m => [m.id, m.type, r1(m.x), r1(m.y), r1(m.z), Math.round(m.hp), m.mhp, +m.ry.toFixed(2), m.tg]), C: { lv: this.cmd.lv, sz: this.cmd.sz, un: this.cmd.un, t: Math.ceil(this.cmd.t) }, open: this.hiveOpen() ? 1 : 0,
     };
   }

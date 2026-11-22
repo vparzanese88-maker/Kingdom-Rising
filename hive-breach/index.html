@@ -122,14 +122,14 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795319138",
-"./src/data.js": "./src/data.js?v=1795319138",
-"./src/main.js": "./src/main.js?v=1795319138",
-"./src/models.js": "./src/models.js?v=1795319138",
-"./src/music.js": "./src/music.js?v=1795319138",
-"./src/net.js": "./src/net.js?v=1795319138",
-"./src/sim.js": "./src/sim.js?v=1795319138",
-"./src/world.js": "./src/world.js?v=1795319138"
+"./src/audio.js": "./src/audio.js?v=1795319853",
+"./src/data.js": "./src/data.js?v=1795319853",
+"./src/main.js": "./src/main.js?v=1795319853",
+"./src/models.js": "./src/models.js?v=1795319853",
+"./src/music.js": "./src/music.js?v=1795319853",
+"./src/net.js": "./src/net.js?v=1795319853",
+"./src/sim.js": "./src/sim.js?v=1795319853",
+"./src/world.js": "./src/world.js?v=1795319853"
 }
 }
 </script>
@@ -164,7 +164,7 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
   <h1>Hive <span>Breach</span></h1>
   <p id="soundHint" class="small" style="color:var(--gold)">🔊 Click anywhere to turn on the sound and music (M turns music on or off).</p>
   <p class="small">Music <input type="range" id="mvol2" min="0" max="1" step="0.05" value="0.75"> · Effects <input type="range" id="svol2" min="0" max="1" step="0.05" value="0.5"></p>
-  <p class="sub">The year is 2387. Alien swarms pour out of the hive and march down the track toward your colony's power hub. Fight them yourself, build sentries in their path, and destroy the alien hive to win. Its shield drops when both Hive Guardians are destroyed, at any wave; hold out all 20 waves and you get a final assault.</p>
+  <p class="sub">The year is 2387. Alien swarms pour out of the hive and march down the track toward your colony's power hub. Fight them yourself, build sentries in their path, and destroy the alien hive to win. There are no waves: the swarm never stops, and the threat level rises every 50 seconds. The hive's shield drops when both Hive Guardians are destroyed.</p>
   <h2>Your name</h2>
   <input id="name" maxlength="14" placeholder="Marine">
   <h2>Pick your class</h2>
@@ -189,14 +189,14 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
     <b>Hub</b><span>Stand inside the green ring round the hub to heal</span>
     <b>U · X</b><span>Look at a turret: upgrade it (any turret, up to level 3) · sell your own</span>
     <b>B</b><span>Armory: upgrade damage, fire rate, magazine, speed, health and armor, and buy hub reinforcements (faster drops, bigger squads, Heavy Gunners, Rocketeers, Field Medics)</span>
-    <b>Waves</b><span>Each wave starts by itself when its countdown runs out</span>
+    <b>Swarm</b><span>After a 45 second build countdown the aliens never stop coming; every 50 s the threat level rises</span>
     <b>M</b><span>Music on or off</span>
     <b>Tab</b><span>Squad scores</span>
   </div>
-  <p class="small">Gold comes from kills, from surviving each wave, from supply pods (walk over the yellow beacons) and trickles in while you fight. Guns lose power with distance (a grey hit marker means a weak, long-range hit), so you need turrets. Aliens leave the track to hunt marines who come close (a red ! marks the ones after you), Brutes and Ravagers go off to smash turrets, and every alien stops to tear down barricades. Missiles, rockets, grenades and lightning pierce Brute armor. Mars has meteor showers, Kryos has blizzards and the jungle has alien nests that hatch ambushes: shoot them down. Wave 10 and 15 bring a Ravager; wave 20 brings the Hive Queen. The track climbs hills, crosses bridges over chasms and runs through tunnels: turrets cannot see aliens inside a tunnel, but you can wait at the exit, and anyone who falls into a chasm climbs out hurt.</p>
+  <p class="small">Gold comes from kills, trickles in while you fight, and comes in supply crates: every 60 seconds two crates parachute in (yellow on the minimap); walk over one to grab it before it vanishes 60 seconds after landing. Guns lose power with distance (a grey hit marker means a weak, long-range hit), so you need turrets. Aliens leave the track to hunt marines who come close (a red ! marks the ones after you), Brutes and Ravagers go off to smash turrets, and every alien stops to tear down barricades. Missiles, rockets, grenades and lightning pierce Brute armor. Mars has meteor showers, Kryos has blizzards and the jungle has alien nests that hatch ambushes: shoot them down. Threat levels 10 and 15 bring a Ravager; level 20 brings the Hive Queen. The track climbs hills, crosses bridges over chasms and runs through tunnels: turrets cannot see aliens inside a tunnel, but you can wait at the exit, and anyone who falls into a chasm climbs out hurt.</p>
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795319138"></script>
+<script type="module" src="./src/main.js?v=1795319853"></script>
 </body>
 </html>

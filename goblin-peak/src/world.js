@@ -4,7 +4,9 @@ import { TAU, clamp, rng, vnoise } from './util.js';
 import { Spiral, Meadow } from './terrain.js';
 import * as M from './models.js';
 import { buildLowlands } from './lowland.js';
+import { LEVELS } from './levels.js';
 import { buildVillage } from './village.js';
+import { placeTossables } from './toss.js';
 import { Pike, Bomb, Mob, Boulder, Roller, Spikes, Pendulum, DartTotem, Chest, Camp, NPC, Jewel, Gate, Geyser, Boss, Gong, RockRain, Wind, ZipLine, Ambush, Chase } from './entities.js';
 
 export const THEMES = {
@@ -40,7 +42,7 @@ export class World {
     // aim markers
     this.ret = ['#ffd24a', '#54d6ff'].map(col => { const cc = document.createElement('canvas'); cc.width = cc.height = 64; const g = cc.getContext('2d'); g.strokeStyle = col; g.lineWidth = 6; g.beginPath(); g.arc(32, 32, 24, 0, 7); g.stroke(); g.lineWidth = 3; g.beginPath(); g.arc(32, 32, 10, 0, 7); g.stroke(); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cc), depthTest: false, fog: false })); sp.visible = false; sp.renderOrder = 9; this.scene.add(sp); return sp; });
     if (def.hub) this.buildHub(); else this.buildMountain();
-    this.scatter();
+    this.scatter(); placeTossables(this);
     const cg = new THREE.CylinderGeometry(0.36, 0.36, 0.07, 14); cg.rotateX(Math.PI / 2);
     this.coinMesh = new THREE.InstancedMesh(cg, new THREE.MeshLambertMaterial({ color: 0xffd23a, emissive: 0x7a5200 }), Math.max(1, this.coins.length)); this.coinMesh.frustumCulled = false; this.scene.add(this.coinMesh); this.dummy = new THREE.Object3D();
     this.coins.forEach((c, i) => { c.init = true; this.dummy.position.set(c.x, c.y, c.z); this.dummy.rotation.y = i; this.dummy.updateMatrix(); this.coinMesh.setMatrixAt(i, this.dummy.matrix); });
@@ -63,6 +65,7 @@ export class World {
     const t = this._vt.clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, Math.round(w / 3)), Math.max(1, Math.round(h / 3)));
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: t, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide })); return m;
   }
+  showCoin(i) { const c = this.coins[i]; if (!c || !c.got) return; c.got = false; c.init = false; if (this.def.hub && this.G.save.hubCoins) delete this.G.save.hubCoins[i]; }
   hideCoin(i) { const c = this.coins[i]; if (!c || c.got) return; c.got = true; this.dummy.position.set(0, -999, 0); this.dummy.updateMatrix(); this.coinMesh.setMatrixAt(i, this.dummy.matrix); this.coinMesh.instanceMatrix.needsUpdate = true; }
   // Loose coins that pop out, bounce and wait to be picked up.
   dropCoins(x, y, z, n) { for (let i = 0; i < n; i++) { const a = Math.random() * TAU, sp = 2 + Math.random() * 3.5, m = new THREE.Mesh(this.coinMesh.geometry, this.coinMesh.material); m.position.set(x, y, z); this.scene.add(m); this.loose.push({ m, vx: Math.cos(a) * sp, vy: 6 + Math.random() * 4, vz: Math.sin(a) * sp, t: 0 }); } }
@@ -306,7 +309,7 @@ export class World {
   buildHub() {
     const T = this.T = new Meadow(this.realm, this.G.holes), G = this.G, st = this.def.story; this.scene.add(T.mesh(this.theme)); for (const m of T.waterMeshes(this.waterMat)) this.scene.add(m);
     this.start = { x: 0, y: 0, z: 6, yaw: 0 };
-    if (this.def.lobby) return this.buildLobby();
+    return this.buildLobby();      // one town for everyone, alone or online
     const put = (m, x, z, yaw = 0) => { m.position.set(x, T.hAt(x, z), z); m.rotation.y = yaw; this.scene.add(m); return m; };
     [[-14, 14, 0.5, 0xb5652a], [14, 16, -0.4, 0x8a4a6a], [-20, -8, 1.4, 0x3f7a8a], [20, -10, -1.4, 0xb5652a], [0, 26, 0, 0x6a8a3a]].forEach(([x, z, yaw, c]) => { put(M.hut(c), x, z, yaw); const hy = T.hAt(x, z); this.addBox(x, hy + 1.5, z, 2.5, 1.5, 2.2, -yaw, null); for (let i = 0; i < 6; i++) { const q = 3.04 * (1 - i / 6) + 0.1; this.addBox(x, hy + 3.2 + i * 0.4, z, q, 0.2, q, -yaw, null); } });
     put(M.cyl(0x8a8378, 1.6, 0.9, 0, 0, 0), 0, -4).position.y += 0.45; this.addCyl(0, 0.45, -4, 1.6, 0.5, null); const wr = M.cyl(0x6b4a2a, 0.1, 2.4, 0, 0, 0); put(wr, 1.4, -4).position.y += 1.2; const wr2 = wr.clone(); put(wr2, -1.4, -4).position.y += 1.2; const roof = M.cone(0xb5332a, 2.2, 1, 0, 0, 0); put(roof, 0, -4).position.y += 2.9;
@@ -349,7 +352,7 @@ export class World {
       return this.add(new NPC(this, x, z, Object.assign({ name: title, model, yaw: Math.PI, fixed: true, reach: 3.6 }, o)));
     };
     const tm = station(-8, -8, 0xd8362c, 'CLIMBS', 'choose the mountain here', M.biped({ shirt: 0xb5332a, pants: 0x4a4030, hair: 0xdddddd, beard: 0xdddddd, hat: 0x5a4630, cape: 0xb5332a }), { prompt: 'Choose the climb', lines: [] });
-    tm.use = () => G.ui.toast(G.net.isHost ? 'You are the host: 1 2 3 picks the mountain, G switches Race or Team, ENTER starts the countdown.' : 'Only the host can choose. Stand by and get ready.', 5); this.mapAt = { x: -8, z: -8 };
+    tm.use = () => !G.coop ? G.ui.dialog(LEVELS.hub.story.barnaby(G)) : G.ui.toast(G.net.isHost ? 'You are the host: 1 2 3 picks the mountain, G switches Race or Team, ENTER starts the countdown.' : 'Only the host can choose. Stand by and get ready.', 5); this.mapAt = { x: -8, z: -8 };
     put(M.stall(), 8, -9.6, 0); this.addBox(8, 0.5, -9.6, 1.4, 0.6, 0.6, 0, null);
     station(8, -8, 0xe2b33a, 'UPGRADES', 'spend your coins here', M.goblin({ hat: 0xe2b33a, shirt: 0x3b6fb5 }), { prompt: 'Buy upgrades', lines: [], after: g => g.ui.shop() });
     put(M.cyl(0x8a8378, 1.6, 0.9, 0, 0, 0), 0, 2).position.y += 0.45; this.addCyl(0, 0.45, 2, 1.6, 0.5, null);
@@ -437,6 +440,7 @@ export class World {
       if (b.crT < 0.7) { m.position.x = b.x + Math.sin(t * 60) * 0.04; } else if (b.crT < 5) { if (b.solid) { b.solid = false; G.audio.sfx('crumble'); } m.position.y -= (b.crT - 0.7) * 22 * dt; m.visible = b.crT < 2.2; } else { b.solid = true; b.crT = 0; m.position.set(b.x, b.y, b.z); m.visible = true; }
     }
     let rm = false; for (const e of this.ents) { if (!e.dead) e.update(dt); else rm = true; } if (rm) this.ents = this.ents.filter(e => !e.dead);
+    if (this.mobs) { const N = G.net, id = this.def.id; for (const m of this.mobs) if (m.dead && m.mi >= 0 && (m.rsT -= dt) <= 0 && N.owns(this) && Math.hypot(p.x - m.hx, p.z - m.hz) > 38 && ![...N.peers.values()].some(q => q.r === id && Math.hypot(q.x - m.hx, q.z - m.hz) < 38)) { m.revive(); N.send({ t: 'mr', r: id, i: m.mi }); } }
     // interact prompt
     let use = null; for (const e of this.ents) if (e.canUse) { use = e; break; } this.useEnt = G.locked ? null : use; G.ui.prompt(this.useEnt ? this.useEnt.prompt : null);
     if (this.useEnt && G.input.hit('KeyE')) this.useEnt.use();
@@ -444,7 +448,7 @@ export class World {
     const mag = 1.3 + (G.save.upg.magnet || 0) * 2.2, d = this.dummy; let got = 0;
     for (let i = 0; i < this.coins.length; i++) {
       const c = this.coins[i]; if (c.got) continue; const dx = p.x - c.x, dy = p.y + 0.9 - c.y, dz = p.z - c.z;
-      if (Math.abs(dx) < 60 && Math.abs(dz) < 60) { if (dx * dx + dy * dy + dz * dz < mag * mag) { c.got = true; got++; if (G.net.on) G.net.send({ t: 'c', r: this.def.id, i }); if (this.def.hub) G.save.hubCoins[i] = 1; d.position.set(0, -999, 0); d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); continue; } d.position.set(c.x, c.y + Math.sin(t * 3 + i) * 0.12, c.z); d.rotation.y = t * 3 + i; d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); }
+      if (Math.abs(dx) < 60 && Math.abs(dz) < 60) { if (dx * dx + dy * dy + dz * dz < mag * mag) { c.got = true; got++; (G.took = G.took || []).push([this.def.id, i]); if (G.net.on) G.net.send({ t: 'c', r: this.def.id, i }); if (this.def.hub) G.save.hubCoins[i] = 1; d.position.set(0, -999, 0); d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); continue; } d.position.set(c.x, c.y + Math.sin(t * 3 + i) * 0.12, c.z); d.rotation.y = t * 3 + i; d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); }
       else if (!c.init) { c.init = true; d.position.set(c.x, c.y, c.z); d.rotation.y = i; d.updateMatrix(); this.coinMesh.setMatrixAt(i, d.matrix); }
     }
     this.coinMesh.instanceMatrix.needsUpdate = true;

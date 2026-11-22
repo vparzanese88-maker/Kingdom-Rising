@@ -4,9 +4,10 @@ import * as THREE from 'three';
 import * as M from './models.js';
 import { Shock } from './entities.js';
 import { RELICS, ITEMS } from './levels.js';
+import { Toss, tossHit } from './toss.js';
 
 const COLORS = [0x2f6fd8, 0xd8762c, 0x8a3ab5, 0xd8c12c, 0x2fb5a6, 0xd83a7a, 0x6a8a2a];
-const PRE = 'goblinpeak-', VER = 9;     // bump when what players send each other changes
+const PRE = 'goblinpeak-', VER = 10;     // bump when what players send each other changes
 export class Net {
   constructor(G) { this.G = G; this.id = Math.random().toString(36).slice(2, 8); this.name = 'Hero'; this.on = false; this.isHost = false; this.code = ''; this.conns = []; this.peers = new Map(); this.acc = 0; this.ropes = []; this.status = ''; this.loop = new URLSearchParams(location.search).get('net') === 'loop'; this.lob = { map: 'l1', mode: 'race', racing: false }; this.fin = {}; this.endT = 0; }
   makeCode() { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 5; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
@@ -33,7 +34,7 @@ export class Net {
     if (m.t === 's') { let q = this.peers.get(m.from); if (!q) { q = this.spawnPeer(m); G.ui.toast(m.n + ' joined the climb.', 4); if (this.isHost) this.snapshot(m.from); } q.n = m.n; q.tx = m.p[0]; q.ty = m.p[1]; q.tz = m.p[2]; q.yaw = m.yaw; q.mode = m.dn ? 'crouch' : m.m; q.sp = m.sp; q.down = !!m.dn; q.pr = m.pr || 0; q.seen = G.time; if (q.r !== m.r) { q.r = m.r; q.x = q.tx; q.y = q.ty; q.z = q.tz; this.place(q); } }
     else if (m.t === 'boost' && m.to === this.id) { P.vel.y = 17; P.grounded = false; P.jumps = 1; P.pos.y += 0.1; G.audio.sfx('bounce'); G.ui.toast((this.nameOf(m.from)) + ' gave you a boost!', 3); }
     else if (m.t === 'pull' && m.to === this.id && m.r === G.world.def.id) { P.climb = P.swing = null; P.zip = { x: m.p[0], y: m.p[1] + 1.4, z: m.p[2], t: 0, last: 1e9, stuck: 0, sp: 24, pop: 6, sx: m.p[0], sy: m.p[1] + 1.4, sz: m.p[2] }; P.grounded = false; G.audio.sfx('whip'); G.ui.toast(this.nameOf(m.from) + ' is hauling you up with the whip!', 3); }
-    else if (m.t === 'push' && m.to === this.id) { if (G.count > 0) return; if (P.knock(m.d[0], m.d[1], G.mode === 'race' ? 12.5 : 9, G.mode === 'race' ? 6.5 : 5, G.mode !== 'race')) G.ui.toast(this.nameOf(m.from) + ' shoved you!', 2); }
+    else if (m.t === 'push' && m.to === this.id) { if (G.count > 0 || this.pvpT > 0) return; this.pvpT = m.w ? 1.8 : 1.0; if (m.w) { if (P.knock(m.d[0], m.d[1], 4.5, 3, true)) G.ui.toast(this.nameOf(m.from) + ' stung you with the whip.', 2); } else if (P.knock(m.d[0], m.d[1], G.mode === 'race' ? 11 : 9, G.mode === 'race' ? 6 : 5, G.mode !== 'race')) G.ui.toast(this.nameOf(m.from) + ' punched you!', 2); }
     else if (m.t === 'tm') { const q = this.peers.get(m.from); if (q) { q.best = m.b || {}; q.run = m.r || {}; q.done = m.d || {}; } }
     else if (m.t === 'lob') { if (!this.isHost) this.lob = m.l; }
     else if (m.t === 'go') { this.lob.racing = true; this.fin = {}; this.endT = 0; G.startRace(m.map, m.mode, this.slot(), this.count()); }
@@ -42,6 +43,10 @@ export class Net {
     else if (m.t === 'item') this.gotItem(m.k, m.from);
     else if (m.t === 'relic') this.gotRelic(m.r, m.i, m.from);
     else if (m.t === 'act') this.gotAct(m.id, m.name, m.from);
+    else if (m.t === 'cr') { const W = this.region(m.r); if (W) W.showCoin(m.i); }
+    else if (m.t === 'mr') { const W = this.region(m.r), mob = W && W.mobs && W.mobs[m.i]; if (mob) mob.revive(); }
+    else if (m.t === 'tv') { const W = this.region(m.r); if (W && G.world === W) W.add(new Toss(W, m.k, m.p[0], m.p[2], { y: m.p[1], v: m.v, fly: true, ghost: true })); }
+    else if (m.t === 'tw' && m.to === this.id) { if (!(G.count > 0)) tossHit(G, m.k, m.d, m.from); }
     else if (m.t === 'c') { const W = this.region(m.r); if (W) W.hideCoin(m.i); }
     else if (m.t === 'm') { const W = this.region(m.r); if (W && W.mobs && !(m.from > this.id && this.owns(W))) for (const a of m.a) { const mob = W.mobs[a[0]]; if (mob && !mob.dead) mob.net = { x: a[1], y: a[2], z: a[3], ry: a[4], mv: a[5], w: a[6] }; } }
     else if (m.t === 'mh') { const W = this.region(m.r), mob = W && W.mobs && W.mobs[m.i]; if (mob && this.owns(W)) mob.hit(m.n, m.f[0], m.f[1], m.how || 'net'); }
@@ -85,7 +90,7 @@ export class Net {
   // Whip crack landing on a friend: haul them to you.
   whipPull(P, range) {
     if (!this.on) return false; const p = P.pos, L = P.look, id = this.G.world.def.id;
-    if (this.G.mode === 'race') { let any = false; for (const q of this.peers.values()) { if (q.r !== id) continue; const dx = q.x - p.x, dy = q.y + 0.9 - (p.y + P.eye), dz = q.z - p.z, d = Math.hypot(dx, dy, dz); if (d < range + 0.8 && (d < 1.6 || (dx * L.x + dy * L.y + dz * L.z) / d > 0.6)) { const l = Math.hypot(dx, dz) || 1; this.send({ t: 'push', to: q.id, d: [+(dx / l).toFixed(2), +(dz / l).toFixed(2)] }); any = true; } } return any; }
+    if (this.G.mode === 'race') { let any = false; for (const q of this.peers.values()) { if (q.r !== id) continue; const dx = q.x - p.x, dy = q.y + 0.9 - (p.y + P.eye), dz = q.z - p.z, d = Math.hypot(dx, dy, dz); if (d < 4.2 && (d < 1.6 || (dx * L.x + dy * L.y + dz * L.z) / d > 0.75)) { const l = Math.hypot(dx, dz) || 1; this.send({ t: 'push', to: q.id, w: 1, d: [+(dx / l).toFixed(2), +(dz / l).toFixed(2)] }); any = true; } } return any; }
     for (const q of this.peers.values()) { if (q.r !== id) continue; const dx = q.x - p.x, dy = q.y + 0.9 - (p.y + P.eye), dz = q.z - p.z, d = Math.hypot(dx, dy, dz); if (d < 3 || d > range + 16) continue; if ((dx * L.x + dy * L.y + dz * L.z) / d > 0.93) { this.send({ t: 'pull', to: q.id, r: id, p: [p.x, p.y, p.z] }); this.G.ui.toast('You haul ' + q.n + ' up!', 2); return true; } }
     return false;
   }
@@ -113,7 +118,7 @@ export class Net {
     return any;
   }
   update(dt) {
-    const G = this.G, P = G.player, W = G.world, I = G.input; this.tmAcc = (this.tmAcc || 0) + dt; if (this.on && this.tmAcc > 1) { this.tmAcc = 0; this.send({ t: 'tm', b: G.save.best, r: G.save.run, d: G.save.done }); }
+    this.pvpT = (this.pvpT || 0) - dt; const G = this.G, P = G.player, W = G.world, I = G.input; this.tmAcc = (this.tmAcc || 0) + dt; if (this.on && this.tmAcc > 1) { this.tmAcc = 0; this.send({ t: 'tm', b: G.save.best, r: G.save.run, d: G.save.done }); }
     for (const r of this.ropes) { r.t -= dt; if (r.t <= 0) { r.b.solid = false; r.W.scene.remove(r.m, r.peg); r.dead = true; } } if (this.ropes.some(r => r.dead)) this.ropes = this.ropes.filter(r => !r.dead);
     if (!this.on) return;
     if (I.hit('KeyT') && !G.locked && G.mode !== 'race' && !W.def.lobby) this.dropRope(); if (I.hit('KeyB') && !G.locked && G.mode !== 'race') this.call(false);

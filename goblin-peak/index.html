@@ -124,24 +124,29 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 #lobbyBox .pick{background:var(--gold);border-radius:8px;padding:2px 8px;font-weight:600}
 #lobbyBox i{font-style:normal;font-size:12px;letter-spacing:.08em;opacity:.7}
 #lobbyBox .keys2{background:rgba(43,28,14,.1);border-radius:10px;padding:6px 8px}
+#splat{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:min(70vh,70vw);line-height:1;pointer-events:none}
+#splat.snow{background:radial-gradient(circle at 50% 45%,#fff 0 28%,rgba(255,255,255,.92) 40%,rgba(255,255,255,.55) 62%,rgba(255,255,255,0) 80%)}
+#splat.cat{background:radial-gradient(circle,rgba(224,138,58,.75) 0 45%,rgba(224,138,58,0) 75%)}
+#splat.rabbit{background:radial-gradient(circle,rgba(255,255,255,.6) 0 35%,rgba(255,255,255,0) 65%)}
 </style>
 <script type="importmap">
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795310806",
-"./src/entities.js": "./src/entities.js?v=1795310806",
-"./src/levels.js": "./src/levels.js?v=1795310806",
-"./src/lowland.js": "./src/lowland.js?v=1795310806",
-"./src/main.js": "./src/main.js?v=1795310806",
-"./src/models.js": "./src/models.js?v=1795310806",
-"./src/net.js": "./src/net.js?v=1795310806",
-"./src/player.js": "./src/player.js?v=1795310806",
-"./src/terrain.js": "./src/terrain.js?v=1795310806",
-"./src/ui.js": "./src/ui.js?v=1795310806",
-"./src/util.js": "./src/util.js?v=1795310806",
-"./src/village.js": "./src/village.js?v=1795310806",
-"./src/world.js": "./src/world.js?v=1795310806"
+"./src/audio.js": "./src/audio.js?v=1795310930",
+"./src/entities.js": "./src/entities.js?v=1795310930",
+"./src/levels.js": "./src/levels.js?v=1795310930",
+"./src/lowland.js": "./src/lowland.js?v=1795310930",
+"./src/main.js": "./src/main.js?v=1795310930",
+"./src/models.js": "./src/models.js?v=1795310930",
+"./src/net.js": "./src/net.js?v=1795310930",
+"./src/player.js": "./src/player.js?v=1795310930",
+"./src/terrain.js": "./src/terrain.js?v=1795310930",
+"./src/toss.js": "./src/toss.js?v=1795310930",
+"./src/ui.js": "./src/ui.js?v=1795310930",
+"./src/util.js": "./src/util.js?v=1795310930",
+"./src/village.js": "./src/village.js?v=1795310930",
+"./src/world.js": "./src/world.js?v=1795310930"
 }
 }
 </script>
@@ -163,6 +168,7 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
   <div id="lucky" hidden><span id="luckyT"></span></div>
   <div id="countBox" hidden></div>
   <div id="lobbyBox" hidden></div>
+  <div id="splat" hidden></div>
   <div id="tools"></div>
 </div>
 
@@ -210,6 +216,6 @@ body.clean #objective,body.clean #tools,body.clean #guide span,body.clean #heigh
 
 <div id="fade"></div>
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795310806"></script>
+<script type="module" src="./src/main.js?v=1795310930"></script>
 </body>
 </html>

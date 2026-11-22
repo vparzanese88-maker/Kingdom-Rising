@@ -69,6 +69,7 @@ export class UI {
     }
     $('mapObj').innerHTML = obj;
   }
+  splat(kind, secs) { const el = $('splat'); el.className = kind; el.textContent = kind === 'cat' ? '🐈' : kind === 'rabbit' ? '🐇' : ''; this.splatT = secs; this.show('splat', true); el.style.opacity = 1; }
   count(v) { this.show('countBox', v !== null); if (v !== null) this.set('countBox', String(v)); }
   closeAll() { if (this.mapOpen) this.toggleMap(false); if (this.shopOpen) this.closeShop(); if (this.dlg) { this.dlg = null; this.show('dialog', false); } }
   lobby(N, L, at) {
@@ -82,6 +83,7 @@ export class UI {
   closeDone() { this.show('done', false); this.G.locked = false; const cb = this.doneCb; this.doneCb = null; if (cb) cb(); }
   update(dt) {
     const G = this.G, S = G.save, I = G.input, P = G.player, W = G.world;
+    if (this.splatT > 0) { this.splatT -= dt; $('splat').style.opacity = Math.min(1, this.splatT / 0.7); if (this.splatT <= 0) this.show('splat', false); }
     if (this.toastT > 0 && (this.toastT -= dt) <= 0) this.show('toast', false);
     if (this.areaT > 0 && (this.areaT -= dt) <= 0) this.show('area', false);
     if (this.barkT > 0) { if ((this.barkT -= dt) <= 0) this.show('bark', false); } else if (this.barkQ.length && !this.dlg) { const [who, text] = this.barkQ.shift(); $('barkWho').textContent = who; $('barkText').textContent = text; this.barkT = 2.5 + text.length * 0.045; this.show('bark', true); G.audio.sfx('talk'); }
@@ -112,7 +114,7 @@ export class UI {
     this.set('coins', S.coins); const id = W.def.id;
     this.show('jewelBox', !W.def.hub); if (!W.def.hub) { this.set('jewels', (S.jewels[id] || []).filter(Boolean).length + '/3'); this.set('height', Math.max(0, Math.round(P.pos.y)) + ' m / ' + Math.round(W.spiral.Ytop) + ' m   ⏱ ' + G.fmt((S.run || {})[id] || 0)); }
     this.show('heightBox', !W.def.hub);
-    const tools = '<span><b>F</b> Punch</span>' + (S.items.whip ? '<span><b>LMB</b> Whip</span>' : '') + (S.items.hook ? `<span><b>RMB</b> ${S.items.cannon ? 'Hand cannon' : 'Hook'}</span>` : '') + (S.items.glider ? '<span><b>Hold SPACE</b> Glide</span>' : '') + (G.net.on ? `<span><b>B</b> Call</span><span><b>T</b> Rope · online ${G.net.code} (${G.net.count()})</span>` : '') + (S.bombs > 0 ? `<span><b>G</b> Squibs ×${S.bombs}</span>` : '') + (S.relics.dash ? '<span><b>X</b> Air dash</span>' : '') + `<span><b>SPACE</b> Jump ×${(S.items.boots ? 3 : 2) + (S.relics.fourth ? 1 : 0)}</span><span><b>M</b> Map</span>`;
+    const tools = '<span><b>F</b> Punch</span>' + (P.hold ? `<span><b>LMB</b> Throw the ${P.hold.k.name}</span>` : S.items.whip ? '<span><b>LMB</b> Whip</span>' : '') + (S.items.hook ? `<span><b>RMB</b> ${S.items.cannon ? 'Hand cannon' : 'Hook'}</span>` : '') + (S.items.glider ? '<span><b>Hold SPACE</b> Glide</span>' : '') + (G.net.on ? `<span><b>B</b> Call</span><span><b>T</b> Rope · online ${G.net.code} (${G.net.count()})</span>` : '') + (S.bombs > 0 ? `<span><b>G</b> Squibs ×${S.bombs}</span>` : '') + (S.relics.dash ? '<span><b>X</b> Air dash</span>' : '') + `<span><b>SPACE</b> Jump ×${(S.items.boots ? 3 : 2) + (S.relics.fourth ? 1 : 0)}</span><span><b>M</b> Map</span>`;
     if (this.last.tools !== tools) { this.last.tools = tools; $('tools').innerHTML = tools; }
     const bal = !!P.onBeam; this.show('balance', bal); if (bal) $('balDot').style.left = (50 + P.lean * 46) + '%';
     const st = P.swim ? 'Swimming: head for the bank!' : P.climb ? 'Climbing  ·  W/S up and down  ·  SPACE jump off' : P.swing ? 'Swinging  ·  SPACE let go' : P.glide ? 'Gliding' : P.steep ? 'Sliding!' : '';

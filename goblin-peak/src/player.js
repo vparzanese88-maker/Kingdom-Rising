@@ -17,7 +17,7 @@ export class Player {
     this.rope = new THREE.Group(); this.segs = []; this.lashMat = [mat(0x3a2414), mat(0xb8b8c4)]; for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(GEO.cylG, this.lashMat[0]); m.frustumCulled = false; this.rope.add(m); this.segs.push(m); } this.rope.visible = false; this.camDist = 6.2; this.va = new THREE.Vector3(); this.vb = new THREE.Vector3(); this.vc = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0);
     this.aimWhip = null; this.aimHook = null; this.tmp = new THREE.Vector3(); this.look = new THREE.Vector3();
   }
-  spawn(x, y, z, yaw = 0) { this.routePhi = undefined; this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = 0; this.climb = this.swing = this.zip = null; this.crouch = false; this.swim = false; this.H = 1.8; this.stun = 0; this.inv = 1; this.lean = 0; }
+  spawn(x, y, z, yaw = 0) { this.routePhi = undefined; this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = 0; this.climb = this.swing = this.zip = null; if (this.hold) { this.hold.state = 'rest'; this.hold = null; } this.crouch = false; this.swim = false; this.H = 1.8; this.stun = 0; this.inv = 1; this.lean = 0; }
   detach() { this.climb = null; this.swing = null; this.zip = null; }
   knock(dx, dz, power, up = 7, friendly) {
     if (this.inv > 0) return false;
@@ -74,6 +74,8 @@ export class Player {
     this.aimWhip = S.items.whip ? this.aimLimb(13 + (S.upg.whip || 0) * 2.5 + (S.relics.rope ? 3 : 0), this.swing && this.swing.a) : null; if (this.aimWhip && !W.hookOk(p, this.aimWhip)) this.aimWhip = null;
     const hr = (S.items.cannon ? 62 : 27) + (S.relics.rope ? 9 : 0); this.aimHook = S.items.hook ? (this.aimLimb(hr) || this.aimSurface(hr, !!S.items.cannon)) : null; this.hookDenied = false; if (this.aimHook && !W.hookOk(p, this.aimHook)) { this.aimHook = null; this.hookDenied = true; }
     this.pushT = (this.pushT || 0) - dt;
+    if (this.hold && (this.hold.W !== W || this.hold.dead)) this.hold = null;
+    if (this.hold && ctrl && I.lmbHit) { this.hold.throwFrom(this); this.hold = null; I.lmbHit = false; this.whipCd = 0.35; this.pushT = 0.22; this.pushSide = true; }
     this.pushCd = (this.pushCd || 0) - dt;      // F (or left click while you have no whip) throws a punch
     if (ctrl && (I.hit('KeyF') || I.lmbHit && !S.items.whip) && this.pushCd <= 0 && !this.swim) { const hit = W.pushHit(this, true); this.pushCd = 0.34; this.pushT = 0.26; this.pushSide = !this.pushSide; if (hit) { G.audio.sfx('punch'); this.shake = Math.max(this.shake, 0.16); G.hitstop = 0.07; } else G.audio.sfx('slide', 0.5); }
     if (ctrl && I.lmbHit && S.items.whip && this.whipCd <= 0 && !this.swim) {

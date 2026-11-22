@@ -31,7 +31,8 @@ export class Mob {
     this.mesh = k.model(); this.mesh.position.set(x, this.y, z); W.scene.add(this.mesh);
     W.mobs = W.mobs || []; if (o.temp) this.mi = -1; else { this.mi = W.mobs.length; W.mobs.push(this); }
   }
-  die() { if (this.dead) return; const G = this.W.G; this.dead = true; this.carry = null; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y + 0.8, this.z, 0x9be06a, 14); this.W.dropCoins(this.x, this.y + 1, this.z, this.k.coins * (G.save.relics.midas ? 2 : 1)); if (G.world === this.W) G.audio.sfx('poof'); }
+  revive() { const W = this.W; if (!this.dead) return; this.dead = false; this.hp = this.k.hp; this.x = this.hx; this.z = this.hz; this.y = this.hy; this.stunT = 0; this.state = 'idle'; this.net = null; this.cd = 2; this.mesh.position.set(this.x, this.y, this.z); W.scene.add(this.mesh); if (!W.ents.includes(this)) W.ents.push(this); }
+  die() { if (this.dead) return; const G = this.W.G; this.dead = true; this.rsT = 75; this.carry = null; this.W.scene.remove(this.mesh); this.W.puff(this.x, this.y + 0.8, this.z, 0x9be06a, 14); this.W.dropCoins(this.x, this.y + 1, this.z, this.k.coins * (G.save.relics.midas ? 2 : 1)); if (G.world === this.W) G.audio.sfx('poof'); }
   hit(n, fx, fz, how) {
     if (this.dead) return; const G = this.W.G, N = G.net;
     if (N.on && this.mi >= 0 && !N.owns(this.W) && how !== 'net') { N.send({ t: 'mh', r: this.W.def.id, i: this.mi, n, how: how || 0, f: [+fx.toFixed(1), +fz.toFixed(1)] }); G.audio.sfx('bonk'); this.W.puff(this.x, this.y + this.k.h * 0.6, this.z, 0xffffff, 6); return; }

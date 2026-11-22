@@ -14,14 +14,14 @@ export const CLASSES = {
   },
   engineer: {
     name: 'Engineer', color: 0xe0b22e, hp: 120, speed: 8.4, role: 'Builder, repairer, resupply',
-    gun: { name: 'Breacher Pump Shotgun', dmg: 13, pellets: 8, rate: 1.4, mag: 8, reserve: 32, reload: 2.4, spread: 0.07, kind: 'hit', sound: 'shotgun', recoil: 0.05, near: 8, far: 24, max: 34 },
+    gun: { name: 'Breacher Pump Shotgun', dmg: 13, pellets: 8, rate: 1.4, mag: 8, reserve: 64, reload: 2.4, spread: 0.07, kind: 'hit', sound: 'shotgun', recoil: 0.05, near: 8, far: 24, max: 34 },
     throw: { kind: 'frag', name: 'Sticky charge', n: 2 },
     team: 'Builds Tesla Towers, Flame Turrets and Forward Resupplies, and welds three times faster than anyone.',
     sentry: 'tesla', defense: 'flamer', third: 'resupply',
   },
   heavy: {
     name: 'Heavy', color: 0xc94a3a, hp: 175, speed: 7.0, role: 'Demolitions and protector',
-    gun: { name: 'RL-4 Rocket Launcher', dmg: 110, rate: 1.2, mag: 4, reserve: 12, reload: 2.5, spread: 0, kind: 'rocket', splash: 4.6, sound: 'rocket', recoil: 0.07, life: 1.8 },
+    gun: { name: 'RL-4 Rocket Launcher', dmg: 110, rate: 1.2, mag: 4, reserve: 24, reload: 2.5, spread: 0, kind: 'rocket', splash: 4.6, sound: 'rocket', recoil: 0.07, life: 1.8 },
     throw: { kind: 'frag', name: 'Frag grenade', n: 3 },
     team: 'Bulwark: teammates near you take 20% less damage.',
     sentry: 'missile', defense: 'mines', third: 'barricade',
@@ -35,14 +35,14 @@ export const CLASSES = {
   },
   sniper: {
     name: 'Sniper', color: 0x4aa8a0, hp: 100, speed: 8.2, role: 'Long-range spotter',
-    gun: { name: 'XR-9 Rail Rifle', dmg: 160, rate: 0.85, mag: 5, reserve: 20, reload: 2.5, spread: 0.035, scoped: 0.0006, kind: 'hit', sound: 'sniper', recoil: 0.09, near: 400, far: 400, max: 260, pierce: 3 },
+    gun: { name: 'XR-9 Rail Rifle', dmg: 160, rate: 0.85, mag: 5, reserve: 40, reload: 2.5, spread: 0.035, scoped: 0.0006, kind: 'hit', sound: 'sniper', recoil: 0.09, near: 400, far: 400, max: 260, pierce: 3 },
     throw: { kind: 'claymore', name: 'Claymore', n: 3 },
     team: 'Spotter: aliens you hit are marked: they show on the minimap and take 25% more damage.',
     sentry: 'railgun', defense: 'uav', third: 'mines',
   },
   medic: {
     name: 'Medic', color: 0xe8e8f0, hp: 120, speed: 8.4, role: 'Healer',
-    gun: { name: 'K-7 Carbine', dmg: 12, rate: 8, mag: 36, reserve: 144, reload: 1.6, spread: 0.016, kind: 'hit', sound: 'smg', recoil: 0.011, near: 18, far: 55, max: 80 },
+    gun: { name: 'K-7 Carbine', dmg: 12, rate: 8, mag: 36, reserve: 288, reload: 1.6, spread: 0.016, kind: 'hit', sound: 'smg', recoil: 0.011, near: 18, far: 55, max: 80 },
     throw: { kind: 'medkit', name: 'Health kit', n: 3 },
     heal: 1,
     team: 'Heal beam (5) and three health kits to throw.',

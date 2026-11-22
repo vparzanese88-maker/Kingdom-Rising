@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hive Breach</title>
+<style>
+:root{--ink:#e8f0f6;--dim:#8fa3b4;--panel:rgba(10,18,26,.82);--line:#2c4458;--acc:#3fc0ff;--warn:#ff5a4a;--gold:#ffc940}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0a0f14;color:var(--ink);font:15px/1.4 "Segoe UI",system-ui,sans-serif}
+canvas#game{position:fixed;inset:0;width:100%;height:100%;display:block}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer}
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:10;padding:16px}
+#title{background:linear-gradient(rgba(5,10,15,.55),rgba(5,10,15,.85));overflow:auto;align-items:flex-start}
+#title .card{max-width:980px;width:100%;margin:auto}
+h1{font-size:clamp(40px,8vw,76px);margin:0;letter-spacing:.12em;text-transform:uppercase;color:#fff;text-shadow:0 0 24px rgba(63,192,255,.6)}
+h1 span{color:var(--warn)}
+.sub{color:var(--dim);margin:2px 0 18px;font-size:17px}
+h2{font-size:14px;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin:18px 0 8px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.pick{text-align:left;background:var(--panel);border:2px solid var(--line);border-left:6px solid var(--c);border-radius:6px;padding:10px 14px}
+.pick.on{border-color:var(--c);box-shadow:0 0 0 2px var(--c) inset}
+.pick h3{margin:0 0 2px;font-size:20px}
+.pick p{margin:4px 0;font-size:13px;color:#c4d2de}
+.pick .gun{color:var(--c);font-weight:600;filter:brightness(1.3)}
+.pick .kit{color:var(--dim);font-size:12px}
+.pick .kit b{color:var(--gold)}
+.go{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:18px}
+.btn{background:var(--acc);color:#04121c;border:0;border-radius:6px;padding:12px 22px;font-weight:700;font-size:17px;letter-spacing:.05em;text-transform:uppercase}
+.btn.alt{background:transparent;color:var(--ink);border:2px solid var(--acc)}
+input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--line);border-radius:6px;padding:10px 12px}
+#code{width:110px;text-transform:uppercase;letter-spacing:.15em}
+#netStatus{color:var(--gold);min-height:20px;margin:8px 0 0}
+.keys{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;font-size:13px;color:#c4d2de;margin-top:6px}
+.keys b{color:var(--gold)}
+.small{font-size:12px;color:var(--dim)}
+/* HUD */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%)}
+#cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.85)}
+#cross:before{left:10px;top:0;width:2px;height:22px;clip-path:polygon(0 0,100% 0,100% 35%,0 35%,0 65%,100% 65%,100% 100%,0 100%)}
+#cross:after{top:10px;left:0;height:2px;width:22px;clip-path:polygon(0 0,35% 0,35% 100%,0 100%,0 0,65% 0,100% 0,100% 100%,65% 100%)}
+#hit{position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-50%) rotate(45deg);opacity:0;transition:opacity .05s}
+#hit:before,#hit:after{content:"";position:absolute;background:#ff5050}
+#hit:before{left:14px;top:0;width:2px;height:30px;clip-path:polygon(0 0,100% 0,100% 30%,0 30%,0 70%,100% 70%,100% 100%,0 100%)}
+#hit:after{top:14px;left:0;height:2px;width:30px;clip-path:polygon(0 0,30% 0,30% 100%,0 100%,0 0,70% 0,100% 0,100% 100%,70% 100%)}
+#hurt{position:absolute;inset:0;background:radial-gradient(transparent 45%,rgba(200,0,0,.75));opacity:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
+#top{position:absolute;left:50%;top:10px;transform:translateX(-50%);text-align:center;min-width:min(440px,90vw)}
+#waveTxt{font-size:22px;font-weight:800;letter-spacing:.15em}
+#waveInfo{color:var(--dim);font-size:13px}
+.bar{height:10px;background:#1a2632;border-radius:5px;overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;background:var(--acc);transition:width .2s}
+#hubTxt{font-size:11px;letter-spacing:.15em;color:var(--acc);margin-top:4px}
+#boss{position:absolute;left:50%;top:118px;transform:translateX(-50%);width:min(420px,56vw);text-align:center}
+#bossName{font-weight:800;letter-spacing:.2em;color:#ff60ff;text-transform:uppercase}
+#boss .bar i{background:#ff40ff}
+#tl{position:absolute;left:12px;top:10px}
+#goldBox{font-size:24px;font-weight:800;color:var(--gold)}
+#goldBox:before{content:"◆ ";font-size:18px}
+#mapName,#hudCode{font-size:12px;color:var(--dim)}
+#hudCode{color:var(--acc);font-weight:600}
+#mini{position:absolute;right:12px;top:10px;width:170px;height:170px;border:1px solid var(--line);border-radius:6px}
+#bl{position:absolute;left:12px;bottom:12px;width:260px}
+#hpTxt{font-weight:700;font-size:18px}
+#hpBox .bar{height:14px}
+#hpBar{background:#40e070!important}
+#br{position:absolute;right:12px;bottom:12px;text-align:right}
+#ammo{font-size:30px;font-weight:800}
+#gunName{color:var(--dim);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+#slots{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:6px}
+.slot{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 10px;min-width:96px;font-size:12px;text-align:center}
+.slot b{display:block;color:var(--gold);font-size:16px}
+.slot i{display:block;font-style:normal;color:var(--dim)}
+.slot.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset}
+.slot.poor{opacity:.5}
+#prompt{position:absolute;left:50%;top:58%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 14px;font-size:14px;white-space:nowrap}
+#prompt b{color:var(--gold)}
+#prompt .bad{color:var(--warn)}
+#toasts{position:absolute;left:12px;top:110px;display:flex;flex-direction:column;gap:4px;max-width:380px}
+#toasts div{background:var(--panel);border-left:3px solid var(--acc);padding:5px 10px;font-size:13px;border-radius:3px}
+#banner{position:absolute;left:50%;top:26%;transform:translateX(-50%);text-align:center;text-shadow:0 2px 12px #000}
+#bannerA{font-size:clamp(36px,7vw,64px);font-weight:900;letter-spacing:.15em}
+#bannerB{font-size:18px;color:var(--gold);letter-spacing:.1em}
+#dead{position:absolute;left:50%;top:40%;transform:translateX(-50%);text-align:center;font-size:28px;font-weight:800;color:var(--warn);text-shadow:0 2px 10px #000}
+#board{position:absolute;left:50%;top:22%;transform:translateX(-50%)}
+#board table{border-collapse:collapse}
+#board td,#board th{padding:4px 14px;border-bottom:1px solid var(--line);text-align:left}
+#shop .card,#pause .card,#end .card{background:rgba(8,14,20,.95);border:1px solid var(--line);border-radius:8px;padding:18px 22px;width:min(560px,100%)}
+#shop h2,#pause h2{margin-top:0}
+.up{display:grid;grid-template-columns:28px 1fr auto 56px;gap:10px;align-items:center;width:100%;text-align:left;background:#101c26;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:5px 0}
+.up b{color:var(--gold);font-size:18px}
+.up small{display:block;color:var(--dim);font-size:12px}
+.up em{font-style:normal;color:var(--acc);letter-spacing:2px}
+.up i{font-style:normal;color:var(--gold);font-weight:700;text-align:right}
+.up.poor{opacity:.55}.up.max{opacity:.4}
+.up:hover{border-color:var(--acc)}
+#end{z-index:8}
+#end h2{font-size:34px;letter-spacing:.12em;color:#fff;margin:0 0 8px}
+#endKey{color:var(--gold);font-weight:700}
+#pause{background:rgba(0,0,0,.35);z-index:7}
+#pause .card{text-align:center}
+@media (max-width:700px){#mini{width:110px;height:110px}#slots{bottom:90px}.slot{min-width:70px;padding:4px 6px}#bl{width:170px}}
+</style>
+<script type="importmap">
+{
+"imports": {
+"three": "./vendor/three.module.min.js",
+"./src/audio.js": "./src/audio.js?v=1795312394",
+"./src/data.js": "./src/data.js?v=1795312394",
+"./src/main.js": "./src/main.js?v=1795312394",
+"./src/models.js": "./src/models.js?v=1795312394",
+"./src/net.js": "./src/net.js?v=1795312394",
+"./src/sim.js": "./src/sim.js?v=1795312394",
+"./src/world.js": "./src/world.js?v=1795312394"
+}
+}
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" hidden>
+  <div id="hurt"></div>
+  <div id="cross"></div><div id="hit"></div>
+  <div id="top" class="panel"><div id="waveTxt">PREPARE</div><div id="waveInfo"></div><div class="bar"><i id="hubBar" style="width:100%"></i></div><div id="hubTxt">HUB 100%</div></div>
+  <div id="boss" class="panel" hidden><div id="bossName"></div><div class="bar"><i id="bossBar"></i></div></div>
+  <div id="tl" class="panel"><div id="goldBox"><span id="gold">0</span></div><div id="mapName"></div><div id="hudCode"></div></div>
+  <canvas id="mini" width="340" height="340"></canvas>
+  <div id="toasts"></div>
+  <div id="banner" hidden><div id="bannerA"></div><div id="bannerB"></div></div>
+  <div id="prompt" hidden></div>
+  <div id="dead" hidden>YOU ARE DOWN<div id="deadT" style="font-size:16px;color:#fff"></div></div>
+  <div id="bl" class="panel"><div id="hpBox"><span id="hpTxt"></span><div class="bar"><i id="hpBar"></i></div></div></div>
+  <div id="br" class="panel"><div id="ammo"></div><div id="gunName"></div></div>
+  <div id="slots"></div>
+  <div id="board" class="panel" hidden><table id="boardT"></table></div>
+</div>
+
+<div id="shop" class="screen" hidden><div class="card"><h2>Armory</h2><div id="shopList"></div><p class="small">Click an upgrade or press 1 to 6. B or Esc to close. The battle keeps going online, so be quick.</p></div></div>
+<div id="pause" class="screen" hidden><div class="card"><h2>Click to fight</h2><p class="small">Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p><button class="btn alt" id="btnQuit" style="pointer-events:auto">Quit to title</button></div></div>
+<div id="end" class="screen" hidden><div class="card"><h2 id="endTitle"></h2><p id="endText"></p><p id="endKey"></p></div></div>
+
+<div id="title" class="screen"><div class="card">
+  <h1>Hive <span>Breach</span></h1>
+  <p class="sub">The year is 2387. Alien swarms pour out of the hive and march down the track toward your colony's power hub. Fight them yourself, build sentries in their path, and hold out for 20 waves.</p>
+  <h2>Your name</h2>
+  <input id="name" maxlength="14" placeholder="Marine">
+  <h2>Pick your class</h2>
+  <div class="row" id="classes"></div>
+  <h2>Pick the battlefield</h2>
+  <div class="row" id="maps"></div>
+  <div class="go">
+    <button class="btn" id="btnSolo">Play solo</button>
+    <button class="btn alt" id="btnHost">Host online game</button>
+    <span><input id="code" maxlength="5" placeholder="CODE"> <button class="btn alt" id="btnJoin">Join</button></span>
+  </div>
+  <p id="netStatus"></p>
+  <p class="small">Online co-op for up to 4: one player presses Host online game (their battlefield is used) and tells friends the code that shows in the top left; friends pick a class, type the code and press Join. Friends can join in the middle of a battle.</p>
+  <h2>Controls</h2>
+  <div class="keys">
+    <b>W A S D · Shift · Space</b><span>Move · sprint · jump (mouse looks)</span>
+    <b>Left click · R</b><span>Shoot · reload</span>
+    <b>Q</b><span>Build your class sentry (click to place, right click cancels)</span>
+    <b>E</b><span>Build your class defense</span>
+    <b>G</b><span>Throw a grenade</span>
+    <b>U · X</b><span>Look at a turret: upgrade it (any turret, up to level 3) · sell your own</span>
+    <b>B</b><span>Armory: upgrade damage, fire rate, magazine, speed, health and armor</span>
+    <b>Enter</b><span>Send the next wave early (host)</span>
+    <b>Tab</b><span>Squad scores</span>
+  </div>
+  <p class="small">Gold comes from kills, from surviving each wave, from supply pods (walk over the yellow beacons) and trickles in while you fight. Missiles, rockets, grenades and lightning pierce Brute armor. Wave 10 and 15 bring a Ravager; wave 20 brings the Hive Queen.</p>
+</div></div>
+
+<script src="./vendor/peerjs.min.js"></script>
+<script type="module" src="./src/main.js?v=1795312394"></script>
+</body>
+</html>

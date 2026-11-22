@@ -481,9 +481,10 @@ function newMe() {
   if (view2.gun) camera.remove(view2.gun); view2.gun = M.gunModel(G.cls, CLASSES[G.cls].color); view2.gun.scale.setScalar(0.55); view2.gun.traverse(o => { o.castShadow = false; }); camera.add(view2.gun);
   view2.flash = new THREE.PointLight(0xffc060, 0, 8); view2.flash.position.set(0.05, 0.05, -1.3); view2.gun.add(view2.flash);
   view2.fsp = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); view2.fsp.position.set(0.05, 0.03, -1.45); view2.gun.add(view2.fsp);
+  if (view2.gun.userData.glb) { const z = -(view2.gun.userData.len * 0.68 + 0.04); view2.fsp.position.set(0, 0.02, z); view2.flash.position.set(0, 0.04, z + 0.05); }   // a Meshy gun: flash right at its muzzle
   for (const k of ['pistol', 'tool', 'healer', 'thr']) { if (view2[k]) camera.remove(view2[k]); view2[k] = null; }
   const mk = (kind, x) => { const m = M.gunModel(kind, CLASSES[G.cls].color); m.scale.setScalar(0.55); m.position.set(x, -0.22, -0.45); m.visible = false; m.traverse(o => { o.castShadow = false; }); camera.add(m); return m; };
-  view2.pistol = mk('pistol', 0.2); view2.tool = mk('torch', 0.18); view2.thr = M.throwModel(CLASSES[G.cls].throw.kind); view2.thr.position.set(0.22, -0.24, -0.5); view2.thr.visible = false; camera.add(view2.thr); if (view2.extra) camera.remove(view2.extra); view2.extra = null; if (CLASSES[G.cls].extra) { view2.extra = M.throwModel(CLASSES[G.cls].extra.kind); view2.extra.position.set(0.22, -0.24, -0.5); view2.extra.visible = false; camera.add(view2.extra); }
+  view2.pistol = mk('pistol', 0.2); view2.tool = mk(G.cls === 'engineer' ? 'torch' : 'welder', 0.18);   /* the Engineer's plasma welder, everyone else's welding laser */ view2.thr = M.throwModel(CLASSES[G.cls].throw.kind); view2.thr.position.set(0.22, -0.24, -0.5); view2.thr.visible = false; camera.add(view2.thr); if (view2.extra) camera.remove(view2.extra); view2.extra = null; if (CLASSES[G.cls].extra) { view2.extra = M.throwModel(CLASSES[G.cls].extra.kind); view2.extra.position.set(0.22, -0.24, -0.5); view2.extra.visible = false; camera.add(view2.extra); }
   if (view2.dress) camera.remove(view2.dress); view2.dress = new THREE.Group(); M.C(view2.dress, 0.05, 0.05, 0.07, 0xeeeae0, 0, 0, 0); M.C(view2.dress, 0.02, 0.02, 0.072, 0xb0aca0, 0, 0, 0); M.B(view2.dress, 0.06, 0.004, 0.09, 0xeeeae0, 0.03, -0.03, -0.04); M.B(view2.dress, 0.03, 0.03, 0.002, 0xd03030, 0, 0, 0.036); view2.dress.rotation.set(0.3, 0.4, 1.4); view2.dress.position.set(0.16, -0.2, -0.38); view2.dress.visible = false; camera.add(view2.dress);
   const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); view2.gun.add(glove);
   if (view2.hand) camera.remove(view2.hand); view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); camera.add(view2.hand); for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
@@ -516,7 +517,7 @@ function hitAlien(o, d, maxD) {
   }
   return best ? { v: best, t: bt } : null;
 }
-function muzzle() { const p = new THREE.Vector3(0.05, 0.02, -0.75); (G.me && G.me.slot === 1 ? view2.pistol : view2.gun).localToWorld(p); return [p.x, p.y, p.z]; }
+function muzzle() { const gg = G.me && G.me.slot === 1 ? view2.pistol : view2.gun, p = gg && gg.userData.glb ? new THREE.Vector3(0, 0.02, -(gg.userData.len * 0.68)) : new THREE.Vector3(0.05, 0.02, -0.75); (G.me && G.me.slot === 1 ? view2.pistol : view2.gun).localToWorld(p); return [p.x, p.y, p.z]; }
 function shoot(st) {
   const C = CLASSES[G.cls], g = curGun(), me = G.me, myb = (mine(state()) || {}).buf || {}, lv = 0, power = 1; if (!(myb.storm > 0)) me.ammo--; me.cd = 1 / st.rate; me.kick = 1; me.shotN = (me.shotN || 0) + 1;
   if (((g.pellets && !g.semi) || G.cls === 'sniper') && me.ammo > 0) me.pumpAt = 0.32;

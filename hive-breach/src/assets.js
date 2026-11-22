@@ -17,13 +17,13 @@ export const MANIFEST = [...CLS.filter(c => c !== 'assault').map(c => 'marine_' 
 let done = false;
 export const ready = () => done;
 export function loadAll(extra = []) {
-  const list = [...MANIFEST, ...extra];
+  const list = [...MANIFEST, ...STRUCT_FILES, ...PROP_FILES, ...extra];
   return Promise.all(list.map(n => loader.loadAsync(BASE + n + '.glb').then(g => { prep(g); A[n] = g; if (n === 'marine_anims') A.marine_assault = g; }).catch(() => { /* missing: keep the simple model */ }))).then(() => { done = true; });
 }
 function prep(g) {
   g.scene.traverse(o => {
     if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = !o.isSkinnedMesh;
-    for (const m of [].concat(o.material)) if (m && m.isMeshStandardMaterial) { m.metalness = Math.min(m.metalness, 0.25); m.roughness = Math.max(m.roughness, 0.45); }   // no environment map in the game, so full metal reads black
+    for (const m of [].concat(o.material)) if (m && m.isMeshStandardMaterial) {  m.metalness = Math.min(m.metalness, 0.25); m.roughness = Math.max(m.roughness, 0.45); }   // no environment map in the game, so full metal reads black
   });
 }
 
@@ -120,4 +120,42 @@ export function turretGLB(kind, lvl = 1) {
   b = new THREE.Box3().setFromObject(inner); const c = b.getCenter(new THREE.Vector3()); inner.position.set(-c.x, -b.min.y, -c.z);
   g.userData = { head, kind, glb: true, lvl, muzzle: new THREE.Vector3(0, h * 0.62, b.min.z - c.z) };
   return g;
+}
+
+// ---- class structures: the Meshy body replaces the simple shapes, but the glowing rings, pads and light columns stay
+const STRUCT = { rally: ['s_rally', 'h', 3.6], ammopack: ['s_ammopack', 'w', 0.8], medkitT: ['s_medkit', 'w', 0.75], fieldhosp: ['s_fieldhosp', 'w', 4.4], teleporter: ['s_teleporter', 'w', 2.9], resupply: ['s_resupply', 'w', 3.0], uav: ['s_ball', 'w', 0.9] };
+export const STRUCT_FILES = Object.values(STRUCT).map(e => e[0]);
+function fit(name, mode, size, center) {
+  const inner = A[name].scene.clone(true), o = new THREE.Group(); o.add(inner); inner.updateMatrixWorld(true);
+  let b = new THREE.Box3().setFromObject(inner); const sz = b.getSize(new THREE.Vector3()), d = mode === 'h' ? sz.y : Math.max(sz.x, sz.z); inner.scale.setScalar(size / (d || 1)); inner.updateMatrixWorld(true);
+  b = new THREE.Box3().setFromObject(inner); const c = b.getCenter(new THREE.Vector3()); inner.position.set(-c.x, center ? -c.y : -b.min.y, -c.z); return o;
+}
+export function structGLB(kind, g, head) {
+  const e = STRUCT[kind]; if (!e || !A[e[0]]) return false;
+  const keep = o => o.geometry && (o.geometry.type === 'RingGeometry' || o.geometry.type === 'CircleGeometry' || (o.material && o.material.transparent));
+  for (const par of [g, head]) for (const c of [...par.children]) if (c.isMesh && !keep(c)) par.remove(c);
+  const body = fit(e[0], e[1], e[2], kind === 'uav'); (kind === 'resupply' ? g : head).add(body); g.userData.glb = true; return true;
+}
+
+// ---- the landscape: wrecks, rocks and plants. A list picks one at random; the size is its width ('w') or height ('h'), with a little variety.
+export let mapId = 'mars';
+export const setMap = m => { mapId = m; };
+const PROP = {
+  satellite: [['l_satellite'], 'w', 6], capsule: [['l_capsule'], 'w', 4.5], wreck: [['l_shipwreck'], 'w', 12], tank: [['l_tank'], 'w', 7.5], mech: [['l_mech'], 'w', 7], deadTurret: [['l_deadturret'], 'h', 2.4],
+  crate: [['l_crates'], 'w', 2.8], burntCrate: [['l_crates'], 'w', 2.6], terminal: [['l_terminal'], 'h', 1.7], spireHive: [['l_hive_spire'], 'h', 13],
+  rock: [['l_rock_mars1', 'l_rock_mars2'], 'w', 5], ice: [['l_rock_ice2'], 'h', 4.5], spire: [['l_rock_ice2'], 'h', 9], tree: [['l_tree_jungle'], 'h', 8.5], shroom: [['l_plant_jungle1'], 'h', 5],
+  boulder: [null, 'w', 4.5],
+};
+export const PROP_FILES = [...new Set(Object.values(PROP).flatMap(p => p[0] || []).concat(['l_rock_ice1', 'l_rock_jungle1']))];
+export function propGLB(kind, rnd = Math.random) {
+  const p = PROP[kind]; if (!p) return null; let list = p[0];
+  if (kind === 'boulder') list = [{ mars: 'l_rock_mars1', ice: 'l_rock_ice1', jungle: 'l_rock_jungle1' }[mapId] || 'l_rock_mars1'];
+  const ok = list.filter(n => A[n]); if (!ok.length) return null;
+  const n = ok[(rnd() * ok.length) | 0], o = fit(n, p[1], p[2] * (0.75 + rnd() * 0.5), false); o.children[0].position.y -= 0.15; return o;
+}
+
+// ---- what the marine holds on slot 4: the frag, a med kit or an ammo pack
+export function item(kind) {
+  if (kind === 'frag') return weapon('frag');
+  const n = kind === 'medkit' ? 's_medkit' : kind === 'ammo' ? 's_ammopack' : null; if (!n || !A[n]) return null; return fit(n, 'w', 0.3, true);
 }

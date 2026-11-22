@@ -138,6 +138,7 @@ export function placeError(kind, x, z, path, turrets, hubP, hiveP, T) {
 }
 
 export function buildWorld(scene, mapId, diff = 0) {
+  M.AS.setMap(mapId);
   const D = mapDef(mapId, diff), path = new Path(D.pts, D.hs), W = { def: D, id: mapId, diff, path, colliders: [], wrecks: [], group: new THREE.Group() };
   const s0 = path.pts[0], s1 = path.pts[path.pts.length - 1];
   { const a0 = path.at(0); W.hiveP = { x: s0.x + a0.tx * 6, z: s0.z + a0.tz * 6 }; } W.hubP = { x: s1.x, z: s1.z };
@@ -392,18 +393,20 @@ function battlefield(g, W, T, D, mapId, path) {
   for (const c of T.craters) if (!c.small || R() < 0.4) { const x = c.x + (R() - 0.5) * c.r, z = c.z + (R() - 0.5) * c.r; if (free(x, z, 8)) put(R() < 0.5 ? M.carcass : M.debris, x, z); }
 }
 // Every still piece of scenery is merged into one mesh per material, so the graphics card draws a few dozen things instead of thousands.
+// Meshy models store compressed (integer) vertex data; turn it back into plain floats before merging
+function deq(geo) { for (const k of ['position', 'normal', 'uv']) { const a = geo.attributes[k]; if (!a || a.array instanceof Float32Array) continue; const f = new Float32Array(a.count * a.itemSize); for (let i = 0; i < a.count; i++) for (let c = 0; c < a.itemSize; c++) f[i * a.itemSize + c] = a.getComponent(i, c); geo.setAttribute(k, new THREE.BufferAttribute(f, a.itemSize)); } return geo; }
 function mergeStatic(g, keep) {
   g.updateMatrixWorld(true); const by = new Map(), extras = [];
   for (const child of [...g.children]) {
     if (keep.has(child) || child.isLight) continue; let any = false;
-    child.traverse(o => { if (o.isLight || o.isSprite || o.isPoints || o.isLineSegments) { extras.push(o); return; } if (!o.isMesh || !o.geometry || o.material.vertexColors) return; any = true; let geo = o.geometry.clone(); geo.applyMatrix4(o.matrixWorld); if (geo.index) geo = geo.toNonIndexed(); if (!geo.attributes.normal) geo.computeVertexNormals(); const k = o.material.uuid; if (!by.has(k)) by.set(k, { mat: o.material, geos: [], shadow: false }); const e = by.get(k); e.geos.push(geo); e.shadow = e.shadow || o.castShadow; });
+    child.traverse(o => { if (o.isLight || o.isSprite || o.isPoints || o.isLineSegments) { extras.push(o); return; } if (!o.isMesh || !o.geometry || o.material.vertexColors) return; any = true; let geo = deq(o.geometry.clone()); geo.applyMatrix4(o.matrixWorld); if (geo.index) geo = geo.toNonIndexed(); if (!geo.attributes.normal) geo.computeVertexNormals(); const k = o.material.uuid; if (!by.has(k)) by.set(k, { mat: o.material, geos: [], shadow: false }); const e = by.get(k); e.geos.push(geo); e.shadow = e.shadow || o.castShadow; });
     if (any || child.children.length || child.isMesh) g.remove(child);
   }
   for (const o of extras) g.attach(o);
   for (const { mat, geos, shadow } of by.values()) {
-    let n = 0; for (const q of geos) n += q.attributes.position.count; const P = new Float32Array(n * 3), N = new Float32Array(n * 3); let off = 0;
-    for (const q of geos) { P.set(q.attributes.position.array, off * 3); N.set(q.attributes.normal.array, off * 3); off += q.attributes.position.count; q.dispose(); }
-    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(P, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(N, 3)); geo.computeBoundingSphere();
+    let n = 0; for (const q of geos) n += q.attributes.position.count; const hasUV = geos.every(q => q.attributes.uv), P = new Float32Array(n * 3), N = new Float32Array(n * 3), U = hasUV ? new Float32Array(n * 2) : null; let off = 0;
+    for (const q of geos) { P.set(q.attributes.position.array, off * 3); N.set(q.attributes.normal.array, off * 3); if (U) U.set(q.attributes.uv.array, off * 2); off += q.attributes.position.count; q.dispose(); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(P, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(N, 3)); if (U) geo.setAttribute('uv', new THREE.BufferAttribute(U, 2)); geo.computeBoundingSphere();
     const m = new THREE.Mesh(geo, mat); m.castShadow = shadow; m.receiveShadow = true; g.add(m);
   }
 }

@@ -22,6 +22,7 @@ export const K = (g, r, h, c, x, y, z, o) => add(g, cone(r, h), typeof c === 'nu
 // ---------------------------------------------------------------- marines
 export function gunModel(cls, color) {
   const mg = AS.weapon(cls); if (mg) return mg;   // the Meshy model when it has loaded
+  if (cls === 'welder') cls = 'torch';
   const g = new THREE.Group(), dark = 0x2a2e34, metal = 0x5a626c;
   if (cls === 'gunner') {
     B(g, 0.22, 0.22, 0.4, color, 0, -0.02, 0.1); B(g, 0.08, 0.2, 0.1, dark, 0, -0.2, 0.15); B(g, 0.3, 0.1, 0.12, dark, 0, 0.17, 0.05);
@@ -292,6 +293,7 @@ export function turret(kind, color, lvl) {
     parts.muzzle = new THREE.Vector3(0, 2.1, 0);
   }
   g.userData = { head, ...parts, kind };
+  AS.structGLB(kind, g, head);   // Meshy body for the class structures; rings and pads stay
   return g;
 }
 
@@ -368,7 +370,7 @@ export function upgradeParts(kind, lvl, color) {
 }
 export function ammoCrate() { const g = new THREE.Group(); B(g, 1.3, 0.8, 0.9, 0x4a5a3a, 0, 0.4, 0); B(g, 1.32, 0.18, 0.92, 0xe0b22e, 0, 0.62, 0, { e: 0x604000 }); for (let i = 0; i < 4; i++) C(g, 0.06, 0.06, 0.3, 0xc8a040, -0.4 + i * 0.27, 0.95, 0, { m: 0.8 }); const L = S(g, 0.12, 0xffd040, 0, 1.3, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); void L; return g; }
 // ---------------------------------------------------------------- points of interest
-export function satellite(rnd) {
+export function satellite(rnd) { { const mg = AS.propGLB('satellite', rnd); if (mg) return mg; }
   const g = new THREE.Group(), foil = mat(0xd8a838, { m: 0.8, r: 0.35 }), panel = mat(0x1a3a7a, { m: 0.6, r: 0.25, e: 0x081830 }), frame = 0x8a929a;
   const body = B(g, 2.2, 1.8, 2.6, foil, 0, 0.9, 0); body.rotation.set(0.3, 0.4, 0.25);
   for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(sd * 1.4, 1.1, 0); arm.rotation.set(rnd() - 0.5, 0, sd * (0.3 + rnd() * 0.6)); g.add(arm); B(arm, 0.1, 0.1, 0.1, frame, 0, 0, 0); for (let i = 0; i < 3; i++) { const pn = B(arm, 1.6, 0.06, 1.8, panel, sd * (1 + i * 1.7), 0, 0); pn.rotation.z = (rnd() - 0.5) * 0.5 * i; } }
@@ -376,7 +378,7 @@ export function satellite(rnd) {
   for (let i = 0; i < 8; i++) { const d = B(g, 0.2 + rnd() * 0.8, 0.05, 0.2 + rnd() * 0.6, rnd() < 0.5 ? frame : foil, (rnd() - 0.5) * 9, 0.05, (rnd() - 0.5) * 9); d.rotation.y = rnd() * 6; }
   const scorch = new THREE.Mesh(new THREE.CircleGeometry(4, 16), mat(0x1a1410, { op: 0.6 })); scorch.rotation.x = -Math.PI / 2; scorch.position.y = 0.04; g.add(scorch); return g;
 }
-export function capsule(rnd) {
+export function capsule(rnd) { { const mg = AS.propGLB('capsule', rnd); if (mg) return mg; }
   const g = new THREE.Group(), hull = mat(0xc8ccd0, { m: 0.5, r: 0.5 }), heat = mat(0x2a2420, { r: 0.9 });
   const c = new THREE.Group(); c.rotation.set(0.5 + rnd() * 0.3, rnd() * 6, 0.2); c.position.y = 0.8; g.add(c);
   const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.9, 2.8, 16), hull); cone.castShadow = true; c.add(cone); const shield = new THREE.Mesh(new THREE.CylinderGeometry(1.95, 1.95, 0.3, 16), heat); shield.position.y = -1.5; c.add(shield);
@@ -385,7 +387,7 @@ export function capsule(rnd) {
   const chute = new THREE.Mesh(new THREE.SphereGeometry(3.5, 14, 6, 0, 6.29, 0, 0.9), mat(0xe8702a, { ds: true, r: 1 })); chute.scale.y = 0.2; chute.position.set(4, 0.2, 2); chute.rotation.z = 0.2; g.add(chute);
   const scorch = new THREE.Mesh(new THREE.CircleGeometry(3, 16), mat(0x1a1410, { op: 0.5 })); scorch.rotation.x = -Math.PI / 2; scorch.position.y = 0.04; g.add(scorch); return g;
 }
-export function wreck(rnd) {
+export function wreck(rnd) { { const mg = AS.propGLB('wreck', rnd); if (mg) return mg; }
   const g = new THREE.Group(), hull = mat(0x5a646e, { m: 0.5, r: 0.6 }), burnt = mat(0x2a2624, { r: 0.9 }), stripe = mat(0xd09030, {});
   const f1 = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 9, 12), hull); f1.rotation.set(0.1, 0, Math.PI / 2 + 0.15); f1.position.set(-4, 1.8, 0); f1.castShadow = true; g.add(f1);
   const f2 = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.2, 6, 12), burnt); f2.rotation.set(0.3, 0.5, Math.PI / 2 - 0.3); f2.position.set(4.5, 1.6, 2); f2.castShadow = true; g.add(f2);
@@ -402,11 +404,11 @@ export function rover(rnd) {
 export function debris(rnd) {
   const g = new THREE.Group(); for (let i = 0; i < 10; i++) { const k = rnd(); const d = k < 0.5 ? B(g, 0.4 + rnd() * 1.6, 0.08, 0.3 + rnd() * 1.2, k < 0.25 ? 0x6a727a : 0x3a3430, (rnd() - 0.5) * 8, 0.1, (rnd() - 0.5) * 8) : C(g, 0.08, 0.08, 1 + rnd() * 2.5, 0x5a5a5a, (rnd() - 0.5) * 8, 0.3, (rnd() - 0.5) * 8); d.rotation.set(rnd() * 3, rnd() * 6, rnd() * 3); } return g;
 }
-export function terminal() {
+export function terminal() { { const mg = AS.propGLB('terminal'); if (mg) return mg; }
   const g = new THREE.Group(); B(g, 0.8, 1.2, 0.5, 0x3a424a, 0, 0.6, 0, { m: 0.4 }); const sc = B(g, 0.7, 0.45, 0.05, 0x40ffb0, 0, 1.15, 0.2, { e: 0x20c080, ei: 2 }); sc.rotation.x = -0.4;
   return g;
 }
-export function spire(rnd, color) { const g = new THREE.Group(); const h = 8 + rnd() * 9; const m = new THREE.Mesh(new THREE.ConeGeometry(1.6 + rnd(), h, 7), mat(color, { flat: false, r: 1 })); m.position.y = h / 2 - 0.5; m.rotation.set((rnd() - 0.5) * 0.2, rnd() * 6, (rnd() - 0.5) * 0.2); m.castShadow = true; g.add(m); return g; }
+export function spire(rnd, color) { { const mg = AS.propGLB('spireHive', rnd); if (mg) return mg; } const g = new THREE.Group(); const h = 8 + rnd() * 9; const m = new THREE.Mesh(new THREE.ConeGeometry(1.6 + rnd(), h, 7), mat(color, { flat: false, r: 1 })); m.position.y = h / 2 - 0.5; m.rotation.set((rnd() - 0.5) * 0.2, rnd() * 6, (rnd() - 0.5) * 0.2); m.castShadow = true; g.add(m); return g; }
 export function dropship() { const g = new THREE.Group(), hull = mat(0x5a6670, { m: 0.5, r: 0.5 }); B(g, 3, 2.2, 9, hull, 0, 0, 0); B(g, 2.4, 1.2, 2.5, 0x80c0e0, 0, 0.9, -3.8, { op: 0.7, m: 0.8 }); for (const sd of [-1, 1]) { B(g, 4, 0.3, 3, hull, sd * 3.2, 0.2, 1); C(g, 0.8, 0.9, 2.2, 0x2a2e34, sd * 4.8, 0, 1).rotation.x = Math.PI / 2; S(g, 0.6, 0x80c0ff, sd * 4.8, 0, 2.2, 1, 1, 1, { e: 0x4080ff, ei: 2 }); } B(g, 3.2, 0.3, 1.5, 0xd09030, 0, 1.2, 2); return g; }
 export function jet() { const g = new THREE.Group(), hull = mat(0x4a525a, { m: 0.6, r: 0.4 }); B(g, 1.4, 1.0, 8, hull, 0, 0, 0); const n = new THREE.Mesh(new THREE.ConeGeometry(0.7, 2.5, 8), hull); n.rotation.x = -Math.PI / 2; n.position.z = -5.2; g.add(n); B(g, 9, 0.2, 2.5, hull, 0, 0, 1); B(g, 0.2, 2, 1.6, hull, 0, 1, 3.4); S(g, 0.5, 0xffa040, 0, 0, 4.2, 1, 1, 1, { e: 0xff6000, ei: 2 }); return g; }
 export function drone() { // a gunship drone: armoured body, four ducted rotors, a chin gun, and bright running lights
@@ -430,20 +432,20 @@ export function carcass(rnd) { // a dead alien, long since dried out
   for (let i = 0; i < 6; i++) { const l = B(b, 0.08 * big, 0.8 * big, 0.08 * big, 0x1a1420, (i % 2 ? 1 : -1) * 0.5 * big, -0.3 * big, (i / 2 - 1) * 0.4 * big); l.rotation.z = (i % 2 ? 1 : -1) * (0.6 + rnd()); }
   const goo = new THREE.Mesh(new THREE.CircleGeometry(1.2 * big, 10), mat(0x2a5a10, { op: 0.6 })); goo.rotation.x = -Math.PI / 2; goo.position.y = 0.03; g.add(goo); return g;
 }
-export function tank(rnd) {
+export function tank(rnd) { { const mg = AS.propGLB('tank', rnd); if (mg) return mg; }
   const g = new THREE.Group(), hull = mat(0x4a5040, { r: 0.8, m: 0.3 }), burnt = mat(0x22201e, { r: 1 }), t = new THREE.Group(); t.rotation.set((rnd() - 0.5) * 0.2, rnd() * 6, (rnd() - 0.5) * 0.3); g.add(t);
   B(t, 3.4, 1.3, 6.2, rnd() < 0.5 ? hull : burnt, 0, 0.9, 0); for (const sd of [-1, 1]) { B(t, 0.9, 1.1, 6.6, 0x1a1a1a, sd * 2.1, 0.55, 0); for (let i = 0; i < 6; i++) C(t, 0.45, 0.45, 0.9, 0x2a2a2a, sd * 2.1, 0.5, -2.6 + i * 1.05).rotation.z = Math.PI / 2; }
   const tur = new THREE.Group(); tur.position.y = 1.9; tur.rotation.y = rnd() * 6; t.add(tur); B(tur, 2.4, 0.9, 2.6, burnt, 0, 0, 0); const gun = C(tur, 0.15, 0.18, 3.5, 0x2a2a2a, 0, 0.1, -2.6); gun.rotation.x = Math.PI / 2 - 0.15 - rnd() * 0.3;
   if (rnd() < 0.5) { tur.position.set(2.5, 0.6, 1.5); tur.rotation.z = 1.2; } return g;
 }
-export function mech(rnd) {
+export function mech(rnd) { { const mg = AS.propGLB('mech', rnd); if (mg) return mg; }
   const g = new THREE.Group(), m = mat(0x5a646e, { m: 0.5 }), dark = mat(0x2a2e34), r = new THREE.Group(); r.rotation.set(rnd() * 0.3, rnd() * 6, Math.PI / 2 * (rnd() < 0.6 ? 1 : 0.2)); r.position.y = 1.2; g.add(r);
   B(r, 2.2, 1.8, 1.8, m, 0, 2.2, 0); B(r, 1.4, 0.6, 0.4, 0x80c0e0, 0, 2.5, -0.9, { op: 0.7 }); for (const sd of [-1, 1]) { B(r, 0.6, 2.2, 0.7, dark, sd * 0.8, 0.6, 0); B(r, 0.9, 0.4, 1.3, dark, sd * 0.8, -0.5, -0.2); C(r, 0.25, 0.25, 1.6, 0x2a2a2a, sd * 1.5, 2.3, -0.8).rotation.x = Math.PI / 2; } return g;
 }
 export function sandbags(rnd) { const g = new THREE.Group(), m = mat(0x8a7a5a, { r: 1 }), n = 6 + (rnd() * 6 | 0), arc = 0.8 + rnd(); for (let row = 0; row < 3; row++) for (let i = 0; i < n - row; i++) { const a = (i + row * 0.5) / n * arc - arc / 2; const sb = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.5, 2, 6), m); sb.rotation.z = Math.PI / 2; sb.rotation.y = -a; sb.position.set(Math.sin(a) * 4, 0.22 + row * 0.38, -Math.cos(a) * 4 + 4); sb.castShadow = true; g.add(sb); } return g; }
 export function tankTrap() { const g = new THREE.Group(), m = mat(0x3a3a3a, { m: 0.6 }); for (const [x, y, z] of [[0.8, 0, 0], [0, 0.8, 0], [0, 0, 0.8]]) { const b = B(g, 0.22, 2.2, 0.22, m, 0, 0.9, 0); b.rotation.set(x, y, z); } return g; }
-export function deadTurret(rnd) { const g = new THREE.Group(), m = mat(0x3e464e), burnt = mat(0x22201e); C(g, 0.9, 1.1, 0.4, m, 0, 0.2, 0); C(g, 0.35, 0.45, 0.9, burnt, 0, 0.8, 0); const h = B(g, 0.8, 0.55, 0.9, burnt, 0.6, 0.35, 0.8); h.rotation.set(0.4, rnd() * 3, 1.0); C(g, 0.05, 0.05, 1.1, 0x222222, 1.2, 0.1, 1.4).rotation.set(1.4, 0, 0.3); return g; }
-export function burntCrate(rnd) { const g = new THREE.Group(); for (let i = 0; i < 1 + (rnd() * 3 | 0); i++) { const c = B(g, 1.2, 1.0, 1.0, rnd() < 0.5 ? 0x2a2622 : 0x4a5a3a, (rnd() - 0.5) * 2.5, 0.5, (rnd() - 0.5) * 2.5); c.rotation.set(0, rnd() * 3, rnd() < 0.3 ? 1.2 : 0); } return g; }
+export function deadTurret(rnd) { { const mg = AS.propGLB('deadTurret', rnd); if (mg) return mg; } const g = new THREE.Group(), m = mat(0x3e464e), burnt = mat(0x22201e); C(g, 0.9, 1.1, 0.4, m, 0, 0.2, 0); C(g, 0.35, 0.45, 0.9, burnt, 0, 0.8, 0); const h = B(g, 0.8, 0.55, 0.9, burnt, 0.6, 0.35, 0.8); h.rotation.set(0.4, rnd() * 3, 1.0); C(g, 0.05, 0.05, 1.1, 0x222222, 1.2, 0.1, 1.4).rotation.set(1.4, 0, 0.3); return g; }
+export function burntCrate(rnd) { { const mg = AS.propGLB('burntCrate', rnd); if (mg) return mg; } const g = new THREE.Group(); for (let i = 0; i < 1 + (rnd() * 3 | 0); i++) { const c = B(g, 1.2, 1.0, 1.0, rnd() < 0.5 ? 0x2a2622 : 0x4a5a3a, (rnd() - 0.5) * 2.5, 0.5, (rnd() - 0.5) * 2.5); c.rotation.set(0, rnd() * 3, rnd() < 0.3 ? 1.2 : 0); } return g; }
 export function flag(rnd) { const g = new THREE.Group(); const p = C(g, 0.05, 0.06, 4, 0x666666, 0, 2, 0); p.rotation.z = (rnd() - 0.5) * 0.4; const f = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8, 3, 1), mat(0x2a4a8a, { ds: true })); f.position.set(0.7, 3.5, 0); g.add(f); const pos = f.geometry.attributes.position; for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 3) * 0.15); f.geometry.computeVertexNormals(); return g; }
 export function hut() { // a heated shelter with an open doorway, a heater glowing inside
   const g = new THREE.Group(), wall = mat(0x8a96a2, { m: 0.3 }), roof = mat(0xd04a2a);
@@ -472,6 +474,7 @@ export function hand(color) {
   g.traverse(o => { o.castShadow = false; }); return g;
 }
 export function throwModel(kind) { // what the marine holds on slot 4
+  { const mg = AS.item(kind); if (mg) { mg.traverse(o => { o.castShadow = false; }); return mg; } }
   const g = new THREE.Group();
   if (kind === 'frag') { S(g, 0.07, 0x3a4a2a, 0, 0, 0, 1, 1.2, 1); B(g, 0.03, 0.05, 0.03, 0x888888, 0, 0.09, 0); C(g, 0.02, 0.02, 0.06, 0xc8a040, 0.03, 0.1, 0).rotation.z = Math.PI / 2; }
   else if (kind === 'claymore') { const b = B(g, 0.2, 0.13, 0.05, 0x3a4a2a, 0, 0, 0); b.rotation.x = -0.2; S(g, 0.015, 0xff2010, 0, 0.07, -0.02, 1, 1, 1, { e: 0xff0000, ei: 3 }); }
@@ -486,6 +489,7 @@ export function supplyPod() {
 
 // ---------------------------------------------------------------- scenery
 export function prop(kind, rnd) {
+  { const mg = AS.propGLB(kind, rnd); if (mg) return mg; }   // the Meshy rock, plant or crate when there is one
   const g = new THREE.Group();
   if (kind === 'rock') { const n = 1 + (rnd() * 3 | 0); for (let i = 0; i < n; i++) { const s = 0.8 + rnd() * 2.2; const m = S(g, s, rnd() < 0.5 ? 0x8a4428 : 0x6e3420, (rnd() - 0.5) * 3, s * 0.4, (rnd() - 0.5) * 3, 1, 0.6 + rnd() * 0.6, 1); m.rotation.y = rnd() * 6; } }
   else if (kind === 'ice') { const n = 2 + (rnd() * 3 | 0); for (let i = 0; i < n; i++) { const h = 1.5 + rnd() * 4; const m = K(g, 0.4 + rnd() * 0.6, h, 0xbfe4ff, (rnd() - 0.5) * 2.5, h / 2, (rnd() - 0.5) * 2.5, { m: 0.2, r: 0.1, e: 0x1a3050 }); m.rotation.set((rnd() - 0.5) * 0.5, 0, (rnd() - 0.5) * 0.5); } }

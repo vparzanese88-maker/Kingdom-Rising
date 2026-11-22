@@ -46,7 +46,11 @@ export function makeTerrain(D, path, hubP, hiveP) {
   for (let i = 0; i < 46; i++) { const x = (CR() * 2 - 1) * (BOUNDS - 12), z = (CR() * 2 - 1) * (BOUNDS - 12); if (Math.hypot(x - hubP.x, z - hubP.z) < HUB_R + 16 || Math.hypot(x - hiveP.x, z - hiveP.z) < 26) continue; craters.push({ x, z, r: 3 + CR() * 9, d: 1 + CR() * 2.6, small: 1 }); }
   T.craters = craters;
   const feats = (x, z) => { let h = 0; for (const c of craters) { const u = Math.hypot(x - c.x, z - c.z) / c.r; if (u < 1) h -= c.d * (1 - u * u); else if (u < 1.35) h += c.d * 0.4 * Math.sin((u - 1) / 0.35 * Math.PI); }
-    for (const m of D.mesas || []) { const u = Math.hypot(x - m.x, z - m.z) / m.r; h += m.h * sstep(1.3, 0.92, u) * (0.92 + 0.08 * Math.sin(x * 0.4 + z * 0.3)); } return h; };
+    for (const m of D.mesas || []) { const u = Math.hypot(x - m.x, z - m.z) / m.r, top = m.h * sstep(1.3, 0.92, u) * (0.92 + 0.08 * Math.sin(x * 0.4 + z * 0.3));
+      const a = Math.atan2(-m.z, -m.x), dx = x - m.x, dz = z - m.z, along = dx * Math.cos(a) + dz * Math.sin(a), side = Math.abs(-dx * Math.sin(a) + dz * Math.cos(a)), L = m.h * 2.8, r0 = m.r * 0.85;
+      const ramp = along > r0 && along < r0 + L && side < 4.5 ? m.h * 0.92 * (1 - (along - r0) / L) * sstep(4.5, 3, side) : 0; h += Math.max(top, ramp); }
+    for (const q of D.hills || []) { const u = lineDist(q.pts, x, z) / (q.w / 2); if (u < 1) h += q.h * (Math.cos(u * Math.PI) + 1) / 2; }
+    return h; };
   const ridge = (x, z) => { let r = 0; for (const q of D.ridges || []) { const u = lineDist(q.pts, x, z) / (q.w / 2); if (u < 1) r = Math.max(r, q.h * (Math.cos(u * Math.PI) + 1) / 2); } return r; };
   const chasm = (x, z) => { let k = 1; for (const q of D.chasms || []) k = Math.min(k, sstep(q.w / 2, q.w / 2 + 1.4, lineDist(q.pts, x, z))); return k; };
   T.hills = hills; T.ridge = ridge; T.chasm = chasm;
@@ -80,6 +84,10 @@ export function makeTerrain(D, path, hubP, hiveP) {
     if (r > HUB_R - WALL_T && Math.abs(ad(a, H.ga)) > H.gh) return { wall: 1, h: H.y + WALL_H };
     if (r > HUB_R - WALL_T - RAMP_W && r <= HUB_R - WALL_T) for (const p of H.ramps) { const f = ad(a, p.a0) / (p.a1 - p.a0); if (f >= 0 && f <= 1) return { ramp: 1, h: H.y + WALL_H * f }; }
     return r < HUB_R - WALL_T ? { yard: 1 } : null; };
+  T.plats = []; T.stairs = [];
+  const onStructs = (x, z, y) => { let best = -1e9; for (const p of T.plats) if (Math.abs(x - p.x) < p.hw && Math.abs(z - p.z) < p.hw && y >= p.y - 1.6) best = Math.max(best, p.y);
+    for (const st of T.stairs) { const dx = x - st.x, dz = z - st.z, u = dx * st.cx + dz * st.cz, v = -dx * st.cz + dz * st.cx; if (u >= 0 && u <= st.len && Math.abs(v) < st.hw) { const hh = st.y0 + (st.y1 - st.y0) * u / st.len; if (y >= hh - 1.3) best = Math.max(best, hh); } } return best; };
+  T.onStructs = onStructs;
   // walking height at (x, z) for something now at height y (so you can be on a bridge or under it, on a tunnel roof or inside)
   T.ground = (x, z, y = 1e9) => {
     const h = T.raw(x, z), n = path.near(x, z);
@@ -88,6 +96,7 @@ export function makeTerrain(D, path, hubP, hiveP) {
       const t = T.tunnelAt(n.s); if (t && n.d < PATH_W / 2 + 1.6 && y >= t.top - 1.6) return t.top;
     }
     const hb = T.hubAt(x, z); if (hb && hb.h !== undefined && y >= hb.h - (hb.wall ? 1.6 : 1.3)) return Math.max(h, hb.h);
+    if (T.plats.length) { const sh = onStructs(x, z, y); if (sh > h) return sh; }
     return h;
   };
   T.top = (x, z) => T.ground(x, z, 1e9);
@@ -222,6 +231,7 @@ export function buildWorld(scene, mapId) {
   for (const [c, rad, a, el] of sky) { const pl = new THREE.Mesh(new THREE.SphereGeometry(rad, 32, 16), new THREE.MeshBasicMaterial({ color: c, fog: false })); pl.position.set(Math.cos(a) * 650, Math.sin(el) * 650, Math.sin(a) * 650); g.add(pl); if (rad > 20) { const rg = new THREE.Mesh(new THREE.RingGeometry(rad * 1.3, rad * 1.9, 64), new THREE.MeshBasicMaterial({ color: c, fog: false, transparent: true, opacity: 0.35, side: THREE.DoubleSide })); rg.position.copy(pl.position); rg.lookAt(0, 0, 0); rg.rotateX(1.1); g.add(rg); } }
   placePOIs(g, W, T, D, mapId, path);
   battlefield(g, W, T, D, mapId, path);
+  lookouts(g, W, T, D, mapId, path);
   // bullets: big props stop them (a grid of colliders with heights, looked up by cell)
   const cell = 16, grid = new Map(); for (const c of W.colliders) { c.gy = c.gy ?? T.raw(c.x, c.z); c.h = c.h ?? 3; const x0 = Math.floor((c.x - c.r) / cell), x1 = Math.floor((c.x + c.r) / cell), z0 = Math.floor((c.z - c.r) / cell), z1 = Math.floor((c.z + c.r) / cell); for (let a = x0; a <= x1; a++) for (let b = z0; b <= z1; b++) { const k = a + ',' + b; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(c); } }
   T.block = (x, y, z) => { const l = grid.get(Math.floor(x / cell) + ',' + Math.floor(z / cell)); if (!l) return false; for (const c of l) if (y < c.gy + c.h && y > c.gy - 1 && (x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true; return false; };
@@ -353,5 +363,22 @@ function mergeStatic(g, keep) {
     for (const q of geos) { P.set(q.attributes.position.array, off * 3); N.set(q.attributes.normal.array, off * 3); off += q.attributes.position.count; q.dispose(); }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(P, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(N, 3)); geo.computeBoundingSphere();
     const m = new THREE.Mesh(geo, mat); m.castShadow = shadow; m.receiveShadow = true; g.add(m);
+  }
+}
+
+// High ground: sandbagged sniper nests along the ridgelines and on the mesas, and climbable watchtowers near the track
+function lookouts(g, W, T, D, mapId, path) {
+  const R = rng(mapId.length * 6151 + 2), H = T.hub;
+  const nest = (x, z) => { const y = T.raw(x, z), n = M.sniperNest(R); n.position.set(x, y, z); n.rotation.y = R() * 6; g.add(n); W.lore.push({ x, z, kind: 'nest', silent: 1 }); };
+  for (const q of D.hills || []) { const [a, b] = [q.pts[0], q.pts[q.pts.length - 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let d = 20; d < L - 10; d += 45) { const x = a[0] + (b[0] - a[0]) * d / L, z = a[1] + (b[1] - a[1]) * d / L; if (Math.abs(x) < BOUNDS - 8 && Math.abs(z) < BOUNDS - 8 && path.near(x, z).d > 14) nest(x, z); } }
+  for (const m of D.mesas || []) if (Math.abs(m.x) < BOUNDS - 8 && Math.abs(m.z) < BOUNDS - 8) nest(m.x, m.z);
+  // watchtowers: a platform 7 m up, reached by a stair
+  let made = 0; for (let k = 0; k < 200 && made < 3; k++) {
+    const s0 = path.len * (0.2 + 0.6 * R()), q = path.at(s0), sd = R() < 0.5 ? -1 : 1, x = q.x - q.tz * sd * (20 + R() * 10), z = q.z + q.tx * sd * (20 + R() * 10);
+    if (Math.abs(x) > BOUNDS - 20 || Math.abs(z) > BOUNDS - 20 || path.near(x, z).d < 16 || T.chasm(x, z) < 0.99 || Math.hypot(x - H.x, z - H.z) < 50 || W.colliders.some(c => Math.hypot(c.x - x, c.z - z) < 10)) continue;
+    let flat = true; const y = T.raw(x, z); for (const [dx, dz] of [[5, 0], [-5, 0], [0, 5], [0, -5], [12, 0], [-12, 0], [0, 12], [0, -12]]) if (Math.abs(T.raw(x + dx, z + dz) - y) > 1.5) flat = false; if (!flat) continue;
+    const top = y + 7, ang = Math.atan2(q.x - x, q.z - z), dx = Math.sin(ang), dz = Math.cos(ang);     // the stair foot faces the track and climbs toward the tower
+    T.plats.push({ x, z, hw: 2.4, y: top }); T.stairs.push({ x: x + dx * 15.6, z: z + dz * 15.6, cx: -dx, cz: -dz, len: 13.2, hw: 0.95, y0: y, y1: top });
+    const t = M.watchtower(); t.position.set(x, y, z); t.rotation.y = ang; g.add(t); W.lore.push({ x, z, kind: 'tower', silent: 1 }); made++;
   }
 }

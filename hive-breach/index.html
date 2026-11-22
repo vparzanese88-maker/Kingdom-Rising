@@ -75,6 +75,9 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 .srow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid #1a2632;font-size:14px}.srow select,.srow .kb{background:#101c26;color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:5px 10px;min-width:120px;font:inherit}
 .srow .kb.wait{border-color:var(--gold);color:var(--gold)}#fps{position:absolute;right:190px;top:12px;font:12px monospace;color:#9f9;text-shadow:0 0 3px #000}
 #pause .card p{margin:8px 0}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 1.4s;z-index:20}
+body.cine #hud>*:not(#banner){display:none!important}
+body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,body.explore #top .bar{display:none!important}
 #dirs,#arrows{position:absolute;left:50%;top:50%;width:0;height:0}
 .dmgdir{position:absolute;left:0;top:0;width:220px;height:220px;border-radius:50%;border-top:10px solid rgba(255,40,30,.85);animation:fade .9s forwards}
 @keyframes fade{from{opacity:1}to{opacity:0}}
@@ -146,20 +149,22 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795355171",
-"./src/data.js": "./src/data.js?v=1795355171",
-"./src/main.js": "./src/main.js?v=1795355171",
-"./src/models.js": "./src/models.js?v=1795355171",
-"./src/music.js": "./src/music.js?v=1795355171",
-"./src/net.js": "./src/net.js?v=1795355171",
-"./src/sim.js": "./src/sim.js?v=1795355171",
-"./src/world.js": "./src/world.js?v=1795355171"
+"./src/audio.js": "./src/audio.js?v=1795355811",
+"./src/data.js": "./src/data.js?v=1795355811",
+"./src/explore.js": "./src/explore.js?v=1795355811",
+"./src/main.js": "./src/main.js?v=1795355811",
+"./src/models.js": "./src/models.js?v=1795355811",
+"./src/music.js": "./src/music.js?v=1795355811",
+"./src/net.js": "./src/net.js?v=1795355811",
+"./src/sim.js": "./src/sim.js?v=1795355811",
+"./src/world.js": "./src/world.js?v=1795355811"
 }
 }
 </script>
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="fade"></div>
 
 <div id="hud" hidden>
   <div id="hurt"></div>
@@ -186,7 +191,7 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 <div id="shop" class="screen" hidden><div class="card"><h2>Armory</h2><div id="shopList"></div><p class="small">Click an upgrade or press its key. B or Esc to close. The battle keeps going online, so be quick.</p></div></div>
 <div id="pause" class="screen" hidden><div class="card"><h2>Paused</h2><p class="small">Click anywhere to keep fighting.</p><p><button class="btn" id="btnResume">Resume</button></p><p><button class="btn alt" id="btnSet2">Settings</button></p><p><button class="btn alt" id="btnQuit">Quit to title</button></p></div></div>
 <div id="settings" class="screen" hidden><div class="card"><h2>Settings</h2><div class="tabs"><button data-tab="video" class="on">Video</button><button data-tab="audio">Audio</button><button data-tab="controls">Controls</button></div><div id="setBody"></div><p><button class="btn" id="setClose">Done</button></p></div></div>
-<div id="end" class="screen" hidden><div class="card"><h2 id="endTitle"></h2><p id="endText"></p><p id="endKey"></p><button class="btn" id="btnAgain">Try again</button> <button class="btn alt" id="btnEndQuit">Quit to title</button></div></div>
+<div id="end" class="screen" hidden><div class="card"><h2 id="endTitle"></h2><p id="endText"></p><p id="endKey"></p><button class="btn" id="btnFob" hidden>Continue: extraction to the forward base</button> <button class="btn" id="btnAgain">Try again</button> <button class="btn alt" id="btnEndQuit">Quit to title</button></div></div>
 
 <div id="title" class="screen"><div class="card">
   <h1>Hive <span>Breach</span></h1>
@@ -230,6 +235,6 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795355171"></script>
+<script type="module" src="./src/main.js?v=1795355811"></script>
 </body>
 </html>

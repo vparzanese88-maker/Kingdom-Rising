@@ -299,6 +299,16 @@ export function hut() { // a heated shelter with an open doorway, a heater glowi
   B(g, 1, 1.2, 0.6, 0x3a3a3a, 0, 0.6, 2.4); B(g, 0.8, 0.5, 0.05, 0xff6020, 0, 0.8, 2.08, { e: 0xff4010, ei: 2 }); B(g, 3, 0.1, 1.4, 0x6a5040, 0, 0.5, -2.5);
   S(g, 0.2, 0xffd040, 0, 3.6, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); return g;
 }
+export function sniperNest(rnd) { const g = new THREE.Group(), sb = mat(0x7a6a4a, { r: 1 }); for (let i = 0; i < 12; i++) { if (i === 3) continue; const a = i / 12 * 6.283; for (let r = 0; r < 2; r++) { const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.6, 2, 6), sb); b.rotation.z = Math.PI / 2; b.rotation.y = -a; b.position.set(Math.cos(a) * 2.2, 0.22 + r * 0.38, Math.sin(a) * 2.2); b.castShadow = true; g.add(b); } }
+  B(g, 0.9, 0.5, 0.6, 0x4a5a3a, 0.8, 0.25, -0.6); B(g, 0.5, 0.35, 0.3, 0x3a4a2a, -0.6, 0.18, 0.7); const net = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 3.5, 4, 4), mat(0x5a6a3a, { ds: true, op: 0.85 })); net.rotation.x = -Math.PI / 2 + 0.1; net.position.y = 2.2; g.add(net);
+  for (const [x, z] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) C(g, 0.04, 0.04, 2.2, 0x555555, x, 1.1, z); return g; }
+export function watchtower() { // platform 7 m up on four legs, rails, a roof; stairs run along -z
+  const g = new THREE.Group(), steel = mat(0x5a646e, { m: 0.5 }), dark = mat(0x2c3238), wood = mat(0x6a5a40);
+  for (const [x, z] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) B(g, 0.3, 7, 0.3, steel, x, 3.5, z); B(g, 4.8, 0.3, 4.8, wood, 0, 7, 0);
+  for (const sd of [-1, 1]) { B(g, 4.8, 1, 0.1, dark, 0, 7.6, sd * 2.4); B(g, 0.1, 1, 4.8, dark, sd * 2.4, 7.6, 0); } B(g, 5.4, 0.2, 5.4, dark, 0, 10, 0); for (const [x, z] of [[-2.3, -2.3], [2.3, -2.3], [-2.3, 2.3], [2.3, 2.3]]) B(g, 0.12, 2.8, 0.12, steel, x, 8.5, z);
+  const st = new THREE.Group(); st.position.set(0, 0, 2.4); g.add(st); for (let i = 0; i < 18; i++) { const f = (i + 0.5) / 18; B(st, 1.8, 0.15, 0.75, wood, 0, 7 * f, 13.2 * (1 - f)); }
+  for (const sd of [-1, 1]) { const rail = B(st, 0.08, 0.08, 14.8, steel, sd * 0.95, 4.4, 6.6); rail.rotation.x = Math.atan2(7, 13.2); }
+  S(g, 0.25, 0xffd070, 0, 9.7, 0, 1, 1, 1, { e: 0xffb040, ei: 2 }); return g; }
 export function supplyPod() {
   const g = new THREE.Group(); B(g, 1.1, 0.9, 1.1, 0x50606a, 0, 0.45, 0, { m: 0.5 }); B(g, 1.15, 0.2, 1.15, 0xe0b22e, 0, 0.55, 0, { e: 0x604000 });
   C(g, 0.05, 0.05, 1.6, 0x888888, 0, 1.6, 0); S(g, 0.15, 0xffd040, 0, 2.4, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); return g;

@@ -7,6 +7,7 @@ import { Sim, upgradeCost, tStat } from './sim.js';
 import { Net, VER } from './net.js';
 import { Audio } from './audio.js';
 import { Music } from './music.js';
+import { Explore, buildFOB, cinematic, vtol as vtolModel, rover as roverModel } from './explore.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game'), renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -54,7 +55,7 @@ function decode(m) {
     L: m.L.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], tg: a[8] })),
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9] })),
     T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
-    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22] })),
+    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23] })),
     O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4] })), el: m.el,
     M: (m.M || []).map(c => ({ id: c[0], x: c[1], z: c[2], life: c[3] })), Z: (m.Z || []).map(c => ({ x: c[0], z: c[1], r: c[2] })), K: (m.K || []).map(q => ({ x: q[0], y: q[1], z: q[2], r: q[3], fire: q[4] })), D: (m.D || []).map(d => ({ id: d[0], x: d[1], y: d[2], z: d[3], tg: d[4] })), Q: (m.Q || []).map(q => ({ id: q[0], x: q[1], y: q[2], z: q[3], r: q[4], t: q[5] })), S2: (m.S2 || []).map(d => ({ x: d[0], y: d[1], z: d[2], r: d[3] })),
   };
@@ -165,6 +166,7 @@ function fx(e) {
     case 'hatch': burst(e.x, 1 + G.W.top(e.x, e.z), e.z, 0x80ff40, 16, 4, 0.6); audio.sfx('roar', vol(dist(e.x, e.z)) * 0.5); if (dist(e.x, e.z) < 45) toast('A nest is hatching crawlers nearby!', 2.5); break;
     case 'meteor': meteor(e); break;
     case 'alarm': audio.sfx('alarm'); break;
+    case 'fob': startFob(); break;
     case 'beam': if (e.f !== G.myId || true) { tracer(e.a, e.b, e.c, 0.12, e.torch ? 0.08 : 0.12); burst(e.b[0], e.b[1], e.b[2], e.c, 2, 1.5, 0.3); if (e.f === G.myId && Math.random() < 0.3) audio.sfx(e.torch ? 'torch' : 'heal', 0.4); } break;
     case 'ammo': if (e.to === G.myId) { const st = stats(); if (G.me.reserve < st.reserve || G.me.ammo < st.mag) { G.me.reserve = st.reserve; audio.sfx('pickup'); toast('Ammo crate: fully stocked.', 2); } } break;
     case 'ability': abilityFx(e); break;
@@ -252,7 +254,7 @@ function openMissileMap(sp) {
   $('mmapT').textContent = sp ? SPECIALS[sp].name : 'Live map'; $('mmapD').textContent = sp ? 'Click where to call it in. ' + SPECIALS[sp].desc : 'Aliens, turrets, marines, supply crates and points of interest, live. M or Esc closes.'; drawMissileMap();
 }
 function drawMissileMap() {
-  if (!G.mmap) return; const S = state(), cv = $('mmapCv'), g = cv.getContext('2d'), W = cv.width, k = W / (BOUNDS * 2), X = x => (x + BOUNDS) * k, Z = z => (z + BOUNDS) * k;
+  if (!G.mmap) return; const S = state(), cv = $('mmapCv'), g = cv.getContext('2d'), W = cv.width, BB = G.W.size || BOUNDS, k = W / (BB * 2), X = x => (x + BB) * k, Z = z => (z + BB) * k;
   g.drawImage(G.W.miniBg, 0, 0, W, W);
   g.fillStyle = '#60c0ff'; g.beginPath(); g.arc(X(G.W.hubP.x), Z(G.W.hubP.z), 10, 0, 7); g.fill(); g.fillStyle = '#a040ff'; g.beginPath(); g.arc(X(G.W.hiveP.x), Z(G.W.hiveP.z), 10, 0, 7); g.fill();
   g.font = 'bold 13px system-ui'; g.fillStyle = '#fff'; g.fillText('HUB', X(G.W.hubP.x) + 12, Z(G.W.hubP.z) + 4); g.fillText('HIVE', X(G.W.hiveP.x) + 12, Z(G.W.hiveP.z) + 4);
@@ -278,7 +280,7 @@ function updateGrenades(dt) {
     if (!p.gr) continue; const g = p.gr; g.t -= dt; g.vy -= 20 * dt; g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt;
     const gy = G.W.ground(g.x, g.z, g.y + 0.3) + 0.14; if (g.y < gy) { g.y = gy; g.vy = Math.abs(g.vy) * 0.35; g.vx *= 0.6; g.vz *= 0.6; }
     p.a = p.b = [g.x, g.y, g.z]; p.t = 0;
-    if (g.t <= 0) { p.dead = true; scene.remove(p.mesh); if (g.own) req({ a: 'boom', x: g.x, y: g.y, z: g.z, r: 5.5, d: 140 * dmgMul() }); else if (G.mode === 'client') { } }
+    if (g.t <= 0) { p.dead = true; scene.remove(p.mesh); if (g.own && G.explore && G.ex) G.ex.splash(g.x, g.y, g.z, 5.5, 140); else if (g.own) req({ a: 'boom', x: g.x, y: g.y, z: g.z, r: 5.5, d: 140 * dmgMul() }); else if (G.mode === 'client') { } }
   }
 }
 
@@ -379,7 +381,8 @@ function syncView(S, dt) {
     if (p.id === G.myId) continue; seen.add(p.id); let v = view.players.get(p.id);
     if (!v || v.cls !== p.cls) { if (v) scene.remove(v.mesh); const mesh = M.marine(CLASSES[p.cls].color, p.cls), tag = nameTag(p.name, CLASSES[p.cls].color); tag.position.y = 2.7; mesh.add(tag); scene.add(mesh); v = { mesh, cls: p.cls, x: p.x, y: p.y, z: p.z, t: 0 }; view.players.set(p.id, v); }
     const kk = 1 - Math.exp(-dt * 14), ox = v.x, oz = v.z; v.x += (p.x - v.x) * kk; v.y += (p.y - v.y) * kk; v.z += (p.z - v.z) * kk; const sp = Math.hypot(v.x - ox, v.z - oz) / Math.max(dt, 1e-4);
-    v.t += dt * Math.min(sp, 9) * 1.6; M.animMarine(v.mesh, v.t, sp); v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = p.yaw; v.mesh.visible = !p.dead; M.kneel(v.mesh, p.kn); v.kick = Math.max(0, (v.kick || 0) - dt * 8); v.mesh.userData.arms.rotation.x = v.kick * 0.25;
+    v.t += dt * Math.min(sp, 9) * 1.6; M.animMarine(v.mesh, v.t, sp); v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = p.yaw; v.mesh.visible = !p.dead && !p.veh;
+    if (p.veh && (!v.vm || v.vk !== p.veh)) { if (v.vm) scene.remove(v.vm); v.vk = p.veh; v.vm = p.veh === 1 ? roverModel() : vtolModel(); scene.add(v.vm); } if (v.vm) { v.vm.visible = !!p.veh; v.vm.position.set(v.x, v.y, v.z); v.vm.rotation.y = p.yaw; if (v.vk === 2) for (const r of v.vm.userData.rotors) r.rotation.y += dt * 30; } M.kneel(v.mesh, p.kn); v.kick = Math.max(0, (v.kick || 0) - dt * 8); v.mesh.userData.arms.rotation.x = v.kick * 0.25;
     if (!v.hpb) { v.hpb = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x40e070, depthTest: false })); v.hpb.center.set(0, 0.5); v.hpb.position.set(-0.9, 2.35, 0); v.hpb.renderOrder = 6; v.mesh.add(v.hpb); }
     const hf = Math.max(0, p.hp / p.mhp); v.hpb.scale.set(1.8 * hf + 0.001, 0.12, 1); v.hpb.material.color.setHex(hf < 0.3 ? 0xff4040 : 0x40e070);
   }
@@ -434,7 +437,7 @@ function newMe() {
   if (view2.gun) camera.remove(view2.gun); view2.gun = M.gunModel(G.cls, CLASSES[G.cls].color); view2.gun.scale.setScalar(0.55); view2.gun.traverse(o => { o.castShadow = false; }); camera.add(view2.gun);
   view2.flash = new THREE.PointLight(0xffc060, 0, 8); view2.flash.position.set(0.05, 0.05, -1.3); view2.gun.add(view2.flash);
   view2.fsp = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); view2.fsp.position.set(0.05, 0.03, -1.45); view2.gun.add(view2.fsp);
-  if (view2.tool) camera.remove(view2.tool); view2.tool = null; const rc = CLASSES[G.cls].rclick; if (rc === 'repair' || rc === 'heal') { view2.tool = M.gunModel(rc === 'repair' ? 'torch' : 'medigun', CLASSES[G.cls].color); view2.tool.scale.setScalar(0.55); view2.tool.position.set(-0.22, -0.22, -0.45); view2.tool.visible = false; camera.add(view2.tool); }
+  if (view2.tool) camera.remove(view2.tool); view2.tool = null; const rc = CLASSES[G.cls].tool; if (rc === 'repair' || rc === 'heal') { view2.tool = M.gunModel(rc === 'repair' ? 'torch' : 'medigun', CLASSES[G.cls].color); view2.tool.scale.setScalar(0.55); view2.tool.position.set(-0.22, -0.22, -0.45); view2.tool.visible = false; camera.add(view2.tool); }
   const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); M.B(glove, 0.13, 0.13, 0.25, CLASSES[G.cls].color, -0.12, -0.1, -0.35); view2.gun.add(glove);
 }
 const ray = { o: new THREE.Vector3(), d: new THREE.Vector3() };
@@ -448,7 +451,7 @@ const HEAD = { crawler: [0.75, 0.62, 0.36], spitter: [0.22, 1.78, 0.34], brute: 
 function sphereHit(o, d, cx, cy, cz, r) { const ox = cx - o.x, oy = cy - o.y, oz = cz - o.z, t = ox * d.x + oy * d.y + oz * d.z; if (t < 0) return -1; const d2 = ox * ox + oy * oy + oz * oz - t * t; return d2 > r * r ? -1 : t - Math.sqrt(r * r - d2); }
 function hitAliens(o, d, maxD) {
   const out = [];
-  for (const v of view.aliens.values()) {
+  for (const v of (G.explore && G.ex ? G.ex.wild : view.aliens.values())) {
     const A = ALIENS[v.type], big = v.type === 'ravager' ? 1.7 : 1, body = sphereHit(o, d, v.x, v.y + (A.fly ? 0 : A.h * 0.6 * big), v.z, A.r * 1.15);
     const hd = HEAD[v.type]; let head = -1; if (hd) { const ry = v.mesh.rotation.y; head = sphereHit(o, d, v.x - Math.sin(ry) * hd[0] * big, v.y + hd[1] * big, v.z - Math.cos(ry) * hd[0] * big, hd[2] * big * 1.1); }
     const hb = body >= 0 && body < maxD, hh = head >= 0 && head < maxD; if (!hb && !hh) continue;
@@ -490,8 +493,8 @@ function shoot(st) {
   for (let k = 0; k < (g.pellets || 1); k++) {
     const r = aimRay(spr), wall = G.W.T.ray(r.o, r.d, mx), list = hitAliens(r.o, r.d, Math.min(mx, wall)), n = g.pierce ? (oc ? 99 : g.pierce) : 1; let end;
     if (list.length) {
-      for (const q of list.slice(0, n)) { const fall = q.t <= g.near ? 1 : Math.max(0.3, 1 - 0.7 * (q.t - g.near) / (g.far - g.near)), hm = q.head ? (G.cls === 'sniper' ? 2.5 : 2) : 1;
-        req({ a: 'hit', id: q.v.id, d: +(st.dmg * fall * hm * (oc ? 4 : 1)).toFixed(1) }); const hp = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; burst(hp[0], hp[1], hp[2], 0x70ff40, q.head ? 6 : 3, q.head ? 3 : 2, 0.25); if (q.head) head = true; if (fall < 0.6) weak = true; hitAny = true; }
+      for (const q of list.slice(0, n)) { const fall = q.t <= g.near ? 1 : Math.max(0.3, 1 - 0.7 * (q.t - g.near) / (g.far - g.near)), hm = q.head ? (G.cls === 'sniper' ? 2.5 : 2) : 1, dd = +(st.dmg * fall * hm * (oc ? 4 : 1)).toFixed(1);
+        if (q.v.wild) G.ex.hurt(q.v, dd); else req({ a: 'hit', id: q.v.id, d: dd }); const hp = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; burst(hp[0], hp[1], hp[2], 0x70ff40, q.head ? 6 : 3, q.head ? 3 : 2, 0.25); if (q.head) head = true; if (fall < 0.6) weak = true; hitAny = true; }
       const q0 = list[Math.min(list.length, n) - 1]; end = [r.o.x + r.d.x * q0.t, r.o.y + r.d.y * q0.t, r.o.z + r.d.z * q0.t];
     } else { const t = Math.min(mx, wall); end = [r.o.x + r.d.x * t, r.o.y + r.d.y * t, r.o.z + r.d.z * t]; if (t < mx) { burst(end[0], end[1] + 0.1, end[2], G.W.def.ground, 3, 2, 0.35, 1.3); if (k < 2) impactMark(end[0], end[1], end[2]); } }
     if (g.tracers || (G.cls === 'sniper' || g.pellets ? k < 3 : me.shotN % 3 === 0)) tracer(G.cls === 'sniper' && me.scope ? [r.o.x + r.d.x * 0.5, r.o.y - 0.15, r.o.z + r.d.z * 0.5] : mz, end, oc ? 0xffffff : g.tracers ? 0xff7a30 : col, G.cls === 'sniper' ? 0.2 : g.tracers ? 0.07 : 0.05, (G.cls === 'sniper' ? (oc ? 0.2 : 0.09) : g.pellets ? 0.02 : 0.035) * power);
@@ -500,10 +503,31 @@ function shoot(st) {
   if (hitAny) { G.hitT = 0.12; G.hitWeak = weak && !head; G.hitHead = head; audio.sfx(head ? 'headshot' : 'hit', head ? 0.9 : 0.5); }
 }
 function startReload(st, S) { const g = CLASSES[G.cls].gun, me = G.me; if (g.pellets) { me.shells = true; me.shellT = 0.3; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
+function surface(me) {
+  const T = G.W.T, W = G.W; if (W.fob) return T.hubAt(me.x, me.z) ? 'concrete' : W.def.weather === 'snow' ? 'snow' : W.def.weather === 'rain' ? 'grass' : 'sand';
+  const raw = T.raw(me.x, me.z); if (me.y > raw + 0.4) return 'metal';                       // bridges, walls, towers, roofs
+  const hb = T.hubAt(me.x, me.z); if (hb) return 'concrete'; if (W.path.near(me.x, me.z).d < 5) return 'gravel';
+  if (W.def.weather === 'snow') return 'snow'; if (W.def.weather === 'rain') return 'grass';
+  return Math.abs(T.raw(me.x + 1, me.z) - raw) > 0.7 ? 'rock' : 'sand';
+}
+function vehCode() { const v = G.ex && G.ex.veh; return v ? (v.kind === 'rover' ? 1 : 2) : 0; }
+function exploreState(S) { return Object.assign({}, S, { A: [], T: [], O: [], L: [], M: [], Z: [], K: [], D: [], Q: [], S2: [], ph: 'explore', open: 0 }); }
+function updateFootless() { const gn = view2.gun; if (gn) gn.visible = false; if (view2.tool) view2.tool.visible = false; }
+// after victory: the cinematic, then the forward base
+function startFob() {
+  if (G.cine || G.explore) return; G.cine = true; if (document.pointerLockElement) document.exitPointerLock(); document.body.classList.add('cine'); $('end').hidden = true;
+  cinematic(H, () => {
+    clearWorld(); G.W = buildFOB(scene, G.map); G.explore = true; G.cine = false; G.ex = new Explore(H); G.ex.setup(G.W); makeWeather(); applyQuality();
+    const me = G.me; me.x = G.W.spawn.x; me.z = G.W.spawn.z; me.y = G.W.T.raw(me.x, me.z); me.vy = 0; me.yaw = Math.PI / 2; me.reserve = stats().reserve; document.body.classList.remove('cine'); document.body.classList.add('explore');
+    H.fade(false); banner('FOB VALOR', 'The Marine Corps forward base. Explore the planet: rovers to the south, VTOLs on the pads to the east'); music.set('title'); canvas.requestPointerLock();
+  });
+}
+const H = { scene, camera, audio, keys, hits, KB, G, M, toast: (m, t) => toast(m, t), prompt: h => prompt(h), banner: (a, b) => banner(a, b), burst: (...a) => burst(...a), boomFx: (...a) => boomFx(...a), tracer: (...a) => tracer(...a), flashAt: (...a) => flashAt(...a),
+  mouseL: () => mouseL && locked(), shake: v => { G.shake = Math.max(G.shake || 0, v); }, hurtFlash: () => { G.hurtT = 0.35; audio.sfx('hurt', 0.6); }, keyName: c => keyName(c), fade: on => { $('fade').style.opacity = on ? 1 : 0; } };
 function reloadMul(S) { return S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? 0.75 : 1; }
 // medic heal beam and engineer plasma torch: find what is in the crosshair and tell the host ten times a second
 function updateBeam(dt, S) {
-  const me = G.me; if (!me.beam) { me.beamAcc = 0; return; } const rc = CLASSES[G.cls].rclick, fx = -Math.sin(me.yaw) * Math.cos(me.pitch), fy = Math.sin(me.pitch), fz = -Math.cos(me.yaw) * Math.cos(me.pitch), ey = me.y + 1.7;
+  const me = G.me; if (!me.beam) { me.beamAcc = 0; return; } const rc = CLASSES[G.cls].tool, fx = -Math.sin(me.yaw) * Math.cos(me.pitch), fy = Math.sin(me.pitch), fz = -Math.cos(me.yaw) * Math.cos(me.pitch), ey = me.y + 1.7;
   let best = null, bs = 0.95, k = '';
   const look = (q, kk, range) => { const dx = q.x - me.x, dy = (q.y || 0) + 1.1 - ey, dz = q.z - me.z, d = Math.hypot(dx, dy, dz); if (d > range || d < 0.5) return; const c = (dx * fx + dy * fy + dz * fz) / d; if (c > bs) { bs = c; best = q; k = kk; } };
   if (rc === 'heal') { for (const p of S.P) if (p.id !== G.myId && !p.dead) look(p, 'p', 16); for (const m of S.L || []) look(m, 'a', 16); }
@@ -563,7 +587,8 @@ function lookTurret(S) {
 }
 
 function updateMe(dt, S) {
-  const me = G.me, my = mine(S); if (!my) return;
+  const me = G.me, my = mine(S); if (!my || G.cine) return;
+  if (G.explore && G.ex && G.ex.veh) { G.ex.drive(dt); updateFootless(); return; }
   if (my.sp !== me.sp) { me.sp = my.sp; me.x = G.W.spawn.x; me.z = G.W.spawn.z; me.y = G.W.top(me.x, me.z); me.vy = 0; me.yaw = Math.atan2(me.x, me.z); me.ammo = stats().mag; me.rel = 0; }
   if (my.hp < me.hp - 0.5 && !my.dead) { G.hurtT = 0.35; audio.sfx('hurt', 0.6); }
   if (my.hp > me.hp + 0.5 && my.hp < my.mhp && Math.random() < 0.2) audio.sfx('heal', 0.4);
@@ -588,6 +613,8 @@ function updateMe(dt, S) {
   if (grounded && T.chasm(me.x, me.z) > 0.99) me.safe = { x: me.x, z: me.z, y: me.y };
   if (me.y < LIQUID + 0.5 && live) { const sf = me.safe || { x: G.W.spawn.x, z: G.W.spawn.z, y: T.top(G.W.spawn.x, G.W.spawn.z) }; me.x = sf.x; me.z = sf.z; me.y = sf.y + 0.2; me.vy = 0; req({ a: 'fall' }); toast('You fell into the chasm and climbed back out, hurt.', 3); audio.sfx('hurt'); }
   me.bob += dt * (me.moving && grounded ? sp * 1.4 : 0);
+  // footsteps that match the ground underfoot
+  if (me.moving && grounded) { const ph = Math.floor(me.bob / Math.PI); if (ph !== me.stepPh) { me.stepPh = ph; audio.sfx('step_' + surface(me), (me.prone ? 0.25 : me.kneel ? 0.45 : run > 1 ? 1 : 0.75)); } }
   // camera
   G.shake = Math.max(0, (G.shake || 0) - dt); const sh = G.shake * 0.15;
   me.heat = Math.max(0, (me.heat || 0) - dt * 7); const rr = (me.rcv || 0) * Math.min(1, dt * 5); me.pitch -= rr; me.rcv = (me.rcv || 0) - rr;
@@ -610,7 +637,7 @@ function updateMe(dt, S) {
   if (me.ammo > st.mag) me.ammo = st.mag;
   const gn = view2.gun, rf = me.rel > 0 ? Math.sin(Math.min(1, 1 - me.rel / (me.relT || st.reload)) * Math.PI) * 0.8 : me.shells ? 0.35 : 0;
   const rc = CLASSES[G.cls].rclick, rmb = mouseR && !me.holdFire && live && locked() && !me.place && !G.shop; me.scope = rc === 'scope' && rmb && me.rel <= 0; me.ads = rc === 'ads' && rmb; $('scope').hidden = !me.scope;
-  me.beam = (rc === 'repair' || rc === 'heal') && rmb; if (view2.tool) view2.tool.visible = me.beam && !my.dead;
+  const tool = CLASSES[G.cls].tool; me.beam = !!tool && !!keys[KB.repair] && live && locked() && !me.place && !G.shop; if (view2.tool) view2.tool.visible = me.beam && !my.dead;
   if (gn.userData.spin) gn.userData.spin.rotation.z += dt * me.spin * 40;
   { const u = gn.userData, f = me.rel > 0 ? 1 - me.rel / (me.relT || 1) : 0; if (u.mag) { u.magY0 ??= u.mag.position.y; const out = f > 0.1 && f < 0.7 ? Math.min(1, (f - 0.1) / 0.2) * (f < 0.5 ? 1 : 1 - (f - 0.5) / 0.2) : 0; u.mag.position.y = u.magY0 - out * 0.6; u.mag.visible = !(f > 0.3 && f < 0.5); }
     if (u.pump) { u.pumpZ0 ??= u.pump.position.z; u.pump.position.z = u.pumpZ0 + ((me.pumpAnim || 0) > 0 ? Math.sin((0.3 - me.pumpAnim) / 0.3 * Math.PI) * 0.18 : 0); }
@@ -622,8 +649,8 @@ function updateMe(dt, S) {
     if (hits[KB.ability]) { if ((my.acd || 0) <= 0) { req({ a: 'ability' }); if (G.cls === 'sniper') { me.oc = true; toast('Overcharge ready: your next shot hits 4x and pierces everything.', 3); } } else toast(`${CLASSES[G.cls].ability.name} ready in ${Math.ceil(my.acd)} s`, 1.5); }
     if (hits[KB.special]) { if (!my.special) toast('No special. Supply crates sometimes carry one.', 2); else if (SPECIALS[my.special].aim) openMissileMap(my.special); else req({ a: 'special' }); }
     if (hits[KB.kit]) $('kit').hidden = !$('kit').hidden;
-    if (hits[KB.sentry]) me.place = me.place === CLASSES[G.cls].sentry ? null : CLASSES[G.cls].sentry;
-    if (hits[KB.defense]) me.place = me.place === CLASSES[G.cls].defense ? null : CLASSES[G.cls].defense;
+    if (hits[KB.sentry] && !G.explore) me.place = me.place === CLASSES[G.cls].sentry ? null : CLASSES[G.cls].sentry;
+    if (hits[KB.defense] && !G.explore) me.place = me.place === CLASSES[G.cls].defense ? null : CLASSES[G.cls].defense;
     if (hits[KB.grenade] && me.gcd <= 0) { me.gcd = 10; const r = aimRay(0), a = [r.o.x + r.d.x * 0.5, r.o.y - 0.2, r.o.z + r.d.z * 0.5], v = [r.d.x * 17, r.d.y * 17 + 5, r.d.z * 17]; grenade(a, v, true); send({ k: 'gr', a: a.map(q => +q.toFixed(2)), v: v.map(q => +q.toFixed(2)) }); audio.sfx('grenade'); }
     if (!me.place) {
       const g = CLASSES[G.cls].gun; if (me.holdFire && !mouseL && !mouseR) me.holdFire = false; const trig = mouseL && !me.holdFire;
@@ -641,7 +668,7 @@ function updateMe(dt, S) {
   }
   updatePlace(S);
   { const l = (G.W.lore || []).find(q => !q.silent && Math.hypot(q.x - me.x, q.z - me.z) < 3.5); $('lore').hidden = !l; if (l && G.loreOpen !== l) { G.loreOpen = l; $('loreT').textContent = l.title; $('loreX').textContent = l.text; audio.sfx('pickup', 0.5); G.loreSeen = G.loreSeen || new Set(); if (!G.loreSeen.has(l.title)) { G.loreSeen.add(l.title); toast(`Log found: ${l.title}`, 3); } } if (!l) G.loreOpen = null; }
-  for (const r of me.rockets) { if (r.mesh) { const ox = r.x, oy = r.y, oz = r.z; } if (stepRocket(r, dt)) { r.dead = true; scene.remove(r.mesh); req({ a: 'boom', x: r.x, y: r.y, z: r.z, r: CLASSES.heavy.gun.splash, d: st.dmg }); } else { r.mesh.position.set(r.x, r.y, r.z); r.mesh.lookAt(r.x - r.vx, r.y - r.vy, r.z - r.vz); if (Math.random() < 0.8) burst(r.x, r.y, r.z, 0x808080, 1, 0.4, 0.5); } }
+  for (const r of me.rockets) { if (r.mesh) { const ox = r.x, oy = r.y, oz = r.z; } if (stepRocket(r, dt)) { r.dead = true; scene.remove(r.mesh); if (G.explore && G.ex) G.ex.splash(r.x, r.y, r.z, CLASSES.heavy.gun.splash, st.dmg); else req({ a: 'boom', x: r.x, y: r.y, z: r.z, r: CLASSES.heavy.gun.splash, d: st.dmg }); } else { r.mesh.position.set(r.x, r.y, r.z); r.mesh.lookAt(r.x - r.vx, r.y - r.vy, r.z - r.vz); if (Math.random() < 0.8) burst(r.x, r.y, r.z, 0x808080, 1, 0.4, 0.5); } }
   me.rockets = me.rockets.filter(r => !r.dead);
 }
 
@@ -658,7 +685,7 @@ const setH = (id, v) => { const e = $(id); if (e._v !== v) { e._v = v; e.innerHT
 let mapT = 0;
 function hud(dt, S) {
   const my = mine(S); if (!my) return; const st = stats(), C = CLASSES[G.cls];
-  setT('gold', Math.floor(my.gold)); setT('hpTxt', `${Math.ceil(my.hp)} / ${my.mhp}`); $('hpBar').style.width = (my.hp / my.mhp * 100) + '%';
+  const hpv = G.explore && G.ex ? G.ex.hp * my.mhp / 100 : my.hp; setT('gold', Math.floor(my.gold)); setT('hpTxt', `${Math.ceil(hpv)} / ${my.mhp}`); $('hpBar').style.width = (hpv / my.mhp * 100) + '%';
   setT('ammo', G.me.rel > 0 ? '…' : String(G.me.ammo)); setT('reserve', '/ ' + Math.floor(G.me.reserve)); setT('gunName', C.gun.name); const low = G.me.reserve < st.mag && G.me.ammo < st.mag * 0.5; $('ammoWarn').hidden = !(low || G.me.resup); setT('ammoWarn', G.me.resup ? 'RESUPPLYING' : G.me.reserve < 1 && G.me.ammo === 0 ? 'OUT OF AMMO: BACK TO THE HUB' : 'LOW AMMO'); setT('clsName', C.name);
   const mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('waveTxt', S.ph === 'build' ? `BUILD ${mmss(Math.max(0, Math.ceil(S.tm)))}` : `⏱ ${mmss(S.el || 0)}`); $('hubBar').style.width = S.hub + '%'; setT('hubTxt', `HUB ${Math.ceil(S.hub)}%`);
   let info = S.ph === 'build' ? 'Build defenses before the swarm arrives' : `${S.left} aliens on the field`; if (S.open) info = 'HIVE SHIELD DOWN: destroy the hive!';
@@ -680,15 +707,16 @@ function hud(dt, S) {
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').hidden = true; }
   if (!promptSet) $('prompt').hidden = true; promptSet = false;
   // end screens
-  const end = S.ph === 'lose' || S.ph === 'win'; $('end').hidden = !end;
+  const end = (S.ph === 'lose' || S.ph === 'win') && !G.explore && !G.cine; $('end').hidden = !end; $('btnFob').hidden = !(S.ph === 'win' && G.mode !== 'client');
   if (end) { setT('endTitle', S.ph === 'win' ? 'VICTORY' : 'THE HUB HAS FALLEN'); { const t = S.el || 0, ms = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('endText', S.ph === 'win' ? `The hive is destroyed after ${ms}! The colony is safe.` : `Your squad held the hub for ${ms}.`); } setT('endKey', G.mode === 'client' ? 'Waiting for the host to choose…' : ''); $('btnAgain').hidden = G.mode === 'client'; $('btnAgain').textContent = S.ph === 'win' ? 'Keep fighting (endless mode)' : 'Try again'; if (document.pointerLockElement) document.exitPointerLock(); }
   $('pause').hidden = locked() || G.shop || end || G.mmap || G.settings;
   $('board').hidden = !keys[KB.scores]; if (keys[KB.scores]) setH('boardT', '<tr><th>Marine</th><th>Class</th><th>Kills</th><th>Gold</th></tr>' + S.P.map(p => `<tr><td>${esc(p.name)}${p.dead ? ' ✝' : ''}</td><td>${CLASSES[p.cls].name}</td><td>${p.kills}</td><td>${Math.floor(p.gold)}</td></tr>`).join(''));
   if (G.shop) shopDraw(my);
   mapT -= dt; if (mapT <= 0) { mapT = 0.1; minimap(S); }
+  if (G.explore) { const v = G.ex && G.ex.veh; setT('waveTxt', 'FOB VALOR'); setT('waveInfo', v ? (v.kind === 'vtol' ? `VTOL · altitude ${Math.round(v.y - G.W.T.raw(v.x, v.z))} m` : `Rover · ${Math.round(Math.abs(v.sp) * 3.6)} km/h`) : `Explore the planet · wild aliens slain: ${G.ex ? G.ex.kills || 0 : 0}`); }
 }
 function minimap(S) {
-  const cv = $('mini'), g = cv.getContext('2d'), W = cv.width, k = W / (BOUNDS * 2), X = x => (x + BOUNDS) * k, Z = z => (z + BOUNDS) * k;
+  const BB = G.W.size || BOUNDS, cv = $('mini'), g = cv.getContext('2d'), W = cv.width, k = W / (BB * 2), X = x => (x + BB) * k, Z = z => (z + BB) * k;
   g.clearRect(0, 0, W, W); g.drawImage(G.W.miniBg, 0, 0, W, W);
   g.fillStyle = '#a040ff'; g.beginPath(); g.arc(X(G.W.hiveP.x), Z(G.W.hiveP.z), 6, 0, 7); g.fill(); g.fillStyle = '#60c0ff'; g.beginPath(); g.arc(X(G.W.hubP.x), Z(G.W.hubP.z), 6, 0, 7); g.fill();
   for (const t of S.T) { g.fillStyle = t.owner === G.myId ? '#80ff90' : '#d0e0a0'; g.fillRect(X(t.x) - 2.5, Z(t.z) - 2.5, 5, 5); }
@@ -722,23 +750,24 @@ function frame(now) {
   if (hits[KB.music]) toast(music.toggle() ? 'Music on (N)' : 'Music off (N)', 2);
   if (hits[KB.map] && G.on && !G.shop) { if (G.mmap) closeMissileMap(); else openMissileMap(''); }
   if (!G.on) { music.set('title'); if (G.W) renderer.render(scene, camera); clearHits(); return; }
-  const S = state(); if (!S) { clearHits(); return; }
+  const S0 = state(); if (!S0) { clearHits(); return; } const S = G.explore ? exploreState(S0) : S0;
   // keys that work any time
   if (hits[KB.armory]) openShop(!G.shop); if (G.shop) { if (hits.Escape) openShop(false); for (let i = 0; i < 6; i++) if (hits['Digit' + (i + 1)]) req({ a: 'buy', up: UPGRADES[i].id }); for (const [k, w] of [['Digit7', 'rate'], ['Digit8', 'size'], ['Digit9', 'gunner'], ['Digit0', 'rocketeer'], ['Minus', 'medic']]) if (hits[k]) req({ a: 'cmd', w }); }
-  music.set(S.ph === 'assault' ? 'boss' : S.ph === 'wave' ? (S.A.some(a => ALIENS[a.type].boss) ? 'boss' : 'battle') : S.ph === 'lose' ? 'off' : 'calm');
+  if (!G.explore) music.set(S.ph === 'assault' ? 'boss' : S.ph === 'wave' ? (S.A.some(a => ALIENS[a.type].boss) ? 'boss' : 'battle') : S.ph === 'lose' ? 'off' : 'calm');
   const paused = G.mode === 'solo' && !locked() && S.ph !== 'lose' && S.ph !== 'win';
   updateMe(paused ? 0 : dt, S);
   if (G.sim) {
-    const p = G.sim.players.get(G.myId); if (p) G.sim.pose(G.myId, G.me.x, G.me.y, G.me.z, G.me.yaw, G.me.prone ? 2 : G.me.kneel ? 1 : 0);
-    if (!paused) G.sim.update(dt);
+    const p = G.sim.players.get(G.myId); if (p) G.sim.pose(G.myId, G.me.x, G.me.y, G.me.z, (G.ex && G.ex.veh) ? G.ex.veh.yaw : G.me.yaw, G.me.prone ? 2 : G.me.kneel ? 1 : 0, vehCode());
+    if (!paused && !G.explore) G.sim.update(dt);
     if (G.mode === 'host') { netT += dt; if (netT > 0.1) { netT = 0; G.net.send({ t: 'st', v: VER, map: G.map, ...G.sim.pack(), fx: G.out }); G.out = []; for (const q of [...G.sim.players.values()]) if (q.id !== G.myId && G.time - (q.seen || 0) > 10) G.sim.removePlayer(q.id); } }
-  } else { poseT += dt; if (poseT > 0.066) { poseT = 0; G.net.send({ t: 'pose', p: [+G.me.x.toFixed(2), +G.me.y.toFixed(2), +G.me.z.toFixed(2), +G.me.yaw.toFixed(2), G.me.prone ? 2 : G.me.kneel ? 1 : 0] }); } }
+  } else { poseT += dt; if (poseT > 0.066) { poseT = 0; G.net.send({ t: 'pose', p: [+G.me.x.toFixed(2), +G.me.y.toFixed(2), +G.me.z.toFixed(2), +((G.ex && G.ex.veh) ? G.ex.veh.yaw : G.me.yaw).toFixed(2), G.me.prone ? 2 : G.me.kneel ? 1 : 0, vehCode()] }); } }
   updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); if (G.mmap && hits.Escape) closeMissileMap();
   if (G.W) { G.W.sun.position.set(camera.position.x + 40, 90, camera.position.z + 25); G.W.sun.target.position.set(camera.position.x, 0, camera.position.z); }
   if (S.ph === 'wave' || S.ph === 'assault') { G.artT = (G.artT ?? 8) - dt; if (G.artT <= 0) { G.artT = 5 + Math.random() * 9; audio.gun('artillery', 0.35 + Math.random() * 0.3, 1, 1); } }
   if (!paused) { updateGrenades(dt); updateMeteors(dt); updateFx(dt); updateWeather(dt, S); }
-  syncView(state(), paused ? 0 : dt);
-  hud(dt, state());
+  if (G.explore && G.ex) G.ex.update(dt);
+  syncView(S, paused ? 0 : dt);
+  hud(dt, S);
   G.fpsN = (G.fpsN || 0) + 1; G.fpsT = (G.fpsT || 0) + dt; if (G.fpsT > 0.5) { $('fps').hidden = !SET.fps; $('fps').textContent = Math.round(G.fpsN / G.fpsT) + ' fps'; G.fpsN = G.fpsT = 0; }
   renderer.render(scene, camera); clearHits();
 }
@@ -814,13 +843,14 @@ $('mmapCv').addEventListener('mousemove', e => { const r = e.target.getBoundingC
 $('mmapCv').addEventListener('click', e => { if (!G.mmSp) return; const r = e.target.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width * 2 - 1) * BOUNDS, z = ((e.clientY - r.top) / r.height * 2 - 1) * BOUNDS; req({ a: 'special', x: +x.toFixed(1), z: +z.toFixed(1) }); closeMissileMap(); });
 $('mmapX').onclick = () => closeMissileMap();
 $('btnAgain').onclick = () => { req({ a: 'start' }); canvas.requestPointerLock(); };
+$('btnFob').onclick = () => { if (G.mode === 'host') G.out.push({ k: 'fob' }); startFob(); };
 $('btnEndQuit').onclick = () => location.reload();
 
 // title screen pickers
 G.name = store.get('hb-name', ''); $('name').value = G.name; G.cls = store.get('hb-cls', 'assault'); G.map = store.get('hb-map', 'mars'); if (!CLASSES[G.cls]) G.cls = 'assault'; if (!MAPS[G.map]) G.map = 'mars';
 function kitHTML(k) {
   const c = CLASSES[k], sT = TURRETS[c.sentry], dT = TURRETS[c.defense];
-  return `<p class="role">${c.role} · ${c.hp} health</p><p><b>Left click</b> ${c.gun.name}${c.gun.pellets ? ' (spreads pellets, deadly up close)' : c.gun.pierce ? ' (pierces 3 aliens)' : c.gun.kind === 'rocket' ? ' (explodes)' : c.gun.spin ? ' (spins up first)' : ''}</p><p><b>Right click</b> ${c.rname}: ${c.rdesc}</p><p><b>F</b> ${c.ability.name}: ${c.ability.desc}</p><p><b>Team</b> ${c.team}</p><p><b>Q</b> ${sT.name} (${sT.cost}g): ${sT.desc}</p><p><b>E</b> ${dT.name} (${dT.cost}g): ${dT.desc}</p>`;
+  return `<p class="role">${c.role} · ${c.hp} health</p><p><b>Left click</b> ${c.gun.name}${c.gun.pellets ? ' (spreads pellets, deadly up close)' : c.gun.pierce ? ' (pierces 3 aliens)' : c.gun.kind === 'rocket' ? ' (explodes)' : c.gun.spin ? ' (spins up first)' : ''}</p><p><b>Right click</b> ${c.rname}: ${c.rdesc}</p>${c.tool ? `<p><b>V</b> ${c.tname}: ${c.tdesc}</p>` : ''}<p><b>F</b> ${c.ability.name}: ${c.ability.desc}</p><p><b>Team</b> ${c.team}</p><p><b>Q</b> ${sT.name} (${sT.cost}g): ${sT.desc}</p><p><b>E</b> ${dT.name} (${dT.cost}g): ${dT.desc}</p>`;
 }
 function drawPickers() {
   const best = store.get('hb-best2', {}), mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;

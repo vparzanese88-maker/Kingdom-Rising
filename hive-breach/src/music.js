@@ -1,11 +1,11 @@
 // The soundtrack: heroic orchestral sci-fi, played live. A monk-style choir (vowel-shaped voices with vibrato),
 // slow-swelling strings and fast battle strings, heroic brass that blooms in, taiko, timpani and cymbal swells,
-// all in a long concert-hall reverb. Original themes in D minor over Dm - Bb - F - C.
+// all in a long concert-hall reverb. Original, triumphant themes in D major over D - Bm - G - A.
 const midi = m => 440 * Math.pow(2, (m - 69) / 12);
-const ROOTS = [38, 34, 41, 36], QUAL = [[0, 3, 7], [0, 4, 7], [0, 4, 7], [0, 4, 7]];
+const ROOTS = [38, 35, 31, 33], QUAL = [[0, 4, 7], [0, 3, 7], [0, 4, 7], [0, 4, 7]];
 // [step, semitone above D4, length in 16th steps], one phrase per bar
-const CHANT = [[[0, 0, 4], [4, 2, 2], [6, 3, 2], [8, 7, 8]], [[0, 5, 4], [4, 3, 4], [8, 0, 8]], [[0, -2, 4], [4, 0, 2], [6, 3, 2], [8, 5, 4], [12, 7, 4]], [[0, 5, 6], [6, 2, 2], [8, 0, 8]]];
-const THEME = [[[0, 7, 6], [6, 10, 2], [8, 12, 8]], [[0, 8, 6], [6, 7, 2], [8, 5, 8]], [[0, 3, 4], [4, 5, 4], [8, 7, 4], [12, 10, 4]], [[0, 12, 10], [10, 10, 2], [12, 7, 4]]];
+const CHANT = [[[0, 0, 4], [4, 4, 2], [6, 7, 2], [8, 9, 8]], [[0, 11, 4], [4, 9, 4], [8, 7, 8]], [[0, 7, 4], [4, 11, 2], [6, 12, 2], [8, 14, 8]], [[0, 12, 6], [6, 11, 2], [8, 9, 8]]];
+const THEME = [[[0, 12, 6], [6, 14, 2], [8, 16, 8]], [[0, 14, 6], [6, 12, 2], [8, 11, 8]], [[0, 7, 4], [4, 11, 4], [8, 14, 4], [12, 12, 4]], [[0, 19, 10], [10, 16, 2], [12, 14, 4]]];
 const OSTI = [0, 0, 12, 0, 0, 0, 12, 0, 0, 0, 12, 0, 7, 0, 12, 7];
 const TAIKO = [1, 0, 0, 0.5, 0, 0, 0.8, 0, 1, 0, 0, 0.5, 0, 0.7, 0.9, 0.6];
 const VOWEL = { ah: [[730, 1], [1090, 0.5], [2440, 0.18]], oo: [[320, 1], [800, 0.35], [2240, 0.1]] };
@@ -16,7 +16,7 @@ const MIX = {
   battle: { choir: 0.7, chant: 0, strings: 0.6, spicc: 1, brass: 1, drums: 1, timp: 0.8 },
   boss: { choir: 1, chant: 0, strings: 0.7, spicc: 1, brass: 1, drums: 1, timp: 1 },
 };
-const BPM = { title: 72, calm: 72, battle: 124, boss: 132, off: 72 };
+const BPM = { title: 84, calm: 84, battle: 128, boss: 138, off: 84 };
 export class Music {
   constructor(audio) { this.a = audio; this.mode = 'calm'; this.on = true; this.vol = 0.75; try { const v = JSON.parse(localStorage.getItem('hb-music2') || 'null'); if (v) { this.on = v.on; this.vol = v.vol; } } catch (e) { } }
   save() { try { localStorage.setItem('hb-music2', JSON.stringify({ on: this.on, vol: this.vol })); } catch (e) { } }
@@ -31,7 +31,7 @@ export class Music {
     this.L = {}; for (const k of Object.keys(MIX.calm)) { const g = c.createGain(); g.gain.value = MIX[this.mode][k]; const dry = c.createGain(), send = c.createGain(); dry.gain.value = k === 'drums' ? 0.9 : 0.55; send.gain.value = k === 'drums' ? 0.35 : 0.8; g.connect(dry); dry.connect(this.master); g.connect(send); send.connect(this.hall); this.L[k] = g; }
     // two choirs: each is a bank of vowel filters every voice of that choir sings through
     this.choirBus = this.formants('choir', 'ah'); this.chantBus = this.formants('chant', 'oo');
-    this.step = 0; this.next = c.currentTime + 0.1; this.bpm = BPM[this.mode]; this.timer = setInterval(() => this.tick(), 25);
+    this.step = 0; this.next = c.currentTime + 0.1; this.bpm = BPM[this.mode]; this.timer = setInterval(() => this.tick(), 40);
   }
   formants(layer, vowel) {
     const c = this.a.ctx, input = c.createGain(), out = this.L[layer]; input.gain.value = 1; const fs = [];
@@ -48,16 +48,16 @@ export class Music {
   setVol(v) { this.vol = v; this.save(); if (this.master && this.on) this.master.gain.setTargetAtTime(v * 1.6 * (this.mul ?? 1), this.a.ctx.currentTime, 0.1); }
   tick() {
     const c = this.a.ctx; if (!c || c.state !== 'running') { if (c) this.next = c.currentTime + 0.1; return; }
-    if (this.next < c.currentTime - 0.2) this.next = c.currentTime + 0.05;
-    while (this.next < c.currentTime + 0.2) { this.play(this.step, this.next); this.next += 60 / this.bpm / 4; this.step = (this.step + 1) % 64; }
+    if (this.next < c.currentTime - 0.1) this.next = c.currentTime + 0.1;
+    while (this.next < c.currentTime + 0.55) { this.play(this.step, this.next); this.next += 60 / this.bpm / 4; this.step = (this.step + 1) % 64; }
   }
   play(step, t) {
     if (!this.on) return;
     const bar = step >> 4, s = step & 15, root = ROOTS[bar], q = QUAL[bar], sx = 60 / this.bpm / 4, M = MIX[this.mode], fight = this.mode === 'battle' || this.mode === 'boss';
     if (s === 0) {
       // the choir holds each chord for the whole bar; the strings swell under it
-      if (M.choir) for (const iv of [0, q[1], 7, 12]) this.voice(this.choirBus, midi(root + 12 + iv), sx * 16, fight ? 0.05 : 0.04);
-      if (M.strings) for (const iv of [-12, 0, q[1] + 12, 19]) this.strings(t, midi(root + 12 + iv), sx * 16);
+      if (M.choir) for (const iv of [0, q[1], 7]) this.voice(this.choirBus, midi(root + 24 + iv), sx * 16, fight ? 0.06 : 0.05, 2);
+      if (M.strings) for (const iv of [0, q[1] + 12, 19]) this.strings(t, midi(root + 12 + iv), sx * 16);
       if (M.timp) this.timpani(t, midi(root - 12 + 24) / 2, bar === 0 ? 1 : 0.6);
       if (bar === 0 && this.step === 0) this.crash(t);
     }
@@ -71,15 +71,14 @@ export class Music {
     if (bar === 3 && s === 8) this.swell(t, sx * 8);
   }
   // one choir note: three slightly detuned singers with vibrato, slow in and slow out
-  voice(bus, f, dur, v, voices = 3) {
-    const c = this.a.ctx, t = this.next, g = c.createGain(); g.connect(bus.input);
-    for (let i = 0; i < voices; i++) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = (i - (voices - 1) / 2) * 9 + (Math.random() - 0.5) * 6;
-      const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 4.6 + Math.random() * 0.8; lg.gain.value = f * 0.005; lfo.connect(lg); lg.connect(o.frequency); o.connect(g); o.start(t); o.stop(t + dur + 1); lfo.start(t); lfo.stop(t + dur + 1); }
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + Math.min(0.5, dur * 0.3)); g.gain.setValueAtTime(v, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.8);
+  voice(bus, f, dur, v, voices = 2) {
+    const c = this.a.ctx, t = this.next, g = c.createGain(); g.connect(bus.input); const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 4.8 + Math.random() * 0.6; lg.gain.value = f * 0.005; lfo.connect(lg); lfo.start(t); lfo.stop(t + dur + 1);
+    for (let i = 0; i < voices; i++) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = (i - (voices - 1) / 2) * 11 + (Math.random() - 0.5) * 5; lg.connect(o.frequency); o.connect(g); o.start(t); o.stop(t + dur + 1); }
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + Math.min(0.4, dur * 0.25)); g.gain.setValueAtTime(v, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.7);
   }
   strings(t, f, dur) {
     const c = this.a.ctx, g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = 0.5; lp.connect(g); g.connect(this.L.strings);
-    for (const d of [-8, 0, 7]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = d; const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 5.2; lg.gain.value = f * 0.004; lfo.connect(lg); lg.connect(o.frequency); o.connect(lp); o.start(t); o.stop(t + dur + 1); lfo.start(t); lfo.stop(t + dur + 1); }
+    const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 5.2; lg.gain.value = f * 0.004; lfo.connect(lg); lfo.start(t); lfo.stop(t + dur + 1); for (const d of [-7, 7]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = d; lg.connect(o.frequency); o.connect(lp); o.start(t); o.stop(t + dur + 1); }
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.022, t + dur * 0.35); g.gain.linearRampToValueAtTime(0.018, t + dur * 0.85); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6);
   }
   // fast battle strings: short bowed notes, a bite at the start, rounded by a filter
@@ -91,7 +90,7 @@ export class Music {
   // heroic brass: a little scoop up into the note, the tone opening as it swells
   brass(t, f, dur, v = 1) {
     const c = this.a.ctx, g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1.2; lp.frequency.setValueAtTime(350, t); lp.frequency.linearRampToValueAtTime(1800, t + 0.18); lp.frequency.linearRampToValueAtTime(1200, t + dur); lp.connect(g); g.connect(this.L.brass);
-    for (const d of [-6, 0, 6]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 0.97, t); o.frequency.linearRampToValueAtTime(f, t + 0.07); o.detune.value = d; const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 5; lg.gain.value = f * 0.003; lfo.connect(lg); lg.connect(o.frequency); lfo.start(t + 0.2); lfo.stop(t + dur + 0.5); o.connect(lp); o.start(t); o.stop(t + dur + 0.5); }
+    for (const d of [-6, 6]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 0.97, t); o.frequency.linearRampToValueAtTime(f, t + 0.07); o.detune.value = d; o.connect(lp); o.start(t); o.stop(t + dur + 0.5); }
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.05 * v, t + 0.12); g.gain.setValueAtTime(0.045 * v, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.35);
   }
   taiko(t, v, pitch = 1) {

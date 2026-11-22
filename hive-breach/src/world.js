@@ -274,6 +274,7 @@ function buildCompound(g, H, W) {
   const seg = 64;
   for (let i = 0; i < seg; i++) {
     const a = (i + 0.5) / seg * 6.2832; if (Math.abs(ad(a, H.ga)) < H.gh + 0.03) continue; const len = HUB_R * 6.2832 / seg + 0.05;
+    { const wp = M.AS.wallPiece(len, WALL_H + 0.45, WALL_T * 2 + 0.5); if (wp) { wp.position.set(Math.cos(a) * HUB_R, 0, Math.sin(a) * HUB_R); wp.rotation.y = -a + Math.PI / 2; C.add(wp); continue; } }   // the Meshy armoured wall (same footprint, walkable top at the same height)
     const w = new THREE.Mesh(new THREE.BoxGeometry(WALL_T * 2, WALL_H, len), wallM); w.position.set(Math.cos(a) * HUB_R, WALL_H / 2, Math.sin(a) * HUB_R); w.rotation.y = -a; w.castShadow = w.receiveShadow = true; C.add(w);
     const walk = new THREE.Mesh(new THREE.BoxGeometry(WALL_T * 2 + 0.1, 0.12, len), dark); walk.position.set(Math.cos(a) * HUB_R, WALL_H + 0.06, Math.sin(a) * HUB_R); walk.rotation.y = -a; walk.receiveShadow = true; C.add(walk);
     if (i % 2 === 0) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, len * 0.6), wallM); m.position.set(Math.cos(a) * (HUB_R + WALL_T - 0.2), WALL_H + 0.5, Math.sin(a) * (HUB_R + WALL_T - 0.2)); m.rotation.y = -a; m.castShadow = true; C.add(m); }

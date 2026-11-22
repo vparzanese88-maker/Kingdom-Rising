@@ -318,6 +318,7 @@ export function hub() {
   for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + 0.4; B(g, 1.2, 7, 1.2, dark, Math.cos(a) * 6.2, 3.5, Math.sin(a) * 6.2); S(g, 0.4, 0xff4040, Math.cos(a) * 6.2, 7.2, Math.sin(a) * 6.2, 1, 1, 1, { e: 0xff2020 }); }
   const shield = new THREE.Mesh(new THREE.SphereGeometry(8.5, 24, 14, 0, 6.29, 0, Math.PI / 2), mat(0x60c0ff, { op: 0.12, e: 0x2060a0, ds: true, flat: false })); g.add(shield);
   const L = new THREE.PointLight(0x60c0ff, 60, 40); L.position.y = 6; g.add(L);
+  { const rm = AS.fitGLB('h_reactor', 'w', 15, false); if (rm) { for (const c of [...g.children]) if (c.isMesh && c !== core && c !== shield) g.remove(c); g.add(rm); rm.updateMatrixWorld(true); const top = new THREE.Box3().setFromObject(rm).max.y; core.position.y = top + 2.2; rings.position.y = top + 2.2; } }   // the Meshy reactor under the glowing core
   g.userData = { rings, core, shield };
   return g;
 }

@@ -401,7 +401,7 @@ function syncView(S, dt) {
     if (!v) { const mesh = M.turret(t.kind, colorOf(t.owner, S), t.lvl); mesh.position.set(t.x, t.y, t.z); if (TURRETS[t.kind].onPath) mesh.rotation.y = t.ry; else mesh.userData.head.rotation.y = t.ry; scene.add(mesh); v = { mesh, acc: 0, spin: 0, lvl: 0 }; view.turrets.set(t.id, v); }
     const u = v.mesh.userData; v.d = t;
     // turrets can be carried: the one you hold floats in front of you, others glide to where the host says
-    { const mine0 = t.carry && t.carry === G.myId, tx = mine0 ? G.me.x - Math.sin(G.me.yaw) * 1.7 : t.x, tz = mine0 ? G.me.z - Math.cos(G.me.yaw) * 1.7 : t.z, ty = mine0 ? G.me.y + 0.3 : t.y, m = v.mesh.position;
+    { const mine0 = t.carry && t.carry === G.myId, tx = mine0 ? G.me.x - Math.sin(G.me.yaw) * 2.0 + Math.cos(G.me.yaw) * 1.3 : t.x, tz = mine0 ? G.me.z - Math.cos(G.me.yaw) * 2.0 - Math.sin(G.me.yaw) * 1.3 : t.z,   /* carried ahead and to the right, so your own marine doesn't hide it */ ty = mine0 ? G.me.y + 0.3 : t.y, m = v.mesh.position;
       if (mine0 || m.distanceToSquared(_tv.set(tx, ty, tz)) > 900) m.set(tx, ty, tz); else m.lerp(_tv.set(tx, ty, tz), Math.min(1, k * 1.5)); if (TURRETS[t.kind].onPath) v.mesh.rotation.y = t.carry ? (mine0 ? G.me.yaw : t.ry) : t.ry; v.mesh.rotation.z = t.carry ? Math.sin(G.time * 6) * 0.04 : 0; }
     if (!['barricade', 'resupply', 'stasis', 'mines', 'uav', 'claymore', 'medbay', 'rally', 'sandbag', 'nest', 'fieldhosp', 'teleporter'].includes(t.kind)) { let dr = t.ry - u.head.rotation.y; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; u.head.rotation.y += dr * Math.min(1, k * 1.5); }
     if (!v.hpb) { v.hpb = new THREE.Group(); const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x200000, depthTest: false })); bg.scale.set(2, 0.18, 1); const fg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x40e070, depthTest: false })); fg.center.set(0, 0.5); fg.position.x = -0.95; fg.scale.set(1.9, 0.12, 1); bg.renderOrder = 6; fg.renderOrder = 7; v.hpb.add(bg, fg); v.hpb.userData.fg = fg; scene.add(v.hpb); }
@@ -934,8 +934,10 @@ function feel(dt, S, my) {
   // objective marker: where to go next (the hive, or home when the hub is in trouble), with the distance
   const ob = $('obj'), home = S.hub < 35 && Math.hypot(G.me.x - G.W.hubP.x, G.me.z - G.W.hubP.z) > 40, tgt = home ? G.W.hubP : (G.W.cave || G.W.hiveP);
   if (!tgt || G.explore || G.cine || my.dead || S.ph === 'build' && !home) ob.hidden = true;
-  else { const d = Math.hypot(G.me.x - tgt.x, G.me.z - tgt.z); if (d < 28) ob.hidden = true; else { ob.hidden = false; _ov.set(tgt.x, G.W.top(tgt.x, tgt.z) + 6, tgt.z).project(camera); let x = _ov.x, y = _ov.y; if (_ov.z > 1) { x = -x; y = -1; } const k = Math.max(Math.abs(x) / 0.9, Math.abs(y) / 0.8, 1); x /= k; y /= k;
+  else { const d = Math.hypot(G.me.x - tgt.x, G.me.z - tgt.z); if (d < 28) ob.hidden = true; else { ob.hidden = false; _ov.set(tgt.x, G.W.top(tgt.x, tgt.z) + 6, tgt.z).project(camera); let x = _ov.x, y = _ov.y; if (_ov.z > 1) { x = x > 0 ? -0.92 : 0.92; y = 0; } const k = Math.max(Math.abs(x) / 0.92, 1); x /= k; y = Math.max(-0.45, Math.min(0.62, y / k));   /* behind you: pinned to the side it's on; never down on the hotbar or up on the status panel */
     ob.style.left = ((x + 1) * 50) + '%'; ob.style.top = ((1 - y) * 50) + '%'; setT('objT', `${home ? 'DEFEND THE HUB' : 'HIVE'} · ${Math.round(d)} m`); ob.classList.toggle('red', home); } }
+  // aliens close by click and chitter now and then, so you hear them before you see them
+  G.chitT = (G.chitT || 0) - dt; if (G.chitT <= 0) { G.chitT = 1.2 + Math.random() * 2.5; let best = null, bd = 26; for (const v of view.aliens.values()) { const d = Math.hypot(v.x - G.me.x, v.z - G.me.z); if (d < bd) { bd = d; best = v; } } if (best) audio.sfx(Math.random() < 0.25 ? 'screech' : 'chitter', vol(bd) * 0.45); }
   // ambience: wind over the battlefield (stronger in storms)
   const amb = G.cine || G.station ? 0 : 0.6 + 0.6 * ((S && S.wx) || 0); if (Math.abs(amb - (G.ambL ?? -1)) > 0.04) { G.ambL = amb; audio.ambient(amb); }
 }

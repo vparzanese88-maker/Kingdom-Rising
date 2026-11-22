@@ -208,7 +208,7 @@ export function fpArms(cls, gun, mode = 'two') {
 // Each one is sized to match the simple model it replaces (same length and the same height off the ground), so hit boxes still fit.
 export const ALIEN_GLB = { crawler: 'a_crawler', spitter: 'a_spitter', brute: 'a_brute', ravager: 'a_ravager', queen: 'a_queen', royal: 'a_royal', broodqueen: 'a_broodqueen', flyer: 'a_flyer' };
 export const ALIEN_FILES = Object.values(ALIEN_GLB);
-export const SCENE_FILES = ['p_station', 'p_droppod', 'p_seat'];
+export const SCENE_FILES = ['p_station', 'p_droppod', 'p_seat', 'h_reactor', 'h_wall'];
 const BIG = new Set(['brute', 'ravager', 'queen', 'broodqueen']);
 const ACLIP = { run: /run/i, walk: /walk/i, pounce: /pounce/i, roar: /roar/i, idle: /idle/i, die: /death/i }, HEAVY = new Set(['brute', 'ravager', 'queen']);
 export function alienGLB(type, ref) {
@@ -256,4 +256,11 @@ export function animAlienGLB(m, t) {
   if (u.body.position.z < -0.15 && u.act.pounce) k = 'pounce';   // the game lunges the body forward on a strike
   if (k !== u.cur && u.act[k]) { const nx = u.act[k]; nx.reset().play(); if (u.cur && u.act[u.cur]) u.act[u.cur].crossFadeTo(nx, 0.2, false); u.cur = k; }
   u.mixer.update(dt === 0 ? 1 / 60 : Math.min(0.2, dtA) * (u.type === 'crawler' ? 1.6 : 1.1));
+}
+
+// ---- a piece of the hub's ring wall, stretched to exactly the size asked for (length along x, height, depth), base on the ground
+export function wallPiece(len, h, d) {
+  const src = A.h_wall; if (!src) return null; if (!src.userData.box) src.userData.box = new THREE.Box3().setFromObject(src.scene);
+  const b = src.userData.box, s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3()), o = new THREE.Group(), inner = src.scene.clone(true); o.add(inner);
+  inner.scale.set(len / s.x, h / s.y, d / s.z); inner.position.set(-c.x * len / s.x, -b.min.y * h / s.y, -c.z * d / s.z); return o;
 }

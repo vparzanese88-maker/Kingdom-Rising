@@ -1,7 +1,7 @@
 // The hero: running, triple jumps, sliding, crawling, climbing, balancing, swimming, whip swings, grapple zips, gliding.
 import * as THREE from 'three';
 import { clamp, approach } from './util.js';
-import { hero, animBiped, glider, viewHands, GEO, mat } from './models.js';
+import { hero, animBiped, glider, viewHands, GEO, mat, blimp } from './models.js';
 
 const G_ = 27, J1 = 9.6, J2 = 9.2, J3 = 11, RAD = 0.4;
 const nrm = { x: 0, y: 1, z: 0 }, cur = { x: 0, z: 0 };
@@ -17,7 +17,7 @@ export class Player {
     this.rope = new THREE.Group(); this.segs = []; this.lashMat = [mat(0x3a2414), mat(0xb8b8c4)]; for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(GEO.cylG, this.lashMat[0]); m.frustumCulled = false; this.rope.add(m); this.segs.push(m); } this.rope.visible = false; this.camDist = 6.2; this.va = new THREE.Vector3(); this.vb = new THREE.Vector3(); this.vc = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0);
     this.aimWhip = null; this.aimHook = null; this.tmp = new THREE.Vector3(); this.look = new THREE.Vector3();
   }
-  spawn(x, y, z, yaw = 0) { this.routePhi = undefined; this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = 0; this.climb = this.swing = this.zip = null; if (this.hold) { this.hold.state = 'rest'; this.hold = null; } this.crouch = false; this.swim = false; this.H = 1.8; this.stun = 0; this.inv = 1; this.lean = 0; }
+  spawn(x, y, z, yaw = 0) { this.routePhi = undefined; this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = 0; this.climb = this.swing = this.zip = null; this.zep = false; if (this.hold) { this.hold.state = 'rest'; this.hold = null; } this.crouch = false; this.swim = false; this.H = 1.8; this.stun = 0; this.inv = 1; this.lean = 0; }
   detach() { this.climb = null; this.swing = null; this.zip = null; }
   knock(dx, dz, power, up = 7, friendly) {
     if (this.inv > 0) return false;
@@ -62,6 +62,14 @@ export class Player {
     const cp = Math.cos(this.pitch); this.look.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
     this.stun -= dt; this.inv -= dt; this.whipCd -= dt; this.whipAnim -= dt; this.climbCd -= dt; this.noBeamT -= dt; this.sinceJump += dt; this.shake -= dt;
     this.down = (this.down || 0) - dt; const ctrl = this.stun <= 0 && !G.locked && this.down <= 0;
+    if (this.zep) { // the winner's airship: fly anywhere over the mountain and drop bombs on the stragglers
+      const f0 = (I.down('KeyW') ? 1 : 0) - (I.down('KeyS') ? 1 : 0), s0 = (I.down('KeyD') ? 1 : 0) - (I.down('KeyA') ? 1 : 0), up = (I.down('Space') ? 1 : 0) - (I.down('KeyC') ? 1 : 0), sy0 = Math.sin(this.yaw), cy0 = Math.cos(this.yaw), sp = I.down('ShiftLeft') ? 26 : 15, k = Math.min(1, 3 * dt);
+      v.x += ((-sy0 * f0 + cy0 * s0) * sp - v.x) * k; v.z += ((-cy0 * f0 - sy0 * s0) * sp - v.z) * k; v.y += (up * 10 - v.y) * k; p.addScaledVector(v, dt);
+      const gy = T.hAt(p.x, p.z), r0 = Math.hypot(p.x, p.z), lim0 = T.S - 20; p.y = clamp(p.y, gy + 9, 320); if (r0 > lim0) { p.x *= lim0 / r0; p.z *= lim0 / r0; }
+      this.grounded = false; this.inv = 1; this.swim = false; this.climb = this.swing = this.zip = null; this.zepCd = (this.zepCd || 0) - dt; this.aimWhip = this.aimHook = null;
+      if (!G.locked && I.lmbHit && this.zepCd <= 0) { this.zepCd = 0.65; W.zepBomb(p.x, p.y - 1.5, p.z, v.x * 0.6, v.z * 0.6, true); }
+      return;
+    }
     let f = 0, s = 0; if (ctrl) { f = (I.down('KeyW') || I.down('ArrowUp') ? 1 : 0) - (I.down('KeyS') || I.down('ArrowDown') ? 1 : 0); s = (I.down('KeyD') || I.down('ArrowRight') ? 1 : 0) - (I.down('KeyA') || I.down('ArrowLeft') ? 1 : 0); }
     const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     let wx = -sy * f + cy * s, wz = -cy * f - sy * s; const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
@@ -232,6 +240,10 @@ export class Player {
       cam.position.set(tx - L.x * dist, ty - L.y * dist + 0.5 + sh, tz - L.z * dist); cam.rotation.set(this.pitch, this.yaw, -roll * 0.5);
     }
     // the body
+    if (!this.blimp) this.blimp = blimp(); if (!this.blimp.parent && this.model.parent) this.model.parent.add(this.blimp); this.blimp.visible = !!this.zep;
+    if (this.zep) { const b = this.blimp; b.position.set(p.x, p.y - 1.3, p.z); let dy = this.yaw - b.rotation.y; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; b.rotation.y += dy * Math.min(1, 3 * dt); b.userData.prop.rotation.z += dt * 20; this.model.visible = false; this.hands.visible = false; this.rope.visible = false;
+      if (this.third) { const L = this.look, dist = Math.max(16, this.camDist * 2.2); cam.position.set(p.x - L.x * dist, p.y + 4 - L.y * dist, p.z - L.z * dist); cam.rotation.set(this.pitch, this.yaw, 0); } else { cam.position.set(p.x, p.y - 1.4, p.z); cam.rotation.set(this.pitch, this.yaw, 0); }
+      return; }
     const m = this.model, sp = Math.hypot(this.vel.x, this.vel.z); m.visible = this.third; this.hands.visible = !this.third;
     if (this.third) {
       m.position.copy(p); if (sp > 0.6 && !this.climb) this.faceYaw = Math.atan2(-this.vel.x, -this.vel.z); else if (this.climb) this.faceYaw = Math.atan2(this.climb.nx, this.climb.nz); else if (G.locked !== true) this.faceYaw = this.yaw;

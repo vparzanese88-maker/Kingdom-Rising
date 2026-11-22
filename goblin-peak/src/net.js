@@ -7,7 +7,7 @@ import { RELICS, ITEMS } from './levels.js';
 import { Toss, tossHit } from './toss.js';
 
 const COLORS = [0x2f6fd8, 0xd8762c, 0x8a3ab5, 0xd8c12c, 0x2fb5a6, 0xd83a7a, 0x6a8a2a];
-const PRE = 'goblinpeak-', VER = 10;     // bump when what players send each other changes
+const PRE = 'goblinpeak-', VER = 11;     // bump when what players send each other changes
 export class Net {
   constructor(G) { this.G = G; this.id = Math.random().toString(36).slice(2, 8); this.name = 'Hero'; this.on = false; this.isHost = false; this.code = ''; this.conns = []; this.peers = new Map(); this.acc = 0; this.ropes = []; this.status = ''; this.loop = new URLSearchParams(location.search).get('net') === 'loop'; this.lob = { map: 'l1', mode: 'race', racing: false }; this.fin = {}; this.endT = 0; }
   makeCode() { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 5; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
@@ -43,6 +43,7 @@ export class Net {
     else if (m.t === 'item') this.gotItem(m.k, m.from);
     else if (m.t === 'relic') this.gotRelic(m.r, m.i, m.from);
     else if (m.t === 'act') this.gotAct(m.id, m.name, m.from);
+    else if (m.t === 'zb') { const W = this.region(m.r); if (W && G.world === W) { W.zepBomb(m.p[0], m.p[1], m.p[2], m.v[0], m.v[1], false); if (Math.hypot(P.pos.x - m.p[0], P.pos.z - m.p[2]) < 40) G.audio.sfx('dart', 0.6); } }
     else if (m.t === 'cr') { const W = this.region(m.r); if (W) W.showCoin(m.i); }
     else if (m.t === 'mr') { const W = this.region(m.r), mob = W && W.mobs && W.mobs[m.i]; if (mob) mob.revive(); }
     else if (m.t === 'tv') { const W = this.region(m.r); if (W && G.world === W) W.add(new Toss(W, m.k, m.p[0], m.p[2], { y: m.p[1], v: m.v, fly: true, ghost: true })); }
@@ -101,11 +102,12 @@ export class Net {
   finished() { const G = this.G; if (this.fin[this.id] || !G.mode) return; const time = G.save.run[G.raceMap] || 0; this.send({ t: 'fin', n: this.name, time }); this.onFin(this.id, this.name, time); }
   onFin(id, n, time) {
     const G = this.G; if (this.fin[id]) return; const place = Object.keys(this.fin).length + 1; this.fin[id] = { n, time, place }; G.audio.sfx('win');
-    if (G.mode === 'race') { G.ui.toast(`${n} reached the top in ${G.fmt(time)}: place ${place}.` + (place === 1 && id !== this.id ? ' You have 45 seconds to finish!' : ''), 7); if (place === 1) this.endT = 45; if (id === this.id) this.results(place === 1 ? 'You won the race!' : `You finished in place ${place}`); }
+    if (G.mode === 'race') { G.ui.toast(`${n} reached the top in ${G.fmt(time)}: place ${place}.` + (place === 1 && id !== this.id ? ' You have 75 seconds to finish, and they have a zeppelin!' : ''), 7); if (place === 1) this.endT = 75; if (id === this.id && place === 1 && this.count() > 1) this.boardZep(); else if (id === this.id) this.results(place === 1 ? 'You won the race!' : `You finished in place ${place}`); }
     else { const left = this.count() - Object.keys(this.fin).length; if (left > 0) G.ui.toast(`${n} is at the top. ${left} still climbing: the team clock runs until everyone is up.`, 6); else { this.results('The whole team made it!'); if (this.isHost) this.send({ t: 'end', why: 'team' }); } }
     if (this.isHost && G.mode === 'race' && Object.keys(this.fin).length >= this.count()) this.send({ t: 'end', why: 'all' });
   }
-  endRace(why) { if (!this.G.mode) return; if (!this.fin[this.id] && this.G.mode === 'race') this.results('Time is up'); else if (this.G.mode !== 'race') this.results('The whole team made it!'); this.endT = 0; }
+  boardZep() { const G = this.G, P = G.player; P.detach(); P.zep = true; P.third = true; P.pos.y += 22; P.vel.set(0, 0, 0); G.audio.music('boss'); G.ui.toast('YOU WON! The zeppelin is yours. Fly anywhere (WASD, SPACE up, C down, SHIFT fast) and LEFT CLICK drops bombs on the others. V changes the view.', 12); }
+  endRace(why) { if (!this.G.mode) return; if (this.G.player.zep) { this.G.player.zep = false; this.results('You won the race!'); } else if (!this.fin[this.id] && this.G.mode === 'race') this.results('Time is up'); else if (this.G.mode !== 'race') this.results('The whole team made it!'); this.endT = 0; }
   results(title) {
     const G = this.G, rows = Object.values(this.fin).sort((a, b) => a.place - b.place); if (this.shown) return; this.shown = true; this.lob.racing = false; if (document.pointerLockElement) document.exitPointerLock();
     const body = (G.mode === 'race' ? rows.map(r => `<p><b>${r.place}.</b> ${r.n}: <b>${G.fmt(r.time)}</b></p>`).join('') : `<p>Team time: <b>${G.fmt(Math.max(0, ...rows.map(r => r.time)))}</b></p>` + rows.map(r => `<p>${r.n}: ${G.fmt(r.time)}</p>`).join('')) + '<p class="small">Back to the starting camp. The host can pick the next mountain.</p>';
@@ -129,7 +131,7 @@ export class Net {
       this.lAcc = (this.lAcc || 0) + dt; if (this.isHost && this.lAcc > 0.5) { this.lAcc = 0; L.racing = false; this.send({ t: 'lob', l: L }); }
       G.ui.lobby(this, L, at);
     } else G.ui.show('lobbyBox', false);
-    this.acc += dt; if (this.acc > 0.08) { this.acc = 0; const sp = Math.hypot(P.vel.x, P.vel.z), mode = P.swim ? 'swim' : P.climb ? 'climb' : P.swing || P.zip ? 'swing' : P.glide ? 'glide' : P.slideT > 0 ? 'slide' : P.crouch ? 'crouch' : P.airT > 0.2 ? 'air' : sp > 0.6 ? 'run' : 'idle'; this.send({ t: 's', v: VER, dn: P.down > 0 ? 1 : 0, pr: W.spiral && P.routePhi > 0 ? Math.min(100, Math.round(P.routePhi / W.spiral.PHI * 100)) : 0, n: this.name, r: W.def.id, p: [+P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2)], yaw: +(sp > 0.6 ? Math.atan2(-P.vel.x, -P.vel.z) : P.yaw).toFixed(2), m: mode, sp: +sp.toFixed(1) }); }
+    this.acc += dt; if (this.acc > 0.08) { this.acc = 0; const sp = Math.hypot(P.vel.x, P.vel.z), mode = P.zep ? 'zep' : P.swim ? 'swim' : P.climb ? 'climb' : P.swing || P.zip ? 'swing' : P.glide ? 'glide' : P.slideT > 0 ? 'slide' : P.crouch ? 'crouch' : P.airT > 0.2 ? 'air' : sp > 0.6 ? 'run' : 'idle'; this.send({ t: 's', v: VER, dn: P.down > 0 ? 1 : 0, pr: W.spiral && P.routePhi > 0 ? Math.min(100, Math.round(P.routePhi / W.spiral.PHI * 100)) : 0, n: this.name, r: W.def.id, p: [+P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2)], yaw: +(sp > 0.6 ? Math.atan2(-P.vel.x, -P.vel.z) : P.yaw).toFixed(2), m: mode, sp: +sp.toFixed(1) }); }
     this.mAcc = (this.mAcc || 0) + dt; if (this.mAcc > 0.12 && W.mobs && this.owns(W)) { // report the goblins this game is running
       this.mAcc = 0; const a = [], id = W.def.id, pts = [P.pos]; for (const q of this.peers.values()) if (q.r === id) pts.push(q.pos);
       for (const mob of W.mobs) { if (mob.dead || mob.carry) continue; if (!pts.some(p => Math.abs(p.x - mob.x) < 95 && Math.abs(p.z - mob.z) < 95)) continue; a.push([mob.mi, +mob.x.toFixed(2), +mob.y.toFixed(2), +mob.z.toFixed(2), +mob.mesh.rotation.y.toFixed(2), mob.mv ? 1 : 0, mob.state === 'wind' || mob.throwT > 0 ? 1 : 0]); }
@@ -138,7 +140,8 @@ export class Net {
     for (const q of this.peers.values()) {
       if (G.time - q.seen > 6) { if (q.model.parent) q.model.parent.remove(q.model); this.peers.delete(q.id); G.ui.toast(q.n + ' left.', 3); continue; }
       const k = Math.min(1, 12 * dt); q.x += (q.tx - q.x) * k; q.y += (q.ty - q.y) * k; q.z += (q.tz - q.z) * k; q.pos.x = q.x; q.pos.y = q.y; q.pos.z = q.z; q.t += dt * (q.mode === 'run' ? q.sp * 1.6 : 5);
-      M.animBiped(q.model, q.t, q.sp, q.mode); q.model.position.set(q.x, q.y + q.model.position.y, q.z); let dy = q.yaw - q.model.rotation.y; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; q.model.rotation.y += dy * k;
+      if (q.mode === 'zep') { if (!q.blimp) { q.blimp = M.blimp(); q.blimp.position.y = -1.3; q.model.add(q.blimp); } q.blimp.visible = true; } else if (q.blimp) q.blimp.visible = false;
+      M.animBiped(q.model, q.t, q.sp, q.mode === 'zep' ? 'idle' : q.mode); q.model.position.set(q.x, q.y + q.model.position.y, q.z); let dy = q.yaw - q.model.rotation.y; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; q.model.rotation.y += dy * k;
       if (q.r === W.def.id) { const d = Math.hypot(q.x - P.pos.x, q.y - P.pos.y, q.z - P.pos.z); if (d < nd) { nd = d; near = q; } }
     }
     if (G.mode === 'race' || W.def.lobby) near = null;

@@ -156,4 +156,11 @@ export function viewHands() {
   l.add(hook, cannon); g.add(r, l); g.scale.setScalar(0.62); g.position.set(0, -0.06, -0.12); g.userData = { r, l, hook, cannon, whip, coil }; g.traverse(m => { m.castShadow = false; });
   return g;
 }
+// The race winner's airship.
+export function blimp() {
+  const g = new THREE.Group(), body = ball(0xd8362c, 1, 0, 3.4, 0, { flat: 1 }); body.scale.set(2.3, 2.1, 5.6); g.add(body);
+  for (const z of [-2.4, 0, 2.4]) { const band = ball(0xf0e6cf, 1, 0, 3.4, z, { flat: 1 }); band.scale.set(2.36 * Math.cos(z / 7), 2.16 * Math.cos(z / 7), 0.5); g.add(band); }
+  g.add(box(0x6b4a2a, 1.5, 0.9, 3, 0, 0.5, 0), box(0x8fd0f0, 1.52, 0.35, 2.2, 0, 0.62, 0), box(0xe2b33a, 0.1, 1.6, 1.6, 0, 3.4, 5.6), box(0xe2b33a, 2.6, 0.1, 1.6, 0, 3.4, 5.6));
+  for (const [x, z] of [[-0.6, -1.2], [0.6, -1.2], [-0.6, 1.2], [0.6, 1.2]]) g.add(cyl(0x3a2a1c, 0.03, 1.4, x, 1.5, z)); const pr = box(0x3a3a44, 1.6, 0.12, 0.12, 0, 0.5, 1.7); g.add(pr); g.userData.prop = pr; g.traverse(m => { m.castShadow = true; }); return g;
+}
 export function boulderMesh(r, c = 0x8a8378) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat(c, { flat: 1 })); m.castShadow = true; return m; }

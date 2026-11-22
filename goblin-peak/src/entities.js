@@ -129,14 +129,14 @@ export class Rock {
 
 // A fused bomb: lands, fizzes for a moment, then blows. Goblin ones flatten the hero; the hero's own squibs flatten goblins.
 export class Bomb {
-  constructor(W, x, y, z, vx, vy, vz, mine) { this.W = W; this.v = new THREE.Vector3(vx, vy, vz); this.mine = mine; this.mesh = M.ball(mine ? 0xd8362c : 0x222222, 0.3, x, y, z, { e: 0x331100 }); W.scene.add(this.mesh); this.t = 0; this.fuse = -1; }
+  constructor(W, x, y, z, vx, vy, vz, mine) { this.W = W; this.v = new THREE.Vector3(vx, vy, vz); this.mine = mine; this.mesh = M.ball(mine ? 0xd8362c : 0x222222, 0.3, x, y, z, { e: 0x331100 }); this.mesh.scale.setScalar(0.45); W.scene.add(this.mesh); this.t = 0; this.fuse = -1; }
   update(dt) {
     const m = this.mesh.position, W = this.W, G = W.G, P = G.player; this.t += dt;
-    if (this.fuse < 0) { this.v.y -= 14 * dt; m.addScaledVector(this.v, dt); const gy = W.T.hAt(m.x, m.z) + 0.3; if (m.y < gy || this.t > 5) { m.y = Math.max(m.y, gy); this.fuse = this.mine ? 0.15 : 0.95; } }
+    if (this.fuse < 0) { this.v.y -= 14 * dt; m.addScaledVector(this.v, dt); const gy = W.T.hAt(m.x, m.z) + 0.3; if (m.y < gy || this.t > (this.zep ? 14 : 5)) { m.y = Math.max(m.y, gy); this.fuse = this.mine ? 0.15 : this.zep ? 0.25 : 0.95; } }
     else { this.fuse -= dt; this.mesh.scale.setScalar(0.3 + Math.sin(this.t * 40) * 0.06); this.mesh.material = M.mat((this.t * 12 | 0) % 2 ? 0xffe27a : 0x222222, { e: 0x662200 });
-      if (this.fuse <= 0) { this.dead = true; W.scene.remove(this.mesh); W.puff(m.x, m.y + 0.5, m.z, 0xffb040, 18); W.puff(m.x, m.y + 0.5, m.z, 0x555555, 10); G.audio.sfx('cannon'); const R = this.mine ? 5 : 3.6;
+      if (this.fuse <= 0) { this.dead = true; W.scene.remove(this.mesh); W.puff(m.x, m.y + 0.5, m.z, 0xffb040, 18); W.puff(m.x, m.y + 0.5, m.z, 0x555555, 10); G.audio.sfx('cannon'); const R = this.mine ? 5 : this.zep ? 5.5 : 3.6;
         if (this.mine) { for (const e of W.ents) if (!e.dead && (e.mob || e.hittable) && Math.hypot(e.x - m.x, e.y - m.y, e.z - m.z) < R + (e.k ? e.k.r : 1)) e.hit(3, m.x, m.z, 'bomb'); }
-        else if (Math.hypot(P.pos.x - m.x, P.pos.y - m.y, P.pos.z - m.z) < R) { if (P.knock(P.pos.x - m.x, P.pos.z - m.z, 14, 9)) G.stat('flattened'); }
+        else if (!P.zep && Math.hypot(P.pos.x - m.x, P.pos.y - m.y, P.pos.z - m.z) < R) { if (P.knock(P.pos.x - m.x, P.pos.z - m.z, 14, 9)) G.stat('flattened'); }
         if (Math.hypot(P.pos.x - m.x, P.pos.z - m.z) < 14) P.shake = Math.max(P.shake, 0.3); } }
   }
 }

@@ -428,6 +428,7 @@ export class World {
     if (mobs) for (const e of this.ents) { if (!(e.mob || e.hittable) || e.dead) continue; const r = e.k ? e.k.r : e.r, dx = e.x - p.x, dz = e.z - p.z, d = Math.hypot(dx, dz); if (d < 2.2 + r && Math.abs(e.y - p.y) < 2.6 && (dx * fx + dz * fz) / (d || 1) > 0.4) { any = true; this.puff(e.x - fx * r, e.y + 1.1, e.z - fz * r, 0xfff2c0, 7); if (e.mob) { e.hit(0.5, p.x, p.z); if (!e.dead && !e.k.slam && !e.k.thrower) e.move(fx * 1.6, fz * 1.6); } else e.hit(1, p.x, p.z); } }
     return any;
   }
+  zepBomb(x, y, z, vx, vz, mine) { const b = new Bomb(this, x, y, z, vx, -3, vz, false); b.zep = true; this.add(b); if (mine) { this.G.net.send({ t: 'zb', r: this.def.id, p: [+x.toFixed(1), +y.toFixed(1), +z.toFixed(1)], v: [+vx.toFixed(1), +vz.toFixed(1)] }); this.G.audio.sfx('throw'); } }
   cannonBlast(t) { for (const e of this.ents) if (e.mob && !e.dead && Math.hypot(e.x - t.x, e.y - t.y, e.z - t.z) < 3.5) e.hit(1, t.x, t.z); }
   puff(x, y, z, color, n) { for (let i = 0; i < n; i++) { const q = this.parts[this.pi = (this.pi + 1) % this.parts.length]; q.m.position.set(x, y, z); q.m.material.color.set(color); q.v.set((Math.random() - 0.5) * 5, Math.random() * 4 + 1, (Math.random() - 0.5) * 5); q.life = 0.5 + Math.random() * 0.3; q.m.visible = true; } }
 

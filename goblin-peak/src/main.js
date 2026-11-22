@@ -141,7 +141,7 @@ class Game {
     this.setActive(W); const s0 = W.secs[0], f = s0.at(4, (slot - (n - 1) / 2) * 1.7, 0), P = this.player; P.spawn(f.x, f.y + 0.1, f.z, Math.atan2(-f.tx, -f.tz)); P.down = 0; P.daze = 0; P.safe = null;
     this.count = 19.99; this.locked = true; this.ui.show('lobbyBox', false); this.ui.closeAll(); this.audio.sfx('camp');
   }
-  toLobby() { this.mode = null; this.count = 0; this.locked = false; this.loadLevel('lobby'); const a = Math.random() * 6.28; this.player.spawn(Math.cos(a) * 4, 0.2, 10 + Math.sin(a) * 3, 0); }
+  toLobby() { this.mode = null; this.count = 0; this.locked = false; this.player.zep = false; this.audio.music(this.world.theme.music); this.loadLevel('lobby'); const a = Math.random() * 6.28; this.player.spawn(Math.cos(a) * 4, 0.2, 10 + Math.sin(a) * 3, 0); }
   // One of the hundred lowland adventures done.
   act(id, name, coins, x, y, z) { const S = this.save; if (S.acts[id]) return; this.net.send({ t: 'act', id, name }); S.acts[id] = 1; const n = Object.keys(S.acts).length; this.audio.sfx('jewel'); if (coins) this.world.dropCoins(x, y, z, Math.min(40, coins)); this.ui.toast(`${name}!  Lowland adventures: ${n} of ${ACT_TOTAL}` + (n === ACT_TOTAL ? '. Every single one. The stones were right about you.' : ''), 5); this.saveNow(); }
   stat(k, n = 1) { this.save.stats[k] = (this.save.stats[k] || 0) + n; }

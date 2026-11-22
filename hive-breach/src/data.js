@@ -14,7 +14,7 @@ export const CLASSES = {
   },
   engineer: {
     name: 'Engineer', color: 0xe0b22e, hp: 120, speed: 8.4, role: 'Builder, repairer, resupply',
-    gun: { name: 'Breacher Pump Shotgun', dmg: 13, pellets: 8, rate: 1.4, mag: 8, reserve: 64, reload: 2.4, spread: 0.07, kind: 'hit', sound: 'shotgun', recoil: 0.05, near: 8, far: 24, max: 34 },
+    gun: { name: 'Breacher Auto Shotgun', semi: 1, dmg: 13, pellets: 8, rate: 3.2, mag: 8, reserve: 64, reload: 2.4, spread: 0.07, kind: 'hit', sound: 'shotgun', recoil: 0.05, near: 8, far: 24, max: 34 },
     throw: { kind: 'frag', name: 'Sticky charge', n: 2 },
     team: 'Builder: welds 3x faster with a bigger power cell.',
     sentry: 'flamer', defense: 'resupply', third: 'teleporter',
@@ -54,7 +54,7 @@ export const SPECIALS = {
   // aimed on the live map (aim: true); w = how often it turns up in crates
   missile: { name: 'Tactical Missile', aim: 1, w: 1, r: 12, desc: 'Click anywhere on the live map: a missile launches from the hub and strikes there.' },
   dropship: { name: 'Marine Dropship', aim: 1, w: 1, r: 6, desc: 'A dropship flies in and drops 6 marines on the track where you point.' },
-  drone: { name: 'Drone Strike', aim: 1, w: 3, r: 14, desc: 'Three attack drones circle the area for 12 s, shooting every alien.' },
+  drone: { name: 'Drone Strike', w: 3, desc: 'Three gunship drones fly with you for 15 s and shoot nearby aliens.' },
   airstrike: { name: 'Bombing Run', aim: 1, w: 2, r: 20, desc: 'A jet carpet-bombs the alien track where you point.' },
   orbital: { name: 'Orbital Laser', aim: 1, w: 1, r: 6, desc: 'A beam from orbit burns the area for 6 s.' },
   napalm: { name: 'Napalm', aim: 1, w: 2, r: 10, desc: 'Sets the area ablaze for 8 s.' },

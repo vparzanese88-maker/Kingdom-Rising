@@ -85,7 +85,7 @@ export const TURRETS = {
   medbay: { name: 'Med Bay', cost: 110, hp: 220, range: 9, heal: 14, key: 'defense', desc: 'Heals marines and reinforcements nearby.' },
   teleporter: { name: 'Teleporter Pad', cost: 90, hp: 350, key: 'third', desc: 'Press E on it to beam back to the hub.' },
   flamer: { name: 'Flame Turret', cost: 120, hp: 300, range: 9, rate: 10, dmg: 4.5, cone: 0.6, key: 'sentry', desc: 'Sprays fire over everything in front of it.' },
-  railgun: { name: 'Railgun Tower', cost: 200, hp: 220, range: 42, rate: 0.35, dmg: 230, key: 'sentry', desc: 'A long beam that pierces every alien in line.' },
+  railgun: { name: 'Sniper Tower', cost: 200, hp: 220, range: 65, rate: 0.4, dmg: 260, key: 'sentry', desc: 'Very long range. Picks off the toughest alien in sight, one shot at a time.' },
   mines: { name: 'Mine Field', cost: 70, hp: 99999, range: 2.6, dmg: 260, splash: 4.5, charges: 3, onPath: true, mine: true, key: 'defense', desc: 'Three charges on the track that blow up walkers.' },
   ammocache: { name: 'Ammo Cache', cost: 80, hp: 200, range: 3, uses: 6, key: 'defense', desc: 'A crate teammates refill ammo from.' },
   claymore: { name: 'Claymore', cost: 0, hp: 99999, range: 5, mine: true, thrown: true, desc: 'A thrown mine that blasts aliens in front of it.' },

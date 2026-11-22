@@ -1,7 +1,15 @@
 // Hive Breach: first-person tower defense. Marines hold the hub against waves of aliens marching down the track.
 import * as THREE from 'three';
 import * as M from './models.js';
-M.AS.loadAll();   /* Meshy models stream in on the title screen */
+const assetsP = M.AS.loadAll();   /* Meshy models stream in behind the cover screen */
+// the cover: the key art with a loading bar; once the game and its models are ready, a click (or any key) goes on to the title menu
+{ const cv = document.getElementById('cover'), bar = document.getElementById('coverBar'), go = document.getElementById('coverGo'), t0 = performance.now();
+  const tick = setInterval(() => { const P = M.AS.PROG; bar.style.width = Math.max(3, Math.round(100 * P.got / Math.max(1, P.total))) + '%'; if (performance.now() - t0 > 20000) ready(); }, 120);
+  const ready = () => { clearInterval(tick); cv.classList.add('ready'); go.textContent = 'CLICK TO START'; };
+  assetsP.then(ready);
+  const leave = () => { if (!cv.classList.contains('ready')) return; cv.remove(); document.body.classList.remove('covered'); removeEventListener('keydown', key); };
+  const key = e => { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'Escape') leave(); };
+  cv.addEventListener('click', leave); addEventListener('keydown', key); }
 import { DIFFS, PLANET_ORDER, scrapCost, techMul, SIDEARM, SPECIALS, MISSILE, CLASSES, TURRETS, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, MAPS, BOUNDS, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST } from './data.js';
 import { buildWorld, placeError, LIQUID } from './world.js';
 import { Sim, upgradeCost, tStat } from './sim.js';

@@ -15,10 +15,11 @@ export const WEAP = {
 export const TURRET_GLB = { pulse: 2.1, shotgunT: 2.0, missile: 2.1, minigun: 2.1, railgun: 3.6, mortar: 2.0 };   // kinds with Meshy models, and their height at level 1
 export const MANIFEST = [...CLS.filter(c => c !== 'assault').map(c => 'marine_' + c), 'marine_anims', ...new Set(Object.values(WEAP).map(w => w[0])), ...Object.keys(TURRET_GLB).flatMap(k => [1, 2, 3].map(l => `t_${k}_${l}`))];
 let done = false;
+export const PROG = { total: 1, got: 0 };   // loading progress, for the cover screen's bar
 export const ready = () => done;
 export function loadAll(extra = []) {
-  const list = [...MANIFEST, ...STRUCT_FILES, ...PROP_FILES, ...extra];
-  return Promise.all(list.map(n => loader.loadAsync(BASE + n + '.glb').then(g => { prep(g); A[n] = g; if (n === 'marine_anims') A.marine_assault = g; }).catch(() => { /* missing: keep the simple model */ }))).then(() => { done = true; });
+  const list = [...MANIFEST, ...STRUCT_FILES, ...PROP_FILES, ...extra]; PROG.total = list.length; PROG.got = 0;
+  return Promise.all(list.map(n => loader.loadAsync(BASE + n + '.glb').then(g => { prep(g); A[n] = g; if (n === 'marine_anims') A.marine_assault = g; }).catch(() => { /* missing: keep the simple model */ }).finally(() => { PROG.got++; }))).then(() => { done = true; });
 }
 function prep(g) {
   g.scene.traverse(o => {

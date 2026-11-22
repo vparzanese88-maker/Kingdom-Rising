@@ -1,5 +1,7 @@
 // Low-poly models built from simple shapes. Materials and shapes are shared so hundreds of aliens stay cheap.
 import * as THREE from 'three';
+import * as AS from './assets.js';
+export { AS };
 
 const mats = {}, geos = {};
 export function mat(color, o) {
@@ -19,6 +21,7 @@ export const K = (g, r, h, c, x, y, z, o) => add(g, cone(r, h), typeof c === 'nu
 
 // ---------------------------------------------------------------- marines
 export function gunModel(cls, color) {
+  const mg = AS.weapon(cls); if (mg) return mg;   // the Meshy model when it has loaded
   const g = new THREE.Group(), dark = 0x2a2e34, metal = 0x5a626c;
   if (cls === 'gunner') {
     B(g, 0.22, 0.22, 0.4, color, 0, -0.02, 0.1); B(g, 0.08, 0.2, 0.1, dark, 0, -0.2, 0.15); B(g, 0.3, 0.1, 0.12, dark, 0, 0.17, 0.05);
@@ -45,6 +48,7 @@ export function gunModel(cls, color) {
   return g;
 }
 export function marine(color, cls) {
+  const mg = AS.marineGLB(cls in AS.WEAP ? cls : 'assault'); if (mg) return mg;
   const g = new THREE.Group(), armor = 0x4a5560, dark = 0x23282e, visor = mat(0x80e0ff, { e: 0x3090c0, m: 0.6, r: 0.2 });
   const legL = new THREE.Group(), legR = new THREE.Group(); legL.position.set(-0.2, 0.9, 0); legR.position.set(0.2, 0.9, 0); g.add(legL, legR);
   for (const L of [legL, legR]) { B(L, 0.24, 0.5, 0.26, armor, 0, -0.25, 0); B(L, 0.22, 0.42, 0.24, dark, 0, -0.66, 0); B(L, 0.26, 0.12, 0.34, armor, 0, -0.86, -0.04); }
@@ -86,9 +90,9 @@ export function warMech() {
   const rA = new THREE.Group(); rA.position.set(1.35, 0.1, -0.1); arms.add(rA); B(rA, 0.75, 0.75, 1.2, hull, 0, 0, 0); for (let x = 0; x < 2; x++) for (let y = 0; y < 3; y++) { C(rA, 0.1, 0.1, 0.1, 0x111111, -0.17 + x * 0.34, -0.24 + y * 0.24, -0.62).rotation.x = Math.PI / 2; K(rA, 0.07, 0.16, 0xd04030, -0.17 + x * 0.34, -0.24 + y * 0.24, -0.66).rotation.x = -Math.PI / 2; }
   g.userData = { legL, legR, arms, spin: bar, mech: 1 }; return g;
 }
-export function kneel(m, k) { m.rotation.x = 0; if (k === 2) { const u = m.userData; u.kn = 0; m.rotation.x = 0; m.children.forEach(c => { c.userData.y0 ??= c.position.y; }); m.rotation.order = 'YXZ'; m.rotation.x = -1.45; m.position.y += 0.35; return; }
+export function kneel(m, k) { if (m.userData.glb) { if (k === 2) { AS.setPose(m, 'sit', 0); m.userData.mixer.update(0.01); m.userData.sit = 1; if (m.userData.gun) m.userData.gun.visible = false; } return; } m.rotation.x = 0; if (k === 2) { const u = m.userData; u.kn = 0; m.rotation.x = 0; m.children.forEach(c => { c.userData.y0 ??= c.position.y; }); m.rotation.order = 'YXZ'; m.rotation.x = -1.45; m.position.y += 0.35; return; }
    const u = m.userData; u.kn = (u.kn || 0) + ((k ? 1 : 0) - (u.kn || 0)) * 0.2; u.legL.rotation.x = u.kn ? -1.3 * u.kn : u.legL.rotation.x; u.legR.rotation.x = u.kn ? 0.2 * u.kn : u.legR.rotation.x; m.children.forEach(c => { if (c !== u.legL && c !== u.legR) c.position.y = (c.userData.y0 ??= c.position.y) - u.kn * 0.5; }); }
-export function animMarine(m, t, sp) { const u = m.userData, a = Math.sin(t) * Math.min(1, sp / 4) * 0.8; u.legL.rotation.x = a; u.legR.rotation.x = -a; }
+export function animMarine(m, t, sp, opt) { if (m.userData.glb) { if (!m.userData.sit) { if (m.userData.gun) m.userData.gun.visible = true; AS.animGLB(m, sp, opt); } else { const u = m.userData, now = performance.now(); u.mixer.update(Math.min(0.1, (now - (u.lt || now)) / 1000)); u.lt = now; } return; } const u = m.userData, a = Math.sin(t) * Math.min(1, sp / 4) * 0.8; u.legL.rotation.x = a; u.legR.rotation.x = -a; }
 
 // ---------------------------------------------------------------- aliens
 // ---------------------------------------------------------------- the Kharn: an armored alien war-species
@@ -195,7 +199,8 @@ export function animAlien(m, t) {
 }
 
 // ---------------------------------------------------------------- turrets and defenses
-export function turret(kind, color) {
+export function turret(kind, color, lvl) {
+  const mg = AS.turretGLB(kind, lvl); if (mg) return mg;   // the Meshy model for this level
   const g = new THREE.Group(), head = new THREE.Group(), dark = 0x2c3238, metal = 0x6a7480, base = 0x3e464e;
   const accent = mat(color, { m: 0.3 }), parts = {};
   if (kind !== 'barricade' && kind !== 'stasis' && kind !== 'repair') { C(g, 0.9, 1.1, 0.4, base, 0, 0.2, 0); C(g, 0.35, 0.45, 0.9, dark, 0, 0.8, 0); B(g, 1.6, 0.1, 0.25, accent, 0, 0.42, 0).rotation.y = 0.8; }
@@ -320,6 +325,7 @@ export function parachute() {
 // What each upgrade adds. Level 2 and level 3 bolt on kind-specific hardware: weapons on the turning head, armour and power on the base.
 // (The whole turret also grows: 1x, 1.28x, 1.55x.)
 export function upgradeParts(kind, lvl, color) {
+  if (AS.turretGLB(kind, lvl)) { const g = new THREE.Group(); g.userData.head = new THREE.Group(); return g; }   // Meshy turrets have a model per level instead
   const g = new THREE.Group(), hd = new THREE.Group(); g.userData.head = hd; if (lvl < 2) return g;
   const steel = 0x5a646e, dark = 0x22272c, gold = mat(0xffc840, { m: 0.85, r: 0.25, e: 0x402800 }), acc = mat(color, { m: 0.3 }), glow = mat(0x60e0ff, { e: 0x30a0ff, ei: 2.5 }), hot = mat(0xff7a20, { e: 0xff5010, ei: 2.5 }), red = mat(0xff3020, { e: 0xff1000, ei: 2.5 }), green = mat(0x50ff90, { e: 0x20d060, ei: 2.5 });
   const L3 = lvl >= 3, ring = (grp, r, t, m, y, x = 0, z = 0, rx = Math.PI / 2) => { const o = new THREE.Mesh(new THREE.TorusGeometry(r, t, 8, 32), m); o.rotation.x = rx; o.position.set(x, y, z); grp.add(o); return o; };

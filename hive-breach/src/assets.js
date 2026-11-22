@@ -1,0 +1,123 @@
+// Meshy-made models: marines (rigged, with gun animations), weapons and turrets. Everything loads in the background on the title screen;
+// until a model arrives (or if it fails), models.js keeps drawing its own simple version, so the game never waits on this.
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
+import * as SU from '../vendor/jsm/utils/SkeletonUtils.js';
+
+const BASE = './assets/m/', loader = new GLTFLoader();
+export const A = {};
+const CLS = ['assault', 'engineer', 'heavy', 'gunner', 'sniper', 'medic'];
+// weapon: file, length in metres (muzzle to stock)
+export const WEAP = {
+  assault: ['w_rifle', 0.95], engineer: ['w_shotgun', 1.0], heavy: ['w_rocket', 1.2], gunner: ['w_minigun', 1.05], sniper: ['w_sniper', 1.35], medic: ['w_carbine', 0.8],
+  pistol: ['w_pistol', 0.32], torch: ['w_plasma', 0.6], welder: ['w_welder', 0.55], frag: ['w_frag', 0.15],
+};
+export const TURRET_GLB = { pulse: 2.1, shotgunT: 2.0, missile: 2.1, minigun: 2.1, railgun: 3.6, mortar: 2.0 };   // kinds with Meshy models, and their height at level 1
+export const MANIFEST = [...CLS.filter(c => c !== 'assault').map(c => 'marine_' + c), 'marine_anims', ...new Set(Object.values(WEAP).map(w => w[0])), ...Object.keys(TURRET_GLB).flatMap(k => [1, 2, 3].map(l => `t_${k}_${l}`))];
+let done = false;
+export const ready = () => done;
+export function loadAll(extra = []) {
+  const list = [...MANIFEST, ...extra];
+  return Promise.all(list.map(n => loader.loadAsync(BASE + n + '.glb').then(g => { prep(g); A[n] = g; if (n === 'marine_anims') A.marine_assault = g; }).catch(() => { /* missing: keep the simple model */ }))).then(() => { done = true; });
+}
+function prep(g) {
+  g.scene.traverse(o => {
+    if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = !o.isSkinnedMesh;
+    for (const m of [].concat(o.material)) if (m && m.isMeshStandardMaterial) { m.metalness = Math.min(m.metalness, 0.25); m.roughness = Math.max(m.roughness, 0.45); }   // no environment map in the game, so full metal reads black
+  });
+}
+
+// ---- weapons: turned so the muzzle points down -z, the grip at the origin, scaled to its real length
+export function weapon(kind) {
+  const e = WEAP[kind]; if (!e || !A[e[0]]) return null;
+  const inner = A[e[0]].scene.clone(true), g = new THREE.Group(); g.add(inner);
+  inner.rotation.y = -Math.PI / 2; inner.updateMatrixWorld(true);
+  let b = new THREE.Box3().setFromObject(inner); const s = e[1] / (b.max.z - b.min.z); inner.scale.setScalar(s); inner.updateMatrixWorld(true);
+  b = new THREE.Box3().setFromObject(inner); const c = b.getCenter(new THREE.Vector3());
+  inner.position.set(-c.x, -c.y, -(b.max.z) + e[1] * 0.32);
+  g.userData.len = e[1]; g.userData.glb = true;
+  if (kind === 'gunner') g.userData.spin = splitSpin(inner, e[1]);
+  return g;
+}
+// the minigun's barrels: pull the front of the mesh out into its own piece that can spin about the barrel axis
+function splitSpin(inner) {
+  let mesh = null; inner.traverse(o => { if (o.isMesh && !mesh) mesh = o; }); if (!mesh) return null;
+  const geo = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone(), pos = geo.attributes.position;
+  mesh.updateMatrixWorld(true); const toG = new THREE.Matrix4().copy(inner.matrix).multiply(mesh.matrix), v = new THREE.Vector3();
+  let zmin = Infinity, zmax = -Infinity; const zs = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(toG); zs[i] = v.z; zmin = Math.min(zmin, v.z); zmax = Math.max(zmax, v.z); }
+  const cut = zmin + (zmax - zmin) * 0.4, front = [], back = [];
+  for (let t = 0; t < pos.count; t += 3) (zs[t] < cut && zs[t + 1] < cut && zs[t + 2] < cut ? front : back).push(t);
+  if (front.length < 20) return null;
+  const pick = list => { const g2 = new THREE.BufferGeometry(); for (const k in geo.attributes) { const a = geo.attributes[k], arr = new a.array.constructor(list.length * 3 * a.itemSize); list.forEach((t, j) => { for (let q = 0; q < 3; q++) for (let c = 0; c < a.itemSize; c++) arr[(j * 3 + q) * a.itemSize + c] = a.array[(t + q) * a.itemSize + c]; }); g2.setAttribute(k, new THREE.BufferAttribute(arr, a.itemSize, a.normalized)); } return g2; };
+  const fg = pick(front); mesh.geometry = pick(back);
+  // barrel axis: the middle of the front piece, in the mesh's own space
+  fg.computeBoundingBox(); const ctr = fg.boundingBox.getCenter(new THREE.Vector3());
+  const piv = new THREE.Group(); piv.position.copy(ctr); mesh.add(piv); const fm = new THREE.Mesh(fg, mesh.material); fm.position.copy(ctr).multiplyScalar(-1); piv.add(fm);
+  // spin about the gun's -z (the barrel), expressed in the mesh's space
+  const axis = new THREE.Vector3(0, 0, 1).applyMatrix4(new THREE.Matrix4().copy(toG).invert().setPosition(0, 0, 0)).normalize();
+  const spin = { rotation: { _z: 0, get z() { return this._z; }, set z(a) { this._z = a; piv.quaternion.setFromAxisAngle(axis, a); } } };
+  return spin;
+}
+
+// ---- marines: a skinned, animated soldier. The clips (one set, shared by every class) come from marine_anims.
+const CLIPKEY = { walk: /walk_forward_while_shooting|walk forward while shooting/i, run: /run_and_shoot|run and shoot/i, sprint: /rifle_charge|rifle charge/i, reload: /reload/i, throw: /throw/i, die: /fall_forward|fall forward/i, sit: /sit/i, idle: /^(armature\|)?idle|\|idle\|/i, hit: /hit_reaction|hit reaction/i, back: /backward/i };
+let CLIPS = null;
+function clips() {
+  if (CLIPS) return CLIPS; const src = A.marine_anims; if (!src) return null; CLIPS = {};
+  for (const [k, re] of Object.entries(CLIPKEY)) { const c = src.animations.find(a => re.test(a.name)); if (c) CLIPS[k] = c; }
+  if (!CLIPS.idle) { const c = src.animations.find(a => /idle/i.test(a.name)); if (c) CLIPS.idle = c; }
+  // the running clips move forward on their own; the game moves the marine, so pin the hips over the feet (keep the bounce)
+  for (const c of Object.values(CLIPS)) for (const tr of c.tracks) if (/hips\.position$/i.test(tr.name)) { const v = tr.values, x0 = v[0], z0 = v[2]; for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; } }
+  return CLIPS;
+}
+const H = {};   // height of each marine file, measured once
+export function marineGLB(cls) {
+  const n = 'marine_' + cls, src = A[n] || A.marine_assault; if (!src || !clips()) return null;
+  const root = SU.clone(src.scene), g = new THREE.Group(), holder = new THREE.Group(); holder.rotation.y = Math.PI; holder.add(root); g.add(holder);
+  if (!H[n]) { const b = new THREE.Box3().setFromObject(src.scene); H[n] = b.max.y - b.min.y || 1.85; }
+  holder.scale.setScalar(2.1 / H[n]);
+  const mixer = new THREE.AnimationMixer(root), act = {};
+  for (const [k, c] of Object.entries(CLIPS)) { const a = mixer.clipAction(c); if (k === 'die' || k === 'throw' || k === 'reload' || k === 'hit') { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } act[k] = a; }
+  const rh = root.getObjectByName('RightHand'), lh = root.getObjectByName('LeftHand');
+  const gun = weapon(cls); if (gun) g.add(gun);
+  g.userData = { legL: new THREE.Object3D(), legR: new THREE.Object3D(), arms: new THREE.Group(), glb: true, mixer, act, cur: null, rh, lh, gun, root, cls };
+  setPose(g, 'idle'); mixer.update(0.01); aimGun(g);
+  return g;
+}
+export function setPose(m, k, fade = 0.25) {
+  const u = m.userData; if (!u.glb) return; if (!u.act[k]) k = u.act.idle ? 'idle' : Object.keys(u.act)[0]; if (u.cur === k) return;
+  const next = u.act[k]; next.reset().play(); if (u.cur && u.act[u.cur]) u.act[u.cur].crossFadeTo(next, fade, false); u.cur = k;
+}
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _f = new THREE.Vector3(), _up = new THREE.Vector3(), _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _inv = new THREE.Matrix4();
+// the gun sits in the right hand and points through the left (the support hand on the foregrip), so it follows every animation
+function aimGun(m) {
+  const u = m.userData; if (!u.gun || !u.rh) return;
+  m.updateMatrixWorld(true); _inv.copy(m.matrixWorld).invert();
+  u.rh.getWorldPosition(_a).applyMatrix4(_inv); u.lh ? u.lh.getWorldPosition(_b).applyMatrix4(_inv) : _b.copy(_a).add(new THREE.Vector3(0, 0, -1));
+  _f.subVectors(_b, _a); const d = _f.length();
+  // hands apart (not gripping): carry it pointed ahead and a little down
+  if (d < 0.12 || d > 0.75 || _f.z > 0.05) _f.set(0.05, -0.35, -1);
+  _f.normalize(); _up.set(0, 1, 0); const x = new THREE.Vector3().crossVectors(_up, _f.clone().negate()).normalize(); _up.crossVectors(_f.clone().negate(), x);
+  _m.makeBasis(x, _up, _f.clone().negate()); _q.setFromRotationMatrix(_m);
+  u.gun.quaternion.copy(_q); u.gun.position.copy(_a).addScaledVector(_up, 0.03);
+}
+// called every frame for each marine: picks the clip from speed, plays it, keeps the gun in the hands
+export function animGLB(m, sp, opt) {
+  const u = m.userData, now = performance.now(), dt = Math.min(0.1, (now - (u.lt || now)) / 1000); u.lt = now;
+  let k = opt && opt.pose ? opt.pose : sp > 6.5 ? 'sprint' : sp > 3.2 ? 'run' : sp > 0.4 ? 'walk' : (opt && opt.fire ? 'walk' : 'idle');
+  setPose(m, k); const a = u.act[u.cur];
+  if (u.cur === 'walk') a.timeScale = sp > 0.4 ? Math.max(0.7, sp / 2.6) : 0.12; else if (u.cur === 'run' || u.cur === 'sprint') a.timeScale = Math.max(0.8, sp / (u.cur === 'run' ? 5 : 7.5)); else a.timeScale = 1;
+  u.mixer.update(dt); aimGun(m);
+}
+
+// ---- turrets: one model per upgrade level. The whole model sits in the "head" so it swings round to aim.
+export function turretGLB(kind, lvl = 1) {
+  const n = `t_${kind}_${Math.max(1, Math.min(3, lvl || 1))}`; if (!TURRET_GLB[kind] || !A[n]) return null;
+  const g = new THREE.Group(), head = new THREE.Group(), inner = A[n].scene.clone(true); g.add(head); head.add(inner);
+  inner.rotation.y = -Math.PI / 2; inner.updateMatrixWorld(true);
+  let b = new THREE.Box3().setFromObject(inner); const h = TURRET_GLB[kind] * [1, 1.15, 1.3][Math.max(1, Math.min(3, lvl || 1)) - 1]; inner.scale.setScalar(h / (b.max.y - b.min.y)); inner.updateMatrixWorld(true);
+  b = new THREE.Box3().setFromObject(inner); const c = b.getCenter(new THREE.Vector3()); inner.position.set(-c.x, -b.min.y, -c.z);
+  g.userData = { head, kind, glb: true, lvl, muzzle: new THREE.Vector3(0, h * 0.62, b.min.z - c.z) };
+  return g;
+}

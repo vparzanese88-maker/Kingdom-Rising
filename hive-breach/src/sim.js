@@ -1,5 +1,5 @@
 // The battle itself. Only the host (or a solo player) runs this; friends receive what it decides.
-import { DIFFS, scrapCost, techMul, CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
+import { VARIANTS, DIFFS, scrapCost, techMul, CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
 import { placeError, HUB_R } from './world.js';
 import { PATH_W, SPECIALS, MISSILE, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST, MAX_ALLIES } from './data.js';
 
@@ -161,7 +161,8 @@ export class Sim {
     const outside = !this.inCave(x, z); for (const a of this.aliens) { if (a.cave && outside) continue; const dist = Math.hypot(a.x - x, a.y + ALIENS[a.type].h * 0.5 - y, a.z - z) - ALIENS[a.type].r; if (dist < r) this.hurtAlien(a, d * (1 - Math.max(0, dist) / r * 0.6), owner, true); }
   }
   killAlien(a, owner) {
-    a.dead = true; const A = ALIENS[a.type]; this.emit({ k: 'die', id: a.id, x: a.x, y: a.y, z: a.z, t: a.type });
+    a.dead = true; const A = ALIENS[a.type];
+    if (A.burst) { this.emit({ k: 'boom', x: a.x, y: a.y + 1, z: a.z, r: 4.5 }); for (const p of this.living()) if (Math.hypot(p.x - a.x, p.z - a.z) < 4.5) this.hurtPlayer(p, A.burst, a); for (const t of this.turrets) if (Math.hypot(t.x - a.x, t.z - a.z) < 4.5) this.hurtTurret(t, A.burst); this.pools.push({ x: a.x, y: a.y, z: a.z, r: 3.5, t: 0.01, dps: 0 }); }   // Bloaters burst in a spray of acid this.emit({ k: 'die', id: a.id, x: a.x, y: a.y, z: a.z, t: a.type });
     const p = this.players.get(owner); if (p) p.kills++;
     for (const q of this.players.values()) q.gold += Math.round(A.bounty * (q.id === owner ? 1 : 0.4));
     if (A.boss || a.type === 'broodqueen') this.emit({ k: 'toast', m: `${A.name} destroyed${p ? ' by ' + p.name : ''}!`, big: 1 });
@@ -199,6 +200,7 @@ export class Sim {
     if (n) this.emit({ k: 'drop2', n });
   }
   spawn(type, s = 0) {
+    type = (VARIANTS[this.W.id] || {})[type] || type;   // this planet's own breed
     const A = ALIENS[type], p = this.path.at(s), lat = (Math.random() - 0.5) * (A.boss ? 0.5 : 3.2), sc = A.boss ? hpScale(this.wave, 1) * bossScale(this.players.size) : hpScale(this.wave, this.players.size), hp = A.hp * sc;
     const a = { id: this.nid++, type, s, lat, x: p.x - p.tz * lat, y: p.y + (A.fly ? 4.5 : 0), z: p.z + p.tx * lat, hp, mhp: hp, ry: Math.atan2(-p.tx, -p.tz), spd: A.speed * (0.92 + Math.random() * 0.16), slowT: 0, stun: 0, atk: 0, mode: 'path', cc: Math.random() * 3, tgt: null, rcd: 1 + Math.random() * 2, qcd: 6 };
     this.aliens.push(a); if (A.boss) { this.emit({ k: 'roar', t: type }); this.radio && this.radio('gen', `Olympus here: a ${A.name} just came out of the hive. Focus everything on it!`, 1); } return a;
@@ -284,7 +286,7 @@ export class Sim {
       // on the track: every alien stops at a barricade and tears it down
       if (a.mode === 'path') {
         let wall = null; for (const t of this.turrets) if (t.kind === 'barricade' && t.on && !t.carry && !t.fresh && t.s > a.s && t.s - a.s < A.r + 0.9) { wall = t; break; }
-        if (wall) { this.face(a, wall.x - a.x, wall.z - a.z); if (a.atk <= 0) { a.atk = 1; this.hurtTurret(wall, A.dmg * (a.type === 'brute' || A.boss ? 2.2 : 1), a); this.emit({ k: 'bite', x: a.x, z: a.z }); } if (A.fly) a.y += (P.y(a.s) + 2 - a.y) * Math.min(1, dt * 3); continue; }
+        if (wall) { this.face(a, wall.x - a.x, wall.z - a.z); if (a.atk <= 0) { a.atk = 1; this.hurtTurret(wall, A.dmg * ((A.base || a.type) === 'brute' || A.boss ? 2.2 : 1), a); this.emit({ k: 'bite', x: a.x, z: a.z }); } if (A.fly) a.y += (P.y(a.s) + 2 - a.y) * Math.min(1, dt * 3); continue; }
         // something worth leaving the track for?
         if (A.melee && !A.boss && a.cc <= 0 && a.mode === 'path') { const rs = this.turrets.find(t => t.kind === 'resupply' && !t.fresh && (t.pd ?? (t.pd = this.path.near(t.x, t.z).d)) < 22 && Math.hypot(t.x - a.x, t.z - a.z) < 24); if (rs) { this.aggro(a, 't', rs.id); continue; } }
         if (A.hunt && a.cc <= 0) { const H = A.hunt, tt = H.t && this.closest(this.turrets.filter(t => !TURRETS[t.kind].onPath && !TURRETS[t.kind].mine), a, H.t), pp = H.p && this.closest(living, a, H.p, A.fly ? 9 : 2.5); if (tt) this.aggro(a, 't', tt.id); else if (pp) this.aggro(a, 'p', pp.id); }
@@ -295,7 +297,7 @@ export class Sim {
         else {
           const dx = tg.x - a.x, dz = tg.z - a.z, d = Math.hypot(dx, dz) || 1, reach = A.r + (a.tk === 't' ? 1.9 : 1.4); this.face(a, dx, dz);
           if (A.fly) a.y += (tg.y + (d < 4 ? 1.6 : 3) - a.y) * Math.min(1, dt * 3);
-          if (d < reach && Math.abs(tg.y - a.y) < A.h + (A.fly ? 3.5 : 2.2)) { if (a.atk <= 0) { a.atk = 1; if (a.tk === 'p') this.hurtPlayer(tg, A.dmg, a); else this.hurtTurret(tg, A.dmg * (a.type === 'brute' || A.boss ? 2 : 1.2), a); this.emit({ k: 'bite', x: a.x, z: a.z }); } }
+          if (d < reach && Math.abs(tg.y - a.y) < A.h + (A.fly ? 3.5 : 2.2)) { if (a.atk <= 0) { a.atk = 1; if (a.tk === 'p') this.hurtPlayer(tg, A.dmg, a); else this.hurtTurret(tg, A.dmg * ((A.base || a.type) === 'brute' || A.boss ? 2 : 1.2), a); this.emit({ k: 'bite', x: a.x, z: a.z }); } }
           else {
             const nx = a.x + dx / d * sp * 1.2 * dt, nz = a.z + dz / d * sp * 1.2 * dt;
             if (!A.fly && T.chasm(nx, nz) < 0.95 && P.near(nx, nz).d > PATH_W / 2) { a.mode = 'return'; a.cc = H.cd; }     // will not jump into a chasm

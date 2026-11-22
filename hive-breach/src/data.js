@@ -121,6 +121,18 @@ export const ALIENS = {
   hivecore: { name: 'The Hive', hp: 12000, speed: 0, hub: 0, bounty: 1500, r: 5.5, h: 2.4, dmg: 0, static: 1 },
 };
 
+// each planet breeds its own kind of swarm: the regular aliens are swapped for local variants (bosses, the queen and her guards stay the same)
+Object.assign(ALIENS, {
+  shard: { ...ALIENS.crawler, name: 'Shardback', hp: 85, speed: 9.2, armor: 0.15, base: 'crawler' },
+  cryospit: { ...ALIENS.spitter, name: 'Cryo Spewer', hp: 100, ranged: 24, dmg: 13, base: 'spitter' },
+  glacier: { ...ALIENS.brute, name: 'Glacier Juggernaut', hp: 560, speed: 3.0, armor: 0.45, base: 'brute' },
+  frostwraith: { ...ALIENS.flyer, name: 'Frost Wraith', hp: 70, speed: 9.0, base: 'flyer' },
+  creeper: { ...ALIENS.crawler, name: 'Lurker', hp: 55, speed: 10.5, base: 'crawler', hunt: { p: 18, leash: 28, time: 9, cd: 3 } },
+  bloater: { ...ALIENS.spitter, name: 'Bloater', hp: 125, speed: 4.6, base: 'spitter', burst: 45 },
+  thornback: { ...ALIENS.brute, name: 'Thornback', hp: 430, speed: 4.3, dmg: 32, base: 'brute' },
+  moth: { ...ALIENS.flyer, name: 'Swarm Moth', hp: 38, speed: 11.5, dmg: 7, base: 'flyer' },
+});
+export const VARIANTS = { ice: { crawler: 'shard', spitter: 'cryospit', brute: 'glacier', flyer: 'frostwraith' }, jungle: { crawler: 'creeper', spitter: 'bloater', brute: 'thornback', flyer: 'moth' } };
 export const WAVES = 20;
 // A wave is a list of [type, count, gap seconds].
 export const MIX = { mars: { brute: 1.6, brute0: 3 }, ice: { flyer: 1.7, flyer0: 3 }, jungle: { crawler: 1.3, spitter: 1.5 } };

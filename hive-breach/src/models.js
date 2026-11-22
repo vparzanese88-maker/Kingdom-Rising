@@ -110,6 +110,17 @@ function scythe(parent, x, y, z, len, m, side) {
   sh.rotation.z = side * 0.15; return sh;
 }
 export function alien(type) {
+  // planet breeds: a base alien recoloured, resized and given its own growths (ice crystals, thorns, an acid sac)
+  const VAR = { shard: ['crawler', 0x7fd0ff, 'ice', 1.05], cryospit: ['spitter', 0xa8ecff, 'ice', 1], glacier: ['brute', 0xc0eaff, 'ice', 1.18], frostwraith: ['flyer', 0x90c8ff, 'ice', 1], creeper: ['crawler', 0x2f5a22, 'thorn', 0.95], bloater: ['spitter', 0x7aa020, 'bloat', 1.1], thornback: ['brute', 0x2a4a1a, 'thorn', 1.08], moth: ['flyer', 0x8a50b0, 'moth', 0.8] };
+  if (VAR[type]) {
+    const [base, col, deco, sc] = VAR[type], out = new THREE.Group(), inner = alien(base); inner.scale.setScalar(sc); out.add(inner); out.userData = inner.userData; const tc = new THREE.Color(col);
+    inner.traverse(o => { if (o.isMesh && o.material && o.material.color && !(o.material.emissive && o.material.emissiveIntensity > 1)) { o.material = o.material.clone(); o.material.color.lerp(tc, 0.55); } });
+    const b = inner.userData.body || inner;
+    if (deco === 'ice') { const cm = mat(0xbff4ff, { e: 0x4fb0e0, ei: 1.2, op: 0.85, m: 0.2, r: 0.1 }); for (let i = 0; i < 6; i++) { const c = K(b, 0.09 + Math.random() * 0.06, 0.5 + Math.random() * 0.4, cm, (Math.random() - 0.5) * 0.5, 1.2 + Math.random() * 0.3, -0.4 + i * 0.18); c.rotation.set(-0.3 + Math.random() * 0.6, 0, (Math.random() - 0.5) * 0.8); } }
+    else if (deco === 'thorn') { for (let i = 0; i < 9; i++) { const c = K(b, 0.05, 0.35 + Math.random() * 0.25, 0x18240e, (Math.random() - 0.5) * 0.7, 1.1 + Math.random() * 0.4, -0.5 + i * 0.13); c.rotation.set(-0.5 + Math.random(), 0, (Math.random() - 0.5) * 1.2); } }
+    else if (deco === 'bloat') { const sac = S(b, 0.55, mat(0xb8ff40, { e: 0x60c010, ei: 1.6, op: 0.8 }), 0, 1.7, 0.35, 1, 0.9, 1.1); (inner.userData.sacs || []).push(sac); }
+    return out;
+  }
   // the Brood Queen is a Hive Tyrant grown huge, dragging a glowing egg sac; Royal Guards are big crimson Juggernauts with crests
   if (type === 'broodqueen' || type === 'royal') {
     const out = new THREE.Group(), inner = alien(type === 'broodqueen' ? 'queen' : 'brute'); inner.scale.setScalar(type === 'broodqueen' ? 2.4 : 1.2); out.add(inner); out.userData = inner.userData;

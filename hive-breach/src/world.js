@@ -162,7 +162,21 @@ export function buildWorld(scene, mapId, diff = 0) {
     col.push(c.r, c.g, c.b);
   }
   gr.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); gr.computeVertexNormals();
-  const ground = new THREE.Mesh(gr, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: false })); ground.receiveShadow = true; g.add(ground);
+  // the ground takes a photographic detail texture (dust, pebbles, cracks), sampled at two scales so it never visibly repeats
+  const groundM = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: false });
+  new THREE.TextureLoader().load('./assets/ground.webp', tx => { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(SZ / 9, SZ / 9); tx.anisotropy = 8; groundM.map = tx;
+    groundM.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#ifdef USE_MAP\n float d1 = texture2D(map, vMapUv).r, d2 = texture2D(map, vMapUv * 0.17 + vec2(0.37, 0.11)).r;\n diffuseColor.rgb *= clamp(d1 * d2 * 2.7, 0.35, 1.6);\n#endif'); }; groundM.needsUpdate = true; });
+  const ground = new THREE.Mesh(gr, groundM); ground.receiveShadow = true; g.add(ground);
+  // beyond the edge of the battlefield: a flat plain running out to the horizon, ringed by huge mesas and spires
+  { const plain = new THREE.Mesh(new THREE.RingGeometry(SZ * 0.5, 1100, 64, 1), new THREE.MeshStandardMaterial({ color: new THREE.Color(D.ground).multiplyScalar(0.85), roughness: 1 })); plain.rotation.x = -Math.PI / 2; plain.position.y = -1.6; g.add(plain);
+    const names = { mars: ['l_rock_mars2', 'l_rock_mars1'], ice: ['l_rock_ice1', 'l_rock_ice2'], jungle: ['l_rock_jungle1'] }[mapId] || ['l_rock_mars1'], rr = rng(91 + W.diff * 7);
+    for (let i = 0; i < 34; i++) { const n = names[i % names.length], a = i / 34 * 6.283 + rr() * 0.12, d = SZ / 2 + 25 + rr() * 90, m = M.AS.fitGLB(n, 'w', 45 + rr() * 70, false); if (!m) break; m.position.set(Math.cos(a) * d, -6 - rr() * 4, Math.sin(a) * d); m.rotation.y = rr() * 6; m.scale.y *= 0.8 + rr() * 0.9; m.traverse(o => { o.castShadow = false; }); g.add(m); } }
+  // a sky dome: dusty horizon fading up to a deeper sky, with a glow round the sun
+  { const top = new THREE.Color(D.sky).multiplyScalar(mapId === 'mars' ? 0.62 : 0.8), hor = new THREE.Color(D.fog), sd = new THREE.Vector3(40, 70, 25).normalize();
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(1300, 32, 16), new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { top: { value: top }, hor: { value: hor }, sun: { value: new THREE.Color(D.sun) }, sd: { value: sd } },
+      vertexShader: 'varying vec3 vd; void main(){ vd = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 top, hor, sun, sd; varying vec3 vd; void main(){ float h = clamp(vd.y, 0.0, 1.0); vec3 c = mix(hor, top, pow(h, 0.55)); float s = max(dot(normalize(vd), sd), 0.0); c += sun * (pow(s, 600.0) * 2.5 + pow(s, 12.0) * 0.25); gl_FragColor = vec4(c, 1.0); }' }));
+    dome.renderOrder = -10; dome.frustumCulled = false; g.add(dome); W.dome = dome; }
   // lava, water or icy sea at the bottom of the chasms
   const liq = new THREE.Mesh(new THREE.PlaneGeometry(SZ, SZ), new THREE.MeshStandardMaterial({ color: D.liquid, emissive: mapId === 'mars' ? D.liquid : 0x000000, emissiveIntensity: 0.9, roughness: 0.3, metalness: 0.2 }));
   liq.rotation.x = -Math.PI / 2; liq.position.y = LIQUID; g.add(liq); W.liquid = liq;
@@ -247,7 +261,7 @@ export function buildWorld(scene, mapId, diff = 0) {
   const MR = 420, mc = document.createElement('canvas'); mc.width = mc.height = MR; const mg = mc.getContext('2d'), im = mg.createImageData(MR, MR);
   for (let j = 0; j < MR; j++) for (let i = 0; i < MR; i++) { const hb0 = T.hubAt(-BOUNDS + (i + 0.5) / MR * BOUNDS * 2, -BOUNDS + (j + 0.5) / MR * BOUNDS * 2); const x = -BOUNDS + (i + 0.5) / MR * BOUNDS * 2, z = -BOUNDS + (j + 0.5) / MR * BOUNDS * 2, h = T.raw(x, z, true), o = (j * MR + i) * 4, v = h < -1 ? 15 : Math.max(20, Math.min(110, 40 + h * 7)); im.data[o] = h < -1 ? (mapId === 'mars' ? 120 : 20) : v * 0.8; im.data[o + 1] = h < -1 ? 30 : v; im.data[o + 2] = h < -1 ? (mapId === 'mars' ? 10 : 90) : v * 1.1; im.data[o + 3] = 200; if (hb0 && hb0.wall) { im.data[o] = im.data[o + 1] = im.data[o + 2] = 210; } }
   mg.putImageData(im, 0, 0); W.miniBg = mc;
-  mergeStatic(g, new Set([ground, liq, W.hive, W.hub, W.healRing, W.hiveShield, W.caveLight, hemi, sun, sun.target]));
+  mergeStatic(g, new Set([ground, liq, W.dome, W.hive, W.hub, W.healRing, W.hiveShield, W.caveLight, hemi, sun, sun.target]));
   return W;
 }
 
@@ -347,6 +361,7 @@ function placePOIs(g, W, T, D, mapId, path) {
   const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };
   put('satellite', 18, M.satellite, [[0, 0, 2.2, 3]]); put('wreck', 22, M.wreck, [[-4, 0, 2.6, 4], [4.5, 2, 2.4, 3.5], [-10, 0, 2, 4]]); put('capsule', 16, M.capsule, [[0, 0, 2, 3]]); put('rover', 14, M.rover, [[0, 0, 1.8, 2.5]]);
   for (let i = 0; i < 7; i++) put('debris' + i, 10, M.debris, []);
+  for (let i = 0; i < 45; i++) put('boulder' + i, 7, R => M.prop('boulder', R), [[0, 0, 1.8, 2.5]]);   // more big Meshy boulders across the open ground
   // downed dropships: their cargo holds still have ammunition to salvage (E)
   W.loot = []; { const wr = W.lore.find(l => l.kind === 'wreck'); if (wr) W.loot.push({ x: wr.x, z: wr.z, name: 'Wrecked dropship' }); }
   for (let i = 0; i < 6; i++) { const p = spot(14); if (!p) continue; const [x, z] = p, y = T.raw(x, z), ry = R() * 6, m = M.dropship(); m.position.set(x, y + 0.5, z); m.rotation.set((R() - 0.5) * 0.3, ry, (R() > 0.5 ? 1 : -1) * (0.25 + R() * 0.2)); m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.multiplyScalar(0.55); } }); g.add(m);

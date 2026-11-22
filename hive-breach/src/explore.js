@@ -187,7 +187,7 @@ export function victoryScene(H, squad, swap, done) {
   const { scene, camera } = H, W = H.G.W, P = W.path, objs = [], add = o => { scene.add(o); objs.push(o); return o; }, clear = () => { for (const o of objs.splice(0)) scene.remove(o); };
   const V = (x, y, z) => new THREE.Vector3(x, y, z), sm = f => { f = Math.max(0, Math.min(1, f)); return f * f * (3 - 2 * f); }, L = (a, b, f) => a + (b - a) * f, LV = (a, b, f) => V(L(a.x, b.x, f), L(a.y, b.y, f), L(a.z, b.z, f));
   const planet = PLANET[W.id] || PLANET[H.G.map] || 'the planet', cap = H.caption || ((a, b) => H.banner(a, b));
-  const q0 = P.at(0), qy = P.y(0), at = s => { const q = P.at(s); return V(q.x, P.y(s), q.z); }, mouth = at(15), land = at(31), side = V(-q0.tz, 0, q0.tx), fwd = V(q0.tx, 0, q0.tz);
+  const a00 = P.at(0), q0 = W.cave ? { x: W.cave.q.x, z: W.cave.q.z, tx: a00.tx, tz: a00.tz } : a00, qy = W.top(q0.x, q0.z), at = s => { const q = P.at(s); return V(q.x, P.y(s), q.z); }, mouth = at(38), land = at(54), side = V(-q0.tz, 0, q0.tx), fwd = V(q0.tx, 0, q0.tz);
   // the queen, lit for her last moments
   const queen = add(M.alien('broodqueen')); queen.position.set(q0.x, qy, q0.z); queen.rotation.order = 'YXZ'; queen.rotation.y = Math.atan2(-q0.tx, -q0.tz);
   const key = add(new THREE.PointLight(0xffb070, 60, 40)); key.position.set(q0.x + fwd.x * 8 + side.x * 4, qy + 7, q0.z + fwd.z * 8 + side.z * 4);
@@ -223,9 +223,9 @@ export function victoryScene(H, squad, swap, done) {
     let cp, cl;
     if (t < 4.2) { const f = t / 4.2; cp = V(q0.x + fwd.x * L(10.5, 8.5, f) + side.x * L(-1.5, 1.5, f), qy + L(2.2, 3.4, f), q0.z + fwd.z * L(10.5, 8.5, f) + side.z * L(-1.5, 1.5, f)); cl = V(q0.x, qy + 3.4, q0.z); }
     else if (t < 8) { const f = (t - 4.2) / 3.8; cp = V(q0.x + fwd.x * 11 + side.x * L(2, 1, f), qy + L(4.5, 6, f), q0.z + fwd.z * 11 + side.z * L(2, 1, f)); cl = V(q0.x, qy + 1.5, q0.z); }
-    else if (t < tBoard0) { const f = (t - 8) / (tBoard0 - 8), c = at(52); cp = V(c.x, c.y + L(1.5, 2.6, f), c.z); cl = V(heli.position.x, heli.position.y + 1, heli.position.z); }
-    else if (t < tLift + 1.5) { const f = (t - tBoard0) / (tLift + 1.5 - tBoard0), m = LV(mouth, land, 0.45); const c = at(23); cp = V(c.x + side.x * L(4.5, 3.5, f), c.y + 2.4, c.z + side.z * L(4.5, 3.5, f)); cl = V(L(mouth.x, land.x, 0.25 + f * 0.6), m.y + 1.8, L(mouth.z, land.z, 0.25 + f * 0.6)); }
-    else { const c = at(50); cp = V(c.x, c.y + 1.4, c.z); cl = heli.position.clone(); }
+    else if (t < tBoard0) { const f = (t - 8) / (tBoard0 - 8), c = at(74); cp = V(c.x, c.y + L(1.5, 2.6, f), c.z); cl = V(heli.position.x, heli.position.y + 1, heli.position.z); }
+    else if (t < tLift + 1.5) { const f = (t - tBoard0) / (tLift + 1.5 - tBoard0), m = LV(mouth, land, 0.45); const c = at(44); cp = V(c.x + side.x * L(4.5, 3.5, f), c.y + 2.4, c.z + side.z * L(4.5, 3.5, f)); cl = V(L(mouth.x, land.x, 0.25 + f * 0.6), m.y + 1.8, L(mouth.z, land.z, 0.25 + f * 0.6)); }
+    else { const c = at(72); cp = V(c.x, c.y + 1.4, c.z); cl = heli.position.clone(); }
     camera.position.copy(cp); camera.lookAt(cl);
     if (u > 4.6) once('fd', () => H.fade(true));
     if (u > 6) { clear(); act2(swap()); return; }

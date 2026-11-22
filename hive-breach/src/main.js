@@ -173,6 +173,7 @@ function fx(e) {
     case 'dressed': if (e.to === G.myId) { audio.sfx('heal'); toast('Field dressing: +40 health', 2); } break;
     case 'kit': if (e.to === G.myId) toast(`Turret kit picked up (${e.n}/2)`, 1.5); break;
     case 'carry': case 'dropped': audio.sfx('place', vol(dist(e.x ?? G.me.x, e.z ?? G.me.z)) * 0.7); break;
+    case 'stowed': if (e.to === G.myId) toast(`${e.n} back in your pack`, 1.5); break;
     case 'scrap': if (e.to === G.myId) { audio.sfx('tink', 0.9); G.scrapFlash = 0.5; } break;
     case 'ammo': if (e.to === G.myId) { refillAmmo(1); audio.sfx('pickup'); toast('Ammo: fully stocked.', 2); } break;
     case 'resup': if (e.to === G.myId) { refillAmmo(e.f); if (!G.resupT || G.time - G.resupT > 6) { G.resupT = G.time; toast('Forward Resupply: restocking slowly…', 2); } } break;
@@ -344,14 +345,21 @@ function markSprite() {
   if (!markMat) { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); g.fillStyle = '#ff3030'; g.beginPath(); g.moveTo(32, 2); g.lineTo(62, 58); g.lineTo(2, 58); g.closePath(); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 40px sans-serif'; g.textAlign = 'center'; g.fillText('!', 32, 52); markMat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false }); }
   const s = new THREE.Sprite(markMat); s.scale.set(0.9, 0.9, 1); s.renderOrder = 6; return s;
 }
-// scrap piles: one instanced mesh of rusty metal chunks with a gold glint, slowly turning
-const SCRAP_MAX = 260; let scrapIM = null, scrapGl = null; const _sm = new THREE.Matrix4(), _sq = new THREE.Quaternion(), _sv = new THREE.Vector3(), _ss = new THREE.Vector3(1, 1, 1);
+// scrap piles: a heap of plates, pipe and a gear on an orange glowing ring, under a short light shaft; only nearby piles are drawn
+const scrapV = new Map(); let scrapK = null;
+function scrapMesh() {
+  if (!scrapK) { const add = { blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
+    scrapK = { plate: new THREE.BoxGeometry(1.2, 0.12, 0.75), pipe: new THREE.CylinderGeometry(0.11, 0.11, 1.4, 8), gear: new THREE.CylinderGeometry(0.42, 0.42, 0.14, 8), ring: new THREE.RingGeometry(1.0, 1.35, 28), shaft: new THREE.CylinderGeometry(0.07, 0.25, 4, 8, 1, true),
+      metal: M.mat(0xb8bcc2, { m: 0.85, r: 0.25 }), rust: M.mat(0xa05a30, { m: 0.4, r: 0.7 }), ringM: new THREE.MeshBasicMaterial({ color: 0xff9020, opacity: 0.75, side: THREE.DoubleSide, ...add }), shaftM: new THREE.MeshBasicMaterial({ color: 0xffa040, opacity: 0.35, side: THREE.DoubleSide, ...add }) }; }
+  const K = scrapK, g = new THREE.Group(), m = (geo, mat, x, y, z, rx, ry, rz) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); g.add(o); return o; };
+  m(K.plate, K.metal, 0, 0.12, 0, 0.1, 0.3, 0.15); m(K.plate, K.rust, 0.2, 0.3, 0.1, -0.25, 1.4, 0.2); m(K.pipe, K.metal, -0.3, 0.3, 0.2, 0.2, 0, 1.3); m(K.gear, K.rust, 0.25, 0.5, -0.2, 0.6, 0, 0.3);
+  const ring = m(K.ring, K.ringM, 0, 0.06, 0, -Math.PI / 2, 0, 0), shaft = m(K.shaft, K.shaftM, 0, 2.1, 0, 0, 0, 0); g.userData = { ring, shaft }; return g;
+}
 function syncScrap(S) {
-  if (!scrapIM) { const g = new THREE.DodecahedronGeometry(0.62, 0); g.scale(1.4, 0.6, 1.1); scrapIM = new THREE.InstancedMesh(g, M.mat(0xb8a890, { m: 0.8, r: 0.3, e: 0x302010 }), SCRAP_MAX); scrapGl = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.26), new THREE.MeshBasicMaterial({ color: 0xffd040 }), SCRAP_MAX); scrapIM.frustumCulled = scrapGl.frustumCulled = false; }
-  if (scrapIM.parent !== scene) { scene.add(scrapIM); scene.add(scrapGl); }
-  const L = G.explore || G.cine ? [] : S.SC || [], n = Math.min(SCRAP_MAX, L.length);
-  for (let i = 0; i < n; i++) { const c = L[i], y = c.y ?? (c.y = G.W.top(c.x, c.z)); _sq.setFromAxisAngle(_sv.set(0, 1, 0), G.time * 0.8 + c.id); _sm.compose(_sv.set(c.x, y + 0.3, c.z), _sq, _ss); scrapIM.setMatrixAt(i, _sm); _sm.compose(_sv.set(c.x, y + 1.25 + Math.sin(G.time * 3 + c.id) * 0.18, c.z), _sq, _ss); scrapGl.setMatrixAt(i, _sm); }
-  scrapIM.count = scrapGl.count = n; scrapIM.instanceMatrix.needsUpdate = scrapGl.instanceMatrix.needsUpdate = true;
+  const L = G.explore || G.cine ? [] : S.SC || [], seen = new Set(), me = G.me;
+  for (const c of L) { seen.add(c.id); let v = scrapV.get(c.id); if (!v) { v = scrapMesh(); v.position.set(c.x, G.W.top(c.x, c.z), c.z); v.rotation.y = c.id; scene.add(v); scrapV.set(c.id, v); }
+    const d = me ? Math.hypot(c.x - me.x, c.z - me.z) : 0; v.visible = d < 75; if (v.visible) { const p = 1 + Math.sin(G.time * 4 + c.id) * 0.12; v.userData.ring.scale.set(p, p, 1); v.userData.shaft.material.opacity = 0.35; } }
+  for (const [id, v] of scrapV) if (!seen.has(id)) { scene.remove(v); scrapV.delete(id); }
 }
 function syncView(S, dt) {
   syncScrap(S);
@@ -394,7 +402,7 @@ function syncView(S, dt) {
       u.head.position.z *= 0.8;
     }
     const building = t.b > 0 || t.up > 0;
-    if (building && !v.scaf) { v.scaf = scaffold(t.kind === 'barricade' ? 7 : 2.6, t.kind === 'barricade' ? 2.4 : 3.4); v.scaf.position.set(t.x, t.y, t.z); if (t.kind === 'barricade') v.scaf.rotation.y = t.ry; scene.add(v.scaf); }
+    if (false && building && !v.scaf) { v.scaf = scaffold(t.kind === 'barricade' ? 7 : 2.6, t.kind === 'barricade' ? 2.4 : 3.4); v.scaf.position.set(t.x, t.y, t.z); if (t.kind === 'barricade') v.scaf.rotation.y = t.ry; scene.add(v.scaf); }
     if (v.scaf) { v.scaf.visible = building; if (building) { const f = t.up > 0 ? t.up : 1 - t.b / (t.bt || 1), txt = t.up > 0 ? `WELDING Lv${t.lvl + 1} ${Math.round(t.up * 100)}%` : `BUILDING ${t.b.toFixed(1)}s`; v.scaf.position.copy(v.mesh.position); v.scaf.userData.bar.scale.x = Math.max(0.01, f); v.scaf.userData.bar.position.x = -(1 - f) * 0.9; if (v.scaf.userData.txt !== txt) setLabel(v.scaf.userData.label, txt); v.scaf.userData.txt = txt; v.scaf.userData.cage.rotation.y += dt * 0.6; v.scaf.userData.cage.children.forEach((c, i) => { if (c.userData.ring) c.position.y = ((G.time * 0.7 + i * 0.5) % 1) * v.scaf.userData.h; }); if (Math.random() < dt * 8) burst(t.x + (Math.random() - 0.5) * 1.5, t.y + Math.random() * 2.5, t.z + (Math.random() - 0.5) * 1.5, 0xffd060, 2, 2, 0.3); } }
     const sc0 = [1, 1.28, 1.55][t.lvl - 1] || 1, grow = t.fresh ? 0.15 + 0.85 * (1 - t.b / (t.bt || 1)) : 1; let mk = 1; if (v.morph > 0) { v.morph = Math.max(0, v.morph - dt / 1.3); const m = v.morph; mk = 1 + Math.sin((1 - m) * Math.PI * 4) * 0.18 * m - 0.25 * m * m; if (u.head) u.head.rotation.y += dt * 14 * m; if (v.up) { const e = Math.min(1, (1 - m) * 1.6); v.up.scale.setScalar(e); v.up.userData.head.scale.setScalar(e); } if (Math.random() < dt * 30 * m) burst(v.mesh.position.x + (Math.random() - 0.5) * 2, v.mesh.position.y + Math.random() * 3 * sc0, v.mesh.position.z + (Math.random() - 0.5) * 2, Math.random() < 0.5 ? 0x9fe8ff : 0xffd040, 3, 3, 0.5); }
     v.mesh.scale.set(sc0 * mk, sc0 * grow * mk, sc0 * mk);
@@ -417,10 +425,11 @@ function syncView(S, dt) {
   // supply crates float down on parachutes and vanish 60 s after landing; a countdown shows over each
   for (const o of S.O) {
     seen.add(o.id); let m = view.pods.get(o.id);
-    if (!m) { m = M.supplyPod(); m.add(M.parachute()); m.userData.label = timerLabel(); m.userData.label.position.y = 3.2; m.add(m.userData.label); scene.add(m); view.pods.set(o.id, m); m.gy = G.W.top(o.x, o.z); }
+    if (!m) { m = M.supplyPod(); m.add(M.parachute()); { const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.9, 70, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd040, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); bm.position.y = 35; bm.userData.beam = 1; m.add(bm); const rg = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.8, 36), new THREE.MeshBasicMaterial({ color: 0xffd040, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); rg.rotation.x = -Math.PI / 2; rg.position.y = 0.08; rg.userData.ring = 1; m.add(rg); } m.userData.label = timerLabel(); m.userData.label.position.y = 3.2; m.add(m.userData.label); scene.add(m); view.pods.set(o.id, m); m.gy = G.W.top(o.x, o.z); }
     const land = Math.max(0, o.land), life = Math.ceil(o.life ?? 0);
     m.position.set(o.x + Math.sin(G.time * 1.3 + o.id) * land * 0.15, m.gy + land * 4.5, o.z); m.rotation.y += dt * (land > 0 ? 0.4 : 1);
-    m.children.forEach(c => { if (c.userData.chute) { c.visible = land > 0; c.rotation.z = Math.sin(G.time * 2 + o.id) * 0.08; } });
+    m.children.forEach(c => { if (c.userData.chute) { c.visible = land > 0; c.rotation.z = Math.sin(G.time * 2 + o.id) * 0.08; } if (c.userData.beam) c.material.opacity = 0.22 + Math.sin(G.time * 3 + o.id) * 0.1; if (c.userData.ring) { c.visible = land <= 0; const k = 1 + (G.time * 0.8 % 1) * 0.6; c.scale.set(k, k, 1); c.material.opacity = 0.9 * (1 - (G.time * 0.8 % 1)); } });
+    if (land <= 0 && Math.random() < dt * 4) smoke(o.x, m.gy + 1.2, o.z, 1, 0.6);
     if (land <= 0 && !m.landed) { m.landed = 1; burst(o.x, m.gy + 0.3, o.z, 0xc0a060, 12, 4, 0.6); smoke(o.x, m.gy + 2.4, o.z, 3, 1); audio.sfx('place', vol(dist(o.x, o.z))); }
     const txt = land > 0 ? 'INCOMING' : `${life}s`; if (m.userData.txt !== txt) { m.userData.txt = txt; setLabel(m.userData.label, txt); }
     m.userData.label.material.opacity = land <= 0 && life <= 10 ? (Math.sin(G.time * 10) > 0 ? 1 : 0.3) : 1;
@@ -544,13 +553,17 @@ function throwItem(my) {
 }
 function frontOf(d) { const me = G.me; return { x: +(me.x - Math.sin(me.yaw) * d).toFixed(2), z: +(me.z - Math.cos(me.yaw) * d).toFixed(2), ry: +me.yaw.toFixed(2) }; }
 function dropNew(kind, my) {
-  const T = TURRETS[kind]; if (!T) return; if ((my.kits ?? 2) < 1) { audio.sfx('nope'); toast('No turret kits left: pick up more in the hub (you carry 2).', 2.5); return; }
+  const T = TURRETS[kind]; if (!T) return;
+  // pressing the key of the turret in your hands puts it back in your pack
+  const held = (state() || { T: [] }).T.find(t => t.carry === G.myId); if (held && held.kind === kind) { req({ a: 'stow' }); G.me.carry = 0; audio.sfx('pouch', 0.8); return; }
+  if (held) { req({ a: 'stow' }); my = Object.assign({}, my, { kits: (my.kits ?? 2) + 1, gold: my.gold + (held.spent || 0) }); }
+  if ((my.kits ?? 2) < 1) { audio.sfx('nope'); toast('No turret kits left: pick up more in the hub (you carry 2).', 2.5); return; }
   if (my.gold < T.cost) { audio.sfx('nope'); toast(`Need ${T.cost} gold for a ${T.name}.`, 2); return; }
-  req({ a: 'place', kind, ...frontOf(1.7) }); audio.sfx('place', 0.6); toast(`${T.name} in hand: left click puts it down`, 2);
+  req({ a: 'place', kind, ...frontOf(1.7) }); audio.sfx('place', 0.6); toast(`${T.name} in hand: left click puts it down · press the key again or switch weapons to put it away`, 2.5);
 }
 function dropCarried() { if (!G.me.carry) return; req({ a: 'drop', ...frontOf(1.9) }); G.me.carry = 0; G.me.holdFire = true; audio.sfx('place', 0.8); }
 function setSlot(n) {
-  if (G.me.carry) dropCarried();
+  if (G.me.carry) { req({ a: 'stow' }); G.me.carry = 0; audio.sfx('pouch', 0.8); }
   const me = G.me; if (n === 4 && !CLASSES[G.cls].heal) return; if (n === me.slot) return; if (me.slot <= 1) me.wpn[me.slot] = { ammo: me.ammo, reserve: me.reserve };
   me.slot = n; me.rel = 0; me.shells = false; if (n <= 1) { const w = me.wpn[n] || { ammo: CLASSES[G.cls].gun.mag, reserve: CLASSES[G.cls].gun.reserve }; me.ammo = w.ammo; me.reserve = w.reserve; } me.cd = 0.35; audio.sfx('magin', 0.5);
 }
@@ -788,7 +801,7 @@ function updateMe(dt, S) {
     for (const k of ['sentry', 'defense', 'third']) if (hits[KB[k]] && !G.explore) dropNew(CLASSES[G.cls][k], my);
     // carrying a turret: left click or changing weapon puts it down in front of you
     const carried = S.T.find(t => t.carry === G.myId); me.carry = carried ? carried.id : 0;
-    if (carried) { prompt(`Carrying <b>${TURRETS[carried.kind].name}</b> · <b>Left click</b> puts it down · it takes double damage while carried`); if (clickL) { clickL = false; dropCarried(); } }
+    if (carried) { prompt(`Carrying <b>${TURRETS[carried.kind].name}</b> · <b>Left click</b> puts it down · its key or a weapon key puts it back in your pack`); if (clickL) { clickL = false; dropCarried(); } }
     if (me.slot === 5) { const n = my.dr ?? 2; if (mouseL && !me.carry && n > 0 && my.hp < my.mhp) { if (!me.dressT) audio.sfx('pouch', 0.8); me.dressT = (me.dressT || 0) + dt; prompt(`Applying field dressing… ${Math.min(100, Math.round(me.dressT / 2 * 100))}%`); if (view2.dress) view2.dress.position.y = -0.2 + Math.sin(me.dressT * 9) * 0.02 - me.dressT * 0.03; if (me.dressT >= 2) { me.dressT = 0; req({ a: 'dress' }); setSlot(0); } } else { me.dressT = 0; prompt(n < 1 ? '<span class="bad">No field dressings</span> · more in the hub' : my.hp >= my.mhp ? `Field dressing ×${n} · you are not hurt` : `Field dressing ×${n} · <b>hold left click</b> to patch yourself up (+40 health)`); } }
     if (me.slot === 3 && clickL && !me.place && me.cd <= 0) { clickL = false; me.cd = 0.8; throwItem(my); }
     if (hits[KB.grenade] && !me.place && (me.gcd || 0) <= 0) { me.gcd = 0.8; throwItem(my); }
@@ -905,6 +918,7 @@ function openShop(on) { G.shop = on; $('shop').hidden = !on; if (on) { G.me.plac
 // ---------------------------------------------------------------- the main loop
 let last = performance.now(), netT = 0, poseT = 0;
 function frame(now) {
+  G.wdT = (G.wdT || 0) + 1; if (G.wdT > 60) { G.wdT = 0; audio.watchdog(); if (music.a && music.a.ctx && music.a.ctx.state !== 'running') music.a.ctx.resume().catch(() => { }); }
   requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; G.time += dt;
   if (hits[KB.music]) toast(music.toggle() ? 'Music on (N)' : 'Music off (N)', 2);
   if (hits[KB.map] && G.on && !G.shop) { if (G.mmap) closeMissileMap(); else openMissileMap(''); }

@@ -61,11 +61,19 @@ export class Audio {
   // everything goes through a compressor (so a wall of gunfire stays loud without crackling) and a battlefield echo
   chain() {
     const c = this.ctx; this.comp = c.createDynamicsCompressor(); this.comp.threshold.value = -20; this.comp.knee.value = 12; this.comp.ratio.value = 3.5; this.comp.attack.value = 0.006; this.comp.release.value = 0.3; this.comp.connect(c.destination);
-    this.out = c.createGain(); this.out.gain.value = 0.8; this.out.connect(this.comp);
+    this.mon = c.createAnalyser(); this.mon.fftSize = 256; this.comp.connect(this.mon); this.monBuf = new Float32Array(256);
+    if (!this.out) { this.out = c.createGain(); this.out.gain.value = 0.8; } this.out.connect(this.comp);
     // a made-up impulse response: a long, dark, decaying rumble, like shots echoing off cliffs
     const len = c.sampleRate * 2.6, ir = c.createBuffer(2, len, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < len; i++) { const t = i / len; lp += (Math.random() * 2 - 1 - lp) * (0.35 - t * 0.25); d[i] = lp * Math.pow(1 - t, 2.4) * (i < 400 ? i / 400 : 1); } }
-    this.verb = c.createConvolver(); this.verb.buffer = ir; this.verbIn = c.createGain(); this.verbIn.gain.value = 0.4; this.verbIn.connect(this.verb); this.verb.connect(this.out);
+    this.verb = c.createConvolver(); this.verb.buffer = ir; if (!this.verbIn) { this.verbIn = c.createGain(); this.verbIn.gain.value = 0.4; } this.verbIn.connect(this.verb); this.verb.connect(this.out);
+  }
+  // Called every second by the game: keeps the sound alive. Browsers can suspend audio (focus changes, Bluetooth, power saving),
+  // a stuck overlap counter could mute gunfire, and one bad value can jam the compressor into silence; each of these is repaired here.
+  watchdog() {
+    const c = this.ctx; if (!c) return; if (c.state !== 'running' && c.state !== 'closed') c.resume().catch(() => { });
+    if ((this.live || 0) > 0 && performance.now() - (this.liveT || 0) > 3000) this.live = 0;
+    if (this.mon) { this.mon.getFloatTimeDomainData(this.monBuf); let bad = false; for (let i = 0; i < this.monBuf.length; i++) if (!isFinite(this.monBuf[i])) { bad = true; break; } if (bad) { try { this.out.disconnect(); this.verbIn.disconnect(); this.comp.disconnect(); this.verb.disconnect(); } catch (e) { } this.chain(); } }
   }
   noiseN(f0, f1, type, dur, v, t0, dest, q = 0.7) { const c = this.ctx, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = this.buf(Math.max(0.05, dur)); fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t0); if (f1 !== f0) fl.frequency.exponentialRampToValueAtTime(f1, t0 + dur); s.connect(fl); fl.connect(g); g.connect(dest); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur); s.start(t0); s.stop(t0 + dur + 0.02); return g; }
   tone(f0, f1, type, dur, v, t0, dest) { const c = this.ctx, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); o.connect(g); g.connect(dest); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur); o.start(t0); o.stop(t0 + dur + 0.02); }
@@ -104,22 +112,24 @@ export class Audio {
   }
   // play a shot: power (from upgrades) makes it louder and deeper, far (0..1) muffles it and drowns it in echo
   gun(kind, vol = 1, power = 1, far = 0) {
-    const c = this.ctx; if (!c || c.state !== 'running' || vol < 0.03) return; const t = c.currentTime;
+    const c = this.ctx; if (!c || c.state !== 'running' || !(vol >= 0.03) || !isFinite(power) || !isFinite(far)) return; const t = c.currentTime;
     const k = 'g' + kind; if (this.last[k] && t - this.last[k] < (kind === 'mini' || kind === 'smg' ? 0.04 : 0.025)) return; this.last[k] = t; if ((this.live || 0) > 12 && vol < 0.9) return;
     const list = this.shots(kind), src = c.createBufferSource(); src.buffer = list[(Math.random() * list.length) | 0];
     src.playbackRate.value = (0.94 + Math.random() * 0.12) / (1 + (power - 1) * 0.35);
     const g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 16000 - far * 14500; lp.Q.value = 0.5;
     g.gain.value = vol * this.vol * 0.5 * (0.85 + 0.15 * power) * (1 - far * 0.6);
     src.connect(lp); lp.connect(g); g.connect(this.out); const send = c.createGain(); send.gain.value = 0.04 + far * 0.3; g.connect(send); send.connect(this.verbIn);
-    src.start(t); this.live = (this.live || 0) + 1; src.onended = () => { this.live--; };
+    src.start(t); this.live = (this.live || 0) + 1; this.liveT = performance.now(); src.onended = () => { this.live = Math.max(0, this.live - 1); };
   }
   setVol(v) { this.vol = v; try { localStorage.setItem('hb-sfx', v); } catch (e) { } }
   buf(dur) { const c = this.ctx, k = Math.round(dur * 100); if (this.noise[k]) return this.noise[k]; const n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), ch = b.getChannelData(0); for (let i = 0; i < n; i++) ch[i] = Math.random() * 2 - 1; return this.noise[k] = b; }
   // vol can be lowered for far-away sounds; a sound is not played twice within 30 ms
   sfx(name, vol = 1) {
-    const c = this.ctx; if (c && FOLEY[name] && c.state === 'running') { const t0 = c.currentTime; if (this.last[name] && t0 - this.last[name] < 0.03) return; this.last[name] = t0; this.fb ??= {}; const b = this.fb[name] ??= FOLEY[name](c);
+    if (!(vol >= 0)) return; const c = this.ctx; if (c && FOLEY[name] && c.state === 'running') { const t0 = c.currentTime; if (this.last[name] && t0 - this.last[name] < 0.03) return; this.last[name] = t0; this.fb ??= {}; const b = this.fb[name] ??= FOLEY[name](c);
       const src = c.createBufferSource(); src.buffer = b; src.playbackRate.value = 0.96 + Math.random() * 0.08; const g = c.createGain(); g.gain.value = vol * this.vol * 0.8; src.connect(g); g.connect(this.out || c.destination); if (this.verbIn) { const sd = c.createGain(); sd.gain.value = 0.05; g.connect(sd); sd.connect(this.verbIn); } src.start(); return; }
     const d = S[name]; if (!c || !d || c.state !== 'running' || vol < 0.03) return; const t0 = c.currentTime;
+    // never pile up too many synthesized sounds at once: that is what makes the browser drop audio
+    if ((this.sfxN || 0) > 48) return; this.sfxN = (this.sfxN || 0) + 1; setTimeout(() => { this.sfxN--; }, 600);
     if (this.last[name] && t0 - this.last[name] < 0.03) return; this.last[name] = t0;
     for (const p of d) {
       const g = c.createGain(); g.connect(this.out || c.destination);

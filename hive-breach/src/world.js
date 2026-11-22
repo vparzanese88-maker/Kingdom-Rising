@@ -22,7 +22,7 @@ export class Path {
     s = Math.max(0, Math.min(this.len, s)); const i = this.seg(s), L = this.cum[i] - this.cum[i - 1], f = L ? (s - this.cum[i - 1]) / L : 0, e = f * f * (3 - 2 * f);
     const base = this.hs[i - 1] + (this.hs[i] - this.hs[i - 1]) * e, n = this.hs.length - 1;
     // near the hub and the hive the ground is levelled flat; the track settles onto it the same way
-    const kh = sstep(HUB_R + 4, HUB_R + 12, this.len - s), kv = sstep(10, 18, s); let y = this.hs[n] + (base - this.hs[n]) * kh; y = this.hs[0] + (y - this.hs[0]) * kv; return y;
+    const kh = sstep(HUB_R + 4, HUB_R + 12, this.len - s), kv = sstep(38, 48, s); let y = this.hs[n] + (base - this.hs[n]) * kh; y = this.hs[0] + (y - this.hs[0]) * kv; return y;
   }
   near(x, z) {
     let best = { d: 1e9, s: 0, tx: 1, tz: 0, x, z };
@@ -62,7 +62,7 @@ export function makeTerrain(D, path, hubP, hiveP) {
     const out = Math.max(Math.abs(x), Math.abs(z)) - (BOUNDS - 2);
     let h = hills(x, z) + ridge(x, z) + feats(x, z) + (out > 0 ? out * 1.8 + Math.max(0, Math.sin(x * 0.05) * Math.cos(z * 0.06)) * out * 0.8 : 0);
     const n = path.near(x, z), py = path.y(n.s), R = ridge(n.x, n.z), bw = 15 - 13.6 * Math.min(1, R / 3);     // a narrow cut where the track goes under a ridge
-    for (const [p, y, a, b] of [[hubP, hubY, HUB_R + 4, HUB_R + 12], [hiveP, hiveY, 10, 18]]) { const g = sstep(a, b, Math.hypot(x - p.x, z - p.z)); h = y + (h - y) * g; }   // level the ground round the bases first,
+    for (const [p, y, a, b] of [[hubP, hubY, HUB_R + 4, HUB_R + 12], [hiveP, hiveY, 27, 36]]) { const g = sstep(a, b, Math.hypot(x - p.x, z - p.z)); h = y + (h - y) * g; }   // level the ground round the bases first,
     const f = noPath ? 1 : sstep(PATH_W / 2 + 0.3, PATH_W / 2 + 0.3 + bw, n.d); h = py - 0.02 + (h - py + 0.02) * f;                                                          // then lay the track on top
     const k = chasm(x, z); h = FLOOR + (h - FLOOR) * k;
     return h;
@@ -140,7 +140,7 @@ export function placeError(kind, x, z, path, turrets, hubP, hiveP, T) {
 export function buildWorld(scene, mapId) {
   const D = MAPS[mapId], path = new Path(D.pts, D.hs), W = { def: D, id: mapId, path, colliders: [], group: new THREE.Group() };
   const s0 = path.pts[0], s1 = path.pts[path.pts.length - 1];
-  W.hiveP = { x: s0.x, z: s0.z }; W.hubP = { x: s1.x, z: s1.z };
+  { const a0 = path.at(0); W.hiveP = { x: s0.x + a0.tx * 6, z: s0.z + a0.tz * 6 }; } W.hubP = { x: s1.x, z: s1.z };
   const T = W.T = makeTerrain(D, path, W.hubP, W.hiveP); W.ground = T.ground; W.top = T.top;
   scene.add(W.group); const g = W.group;
   scene.background = new THREE.Color(D.sky); scene.fog = new THREE.Fog(D.fog, D.fogD[0], D.fogD[1]);
@@ -224,7 +224,7 @@ export function buildWorld(scene, mapId) {
   const R = rng(mapId.length * 991 + 3);
   for (let i = 0; i < (D.dense ? 700 : 420); i++) {
     const x = (R() * 2 - 1) * (BOUNDS + 40), z = (R() * 2 - 1) * (BOUNDS + 40), n = path.near(x, z), out = Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2;
-    if (n.d < PATH_W + 4 && !out) continue; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < HUB_R + 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 14) continue;
+    if (n.d < PATH_W + 4 && !out) continue; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < HUB_R + 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 44) continue;
     if (T.chasm(x, z) < 0.99 || T.ridge(x, z) > 3) continue;
     if (!out && R() < (D.dense ? 0.35 : 0.55)) continue; if (W.nestP.some(n => Math.hypot(n.x - x, n.z - z) < 6)) continue;
     const kind = !out && R() < 0.3 ? (R() < 0.2 ? 'crate' : D.extra[(R() * D.extra.length) | 0]) : R() < 0.3 ? 'boulder' : D.prop, p = M.prop(kind, R); p.position.set(x, T.raw(x, z) - 0.1, z); p.rotation.y = R() * 6; g.add(p);
@@ -314,23 +314,32 @@ const LORE = {
 };
 // The Brood Queen's lair: a great rock chamber with a roof, open toward the track; the queen sits at the start of the track inside it
 function hiveCave(g, W, T, D, path) {
-  const R = rng(4242), p0 = path.at(0), cy = path.y(0), cx = p0.x - p0.tx * 2, cz = p0.z - p0.tz * 2, open = Math.atan2(p0.tz, p0.tx), RAD = 15;
+  // a great cavern in the side of a mountain: a 30 m chamber under a high rock roof, a huge mouth facing the track, the queen at the very back
+  const R = rng(4242), p0 = path.at(0), cy = path.y(0), cx = W.hiveP.x, cz = W.hiveP.z, open = Math.atan2(p0.tz, p0.tx), RAD = 30, HALF = 0.6, fx = p0.tx, fz = p0.tz;
   const rockM = M.mat(D.rock, { flat: false, r: 1 }), C = new THREE.Group(); C.position.set(cx, 0, cz); g.add(C);
-  for (let i = 0; i < 30; i++) { const a = open + 0.48 + i / 29 * (6.283 - 0.96), rr = 3.2 + R() * 1.4, x = Math.cos(a) * RAD, z = Math.sin(a) * RAD, gy = T.raw(cx + x, cz + z); const m = new THREE.Mesh(new THREE.DodecahedronGeometry(rr, 1), rockM); m.position.set(x, gy + rr * 0.9, z); m.scale.y = 1.9; m.rotation.set(R(), R() * 6, R()); m.castShadow = true; C.add(m); W.colliders.push({ x: cx + x, z: cz + z, r: rr * 0.92, h: 11, gy }); }
-  // the entrance: two pillars and a lintel of rock over the track
-  for (const sd of [-1, 1]) { const a = open + sd * 0.5, x = Math.cos(a) * (RAD + 1), z = Math.sin(a) * (RAD + 1), m = new THREE.Mesh(new THREE.DodecahedronGeometry(3.4, 1), rockM); m.position.set(x, T.raw(cx + x, cz + z) + 4, z); m.scale.set(1, 2.6, 1); C.add(m); }
-  const lin = new THREE.Mesh(new THREE.DodecahedronGeometry(3, 1), rockM); lin.position.set(Math.cos(open) * (RAD + 1), cy + 9.5, Math.sin(open) * (RAD + 1)); lin.scale.set(1.2, 0.8, 3.4); lin.rotation.y = -open; C.add(lin);
-  const roof = new THREE.Mesh(new THREE.SphereGeometry(19, 24, 12, 0, 6.29, 0, 1.22), rockM); roof.scale.y = 0.55; roof.position.y = cy + 3; roof.material = rockM.clone(); roof.material.side = THREE.DoubleSide; C.add(roof);
-  for (let i = 0; i < 14; i++) { const a = R() * 6.28, d = 3 + R() * 10, st = new THREE.Mesh(new THREE.ConeGeometry(0.5 + R() * 0.6, 2 + R() * 3, 6), rockM); st.position.set(Math.cos(a) * d, cy + 12.5 - d * 0.35, Math.sin(a) * d); st.rotation.x = Math.PI; C.add(st); }
+  const rock = (x, z, r, sy, y0, col = true, h = 26) => { const gy = T.raw(cx + x, cz + z), m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), rockM); m.position.set(x, (y0 ?? gy) + r * sy * 0.55, z); m.scale.set(1, sy, 1); m.rotation.set(R() * 0.5, R() * 6, R() * 0.5); m.castShadow = true; C.add(m); if (col) W.colliders.push({ x: cx + x, z: cz + z, r: r * 0.9, h, gy }); return m; };
+  // the cavern wall: a ring of tall rock, open toward the track
+  for (let i = 0; i < 34; i++) { const a = open + HALF + i / 33 * (6.283 - HALF * 2), rr = 6 + R() * 2.5; rock(Math.cos(a) * (RAD + 2), Math.sin(a) * (RAD + 2), rr, 2.6 + R() * 0.8); }
+  // the mountain itself, heaped around and over the cavern
+  for (let i = 0; i < 22; i++) { const a = open + HALF + 0.25 + R() * (6.283 - HALF * 2 - 0.5), d = RAD + 12 + R() * 18, r = 13 + R() * 9; rock(Math.cos(a) * d, Math.sin(a) * d, r, 1.5 + R() * 0.7, undefined, false); }
+  for (let i = 0; i < 9; i++) { const a = open + Math.PI + (R() - 0.5) * 3.6, d = R() * RAD * 0.8, r = 12 + R() * 7; rock(Math.cos(a) * d, Math.sin(a) * d, r, 0.9, cy + 24 + R() * 6, false); }
+  // the huge mouth: two great buttresses and a lintel of rock arching over the track
+  for (const sd of [-1, 1]) { const a = open + sd * (HALF + 0.05), x = Math.cos(a) * (RAD + 3), z = Math.sin(a) * (RAD + 3); rock(x, z, 9, 3.2); }
+  for (let i = -3; i <= 3; i++) { const a = open + i * 0.18, x = Math.cos(a) * (RAD + 3), z = Math.sin(a) * (RAD + 3), m = rock(x, z, 6.5, 0.9, cy + 23 + Math.abs(i) * 1.2, false); m.scale.x = 1.4; }
+  const roof = new THREE.Mesh(new THREE.SphereGeometry(RAD + 6, 32, 14, 0, 6.29, 0, 1.3), rockM.clone()); roof.scale.y = 0.72; roof.position.y = cy + 2; roof.material.side = THREE.DoubleSide; C.add(roof);
+  for (let i = 0; i < 26; i++) { const a = R() * 6.28, d = 4 + R() * (RAD - 6), st = new THREE.Mesh(new THREE.ConeGeometry(0.7 + R() * 1, 3 + R() * 5, 6), rockM); st.position.set(Math.cos(a) * d, cy + 25 - (d / RAD) ** 2 * 12 - 2, Math.sin(a) * d); st.rotation.x = Math.PI; C.add(st); }
   // inside: a slime floor, egg clusters and a sick purple glow
-  const goo = new THREE.Mesh(new THREE.CircleGeometry(RAD - 1, 40), M.mat(0x3a1a40, { e: 0x200828, r: 0.3 })); goo.rotation.x = -Math.PI / 2; goo.position.y = cy + 0.06; C.add(goo);
-  const eggM = M.mat(0xc0a060, { e: 0x604010, ei: 0.8, op: 0.9, flat: false }); for (let i = 0; i < 26; i++) { const a = R() * 6.28, d = 7 + R() * 6.5; if (Math.abs(((a - open + 9.42) % 6.283) - 3.14) < 0.6) continue; const e = new THREE.Mesh(new THREE.SphereGeometry(0.45 + R() * 0.3, 10, 8), eggM); e.scale.y = 1.4; const x = Math.cos(a) * d, z = Math.sin(a) * d; e.position.set(x, T.raw(cx + x, cz + z) + 0.5, z); C.add(e); }
-  const L = new THREE.PointLight(0xb040ff, 40, 34); L.position.set(0, cy + 6, 0); C.add(L); W.caveLight = L;
-  W.caveRoof = { x: cx, z: cz, y: cy + 8, r: RAD + 1 }; W.cave = { x: cx, z: cz, r: RAD }; (W.shelters = W.shelters || []).push({ x: cx, z: cz, r: RAD - 1 });
+  const goo = new THREE.Mesh(new THREE.CircleGeometry(RAD - 1, 48), M.mat(0x3a1a40, { e: 0x200828, r: 0.3 })); goo.rotation.x = -Math.PI / 2; goo.position.y = cy + 0.06; C.add(goo);
+  const eggM = M.mat(0xc0a060, { e: 0x604010, ei: 0.8, op: 0.9, flat: false }); for (let i = 0; i < 46; i++) { const a = R() * 6.28, d = 10 + R() * (RAD - 12); if (Math.abs(((a - open + 9.42) % 6.283) - 3.14) < 0.7) continue; const e = new THREE.Mesh(new THREE.SphereGeometry(0.5 + R() * 0.35, 10, 8), eggM); e.scale.y = 1.4; const x = Math.cos(a) * d, z = Math.sin(a) * d; e.position.set(x, T.raw(cx + x, cz + z) + 0.55, z); C.add(e); }
+  const L = new THREE.PointLight(0xb040ff, 55, 70); L.position.set(-fx * 14, cy + 9, -fz * 14); C.add(L); W.caveLight = L;
+  const q = { x: cx - fx * 20, z: cz - fz * 20 };
+  W.caveRoof = { x: cx, z: cz, y: cy + 21, r: RAD + 2 }; W.cave = { x: cx, z: cz, r: RAD, q, y: cy }; (W.shelters = W.shelters || []).push({ x: cx, z: cz, r: RAD - 2 });
+  // the hive mound behind the queen
+  if (W.hive) { W.hive.position.set(q.x - fx * 7, cy, q.z - fz * 7); W.hive.scale.set(0.9, 0.7, 0.9); }
 }
 function placePOIs(g, W, T, D, mapId, path) {
   const R = rng(mapId.length * 7919 + 11), H = T.hub, hv = W.hiveP; W.lore = []; W.shelters = W.shelters || [];
-  const ok = (x, z, clear) => Math.abs(x) < BOUNDS - 12 && Math.abs(z) < BOUNDS - 12 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 18 && Math.hypot(x - hv.x, z - hv.z) > 30 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 1.5 && !W.lore.some(l => Math.hypot(l.x - x, l.z - z) < 40);
+  const ok = (x, z, clear) => Math.abs(x) < BOUNDS - 12 && Math.abs(z) < BOUNDS - 12 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 18 && Math.hypot(x - hv.x, z - hv.z) > 52 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 1.5 && !W.lore.some(l => Math.hypot(l.x - x, l.z - z) < 40);
   const spot = clear => { for (let k = 0; k < 400; k++) { const x = (R() * 2 - 1) * BOUNDS, z = (R() * 2 - 1) * BOUNDS; if (ok(x, z, clear)) return [x, z]; } return null; };
   const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };
   put('satellite', 18, M.satellite, [[0, 0, 2.2, 3]]); put('wreck', 22, M.wreck, [[-4, 0, 2.6, 4], [4.5, 2, 2.4, 3.5], [-10, 0, 2, 4]]); put('capsule', 16, M.capsule, [[0, 0, 2, 3]]); put('rover', 14, M.rover, [[0, 0, 1.8, 2.5]]);
@@ -353,13 +362,13 @@ function placePOIs(g, W, T, D, mapId, path) {
   // Kryos: heated shelter huts to wait out a blizzard
   if (mapId === 'ice') for (let i = 0; i < 5; i++) { const p2 = spot(16); if (!p2) continue; const [x, z] = p2, y = T.raw(x, z), h = M.hut(); h.position.set(x, y, z); h.rotation.y = Math.atan2(-x, -z); g.add(h); W.shelters.push({ x, z, r: 5 }); W.lore.push({ x, z, kind: 'hut', silent: 1 }); }
   // rock spires round the hive: you have to come close to hit its guardians
-  for (let i = 0; i < 18; i++) { const a = i / 18 * 6.28 + R() * 0.2, rr = 24 + R() * 8, x = hv.x + Math.cos(a) * rr, z = hv.z + Math.sin(a) * rr; if (path.near(x, z).d < 8 || Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2) continue; const sp = M.spire(R, D.rock); sp.position.set(x, T.raw(x, z), z); g.add(sp); W.colliders.push({ x, z, r: 1.9, h: 12 }); }
+  for (let i = 0; i < 18; i++) { const a = i / 18 * 6.28 + R() * 0.2, rr = 48 + R() * 10, x = hv.x + Math.cos(a) * rr, z = hv.z + Math.sin(a) * rr; if (path.near(x, z).d < 8 || Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2) continue; const sp = M.spire(R, D.rock); sp.position.set(x, T.raw(x, z), z); g.add(sp); W.colliders.push({ x, z, r: 1.9, h: 12 }); }
 }
 
 // Signs of a long war: fallen marines, dead aliens, wrecked tanks and mechs, sandbag lines, tank traps, dead turrets, burnt crates, flags.
 function battlefield(g, W, T, D, mapId, path) {
   const R = rng(mapId.length * 4447 + 5), H = T.hub, hv = W.hiveP;
-  const free = (x, z, clear) => Math.abs(x) < BOUNDS - 6 && Math.abs(z) < BOUNDS - 6 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 6 && Math.hypot(x - hv.x, z - hv.z) > 14 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 2;
+  const free = (x, z, clear) => Math.abs(x) < BOUNDS - 6 && Math.abs(z) < BOUNDS - 6 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 6 && Math.hypot(x - hv.x, z - hv.z) > 44 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 2;
   const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); };
   // battle lines along the track: sandbags, tank traps, bodies and wrecks 12-40 m from it
   for (let s = 30; s < path.len - 40; s += 22) {

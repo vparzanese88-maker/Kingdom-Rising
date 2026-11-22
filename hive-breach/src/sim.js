@@ -23,9 +23,9 @@ export class Sim {
     this.W = W; this.path = W.path; this.emit = emit; this.players = new Map(); this.reset();
   }
   reset() {
-    this.scrap = []; this.scrapT = 0; for (let i = 0; i < SCRAP_PILES; i++) this.spawnScrap();
     this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.items = []; this.pools = []; this.tm = []; this.drones = []; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = []; this.stormT = 0; this.stormI = 0; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0] }; this.spawnHive(1);
     for (const p of this.players.values()) this.resetPlayer(p);
+    this.scrap = []; this.scrapT = 0; for (let i = 0; i < SCRAP_PILES; i++) this.spawnScrap();   // after the id counter is set
   }
   resetPlayer(p) { p.scrap = 0; p.dr = DRESS; p.kits = KITS; p.pw = pwMax(p.cls); p.special = ''; p.acd = [0, 0, 0, 0]; p.items = CLASSES[p.cls] ? CLASSES[p.cls].throw.n : 2; p.buf = {}; p.cl = 0; p.adrT = 0; p.stimT = 0; p.rv = p.rv || 0; p.gold = START_GOLD; p.ups = { dmg: 0, rate: 0, mag: 0, spd: 0, hp: 0, arm: 0 }; p.mhp = p.hp = maxHp(p.cls, p.ups); p.dead = false; p.rt = 0; p.kills = 0; p.sp = (p.sp || 0) + 1; }
   addPlayer(id, name, cls) {
@@ -35,9 +35,12 @@ export class Sim {
     this.emit({ k: 'toast', m: `${name} (${CLASSES[cls].name}) has joined the defense. Squad of ${this.players.size}: the hive sends more, tougher aliens.` }); return p;
   }
   // turrets go down almost anywhere, the track included
-  dropError(x, z) { const W = this.W; if (!isFinite(x) || !isFinite(z) || Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2) return 'Too close to the edge'; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < 9) return 'Not on the hub core'; if (Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 9) return 'Too close to the hive'; if (W.T.chasm(x, z) < 0.9) return 'Not in the chasm'; return ''; }
-  settle(t) { const n = this.path.near(t.x, t.z); t.y = this.W.top(t.x, t.z); if (TURRETS[t.kind].onPath && n.d < PATH_W / 2 + 2) { t.s = n.s; t.x = n.x; t.z = n.z; t.y = this.path.y(n.s); t.ry = Math.atan2(n.tx, n.tz); t.on = 1; } else { t.s = n.s; t.on = 0; } }
-  spawnScrap() { const W = this.W; for (let k = 0; k < 20; k++) { const x = (Math.random() * 2 - 1) * (BOUNDS - 6), z = (Math.random() * 2 - 1) * (BOUNDS - 6); if (W.T.chasm(x, z) < 0.99 || Math.hypot(x - W.hubP.x, z - W.hubP.z) < 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 20) continue; this.scrap.push({ id: this.nid++, x, z, n: 3 + (Math.random() * 4 | 0) }); return; } }
+  dropError(x, z) { const W = this.W; if (!isFinite(x) || !isFinite(z) || Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2) return 'Too close to the edge'; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < 9) return 'Not on the hub core'; if (W.cave && Math.hypot(x - W.cave.q.x, z - W.cave.q.z) < 7) return 'Too close to the queen'; if (W.T.chasm(x, z) < 0.9) return 'Not in the chasm'; return ''; }
+  settle(t) { const n = this.path.near(t.x, t.z); t.y = this.W.top(t.x, t.z); if (TURRETS[t.kind].onPath && n.d < PATH_W / 2 + 2) { t.s = n.s; t.x = n.x; t.z = n.z; t.y = this.path.y(n.s); t.ry = Math.atan2(n.tx, n.tz); t.on = 1; } else { t.s = n.s; t.on = 0; } t.inCave = this.inCave(t.x, t.z) && !!this.W.cave; }
+  spawnScrap() { const W = this.W; for (let k = 0; k < 20; k++) { const x = (Math.random() * 2 - 1) * (BOUNDS - 6), z = (Math.random() * 2 - 1) * (BOUNDS - 6); if (W.T.chasm(x, z) < 0.99 || Math.hypot(x - W.hubP.x, z - W.hubP.z) < 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 36) continue; this.scrap.push({ id: this.nid++, x, z, n: 3 + (Math.random() * 4 | 0) }); return; } }
+  // put the turret you are carrying back in your pack: its gold and the kit come back
+  stow(p) { const i = this.turrets.findIndex(q => q.carry === p.id); if (i < 0) return; const t = this.turrets[i]; if (t.owner !== p.id) { t.carry = 0; this.settle(t); return; }   // someone else's turret just goes down where you stand
+    this.turrets.splice(i, 1); p.gold += t.spent; p.kits = Math.min(KITS, (p.kits ?? KITS) + 1); this.emit({ k: 'stowed', to: p.id, n: TURRETS[t.kind].name }); }
   removePlayer(id) { const p = this.players.get(id); if (!p) return; this.players.delete(id); this.emit({ k: 'toast', m: p.name + ' left.' }); }
   living() { return [...this.players.values()].filter(p => !p.dead && !(p.buf && p.buf.cloak > 0)); }
 
@@ -53,7 +56,7 @@ export class Sim {
       if (this.turrets.filter(t => t.owner === id).length >= MAX_TURRETS) return say(`You can have ${MAX_TURRETS} at once. Sell one (Y) first.`);
       const err = this.dropError(r.x, r.z); if (err) return say(err);
       p.gold -= T.cost; p.kits = (p.kits ?? KITS) - 1; const t = { id: this.nid++, kind: r.kind, owner: id, x: r.x, z: r.z, ry: r.ry || 0, lvl: 1, hp: T.hp, mhp: T.hp, cd: 0, tg: 0, spent: T.cost, ch: T.charges || T.uses || 0, y: this.W.top(r.x, r.z), b: BUILD[r.kind], bt: BUILD[r.kind], fresh: true };
-      const held = this.turrets.find(q => q.carry === id); if (held) { held.carry = 0; this.settle(held); }
+      this.stow(p);
       t.carry = id; this.settle(t);
       this.turrets.push(t); this.emit({ k: 'placed', x: t.x, z: t.z, by: id });
     } else if (r.a === 'upg') {
@@ -69,6 +72,7 @@ export class Sim {
       let refund = 0, n = 0; this.turrets = this.turrets.filter(t => { if (t.owner !== id) return true; refund += Math.round(t.spent * 0.6 * t.hp / t.mhp); n++; this.emit({ k: 'boom', x: t.x, y: 0.5, z: t.z, r: 1.5, small: 1 }); return false; });
       p.gold += refund; const f = p.hp / p.mhp; p.cls = r.cls; p.items = CLASSES[r.cls].throw.n; p.mhp = maxHp(r.cls, p.ups); p.hp = Math.max(1, Math.round(p.mhp * f)); p.pw = pwMax(r.cls); p.special = p.special || '';
       this.emit({ k: 'swapped', to: id, cls: r.cls, n, refund }); this.emit({ k: 'toast', m: `${p.name} is now a ${CLASSES[r.cls].name}.` });
+    } else if (r.a === 'stow') { this.stow(p);
     } else if (r.a === 'carry') {
       const t = this.turrets.find(q => q.id === r.id); if (!t || t.carry || this.turrets.some(q => q.carry === id)) return; if (Math.hypot(t.x - p.x, t.z - p.z) > 6) return;
       t.carry = id; this.emit({ k: 'carry', id: t.id, by: id });
@@ -82,7 +86,7 @@ export class Sim {
       p.gold -= c; p.ups[r.up] = lv + 1; const m = maxHp(p.cls, p.ups); p.hp += m - p.mhp; p.mhp = m; this.emit({ k: 'bought', to: id });
     } else if (r.a === 'hit') {
       const a = this.aliens.find(q => q.id === r.id); if (!a) return;
-      if (a.type === 'broodqueen' && Math.hypot(p.x - a.x, p.z - a.z) > 30) { if (this.time - (a.far || -9) > 4) { a.far = this.time; say('Too far: get inside the cave to hurt the Brood Queen.'); } return; }
+      if (a.cave && !this.inCave(p.x, p.z)) { if (this.time - (a.far || -9) > 4) { a.far = this.time; say('Your shots can\'t reach into the cavern: get inside to hurt the queen and her guards.'); } return; }
       if (p.cls === 'sniper') { a.mark = Math.max(a.mark || 0, 1.25); a.markT = 6; a.rev = 6; a.hidden = false; } if (p.cls === 'gunner' && !ALIENS[a.type].boss) { a.slowT = 0.5; a.slowF = Math.min(a.slowF ?? 1, 0.8); }
       this.hurtAlien(a, Math.min(+r.d || 0, 2400), id, r.ap);
     } else if (r.a === 'cmd') {
@@ -149,10 +153,10 @@ export class Sim {
   }
   splash(x, y, z, r, d, owner) {
     this.emit({ k: 'boom', x, y, z, r });
-    for (const a of this.aliens) { const dist = Math.hypot(a.x - x, a.y + ALIENS[a.type].h * 0.5 - y, a.z - z) - ALIENS[a.type].r; if (dist < r) this.hurtAlien(a, d * (1 - Math.max(0, dist) / r * 0.6), owner, true); }
+    const outside = !this.inCave(x, z); for (const a of this.aliens) { if (a.cave && outside) continue; const dist = Math.hypot(a.x - x, a.y + ALIENS[a.type].h * 0.5 - y, a.z - z) - ALIENS[a.type].r; if (dist < r) this.hurtAlien(a, d * (1 - Math.max(0, dist) / r * 0.6), owner, true); }
   }
   killAlien(a, owner) {
-    a.dead = true; const A = ALIENS[a.type]; if (!A.static && Math.random() < 0.35 && this.scrap) this.scrap.push({ id: this.nid++, x: a.x, z: a.z, n: 2 + (Math.random() * 3 | 0) }); this.emit({ k: 'die', id: a.id, x: a.x, y: a.y, z: a.z, t: a.type });
+    a.dead = true; const A = ALIENS[a.type]; this.emit({ k: 'die', id: a.id, x: a.x, y: a.y, z: a.z, t: a.type });
     const p = this.players.get(owner); if (p) p.kills++;
     for (const q of this.players.values()) q.gold += Math.round(A.bounty * (q.id === owner ? 1 : 0.4));
     if (A.boss || a.type === 'broodqueen') this.emit({ k: 'toast', m: `${A.name} destroyed${p ? ' by ' + p.name : ''}!`, big: 1 });
@@ -182,7 +186,7 @@ export class Sim {
   }
   dropPods(n) {
     for (let i = 0; i < n; i++) {
-      let x, z, ok = false; for (let k = 0; k < 30 && !ok; k++) { x = (Math.random() * 2 - 1) * (BOUNDS - 10); z = (Math.random() * 2 - 1) * (BOUNDS - 10); ok = this.path.near(x, z).d > 6 && this.W.T.chasm(x, z) > 0.99 && this.W.T.ridge(x, z) < 2 && Math.hypot(x - this.W.hiveP.x, z - this.W.hiveP.z) > 15 && !this.W.colliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 1.5); }
+      let x, z, ok = false; for (let k = 0; k < 30 && !ok; k++) { x = (Math.random() * 2 - 1) * (BOUNDS - 10); z = (Math.random() * 2 - 1) * (BOUNDS - 10); ok = this.path.near(x, z).d > 6 && this.W.T.chasm(x, z) > 0.99 && this.W.T.ridge(x, z) < 2 && Math.hypot(x - this.W.hiveP.x, z - this.W.hiveP.z) > 38 && !this.W.colliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 1.5); }
       if (ok) { const pod = { id: this.nid++, x, z, land: DROP_FALL, life: DROP_FALL + DROP_LIFE, sp: Math.random() < 0.6 ? pickSpecial() : '' }; this.pods.push(pod); }
     }
     if (n) this.emit({ k: 'drop2', n });
@@ -238,7 +242,7 @@ export class Sim {
       if (A.nest) { a.qcd -= dt; if (a.qcd <= 0 && this.phase === 'wave') { a.qcd = 26 + Math.random() * 10; this.emit({ k: 'hatch', x: a.x, z: a.z }); for (let i = 0, nn = Math.round(4 * countScale(this.players.size)); i < nn; i++) { const c = this.spawn('crawler', a.s); c.x = a.x + (Math.random() - 0.5) * 3; c.z = a.z + (Math.random() - 0.5) * 3; c.y = this.W.ground(c.x, c.z, a.y + 1); c.lat = (Math.random() - 0.5) * 3; const p = this.closest(living, c, 45); if (p) this.aggro(c, 'p', p.id, 1.5); else c.mode = 'return'; } } continue; }
       // the Brood Queen: heals when left alone, spits at anyone in her cave, and births Royal Guards and Stalkers while she is under attack
       if (a.type === 'broodqueen') {
-        const near = t => Math.hypot(t.x - a.x, t.z - a.z) < 30, foes = [...living.filter(near), ...this.allies.filter(near), ...this.turrets.filter(t => near(t) && !t.carry && !TURRETS[t.kind].mine)], guards = this.aliens.filter(q => q.type === 'royal' && !q.dead).length;
+        const near = t => this.inCave(t.x, t.z), foes = [...living.filter(near), ...this.allies.filter(near), ...this.turrets.filter(t => near(t) && !t.carry && !TURRETS[t.kind].mine)], guards = this.aliens.filter(q => q.type === 'royal' && !q.dead).length;
         if (a.rcd <= 0 && foes.length) { let tg = null, bd = A.ranged; for (const f of foes) { const d = Math.hypot(f.x - a.x, f.z - a.z); if (d < bd) { bd = d; tg = f; } } if (tg) { a.rcd = 1.3; const isP = 'cls' in tg; this.emit({ k: 'spit', a: [a.x, a.y + 5, a.z], b: [tg.x, (tg.y || 0) + 1.2, tg.z], q: 1 }); if (isP) this.hurtPlayer(tg, A.dmg, a); else if (tg.kind) this.hurtTurret(tg, A.dmg * 1.5, a); else this.hurtAlly(tg, A.dmg * 1.5); } }
         if (!foes.length && this.time - (a.lastHit ?? -99) > 10) a.hp = Math.min(a.mhp, a.hp + a.mhp * 0.01 * dt);   // heals only when her cave is clear
         a.qcd -= dt; if (a.qcd <= 0) {
@@ -249,7 +253,7 @@ export class Sim {
       }
       // Royal Guards keep to the queen's chamber: they rush anyone who comes in and go back to their posts when it is clear
       if (a.mode === 'guard') {
-        const Q = this.W.hiveP, inCave = t => Math.hypot(t.x - Q.x, t.z - Q.z) < 22; let tg = null, bd = 30;
+        const inCave = t => this.inCave(t.x, t.z); let tg = null, bd = 40;
         for (const f of [...living, ...this.allies, ...this.turrets.filter(t => !t.carry && !TURRETS[t.kind].mine)]) { if (!inCave(f)) continue; const d = Math.hypot(f.x - a.x, f.z - a.z); if (d < bd) { bd = d; tg = f; } }
         const gx = tg ? tg.x : a.px, gz = tg ? tg.z : a.pz, dx = gx - a.x, dz = gz - a.z, d = Math.hypot(dx, dz) || 1; if (a.stun > 0) { a.stun -= dt; continue; }
         const sp = a.spd * (a.slowT > 0 ? (a.slowF ?? 0.5) : 1); if (a.slowT > 0) a.slowT -= dt;
@@ -327,15 +331,15 @@ export class Sim {
       t.oc = Math.max(0, (t.oc || 0) - dt); t.od = Math.max(0, (t.od || 0) - dt);
       const st = tStat(t); st.rate *= (t.oc > 0 ? 1.6 : 1) * (t.od > 0 ? 2 : 1); t.cd -= dt; t.tg = 0;
       if (t.kind === 'flamer' || t.kind === 'railgun') {
-        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < st.range && a.s > bs) { bs = a.s; tg = a; } }
+        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !t.inCave) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < st.range && a.s > bs) { bs = a.s; tg = a; } }
         if (!tg) continue; t.tg = tg.id; const want = Math.atan2(-(tg.x - t.x), -(tg.z - t.z)); let dr = want - t.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; t.ry += dr * Math.min(1, dt * 8);
         if (t.cd > 0) continue; t.cd = 1 / st.rate; const fx = -Math.sin(t.ry), fz = -Math.cos(t.ry);
-        if (t.kind === 'flamer') { for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const dx = a.x - t.x, dz = a.z - t.z, d = Math.hypot(dx, dz); if (d < st.range && (dx * fx + dz * fz) / (d || 1) > Math.cos(TURRETS.flamer.cone)) this.hurtAlien(a, st.dmg, t.owner, true); } }
-        else { const L = st.range, ex = t.x + fx * L, ez = t.z + fz * L; for (const a of this.aliens) { if (a.dead || (a.type === 'hivecore' && !open)) continue; const px = a.x - t.x, pz = a.z - t.z, along = px * fx + pz * fz; if (along < 0 || along > L) continue; if (Math.abs(px * fz - pz * fx) < ALIENS[a.type].r + 0.6) this.hurtAlien(a, st.dmg, t.owner, true); } this.emit({ k: 'rail', a: [t.x, t.y + 2.2, t.z], b: [+ex.toFixed(1), +(tg.y + 1).toFixed(1), +ez.toFixed(1)] }); }
+        if (t.kind === 'flamer') { for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !t.inCave) || (a.type === 'hivecore' && !open)) continue; const dx = a.x - t.x, dz = a.z - t.z, d = Math.hypot(dx, dz); if (d < st.range && (dx * fx + dz * fz) / (d || 1) > Math.cos(TURRETS.flamer.cone)) this.hurtAlien(a, st.dmg, t.owner, true); } }
+        else { const L = st.range, ex = t.x + fx * L, ez = t.z + fz * L; for (const a of this.aliens) { if (a.dead || (a.cave && !t.inCave) || (a.type === 'hivecore' && !open)) continue; const px = a.x - t.x, pz = a.z - t.z, along = px * fx + pz * fz; if (along < 0 || along > L) continue; if (Math.abs(px * fz - pz * fx) < ALIENS[a.type].r + 0.6) this.hurtAlien(a, st.dmg, t.owner, true); } this.emit({ k: 'rail', a: [t.x, t.y + 2.2, t.z], b: [+ex.toFixed(1), +(tg.y + 1).toFixed(1), +ez.toFixed(1)] }); }
       } else if (t.kind === 'mines') {
         if (t.cd > 0) continue; for (const a of this.aliens) { if (a.dead || ALIENS[a.type].fly || ALIENS[a.type].static) continue; if (Math.hypot(a.x - t.x, a.z - t.z) < st.range) { this.splash(t.x, t.y + 0.4, t.z, TURRETS.mines.splash, st.dmg, t.owner); t.ch--; t.cd = 1.2; if (t.ch <= 0) { t.hp = 0; this.turrets = this.turrets.filter(q => q !== t); } break; } }
       } else if (t.kind === 'minigun' || t.kind === 'pulse' || t.kind === 'tesla' || t.kind === 'missile') {
-        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < st.range && a.s > bs) { bs = a.s; tg = a; } }
+        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !t.inCave) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < st.range && a.s > bs) { bs = a.s; tg = a; } }
         if (!tg) continue; t.tg = tg.id; const want = Math.atan2(-(tg.x - t.x), -(tg.z - t.z)); let dr = want - t.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; t.ry += dr * Math.min(1, dt * 10);
         if (t.cd > 0) continue; t.cd = 1 / st.rate;
         if (t.kind === 'minigun' || t.kind === 'pulse') this.hurtAlien(tg, st.dmg, t.owner);
@@ -359,7 +363,7 @@ export class Sim {
         const h = st.heal * dt; for (const p of living) if (Math.hypot(p.x - t.x, p.z - t.z) < st.range && p.hp < p.mhp) p.hp = Math.min(p.mhp, p.hp + h);
         for (const m of this.allies) if (Math.hypot(m.x - t.x, m.z - t.z) < st.range) m.hp = Math.min(m.mhp, m.hp + h);
       } else if (t.kind === 'mortar') {
-        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d > 6 && d < st.range && a.s > bs) { bs = a.s; tg = a; } }
+        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !t.inCave) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d > 6 && d < st.range && a.s > bs) { bs = a.s; tg = a; } }
         if (!tg) continue; t.tg = tg.id; t.ry = Math.atan2(-(tg.x - t.x), -(tg.z - t.z)); if (t.cd > 0) continue; t.cd = 1 / st.rate;
         const d = Math.hypot(tg.x - t.x, tg.z - t.z), dur = 1 + d / 25, lead = tg.spd * dur * 0.7, n = this.path.at(tg.s + lead), px = n.x, pz = n.z;
         this.shells.push({ x: px, y: n.y, z: pz, t: dur, d: st.dmg, r: st.splash, owner: t.owner, pool: st.dmg * 0.5 });
@@ -386,10 +390,12 @@ export class Sim {
   // the Brood Queen in her cave at the start of the track, with her Royal Guards
   spawnHive(full, boost = 1) {
     if (!full) return; this.aliens = this.aliens.filter(a => !['hivecore', 'guardian', 'broodqueen', 'royal'].includes(a.type));
-    const p0 = this.path.at(0), q = this.spawn('broodqueen', 0); q.x = p0.x; q.z = p0.z; q.y = this.path.y(0); q.mode = 'static'; q.ry = Math.atan2(-p0.tx, -p0.tz); q.hp = q.mhp = ALIENS.broodqueen.hp * boost * bossScale(this.players.size); q.qcd = 3;
+    const p0 = this.path.at(0), Cq = this.W.cave ? this.W.cave.q : p0, q = this.spawn('broodqueen', 0); q.x = Cq.x; q.z = Cq.z; q.y = this.W.top(q.x, q.z); q.cave = 1; q.mode = 'static'; q.ry = Math.atan2(-p0.tx, -p0.tz); q.hp = q.mhp = ALIENS.broodqueen.hp * boost * bossScale(this.players.size); q.qcd = 3;
     for (let i = 0; i < 4 + 2 * this.players.size; i++) this.spawnGuard(q, i);
   }
-  spawnGuard(q, i) { const n = this.aliens.filter(a => a.type === 'royal').length, k = i ?? n, ang = k * 2.4, r = 6 + (k % 3) * 2.5, g = this.spawn('royal', 0); g.px = q.x + Math.cos(ang) * r; g.pz = q.z + Math.sin(ang) * r; g.x = q.x + Math.cos(ang) * 2; g.z = q.z + Math.sin(ang) * 2; g.y = this.W.ground(g.x, g.z, q.y + 2); g.mode = 'guard'; return g; }
+  spawnGuard(q, i) { const n = this.aliens.filter(a => a.type === 'royal').length, k = i ?? n, ang = k * 2.4, r = 6 + (k % 3) * 2.5, g = this.spawn('royal', 0); g.px = q.x + Math.cos(ang) * r; g.pz = q.z + Math.sin(ang) * r; g.x = q.x + Math.cos(ang) * 2; g.z = q.z + Math.sin(ang) * 2; g.y = this.W.ground(g.x, g.z, q.y + 2); g.mode = 'guard'; g.cave = 1; return g; }
+  // inside the queen's cavern? (her guards and the queen can only be hurt from in there)
+  inCave(x, z) { const C = this.W.cave; return !C || Math.hypot(x - C.x, z - C.z) < C.r + 1.5; }
   hiveOpen() { return this.phase !== 'lose' && this.phase !== 'win'; }
   // Reinforcements: the hub sends marines down the track toward the hive.
   updateAllies(dt) {
@@ -399,7 +405,7 @@ export class Sim {
     for (const m of this.allies) {
       const A = ALLIES[m.type]; m.cd -= dt; m.tg = 0;
       if (A.heal) { for (const o of this.allies) if (o !== m && o.hp < o.mhp && Math.hypot(o.x - m.x, o.z - m.z) < 8) o.hp = Math.min(o.mhp, o.hp + A.heal * dt); for (const p of this.living()) if (p.hp < p.mhp && Math.hypot(p.x - m.x, p.z - m.z) < 8) p.hp = Math.min(p.mhp, p.hp + A.heal * 0.6 * dt); }
-      let tg = null, bd = A.range; for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < bd && Math.abs(a.y - m.y) < 9) { bd = d; tg = a; } }
+      let tg = null, bd = A.range; for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !this.inCave(m.x, m.z)) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < bd && Math.abs(a.y - m.y) < 9) { bd = d; tg = a; } }
       if (tg) { m.tg = tg.id; m.ry = Math.atan2(-(tg.x - m.x), -(tg.z - m.z)); if (m.cd <= 0) { m.cd = 1 / A.rate; if (A.splash) { const dur = 0.2 + bd / 30; this.shells.push({ tg: tg.id, x: tg.x, y: tg.y, z: tg.z, t: dur, d: A.dmg, r: A.splash, owner: null }); this.emit({ k: 'msl', a: [m.x, m.y + 1.6, m.z], tg: tg.id, b: [tg.x, tg.y, tg.z], t: dur, rk: 1 }); } else this.hurtAlien(tg, A.dmg, null); } continue; }
       if (m.s > 7) { m.s -= A.speed * dt; const q = P.at(m.s); m.x = q.x - q.tz * m.lat; m.z = q.z + q.tx * m.lat; m.y = q.y; m.ry = Math.atan2(q.tx, q.tz); }
     }

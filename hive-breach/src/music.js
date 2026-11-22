@@ -82,12 +82,12 @@ export class Music {
     const o = c.createOscillator(), og = c.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(120, t + 0.08); og.gain.setValueAtTime(0.18 * v, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.1); o.connect(og); og.connect(this.L.drums); o.start(t); o.stop(t + 0.12); }
   hat(t, v) { const c = this.a.ctx, n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); n.buffer = this.a.buf(0.05); f.type = 'highpass'; f.frequency.value = 7500; g.gain.setValueAtTime(0.09 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.045); n.connect(f); f.connect(g); g.connect(this.L.drums); n.start(t); }
   // ---- the drop-pod score, locked to the film's clock: a tense build, a hit on EJECT, full war drums through the burn, silence at impact, a heroic chord as the door blows
-  dropScore() {
-    if (!this.master) this.start(); if (!this.master) return; const c = this.a.ctx, t = c.currentTime + 0.05;
-    this.lock = true; this.mode = 'drop'; this.bpm = BPM.drop; for (const k in this.L) this.L[k].gain.setTargetAtTime(MIX.drop[k], t, 0.3);
-    this.vowel(this.choirBus, 'oo', t); this.step = 0; this.next = t; this.sc0 = t;
+  dropScore(delay = 0) {   // delay: seconds of opening shot before the pod's own clock starts
+    if (!this.master) this.start(); if (!this.master) return; const c = this.a.ctx, t0 = c.currentTime + 0.05, t = t0 + delay;
+    this.lock = true; this.mode = 'drop'; this.bpm = BPM.drop; for (const k in this.L) this.L[k].gain.setTargetAtTime(MIX.drop[k], t0, 0.3);
+    this.vowel(this.choirBus, 'oo', t0); this.step = 0; this.next = t0; this.sc0 = t;
     this.swell(t + 4.6, 2.4); this.hit(t + 7, 38, true); this.swell(t + 11, 2); this.hit(t + 13, 34, false); this.swell(t + 26.6, 2.4); this.hit(t + 29, 26, true); this.hit(t + 30.4, 38, 'major');
-    setTimeout(() => this.vowel(this.choirBus, 'ah', c.currentTime), 7000);
+    setTimeout(() => this.vowel(this.choirBus, 'ah', c.currentTime), 7000 + delay * 1000);
   }
   endScore() { if (!this.lock) return; this.lock = false; this.mode = 'calm'; this.want = null; if (!this.master) return; const t = this.a.ctx.currentTime; for (const k in this.L) this.L[k].gain.setTargetAtTime(MIX.calm[k], t, 1.5); this.bpm = BPM.calm; }
   hit(t, root, big) { // a stab: drums, timpani, crash and a full brass chord
@@ -102,6 +102,9 @@ export class Music {
   }
   playDrop(step, t) {
     const ft = t - this.sc0, s = step & 15, bar = (step >> 4) & 3, sx = 60 / this.bpm / 4;
+    if (ft < 0) { // the opening shot of the station: a slow, wide, uneasy pad with a far-off heartbeat
+      if (s === 0 && bar % 2 === 0) { for (const i of [0, 7, 15]) this.strings(t, midi(38 + 12 + i), sx * 32); this.voice(this.choirBus, midi(50), sx * 32, 0.035, 2); }
+      if (s === 0) this.synth(t, midi(26), sx * 8, 0.25); if (ft > -4 && (s === 0 || s === 3)) this.taiko(t, s === 0 ? 0.45 : 0.3, 0.7); return; }
     if (ft > 28.9 && ft < 30.3) return;                          // the impact: nothing but the crash
     if (ft < 7) { // the build: a heartbeat, a low pulse that grows, a held minor chord
       const k = ft / 7; if (s === 0 || s === 3) this.taiko(t, s === 0 ? 0.7 : 0.45, 0.7);

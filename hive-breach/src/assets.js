@@ -22,7 +22,7 @@ export const CAM = new THREE.Vector3(); const _wp = new THREE.Vector3();
 const BS = new WeakMap();   // a roomy bound per skinned geometry (clones share the geometry)
 const fixBounds = root => root.traverse(o => { const b = o.isSkinnedMesh && BS.get(o.geometry); if (b) { o.boundingSphere = b.clone(); o.frustumCulled = true; } });
 export function loadAll(extra = []) {
-  const list = [...MANIFEST, ...STRUCT_FILES, ...PROP_FILES, ...ALIEN_FILES, ...extra]; PROG.total = list.length; PROG.got = 0;
+  const list = [...MANIFEST, ...STRUCT_FILES, ...PROP_FILES, ...ALIEN_FILES, ...SCENE_FILES, ...extra]; PROG.total = list.length; PROG.got = 0;
   return Promise.all(list.map(n => loader.loadAsync(BASE + n + '.glb').then(g => { prep(g); A[n] = g; if (n === 'marine_anims') A.marine_assault = g; }).catch(() => { /* missing: keep the simple model */ }).finally(() => { PROG.got++; }))).then(() => { done = true; });
 }
 function prep(g) {
@@ -133,6 +133,7 @@ export function turretGLB(kind, lvl = 1) {
 // ---- class structures: the Meshy body replaces the simple shapes, but the glowing rings, pads and light columns stay
 const STRUCT = { rally: ['s_rally', 'h', 3.6], ammopack: ['s_ammopack', 'w', 0.8], medkitT: ['s_medkit', 'w', 0.75], fieldhosp: ['s_fieldhosp', 'w', 4.4], teleporter: ['s_teleporter', 'w', 2.9], resupply: ['s_resupply', 'w', 3.0], uav: ['s_ball', 'w', 0.9] };
 export const STRUCT_FILES = Object.values(STRUCT).map(e => e[0]);
+export const fitGLB = (name, mode, size, center) => A[name] ? fit(name, mode, size, center) : null;
 function fit(name, mode, size, center) {
   const inner = A[name].scene.clone(true), o = new THREE.Group(); o.add(inner); inner.updateMatrixWorld(true);
   let b = new THREE.Box3().setFromObject(inner); const sz = b.getSize(new THREE.Vector3()), d = mode === 'h' ? sz.y : Math.max(sz.x, sz.z); inner.scale.setScalar(size / (d || 1)); inner.updateMatrixWorld(true);
@@ -207,6 +208,7 @@ export function fpArms(cls, gun, mode = 'two') {
 // Each one is sized to match the simple model it replaces (same length and the same height off the ground), so hit boxes still fit.
 export const ALIEN_GLB = { crawler: 'a_crawler', spitter: 'a_spitter', brute: 'a_brute', ravager: 'a_ravager', queen: 'a_queen', royal: 'a_royal', broodqueen: 'a_broodqueen', flyer: 'a_flyer' };
 export const ALIEN_FILES = Object.values(ALIEN_GLB);
+export const SCENE_FILES = ['p_station', 'p_droppod', 'p_seat'];
 const BIG = new Set(['brute', 'ravager', 'queen', 'broodqueen']);
 const ACLIP = { run: /run/i, walk: /walk/i, pounce: /pounce/i, roar: /roar/i, idle: /idle/i, die: /death/i }, HEAVY = new Set(['brute', 'ravager', 'queen']);
 export function alienGLB(type, ref) {
@@ -225,6 +227,9 @@ export function alienGLB(type, ref) {
     for (const a of Object.values(u.act)) for (const tr of a.getClip().tracks) if (/\.position$/.test(tr.name)) { const v = tr.values; if (v.length > 3 && /hips|root|pelvis|spine/i.test(tr.name)) { const x0 = v[0], z0 = v[2]; for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; } } }
     const k0 = type === 'broodqueen' ? 'idle' : HEAVY.has(type) ? 'walk' : 'run'; if (u.act[k0]) { u.act[k0].play(); u.act[k0].time = Math.random() * u.act[k0].getClip().duration; u.cur = k0; } u.mixer.update(0);
   } else if (type === 'flyer') u.flap = splitWings(root);
+  // check the size once posed (skinned models can measure wrongly before) and correct it: same length as the simple model, feet on the ground
+  g.updateMatrixWorld(true); const b2 = new THREE.Box3().setFromObject(g), s2 = b2.getSize(new THREE.Vector3()), want = Math.max(rs.x, rs.z) * (type === 'flyer' ? 1.1 : 1), have = Math.max(s2.x, s2.z), k = type === 'flyer' ? want / have : Math.min(want / have, rs.y * 1.15 / s2.y);   // fit inside the simple model: no longer and no taller
+  if (have > 0.01 && Math.abs(k - 1) > 0.05) { holder.scale.multiplyScalar(k); g.updateMatrixWorld(true); const b3 = new THREE.Box3().setFromObject(g); holder.position.y += (type === 'flyer' ? ref.min.y : 0) - b3.min.y; }
   g.userData = u; return g;
 }
 // the wraith's wings: cut the far-left and far-right of the mesh into two pieces that hinge at the body
@@ -242,7 +247,7 @@ function splitWings(root) {
 export function animAlienGLB(m, t) {
   const u = m.userData, dt = Math.max(0, Math.min(0.1, t - (u.lt ?? t))); u.lt = t;
   if (u.flap) { for (const h of u.flap) h.pv.rotation.z = Math.sin(t * 14) * 0.55 * h.sd; u.body.position.y = Math.sin(t * 3) * 0.25; return; }
-  if (!u.mixer) return;
+  if (!u.mixer) { u.body.position.y = Math.sin(t * 1.3) * 0.08; u.body.rotation.z = Math.sin(t * 0.9) * 0.04; u.body.scale.setScalar(1 + Math.sin(t * 2.1) * 0.02); return; }   // no rig (the Hive Tyrant): it breathes and sways
   const far = m.getWorldPosition(_wp).distanceToSquared(CAM); if (far > 6400) { u.acc = (u.acc || 0) + dt; return; } if (far > 1225) { u.skip = !u.skip; if (u.skip) { u.acc = (u.acc || 0) + dt; return; } }   // beyond 80 m: frozen; beyond 35 m: every other frame
   const dtA = dt + (u.acc || 0); u.acc = 0;
   let k = u.cur; if (u.type === 'broodqueen') k = Math.sin(t * 0.35) > 0.6 ? 'roar' : 'idle'; else if (dt === 0) k = 'idle'; else k = HEAVY.has(u.type) ? 'walk' : 'run';

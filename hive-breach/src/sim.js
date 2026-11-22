@@ -412,6 +412,9 @@ export class Sim {
       let tg = null, bd = A.range; for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !this.inCave(m.x, m.z)) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < bd && Math.abs(a.y - m.y) < 9) { bd = d; tg = a; } }
       if (tg) { m.tg = tg.id; m.ry = Math.atan2(-(tg.x - m.x), -(tg.z - m.z)); if (m.cd <= 0) { m.cd = 1 / A.rate; if (A.splash) { const dur = 0.2 + bd / 30; this.shells.push({ tg: tg.id, x: tg.x, y: tg.y, z: tg.z, t: dur, d: A.dmg, r: A.splash, owner: null }); this.emit({ k: 'msl', a: [m.x, m.y + 1.6, m.z], tg: tg.id, b: [tg.x, tg.y, tg.z], t: dur, rk: 1 }); } else this.hurtAlien(tg, A.dmg, null); } continue; }
       if (m.s > 7) { m.s -= A.speed * dt; const q = P.at(m.s); m.x = q.x - q.tz * m.lat; m.z = q.z + q.tx * m.lat; m.y = q.y; m.ry = Math.atan2(q.tx, q.tz); }
+      else { // the end of the track: push on through the cavern toward the queen until she is in range
+        const Q = this.aliens.find(a => a.type === 'broodqueen' && !a.dead); if (Q) { const dx = Q.x - m.x, dz = Q.z - m.z, d = Math.hypot(dx, dz), want = Math.max(6, A.range * 0.7) + ALIENS.broodqueen.r; if (d > want) { const st = Math.min(d - want, A.speed * dt); m.x += dx / d * st + (m.lat || 0) * 0.02 * dz / d; m.z += dz / d * st - (m.lat || 0) * 0.02 * dx / d; m.y = this.W.ground(m.x, m.z, m.y + 1); m.ry = Math.atan2(-dx, -dz); } }
+      }
     }
     if (this.allies.some(m => m.hp <= 0)) { for (const m of this.allies) if (m.hp <= 0) this.emit({ k: 'adie', x: m.x, y: m.y, z: m.z }); this.allies = this.allies.filter(m => m.hp > 0); }
   }

@@ -15,7 +15,8 @@ const canvas = $('game'), renderer = new THREE.WebGLRenderer({ canvas, antialias
 renderer.setPixelRatio(Math.min(1.5, devicePixelRatio)); renderer.shadowMap.enabled = true; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(75, 1, 0.05, 1500); scene.add(camera);
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
-addEventListener('resize', resize); resize();
+// switching fullscreen fires a burst of resize events: rebuild the drawing buffers once it settles, not on every one (that froze the page and the sound)
+let resizeT = 0; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 180); }); resize();
 const audio = new Audio(), music = new Music(audio); window.hbMusic = music;
 addEventListener('pointerdown', () => { audio.unlock(); music.start(); const h = document.getElementById('soundHint'); if (h) h.hidden = true; });
 addEventListener('keydown', () => { audio.unlock(); music.start(); });

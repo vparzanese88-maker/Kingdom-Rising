@@ -50,7 +50,7 @@ export class Music {
   tick() {
     const c = this.a.ctx; if (!c || c.state !== 'running') { if (c) this.next = c.currentTime + 0.1; return; }
     if (this.next < c.currentTime - 0.3) this.next = c.currentTime + 0.05;
-    while (this.next < c.currentTime + 1.4) { this.play(this.step, this.next); this.next += 60 / this.bpm / 4; this.step = (this.step + 1) % 64; }
+    while (this.next < c.currentTime + 2.5) { this.play(this.step, this.next); this.next += 60 / this.bpm / 4; this.step = (this.step + 1) % 64; }
   }
   play(step, t) {
     if (!this.on) return;

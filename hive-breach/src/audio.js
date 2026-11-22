@@ -28,6 +28,14 @@ const S = {
   tick: [[880, 880, 0.12, 'square', 0.12]],
   thunder: [['n', 220, 2.2, 0.6], [55, 35, 1.8, 'sine', 0.3]],
   grenade: [[400, 300, 0.1, 'triangle', 0.08]],
+  magout: [['n', 2500, 0.05, 0.3], [900, 600, 0.04, 'square', 0.1], ['n', 600, 0.08, 0.18, 0.05]],
+  magin: [['n', 1800, 0.05, 0.35], [300, 200, 0.06, 'square', 0.16], [1600, 1600, 0.02, 'square', 0.14, 0.07]],
+  bolt: [['n', 3000, 0.04, 0.3], [1200, 800, 0.03, 'square', 0.1], ['n', 3000, 0.05, 0.35, 0.12], [700, 500, 0.04, 'square', 0.12, 0.12]],
+  pump: [['n', 1500, 0.08, 0.4], [220, 150, 0.06, 'square', 0.16], ['n', 2200, 0.07, 0.4, 0.14], [500, 300, 0.05, 'square', 0.16, 0.14]],
+  shell: [['n', 2600, 0.04, 0.28], [900, 700, 0.03, 'triangle', 0.12]],
+  rocketload: [['n', 600, 0.3, 0.3], [200, 120, 0.25, 'sawtooth', 0.06], [1000, 1000, 0.03, 'square', 0.14, 0.3]],
+  beltin: [['n', 1200, 0.15, 0.35], [400, 300, 0.1, 'square', 0.1, 0.05], ['n', 3000, 0.12, 0.22, 0.15]],
+  tink: [[4200, 3800, 0.06, 'triangle', 0.04], [5200, 5000, 0.04, 'triangle', 0.03, 0.05]],
   headshot: [[2200, 2200, 0.05, 'square', 0.09], [3300, 3300, 0.08, 'square', 0.07, 0.04]],
   torch: [['n', 3500, 0.15, 0.06]],
   spin: [[200, 900, 0.45, 'sawtooth', 0.05]],
@@ -56,14 +64,15 @@ export class Audio {
   shot(P, seed) {
     const c = this.ctx, sr = c.sampleRate, n = Math.floor(sr * P.dur), b = c.createBuffer(1, n, sr), d = b.getChannelData(0);
     let r = seed * 9301 + 49297; const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 116640 - 1; };
-    const k = fc => 1 - Math.exp(-2 * Math.PI * fc / sr); let lb = 0, lb2 = 0, lo = 0, lo2 = 0, lt = 0; const slap = Math.floor(sr * P.slap), drive = P.drive, nd = Math.tanh(drive);
+    const k = fc => 1 - Math.exp(-2 * Math.PI * fc / sr); let lb = 0, lb2 = 0, lo = 0, lo2 = 0, lt = 0, lr = 0; const slap = Math.floor(sr * P.slap), drive = P.drive, nd = Math.tanh(drive);
     const raw = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const t = i / sr, w = rnd();
       const fcB = P.bc1 + (P.bc0 - P.bc1) * Math.exp(-t / P.bd); lb += (w - lb) * k(fcB); lb2 += (lb - lb2) * k(fcB);
       lo += (w - lo) * k(P.lo); lo2 += (lo - lo2) * k(P.lo); lt += (w - lt) * k(P.tc);
-      const crack = w * Math.exp(-t / 0.0012) * P.tr, blast = lb2 * Math.exp(-t / P.bd) * P.bg * 3, body = lo2 * Math.exp(-t / P.ld) * P.lg * 14, tail = lt * Math.exp(-t / P.td) * P.tg;
-      raw[i] = crack + blast + body + tail;
+      lr += (w - lr) * k(220); const crack = w * Math.exp(-t / 0.0012) * P.tr, blast = lb2 * Math.exp(-t / P.bd) * P.bg * 3, body = lo2 * Math.exp(-t / P.ld) * P.lg * 14, tail = lt * Math.exp(-t / P.td) * P.tg;
+      const mech = t > 0.028 && t < 0.05 ? w * Math.exp(-(t - 0.028) / 0.003) * (P.mech ?? 0.25) : 0, boom = lr * 18 * Math.exp(-t / 0.35) * (1 - Math.exp(-t / 0.04)) * (P.boom ?? 0.25);
+      raw[i] = crack + blast + body + tail + mech + boom;
     }
     for (let i = 0; i < n; i++) { let x = raw[i]; if (i >= slap) x += raw[i - slap] * P.sg; d[i] = Math.tanh(drive * x) / nd * 0.9; }
     return b;
@@ -71,11 +80,11 @@ export class Audio {
   shots(kind) {
     this.sb = this.sb || {}; if (this.sb[kind]) return this.sb[kind];
     const P = {
-      rifle: { dur: 0.5, tr: 0.8, bc0: 8000, bc1: 700, bd: 0.026, bg: 1, lo: 140, ld: 0.08, lg: 1.1, tc: 1200, td: 0.12, tg: 0.12, slap: 0.11, sg: 0.07, drive: 2 },
-      shotgun: { dur: 0.7, tr: 1, bc0: 7000, bc1: 500, bd: 0.05, bg: 1.3, lo: 110, ld: 0.12, lg: 1.6, tc: 900, td: 0.16, tg: 0.12, slap: 0.12, sg: 0.07, drive: 2.6 },
-      sniper: { dur: 1.0, tr: 1, bc0: 9000, bc1: 500, bd: 0.04, bg: 1.2, lo: 100, ld: 0.16, lg: 1.6, tc: 900, td: 0.3, tg: 0.16, slap: 0.15, sg: 0.1, drive: 2.4 },
-      mini: { dur: 0.4, tr: 0.7, bc0: 7000, bc1: 800, bd: 0.02, bg: 1, lo: 150, ld: 0.055, lg: 1, tc: 1300, td: 0.09, tg: 0.1, slap: 0.09, sg: 0.05, drive: 3 },
-      smg: { dur: 0.4, tr: 0.7, bc0: 9000, bc1: 1200, bd: 0.016, bg: 0.9, lo: 200, ld: 0.04, lg: 0.8, tc: 1800, td: 0.08, tg: 0.1, slap: 0.08, sg: 0.05, drive: 2.5 },
+      rifle: { dur: 0.9, boom: 0.3, mech: 0.3, tr: 0.8, bc0: 8000, bc1: 700, bd: 0.026, bg: 1, lo: 140, ld: 0.08, lg: 1.1, tc: 1200, td: 0.12, tg: 0.12, slap: 0.11, sg: 0.07, drive: 2 },
+      shotgun: { dur: 1.0, boom: 0.4, mech: 0.2, tr: 1, bc0: 7000, bc1: 500, bd: 0.05, bg: 1.3, lo: 110, ld: 0.12, lg: 1.6, tc: 900, td: 0.16, tg: 0.12, slap: 0.12, sg: 0.07, drive: 2.6 },
+      sniper: { dur: 1.3, boom: 0.5, mech: 0.35, tr: 1, bc0: 9000, bc1: 500, bd: 0.04, bg: 1.2, lo: 100, ld: 0.16, lg: 1.6, tc: 900, td: 0.3, tg: 0.16, slap: 0.15, sg: 0.1, drive: 2.4 },
+      mini: { dur: 0.6, boom: 0.18, mech: 0.15, tr: 0.7, bc0: 7000, bc1: 800, bd: 0.02, bg: 1, lo: 150, ld: 0.055, lg: 1, tc: 1300, td: 0.09, tg: 0.1, slap: 0.09, sg: 0.05, drive: 3 },
+      smg: { dur: 0.6, boom: 0.15, mech: 0.3, tr: 0.7, bc0: 9000, bc1: 1200, bd: 0.016, bg: 0.9, lo: 200, ld: 0.04, lg: 0.8, tc: 1800, td: 0.08, tg: 0.1, slap: 0.08, sg: 0.05, drive: 2.5 },
       rocket: { dur: 1.4, tr: 0.6, bc0: 3000, bc1: 400, bd: 0.25, bg: 0.9, lo: 90, ld: 0.2, lg: 1.4, tc: 900, td: 0.35, tg: 0.25, slap: 0.14, sg: 0.1, drive: 2.5 },
       boom: { dur: 2.2, tr: 0.8, bc0: 4500, bc1: 150, bd: 0.15, bg: 1.1, lo: 70, ld: 0.45, lg: 2, tc: 500, td: 0.6, tg: 0.45, slap: 0.2, sg: 0.12, drive: 2.5 },
       artillery: { dur: 3, tr: 0.15, bc0: 900, bc1: 120, bd: 0.3, bg: 0.7, lo: 55, ld: 0.8, lg: 2.2, tc: 300, td: 0.9, tg: 0.5, slap: 0.35, sg: 0.15, drive: 2 },

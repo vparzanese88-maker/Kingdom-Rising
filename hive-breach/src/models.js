@@ -24,23 +24,23 @@ export function gunModel(cls, color) {
     B(g, 0.22, 0.22, 0.4, color, 0, -0.02, 0.1); B(g, 0.08, 0.2, 0.1, dark, 0, -0.2, 0.15); B(g, 0.3, 0.1, 0.12, dark, 0, 0.17, 0.05);
     const bar = new THREE.Group(); bar.position.set(0, 0, -0.15); g.add(bar); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; C(bar, 0.025, 0.025, 0.75, metal, Math.cos(a) * 0.07, Math.sin(a) * 0.07, -0.35).rotation.x = Math.PI / 2; }
     C(bar, 0.11, 0.11, 0.05, dark, 0, 0, -0.1).rotation.x = Math.PI / 2; C(bar, 0.11, 0.11, 0.05, dark, 0, 0, -0.68).rotation.x = Math.PI / 2; g.userData.spin = bar;
-    B(g, 0.18, 0.22, 0.25, 0x3a3a2a, 0.17, -0.08, 0.15); for (let i = 0; i < 5; i++) B(g, 0.03, 0.05, 0.03, 0xc8a040, 0.13 + i * 0.015, -0.2 - i * 0.03, 0.2);
+    g.userData.mag = B(g, 0.18, 0.22, 0.25, 0x3a3a2a, 0.17, -0.08, 0.15); for (let i = 0; i < 5; i++) B(g, 0.03, 0.05, 0.03, 0xc8a040, 0.13 + i * 0.015, -0.2 - i * 0.03, 0.2);
   } else if (cls === 'sniper') {
     B(g, 0.08, 0.13, 0.5, dark, 0, 0, 0.05); B(g, 0.09, 0.16, 0.3, color, 0, -0.04, 0.32); C(g, 0.03, 0.035, 1.0, metal, 0, 0.02, -0.65).rotation.x = Math.PI / 2;
-    C(g, 0.05, 0.05, 0.36, 0x1a1a1a, 0, 0.13, -0.05).rotation.x = Math.PI / 2; C(g, 0.06, 0.06, 0.03, 0x60c0ff, 0, 0.13, -0.23, { e: 0x3080c0 }).rotation.x = Math.PI / 2; B(g, 0.05, 0.18, 0.07, dark, 0, -0.15, 0.08);
+    C(g, 0.05, 0.05, 0.36, 0x1a1a1a, 0, 0.13, -0.05).rotation.x = Math.PI / 2; C(g, 0.06, 0.06, 0.03, 0x60c0ff, 0, 0.13, -0.23, { e: 0x3080c0 }).rotation.x = Math.PI / 2; g.userData.mag = B(g, 0.05, 0.18, 0.07, dark, 0, -0.15, 0.08);
     for (const z of [-0.4, -0.55, -0.7]) B(g, 0.07, 0.07, 0.04, 0x40d0ff, 0, 0.02, z, { e: 0x2090c0 });
-  } else if (cls === 'heavy') { C(g, 0.11, 0.11, 0.9, dark, 0, 0, -0.25).rotation.x = Math.PI / 2; B(g, 0.16, 0.2, 0.3, color, 0, -0.04, 0.05); B(g, 0.06, 0.16, 0.08, dark, 0, -0.17, 0.08); C(g, 0.13, 0.13, 0.06, metal, 0, 0, -0.7).rotation.x = Math.PI / 2; B(g, 0.05, 0.08, 0.14, 0x40ff80, 0.1, 0.08, -0.1, { e: 0x20a040 }); }
+  } else if (cls === 'heavy') { C(g, 0.11, 0.11, 0.9, dark, 0, 0, -0.25).rotation.x = Math.PI / 2; B(g, 0.16, 0.2, 0.3, color, 0, -0.04, 0.05); B(g, 0.06, 0.16, 0.08, dark, 0, -0.17, 0.08); C(g, 0.13, 0.13, 0.06, metal, 0, 0, -0.7).rotation.x = Math.PI / 2; g.userData.rocket = S(g, 0.09, 0xd0d0d0, 0, 0, -0.62, 1, 1, 2); B(g, 0.05, 0.08, 0.14, 0x40ff80, 0.1, 0.08, -0.1, { e: 0x20a040 }); }
   else if (cls === 'engineer') { // pump shotgun
     B(g, 0.11, 0.12, 0.42, dark, 0, 0, 0.05); C(g, 0.045, 0.045, 0.8, metal, 0, 0.04, -0.45).rotation.x = Math.PI / 2; C(g, 0.035, 0.035, 0.62, dark, 0, -0.05, -0.38).rotation.x = Math.PI / 2;
-    B(g, 0.1, 0.09, 0.2, color, 0, -0.06, -0.28); B(g, 0.07, 0.17, 0.08, dark, 0, -0.15, 0.12); B(g, 0.09, 0.14, 0.32, 0x5a3a20, 0, -0.05, 0.36); B(g, 0.02, 0.03, 0.03, 0xff4040, 0, 0.09, -0.8, { e: 0xff2020 }); }
+    g.userData.pump = B(g, 0.1, 0.09, 0.2, color, 0, -0.06, -0.28); B(g, 0.07, 0.17, 0.08, dark, 0, -0.15, 0.12); B(g, 0.09, 0.14, 0.32, 0x5a3a20, 0, -0.05, 0.36); B(g, 0.02, 0.03, 0.03, 0xff4040, 0, 0.09, -0.8, { e: 0xff2020 }); }
   else if (cls === 'torch') { // plasma torch
     C(g, 0.07, 0.09, 0.4, metal, 0, 0, -0.05).rotation.x = Math.PI / 2; C(g, 0.03, 0.05, 0.25, dark, 0, 0, -0.35).rotation.x = Math.PI / 2; B(g, 0.06, 0.16, 0.07, dark, 0, -0.12, 0.05); C(g, 0.09, 0.09, 0.22, 0xe0b22e, 0, 0.1, 0.05).rotation.x = Math.PI / 2;
     const fl = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.22, 8), mat(0x60c0ff, { e: 0x4090ff, ei: 3, op: 0.8 })); fl.rotation.x = -Math.PI / 2; fl.position.z = -0.58; g.add(fl); }
   else if (cls === 'medigun') { // heal beam emitter
     B(g, 0.12, 0.14, 0.36, 0xe8e8f0, 0, 0, 0); C(g, 0.06, 0.08, 0.3, metal, 0, 0.02, -0.3).rotation.x = Math.PI / 2; S(g, 0.07, 0x40ff80, 0, 0.02, -0.48, 1, 1, 1, { e: 0x20ff60, ei: 2 }); B(g, 0.13, 0.04, 0.2, 0xd03030, 0, 0.09, 0); B(g, 0.04, 0.13, 0.04, 0xd03030, 0, 0.09, 0); B(g, 0.06, 0.16, 0.07, dark, 0, -0.14, 0.06); }
   else if (cls === 'medic') { // compact carbine
-    B(g, 0.09, 0.13, 0.55, 0xd8d8e0, 0, 0, -0.12); B(g, 0.1, 0.05, 0.26, 0xd03030, 0, 0.09, -0.12); C(g, 0.025, 0.025, 0.2, metal, 0, 0.01, -0.5).rotation.x = Math.PI / 2; B(g, 0.06, 0.18, 0.07, dark, 0, -0.15, 0.02); B(g, 0.06, 0.2, 0.09, metal, 0, -0.15, -0.18); }
-  else { B(g, 0.09, 0.14, 0.7, dark, 0, 0, -0.2); B(g, 0.1, 0.07, 0.36, color, 0, 0.1, -0.15); B(g, 0.06, 0.2, 0.08, dark, 0, -0.16, 0.02); B(g, 0.07, 0.22, 0.1, metal, 0, -0.16, -0.25); C(g, 0.025, 0.025, 0.2, metal, 0, 0, -0.62).rotation.x = Math.PI / 2; B(g, 0.03, 0.03, 0.05, 0xff4040, 0, 0.15, -0.3, { e: 0xff2020 }); }
+    B(g, 0.09, 0.13, 0.55, 0xd8d8e0, 0, 0, -0.12); B(g, 0.1, 0.05, 0.26, 0xd03030, 0, 0.09, -0.12); C(g, 0.025, 0.025, 0.2, metal, 0, 0.01, -0.5).rotation.x = Math.PI / 2; B(g, 0.06, 0.18, 0.07, dark, 0, -0.15, 0.02); g.userData.mag = B(g, 0.06, 0.2, 0.09, metal, 0, -0.15, -0.18); }
+  else { B(g, 0.09, 0.14, 0.7, dark, 0, 0, -0.2); B(g, 0.1, 0.07, 0.36, color, 0, 0.1, -0.15); B(g, 0.06, 0.2, 0.08, dark, 0, -0.16, 0.02); g.userData.mag = B(g, 0.07, 0.22, 0.1, metal, 0, -0.16, -0.25); C(g, 0.025, 0.025, 0.2, metal, 0, 0, -0.62).rotation.x = Math.PI / 2; B(g, 0.03, 0.03, 0.05, 0xff4040, 0, 0.15, -0.3, { e: 0xff2020 }); }
   return g;
 }
 export function marine(color, cls) {
@@ -57,7 +57,8 @@ export function marine(color, cls) {
   g.userData = { legL, legR, arms };
   return g;
 }
-export function kneel(m, k) { const u = m.userData; u.kn = (u.kn || 0) + ((k ? 1 : 0) - (u.kn || 0)) * 0.2; u.legL.rotation.x = u.kn ? -1.3 * u.kn : u.legL.rotation.x; u.legR.rotation.x = u.kn ? 0.2 * u.kn : u.legR.rotation.x; m.children.forEach(c => { if (c !== u.legL && c !== u.legR) c.position.y = (c.userData.y0 ??= c.position.y) - u.kn * 0.5; }); }
+export function kneel(m, k) { m.rotation.x = 0; if (k === 2) { const u = m.userData; u.kn = 0; m.rotation.x = 0; m.children.forEach(c => { c.userData.y0 ??= c.position.y; }); m.rotation.order = 'YXZ'; m.rotation.x = -1.45; m.position.y += 0.35; return; }
+   const u = m.userData; u.kn = (u.kn || 0) + ((k ? 1 : 0) - (u.kn || 0)) * 0.2; u.legL.rotation.x = u.kn ? -1.3 * u.kn : u.legL.rotation.x; u.legR.rotation.x = u.kn ? 0.2 * u.kn : u.legR.rotation.x; m.children.forEach(c => { if (c !== u.legL && c !== u.legR) c.position.y = (c.userData.y0 ??= c.position.y) - u.kn * 0.5; }); }
 export function animMarine(m, t, sp) { const u = m.userData, a = Math.sin(t) * Math.min(1, sp / 4) * 0.8; u.legL.rotation.x = a; u.legR.rotation.x = -a; }
 
 // ---------------------------------------------------------------- aliens
@@ -97,7 +98,6 @@ export function alien(type) {
   } else if (type === 'nest') {
     S(body, 2, 0x3a2048, 0, 0.6, 0, 1.2, 0.6, 1.2); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28; K(body, 0.4, 2.4, 0x281430, Math.cos(a) * 1.8, 1.2, Math.sin(a) * 1.8).rotation.set(Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5); }
     for (let i = 0; i < 5; i++) S(body, 0.45, gl, Math.cos(i * 1.3) * 0.9, 1.3 + (i % 2) * 0.3, Math.sin(i * 1.3) * 0.9, 1, 1.2, 1);
-    const L = new THREE.PointLight(0x80ff40, 10, 10); L.position.y = 2; body.add(L);
   } else if (type === 'queen') {
     S(body, 1.6, sk, 0, 2.4, 1.2, 1.1, 0.9, 1.8); S(body, 1.1, sk, 0, 2.8, -1.2, 1, 1.1, 1); S(body, 0.8, gl, 0, 2.7, 3.2, 1.2, 1, 1.4);
     for (let i = 0; i < 7; i++) K(body, 0.25, 2.2, 0x1a0e24, (i - 3) * 0.5, 4.3, -1.6 + Math.abs(i - 3) * 0.3).rotation.x = -0.5 - Math.abs(i - 3) * 0.1;
@@ -256,13 +256,42 @@ export function debris(rnd) {
 }
 export function terminal() {
   const g = new THREE.Group(); B(g, 0.8, 1.2, 0.5, 0x3a424a, 0, 0.6, 0, { m: 0.4 }); const sc = B(g, 0.7, 0.45, 0.05, 0x40ffb0, 0, 1.15, 0.2, { e: 0x20c080, ei: 2 }); sc.rotation.x = -0.4;
-  const L = new THREE.PointLight(0x40ffb0, 6, 6); L.position.set(0, 1.5, 0.6); g.add(L); return g;
+  return g;
 }
 export function spire(rnd, color) { const g = new THREE.Group(); const h = 8 + rnd() * 9; const m = new THREE.Mesh(new THREE.ConeGeometry(1.6 + rnd(), h, 7), mat(color, { flat: false, r: 1 })); m.position.y = h / 2 - 0.5; m.rotation.set((rnd() - 0.5) * 0.2, rnd() * 6, (rnd() - 0.5) * 0.2); m.castShadow = true; g.add(m); return g; }
 export function dropship() { const g = new THREE.Group(), hull = mat(0x5a6670, { m: 0.5, r: 0.5 }); B(g, 3, 2.2, 9, hull, 0, 0, 0); B(g, 2.4, 1.2, 2.5, 0x80c0e0, 0, 0.9, -3.8, { op: 0.7, m: 0.8 }); for (const sd of [-1, 1]) { B(g, 4, 0.3, 3, hull, sd * 3.2, 0.2, 1); C(g, 0.8, 0.9, 2.2, 0x2a2e34, sd * 4.8, 0, 1).rotation.x = Math.PI / 2; S(g, 0.6, 0x80c0ff, sd * 4.8, 0, 2.2, 1, 1, 1, { e: 0x4080ff, ei: 2 }); } B(g, 3.2, 0.3, 1.5, 0xd09030, 0, 1.2, 2); return g; }
 export function jet() { const g = new THREE.Group(), hull = mat(0x4a525a, { m: 0.6, r: 0.4 }); B(g, 1.4, 1.0, 8, hull, 0, 0, 0); const n = new THREE.Mesh(new THREE.ConeGeometry(0.7, 2.5, 8), hull); n.rotation.x = -Math.PI / 2; n.position.z = -5.2; g.add(n); B(g, 9, 0.2, 2.5, hull, 0, 0, 1); B(g, 0.2, 2, 1.6, hull, 0, 1, 3.4); S(g, 0.5, 0xffa040, 0, 0, 4.2, 1, 1, 1, { e: 0xff6000, ei: 2 }); return g; }
 export function drone() { const g = new THREE.Group(); B(g, 0.8, 0.3, 0.8, 0x3a424a, 0, 0, 0, { m: 0.5 }); for (const [x, z] of [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]]) { C(g, 0.4, 0.4, 0.04, 0x222222, x, 0.15, z); } S(g, 0.12, 0xff4040, 0, -0.2, -0.4, 1, 1, 1, { e: 0xff2020, ei: 2 }); C(g, 0.05, 0.05, 0.5, 0x222222, 0, -0.25, -0.2).rotation.x = Math.PI / 2; return g; }
 export function medCrate(r) { const g = new THREE.Group(); B(g, 1.3, 0.9, 1.0, 0xe8e8f0, 0, 0.45, 0); const red = mat(0xff3030, { e: 0xa01010 }); B(g, 1.32, 0.18, 0.3, red, 0, 0.92, 0); B(g, 0.3, 0.18, 1.02, red, 0, 0.92, 0); const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.3, r, 48), new THREE.MeshBasicMaterial({ color: 0x60ff90, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.15; g.add(ring); return g; }
+// ---------------------------------------------------------------- the old battlefield
+export function corpse(rnd) { // a fallen marine
+  const g = new THREE.Group(), armor = mat(0x4a5560), cloth = mat([0x3a4a5a, 0x5a4a3a, 0x4a5a3a][(rnd() * 3) | 0]), b = new THREE.Group(); b.rotation.y = rnd() * 6; g.add(b);
+  B(b, 0.62, 0.3, 0.9, cloth, 0, 0.18, 0); B(b, 0.5, 0.22, 0.4, armor, 0, 0.36, -0.1); S(b, 0.24, armor, 0, 0.22, -0.65, 1, 0.9, 1);
+  const legs = rnd() * 0.6; B(b, 0.22, 0.2, 0.9, cloth, -0.15, 0.12, 0.85).rotation.y = legs; B(b, 0.22, 0.2, 0.9, cloth, 0.18, 0.12, 0.85).rotation.y = -legs * 0.5;
+  B(b, 0.18, 0.16, 0.6, armor, -0.5, 0.12, -0.1).rotation.y = 1.2; B(b, 0.08, 0.12, 0.7, 0x2a2e34, 0.7, 0.08, 0.2).rotation.y = rnd() * 3;
+  const blood = new THREE.Mesh(new THREE.CircleGeometry(0.9, 10), mat(0x3a0a08, { op: 0.6 })); blood.rotation.x = -Math.PI / 2; blood.position.y = 0.03; g.add(blood); return g;
+}
+export function carcass(rnd) { // a dead alien, long since dried out
+  const g = new THREE.Group(), sk = mat(rnd() < 0.5 ? 0x3a2a40 : 0x4a3030), b = new THREE.Group(); b.rotation.set(0, rnd() * 6, Math.PI * 0.9); b.position.y = 0.5; g.add(b);
+  const big = 0.8 + rnd() * 1.6; S(b, 0.6 * big, sk, 0, 0, 0, 1, 0.6, 1.5); S(b, 0.35 * big, sk, 0, 0, -0.9 * big);
+  for (let i = 0; i < 6; i++) { const l = B(b, 0.08 * big, 0.8 * big, 0.08 * big, 0x1a1420, (i % 2 ? 1 : -1) * 0.5 * big, -0.3 * big, (i / 2 - 1) * 0.4 * big); l.rotation.z = (i % 2 ? 1 : -1) * (0.6 + rnd()); }
+  const goo = new THREE.Mesh(new THREE.CircleGeometry(1.2 * big, 10), mat(0x2a5a10, { op: 0.6 })); goo.rotation.x = -Math.PI / 2; goo.position.y = 0.03; g.add(goo); return g;
+}
+export function tank(rnd) {
+  const g = new THREE.Group(), hull = mat(0x4a5040, { r: 0.8, m: 0.3 }), burnt = mat(0x22201e, { r: 1 }), t = new THREE.Group(); t.rotation.set((rnd() - 0.5) * 0.2, rnd() * 6, (rnd() - 0.5) * 0.3); g.add(t);
+  B(t, 3.4, 1.3, 6.2, rnd() < 0.5 ? hull : burnt, 0, 0.9, 0); for (const sd of [-1, 1]) { B(t, 0.9, 1.1, 6.6, 0x1a1a1a, sd * 2.1, 0.55, 0); for (let i = 0; i < 6; i++) C(t, 0.45, 0.45, 0.9, 0x2a2a2a, sd * 2.1, 0.5, -2.6 + i * 1.05).rotation.z = Math.PI / 2; }
+  const tur = new THREE.Group(); tur.position.y = 1.9; tur.rotation.y = rnd() * 6; t.add(tur); B(tur, 2.4, 0.9, 2.6, burnt, 0, 0, 0); const gun = C(tur, 0.15, 0.18, 3.5, 0x2a2a2a, 0, 0.1, -2.6); gun.rotation.x = Math.PI / 2 - 0.15 - rnd() * 0.3;
+  if (rnd() < 0.5) { tur.position.set(2.5, 0.6, 1.5); tur.rotation.z = 1.2; } return g;
+}
+export function mech(rnd) {
+  const g = new THREE.Group(), m = mat(0x5a646e, { m: 0.5 }), dark = mat(0x2a2e34), r = new THREE.Group(); r.rotation.set(rnd() * 0.3, rnd() * 6, Math.PI / 2 * (rnd() < 0.6 ? 1 : 0.2)); r.position.y = 1.2; g.add(r);
+  B(r, 2.2, 1.8, 1.8, m, 0, 2.2, 0); B(r, 1.4, 0.6, 0.4, 0x80c0e0, 0, 2.5, -0.9, { op: 0.7 }); for (const sd of [-1, 1]) { B(r, 0.6, 2.2, 0.7, dark, sd * 0.8, 0.6, 0); B(r, 0.9, 0.4, 1.3, dark, sd * 0.8, -0.5, -0.2); C(r, 0.25, 0.25, 1.6, 0x2a2a2a, sd * 1.5, 2.3, -0.8).rotation.x = Math.PI / 2; } return g;
+}
+export function sandbags(rnd) { const g = new THREE.Group(), m = mat(0x8a7a5a, { r: 1 }), n = 6 + (rnd() * 6 | 0), arc = 0.8 + rnd(); for (let row = 0; row < 3; row++) for (let i = 0; i < n - row; i++) { const a = (i + row * 0.5) / n * arc - arc / 2; const sb = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.5, 2, 6), m); sb.rotation.z = Math.PI / 2; sb.rotation.y = -a; sb.position.set(Math.sin(a) * 4, 0.22 + row * 0.38, -Math.cos(a) * 4 + 4); sb.castShadow = true; g.add(sb); } return g; }
+export function tankTrap() { const g = new THREE.Group(), m = mat(0x3a3a3a, { m: 0.6 }); for (const [x, y, z] of [[0.8, 0, 0], [0, 0.8, 0], [0, 0, 0.8]]) { const b = B(g, 0.22, 2.2, 0.22, m, 0, 0.9, 0); b.rotation.set(x, y, z); } return g; }
+export function deadTurret(rnd) { const g = new THREE.Group(), m = mat(0x3e464e), burnt = mat(0x22201e); C(g, 0.9, 1.1, 0.4, m, 0, 0.2, 0); C(g, 0.35, 0.45, 0.9, burnt, 0, 0.8, 0); const h = B(g, 0.8, 0.55, 0.9, burnt, 0.6, 0.35, 0.8); h.rotation.set(0.4, rnd() * 3, 1.0); C(g, 0.05, 0.05, 1.1, 0x222222, 1.2, 0.1, 1.4).rotation.set(1.4, 0, 0.3); return g; }
+export function burntCrate(rnd) { const g = new THREE.Group(); for (let i = 0; i < 1 + (rnd() * 3 | 0); i++) { const c = B(g, 1.2, 1.0, 1.0, rnd() < 0.5 ? 0x2a2622 : 0x4a5a3a, (rnd() - 0.5) * 2.5, 0.5, (rnd() - 0.5) * 2.5); c.rotation.set(0, rnd() * 3, rnd() < 0.3 ? 1.2 : 0); } return g; }
+export function flag(rnd) { const g = new THREE.Group(); const p = C(g, 0.05, 0.06, 4, 0x666666, 0, 2, 0); p.rotation.z = (rnd() - 0.5) * 0.4; const f = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8, 3, 1), mat(0x2a4a8a, { ds: true })); f.position.set(0.7, 3.5, 0); g.add(f); const pos = f.geometry.attributes.position; for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 3) * 0.15); f.geometry.computeVertexNormals(); return g; }
 export function supplyPod() {
   const g = new THREE.Group(); B(g, 1.1, 0.9, 1.1, 0x50606a, 0, 0.45, 0, { m: 0.5 }); B(g, 1.15, 0.2, 1.15, 0xe0b22e, 0, 0.55, 0, { e: 0x604000 });
   C(g, 0.05, 0.05, 1.6, 0x888888, 0, 1.6, 0); S(g, 0.15, 0xffd040, 0, 2.4, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); return g;
@@ -279,7 +308,7 @@ export function prop(kind, rnd) {
   else if (kind === 'derrick') { for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const l = B(g, 0.2, 9, 0.2, 0x4a4a52, a * 0.9, 4.5, b * 0.9); l.rotation.set(b * 0.08, 0, -a * 0.08); } for (let y = 1.5; y < 9; y += 2) B(g, 1.9 - y * 0.12, 0.12, 1.9 - y * 0.12, 0x6a6a72, 0, y, 0); B(g, 1.2, 1.2, 1.2, 0xc06020, 0, 0.6, 0); S(g, 0.25, 0xff4020, 0, 9.3, 0, 1, 1, 1, { e: 0xff2010 }); }
   else if (kind === 'dish') { C(g, 0.3, 0.5, 4, 0x8a96a2, 0, 2, 0); const d = new THREE.Mesh(new THREE.SphereGeometry(2.4, 14, 6, 0, 6.29, 0, 1.0), mat(0xd8e4ee, { ds: true, m: 0.4 })); d.position.set(0, 4.4, 0); d.rotation.x = 2.3; g.add(d); C(g, 0.06, 0.06, 2, 0x404040, 0, 5, -0.6).rotation.x = 0.8; B(g, 2, 1.2, 1.6, 0x5a6670, 1.6, 0.6, 0); }
   else if (kind === 'spire') { const h = 6 + rnd() * 6; K(g, 1.2, h, 0x9fd8ff, 0, h / 2, 0, { e: 0x2060a0, m: 0.3, r: 0.1 }); K(g, 0.7, h * 0.6, 0xbfe8ff, 1, h * 0.3, 0.5, { e: 0x204060 }).rotation.z = -0.3; }
-  else if (kind === 'shroom') { const h = 3 + rnd() * 4, c = [0x40ffd0, 0xc060ff, 0x60a0ff][(rnd() * 3) | 0]; C(g, 0.3, 0.45, h, 0xd8d0b0, 0, h / 2, 0); const cap = S(g, 1.6 + rnd(), c, 0, h, 0, 1, 0.45, 1, { e: c, ei: 0.8 }); cap.castShadow = false; for (let i = 0; i < 4; i++) S(g, 0.14, 0xffffff, Math.cos(i * 1.6) * 1.1, h + 0.5, Math.sin(i * 1.6) * 1.1, 1, 1, 1, { e: 0xffffff }); if (rnd() < 0.1) { const L = new THREE.PointLight(c, 12, 12); L.position.y = h; g.add(L); } }
+  else if (kind === 'shroom') { const h = 3 + rnd() * 4, c = [0x40ffd0, 0xc060ff, 0x60a0ff][(rnd() * 3) | 0]; C(g, 0.3, 0.45, h, 0xd8d0b0, 0, h / 2, 0); const cap = S(g, 1.6 + rnd(), c, 0, h, 0, 1, 0.45, 1, { e: c, ei: 0.8 }); cap.castShadow = false; for (let i = 0; i < 4; i++) S(g, 0.14, 0xffffff, Math.cos(i * 1.6) * 1.1, h + 0.5, Math.sin(i * 1.6) * 1.1, 1, 1, 1, { e: 0xffffff });  }
   else if (kind === 'boulder') { const n = 1 + (rnd() * 3 | 0); for (let i = 0; i < n; i++) { const r0 = 0.8 + rnd() * 2.4, m = new THREE.Mesh(new THREE.DodecahedronGeometry(r0, 1), mat(0x6a6058, { flat: false, r: 1 })); m.position.set((rnd() - 0.5) * 3, r0 * 0.5, (rnd() - 0.5) * 3); m.scale.set(1, 0.55 + rnd() * 0.5, 0.8 + rnd() * 0.4); m.rotation.set(rnd(), rnd() * 6, rnd()); m.castShadow = true; m.receiveShadow = true; g.add(m); } }
   else if (kind === 'tower') { B(g, 3, 6, 3, 0x6a747e, 0, 3, 0, { m: 0.3 }); B(g, 3.4, 0.4, 3.4, 0x3a424a, 0, 6.2, 0); S(g, 0.3, 0xff4040, 0, 6.8, 0, 1, 1, 1, { e: 0xff2020 }); }
   return g;

@@ -29,7 +29,7 @@ export const CLASSES = {
   },
   gunner: {
     name: 'Gunner', color: 0x6a8a3a, hp: 190, speed: 6.8, role: 'Suppression and ammo carrier',
-    gun: { name: 'M-56 Hand Minigun', dmg: 6.5, rate: 18, mag: 120, reserve: 480, reload: 3.4, spread: 0.03, kind: 'hit', sound: 'mini', recoil: 0.0035, near: 15, far: 50, max: 70, spin: 0.5 },
+    gun: { name: 'M-56 Hand Minigun', dmg: 5, rate: 36, mag: 360, reserve: 1440, reload: 3.6, spread: 0.032, kind: 'hit', sound: 'mini', recoil: 0.0022, tracers: 1, near: 15, far: 50, max: 70, spin: 0.5 },
     rclick: 'spin', rname: 'Spin up', rdesc: 'Keep the barrels spinning without firing, ready to shoot instantly.',
     ability: { id: 'ammo', name: 'Ammo Drop', cd: 30, desc: 'Drop an ammo crate that refills every marine who walks over it, for 40 s.' },
     team: 'Supplies ammo with Ammo Drop, and his bullets slow the aliens they hit.',
@@ -147,29 +147,29 @@ export const bossScale = n => 1 + 0.6 * (squad(n) - 1);
 
 export const MAPS = {
   mars: {
-    name: 'Red Sands Outpost', sub: 'Mars, mining colony 7 · meteor showers', ground: 0xa4502e, ground2: 0x7d3a22, path: 0x5a3a2c, sky: 0xd99a6a, fog: 0xc88458, fogD: [80, 330], sun: 0xffe0c0, amb: 0x804030,
+    name: 'Red Sands Outpost', sub: 'Mars, mining colony 7 · meteor showers', ground: 0xa4502e, ground2: 0x7d3a22, path: 0x5a3a2c, sky: 0xd99a6a, fog: 0xc88458, fogD: [96, 412], sun: 0xffe0c0, amb: 0x804030,
     prop: 'rock', extra: ['dome', 'derrick'], hazard: 'meteor', weather: 'dust', liquid: 0xff5a10, rock: 0x5a2a1a,
-    craters: [{ x: -100, z: 80, r: 18, d: 6 }, { x: 100, z: -95, r: 22, d: 7 }, { x: -20, z: -100, r: 12, d: 4 }], mesas: [{ x: 95, z: 105, r: 16, h: 14 }, { x: -110, z: -15, r: 12, h: 11 }],
-    hs: [3.4,  6.8,  10.2,  5.1,  1.7,  8.5,  13.6,  6.8,  3.4,  10.2,  5.1,  1.7], chasms: [{ pts: [[-74, -140], [-74, 60]], w: 12.6 }], ridges: [{ pts: [[-40, -8], [88, -8]], w: 24, h: 17 }],
-    pts: [[-116, -84], [-48, -84], [-48, -24], [-100, -24], [-100, 36], [-16, 36], [-16, -60], [60, -60], [60, 16], [104, 16], [104, 80], [20, 80]],
+    craters: [{ x: -130, z: 60, r: 22, d: 7 }, { x: 120, z: -110, r: 26, d: 8 }, { x: -40, z: -120, r: 14, d: 4 }, { x: 40, z: 110, r: 16, d: 5 }], mesas: [{ x: -150, z: -40, r: 16, h: 14 }, { x: 160, z: 20, r: 14, h: 12 }, { x: -60, z: 140, r: 18, h: 13 }],
+    hs: [3, 6, 10, 6, 3, 8, 12, 7, 4, 9, 6, 4, 3], chasms: [{ pts: [[-20, -190], [-20, 70]], w: 13 }], ridges: [{ pts: [[40, -115], [40, 0]], w: 26, h: 18 }],
+    pts: [[-150, -150], [-90, -145], [-60, -100], [-115, -50], [-105, 15], [-40, 35], [0, -20], [55, -55], [115, -30], [125, 40], [70, 85], [105, 120], [145, 145]],
   },
   ice: {
-    name: 'Kryos Station', sub: 'Ice moon of Kryos IV · blizzards', ground: 0xd6e4ee, ground2: 0xa8c0d4, path: 0x6e8aa4, sky: 0x9ab8d8, fog: 0xb8cde0, fogD: [70, 308], sun: 0xe8f2ff, amb: 0x506888,
+    name: 'Kryos Station', sub: 'Ice moon of Kryos IV · blizzards', ground: 0xd6e4ee, ground2: 0xa8c0d4, path: 0x6e8aa4, sky: 0x9ab8d8, fog: 0xb8cde0, fogD: [84, 385], sun: 0xe8f2ff, amb: 0x506888,
     prop: 'ice', extra: ['dish', 'spire'], hazard: 'blizzard', weather: 'snow', liquid: 0x3080c0, rock: 0x6a7c90,
-    craters: [{ x: -95, z: -95, r: 20, d: 7 }, { x: 100, z: 95, r: 16, d: 5 }], mesas: [{ x: 105, z: 40, r: 14, h: 15 }, { x: -110, z: 110, r: 15, h: 12 }],
-    hs: [5.1,  8.5,  3.4,  6.8,  1.7,  5.1,  10.2,  3.4,  6.8,  11.9,  5.1,  8.5,  3.4], chasms: [{ pts: [[-72, -52], [140, -52]], w: 11.2 }], ridges: [{ pts: [[4, -4], [4, 140]], w: 24, h: 19 }],
-    pts: [[116, -92], [116, -20], [40, -20], [40, -88], [-40, -88], [-40, -16], [-104, -16], [-104, 60], [-28, 60], [-28, 12], [44, 12], [44, 88], [-72, 100]],
+    craters: [{ x: 140, z: 60, r: 22, d: 7 }, { x: -140, z: -120, r: 24, d: 8 }, { x: 20, z: 130, r: 16, d: 5 }], mesas: [{ x: 160, z: 120, r: 18, h: 15 }, { x: -30, z: -140, r: 16, h: 12 }, { x: 60, z: 70, r: 12, h: 10 }],
+    hs: [4, 7, 3, 6, 9, 5, 2, 6, 10, 5, 8, 12, 6, 3], chasms: [{ pts: [[-190, -5], [40, -5]], w: 12 }], ridges: [{ pts: [[-130, 60], [-20, 100]], w: 26, h: 20 }],
+    pts: [[150, -150], [100, -140], [60, -90], [110, -40], [90, 20], [30, 10], [-10, -50], [-70, -80], [-120, -30], [-100, 40], [-40, 70], [-60, 120], [-105, 130], [-145, 145]],
   },
   jungle: {
-    name: 'Verdant Colony', sub: 'Jungle world Thessa, at night · alien nests', ground: 0x2f5a28, ground2: 0x23441e, path: 0x4a3a28, sky: 0x1c2a34, fog: 0x1e2e30, fogD: [36, 187], sun: 0x8090c0, sunI: 0.7, hemiI: 0.55, amb: 0x102018,
+    name: 'Verdant Colony', sub: 'Jungle world Thessa, at night · alien nests', ground: 0x2f5a28, ground2: 0x23441e, path: 0x4a3a28, sky: 0x1c2a34, fog: 0x1e2e30, fogD: [43, 233], sun: 0x8090c0, sunI: 0.7, hemiI: 0.55, amb: 0x102018,
     prop: 'tree', extra: ['shroom', 'tree'], hazard: 'nests', weather: 'rain', dense: 1, liquid: 0x2a7a8a, rock: 0x4a4a3a,
-    craters: [{ x: -100, z: -100, r: 18, d: 6 }, { x: 60, z: 110, r: 14, d: 5 }], mesas: [{ x: -110, z: 30, r: 13, h: 13 }, { x: 110, z: 105, r: 15, h: 14 }],
-    hs: [6.8,  3.4,  8.5,  5.1,  10.2,  3.4,  6.8,  1.7,  5.1,  10.2,  3.4,  8.5,  5.1,  11.9,  3.4], chasms: [{ pts: [[-20, -140], [-20, 140]], w: 12.6 }], ridges: [{ pts: [[52, 16], [140, 16]], w: 24, h: 19 }],
-    pts: [[-112, 92], [-112, 20], [-52, 20], [-52, 88], [16, 88], [16, -8], [-80, -8], [-80, -80], [0, -80], [0, -40], [80, -40], [80, 60], [112, 60], [112, -96], [48, -96]],
+    craters: [{ x: -150, z: -100, r: 22, d: 7 }, { x: 140, z: 90, r: 22, d: 6 }, { x: 0, z: 150, r: 16, d: 5 }], mesas: [{ x: -160, z: 40, r: 15, h: 13 }, { x: 160, z: 20, r: 16, h: 14 }, { x: 40, z: 140, r: 14, h: 12 }],
+    hs: [4, 7, 3, 8, 5, 9, 4, 7, 11, 5, 3, 7, 10, 5, 3], chasms: [{ pts: [[-190, -20], [190, -20]], w: 13 }], ridges: [{ pts: [[-60, -90], [40, -90]], w: 26, h: 18 }],
+    pts: [[-150, 150], [-100, 145], [-70, 100], [-120, 60], [-90, 0], [-30, 20], [10, 80], [70, 60], [90, 0], [40, -40], [-20, -60], [0, -120], [70, -130], [110, -95], [145, -145]],
   },
 };
-export const PATH_W = 6;
-export const BOUNDS = 132;
+export const PATH_W = 9;
+export const BOUNDS = 180;
 
 // Marines the hub sends down the track toward the hive. Trooper is free; the others are unlocked in the armory.
 export const ALLIES = {

@@ -22,7 +22,7 @@ export class Music {
   save() { try { localStorage.setItem('hb-music2', JSON.stringify({ on: this.on, vol: this.vol })); } catch (e) { } }
   start() {
     const c = this.a.ctx; if (!c || this.master) return;
-    this.master = c.createGain(); this.master.gain.value = this.on ? this.vol * 1.6 : 0;
+    this.master = c.createGain(); this.master.gain.value = this.on ? this.vol * 1.6 * (this.mul ?? 1) : 0;
     const comp = c.createDynamicsCompressor(); comp.threshold.value = -20; comp.ratio.value = 3; comp.attack.value = 0.02; this.master.connect(comp); comp.connect(c.destination);
     // a concert hall: a long, smooth stereo tail
     const len = c.sampleRate * 3.6, ir = c.createBuffer(2, len, c.sampleRate);
@@ -44,8 +44,8 @@ export class Music {
     for (const k in this.L) this.L[k].gain.setTargetAtTime(MIX[mode][k], t, 1.2);
     this.bpm = BPM[mode]; this.vowel(this.choirBus, mode === 'boss' || mode === 'battle' ? 'ah' : 'oo', t);
   }
-  toggle() { this.on = !this.on; this.save(); if (this.master) this.master.gain.setTargetAtTime(this.on ? this.vol * 1.6 : 0, this.a.ctx.currentTime, 0.2); return this.on; }
-  setVol(v) { this.vol = v; this.save(); if (this.master && this.on) this.master.gain.setTargetAtTime(v * 1.6, this.a.ctx.currentTime, 0.1); }
+  toggle() { this.on = !this.on; this.save(); if (this.master) this.master.gain.setTargetAtTime(this.on ? this.vol * 1.6 * (this.mul ?? 1) : 0, this.a.ctx.currentTime, 0.2); return this.on; }
+  setVol(v) { this.vol = v; this.save(); if (this.master && this.on) this.master.gain.setTargetAtTime(v * 1.6 * (this.mul ?? 1), this.a.ctx.currentTime, 0.1); }
   tick() {
     const c = this.a.ctx; if (!c || c.state !== 'running') { if (c) this.next = c.currentTime + 0.1; return; }
     if (this.next < c.currentTime - 0.2) this.next = c.currentTime + 0.05;

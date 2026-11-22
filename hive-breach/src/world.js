@@ -42,7 +42,10 @@ export const FLOOR = -8, LIQUID = -6.8, ROOF_GAP = 4.6, HUB_R = 24, WALL_T = 1.2
 export function makeTerrain(D, path, hubP, hiveP) {
   const T = {};
   const hills = (x, z) => 2.6 + 3.4 * Math.sin(x * 0.034 + 1.3) * Math.cos(z * 0.029 - 0.4) + 1.8 * Math.sin(x * 0.063 + z * 0.052 + 2) + 0.9 * Math.cos(x * 0.12 - z * 0.105) + 0.35 * Math.sin(x * 0.29 + z * 0.24) + 0.18 * Math.cos(x * 0.61 - z * 0.53);
-  const feats = (x, z) => { let h = 0; for (const c of D.craters || []) { const u = Math.hypot(x - c.x, z - c.z) / c.r; if (u < 1) h -= c.d * (1 - u * u); else if (u < 1.35) h += c.d * 0.4 * Math.sin((u - 1) / 0.35 * Math.PI); }
+  const CR = rng(D.name.length * 131 + 7), craters = [...(D.craters || [])];
+  for (let i = 0; i < 46; i++) { const x = (CR() * 2 - 1) * (BOUNDS - 12), z = (CR() * 2 - 1) * (BOUNDS - 12); if (Math.hypot(x - hubP.x, z - hubP.z) < HUB_R + 16 || Math.hypot(x - hiveP.x, z - hiveP.z) < 26) continue; craters.push({ x, z, r: 3 + CR() * 9, d: 1 + CR() * 2.6, small: 1 }); }
+  T.craters = craters;
+  const feats = (x, z) => { let h = 0; for (const c of craters) { const u = Math.hypot(x - c.x, z - c.z) / c.r; if (u < 1) h -= c.d * (1 - u * u); else if (u < 1.35) h += c.d * 0.4 * Math.sin((u - 1) / 0.35 * Math.PI); }
     for (const m of D.mesas || []) { const u = Math.hypot(x - m.x, z - m.z) / m.r; h += m.h * sstep(1.3, 0.92, u) * (0.92 + 0.08 * Math.sin(x * 0.4 + z * 0.3)); } return h; };
   const ridge = (x, z) => { let r = 0; for (const q of D.ridges || []) { const u = lineDist(q.pts, x, z) / (q.w / 2); if (u < 1) r = Math.max(r, q.h * (Math.cos(u * Math.PI) + 1) / 2); } return r; };
   const chasm = (x, z) => { let k = 1; for (const q of D.chasms || []) k = Math.min(k, sstep(q.w / 2, q.w / 2 + 1.4, lineDist(q.pts, x, z))); return k; };
@@ -52,7 +55,7 @@ export function makeTerrain(D, path, hubP, hiveP) {
   T.raw = (x, z, noPath) => {
     const out = Math.max(Math.abs(x), Math.abs(z)) - (BOUNDS - 2);
     let h = hills(x, z) + ridge(x, z) + feats(x, z) + (out > 0 ? out * 1.8 + Math.max(0, Math.sin(x * 0.05) * Math.cos(z * 0.06)) * out * 0.8 : 0);
-    const n = path.near(x, z), py = path.y(n.s), R = ridge(n.x, n.z), bw = 7 - 5.6 * Math.min(1, R / 3);     // a narrow cut where the track goes under a ridge
+    const n = path.near(x, z), py = path.y(n.s), R = ridge(n.x, n.z), bw = 15 - 13.6 * Math.min(1, R / 3);     // a narrow cut where the track goes under a ridge
     const f = noPath ? 1 : sstep(PATH_W / 2 + 0.3, PATH_W / 2 + 0.3 + bw, n.d); h = py - 0.02 + (h - py + 0.02) * f;
     for (const [p, y, a, b] of [[hubP, hubY, HUB_R + 4, HUB_R + 12], [hiveP, hiveY, 10, 18]]) { const g = sstep(a, b, Math.hypot(x - p.x, z - p.z)); h = y + (h - y) * g; }
     const k = chasm(x, z); h = FLOOR + (h - FLOOR) * k;
@@ -136,13 +139,13 @@ export function buildWorld(scene, mapId) {
 
   // the land: a height grid coloured by height and steepness
   const SZ = BOUNDS * 2 + 140, N = 230, gr = new THREE.PlaneGeometry(SZ, SZ, N, N); gr.rotateX(-Math.PI / 2);
-  const pos = gr.attributes.position, col = [], c1 = new THREE.Color(D.ground), c2 = new THREE.Color(D.ground2), cr = new THREE.Color(D.rock), cd = new THREE.Color(0x1a1410), r = rng(7), H = [];
+  const scorch = new THREE.Color(0x1c1612), pos = gr.attributes.position, col = [], c1 = new THREE.Color(D.ground), c2 = new THREE.Color(D.ground2), cr = new THREE.Color(D.rock), cd = new THREE.Color(0x1a1410), r = rng(7), H = [];
   for (let i = 0; i < pos.count; i++) { const h = T.raw(pos.getX(i), pos.getZ(i)); H.push(h); pos.setY(i, h); }
   for (let i = 0; i < pos.count; i++) {
     const ix = i % (N + 1), iz = (i / (N + 1)) | 0, hx = H[i + (ix < N ? 1 : -1)], hz = H[i + (iz < N ? N + 1 : -(N + 1))], slope = Math.max(Math.abs(hx - H[i]), Math.abs(hz - H[i])) / (SZ / N);
     const px = pos.getX(i), pz = pos.getZ(i), patch = 0.5 + 0.5 * Math.sin(px * 0.09 + Math.sin(pz * 0.07) * 2) * Math.cos(pz * 0.08 - px * 0.03);
     const c = c1.clone().lerp(c2, patch * 0.7 + r() * 0.12 + Math.min(0.3, Math.max(0, H[i] - 6) * 0.03));
-    if (slope > 0.6) c.lerp(cr, Math.min(1, (slope - 0.6) * 1.5)); if (H[i] < -1) c.lerp(cd, Math.min(1, (-1 - H[i]) / 5));
+    if (slope > 0.6) c.lerp(cr, Math.min(1, (slope - 0.6) * 1.5)); if (H[i] < -1) c.lerp(cd, Math.min(1, (-1 - H[i]) / 5)); for (const cr of T.craters) { const u = Math.hypot(px - cr.x, pz - cr.z) / cr.r; if (u < 1.6) { c.lerp(scorch, Math.min(0.75, (1.6 - u) * 0.6)); break; } }
     if (mapId === 'ice' && H[i] > 7 && slope < 0.8) c.lerp(new THREE.Color(0xffffff), 0.6);
     col.push(c.r, c.g, c.b);
   }
@@ -151,7 +154,7 @@ export function buildWorld(scene, mapId) {
   // lava, water or icy sea at the bottom of the chasms
   const liq = new THREE.Mesh(new THREE.PlaneGeometry(SZ, SZ), new THREE.MeshStandardMaterial({ color: D.liquid, emissive: mapId === 'mars' ? D.liquid : 0x000000, emissiveIntensity: 0.9, roughness: 0.3, metalness: 0.2 }));
   liq.rotation.x = -Math.PI / 2; liq.position.y = LIQUID; g.add(liq); W.liquid = liq;
-  if (mapId === 'mars') for (const q of D.chasms) { const a = q.pts[0], b = q.pts[q.pts.length - 1]; for (let f = 0.1; f < 1; f += 0.3) { const L = new THREE.PointLight(0xff6020, 30, 22); L.position.set(a[0] + (b[0] - a[0]) * f, LIQUID + 2, a[1] + (b[1] - a[1]) * f); g.add(L); } }
+  if (mapId === 'mars') for (const q of D.chasms) { const a = q.pts[0], b = q.pts[q.pts.length - 1]; for (let f = 0.25; f < 1; f += 0.5) { const L = new THREE.PointLight(0xff6020, 30, 22); L.position.set(a[0] + (b[0] - a[0]) * f, LIQUID + 2, a[1] + (b[1] - a[1]) * f); g.add(L); } }
 
   // the track: a ribbon that follows its height, one leg at a time, and a disc at each bend
   const trailC = new THREE.Color(D.ground).lerp(new THREE.Color(D.path), 0.45), trailM = new THREE.MeshStandardMaterial({ color: trailC, roughness: 1, side: THREE.DoubleSide, transparent: true, opacity: 0.75, depthWrite: false }), pm = trailM;
@@ -207,7 +210,7 @@ export function buildWorld(scene, mapId) {
     if (n.d < 10 || Math.abs(x) > BOUNDS - 6 || Math.abs(z) > BOUNDS - 6 || T.chasm(x, z) < 0.99 || T.ridge(x, z) > 1.5) continue; W.nestP.push({ i: W.nestP.length, x, z, y: T.raw(x, z), s: n.s }); break; } } }
   // scenery, kept off the track and out of the chasms
   const R = rng(mapId.length * 991 + 3);
-  for (let i = 0; i < (D.dense ? 520 : 300); i++) {
+  for (let i = 0; i < (D.dense ? 700 : 420); i++) {
     const x = (R() * 2 - 1) * (BOUNDS + 40), z = (R() * 2 - 1) * (BOUNDS + 40), n = path.near(x, z), out = Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2;
     if (n.d < PATH_W + 4 && !out) continue; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < HUB_R + 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 14) continue;
     if (T.chasm(x, z) < 0.99 || T.ridge(x, z) > 3) continue;
@@ -218,6 +221,7 @@ export function buildWorld(scene, mapId) {
   const sky = { mars: [[0xd8c0a0, 26, -0.6, 0.35], [0xa09080, 9, 0.9, 0.5]], ice: [[0x6a8ad0, 60, 0.4, 0.3], [0xe0d0c0, 12, -0.9, 0.55]], jungle: [[0xb0a0e0, 45, -0.3, 0.32], [0xf0e0c0, 14, 1.1, 0.6], [0xc0f0d0, 7, 1.6, 0.45]] }[mapId];
   for (const [c, rad, a, el] of sky) { const pl = new THREE.Mesh(new THREE.SphereGeometry(rad, 32, 16), new THREE.MeshBasicMaterial({ color: c, fog: false })); pl.position.set(Math.cos(a) * 650, Math.sin(el) * 650, Math.sin(a) * 650); g.add(pl); if (rad > 20) { const rg = new THREE.Mesh(new THREE.RingGeometry(rad * 1.3, rad * 1.9, 64), new THREE.MeshBasicMaterial({ color: c, fog: false, transparent: true, opacity: 0.35, side: THREE.DoubleSide })); rg.position.copy(pl.position); rg.lookAt(0, 0, 0); rg.rotateX(1.1); g.add(rg); } }
   placePOIs(g, W, T, D, mapId, path);
+  battlefield(g, W, T, D, mapId, path);
   // bullets: big props stop them (a grid of colliders with heights, looked up by cell)
   const cell = 16, grid = new Map(); for (const c of W.colliders) { c.gy = c.gy ?? T.raw(c.x, c.z); c.h = c.h ?? 3; const x0 = Math.floor((c.x - c.r) / cell), x1 = Math.floor((c.x + c.r) / cell), z0 = Math.floor((c.z - c.r) / cell), z1 = Math.floor((c.z + c.r) / cell); for (let a = x0; a <= x1; a++) for (let b = z0; b <= z1; b++) { const k = a + ',' + b; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(c); } }
   T.block = (x, y, z) => { const l = grid.get(Math.floor(x / cell) + ',' + Math.floor(z / cell)); if (!l) return false; for (const c of l) if (y < c.gy + c.h && y > c.gy - 1 && (x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true; return false; };
@@ -225,6 +229,7 @@ export function buildWorld(scene, mapId) {
   const mc = document.createElement('canvas'); mc.width = mc.height = 170; const mg = mc.getContext('2d'), im = mg.createImageData(170, 170);
   for (let j = 0; j < 170; j++) for (let i = 0; i < 170; i++) { const hb0 = T.hubAt(-BOUNDS + (i + 0.5) / 170 * BOUNDS * 2, -BOUNDS + (j + 0.5) / 170 * BOUNDS * 2); const x = -BOUNDS + (i + 0.5) / 170 * BOUNDS * 2, z = -BOUNDS + (j + 0.5) / 170 * BOUNDS * 2, h = T.raw(x, z, true), o = (j * 170 + i) * 4, v = h < -1 ? 15 : Math.max(20, Math.min(110, 40 + h * 7)); im.data[o] = h < -1 ? (mapId === 'mars' ? 120 : 20) : v * 0.8; im.data[o + 1] = h < -1 ? 30 : v; im.data[o + 2] = h < -1 ? (mapId === 'mars' ? 10 : 90) : v * 1.1; im.data[o + 3] = 200; if (hb0 && hb0.wall) { im.data[o] = im.data[o + 1] = im.data[o + 2] = 210; } }
   mg.putImageData(im, 0, 0); W.miniBg = mc;
+  mergeStatic(g, new Set([ground, liq, W.hive, W.hub, W.healRing, W.hiveShield, hemi, sun, sun.target]));
   return W;
 }
 
@@ -260,7 +265,7 @@ function buildCompound(g, H, W) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(4, 4.4, 32), M.mat(0xffc020, { e: 0x806000, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.set(pad.position.x, 0.22, pad.position.z); C.add(ring);
   for (const da of [-1.4, 1.6]) { const a = back + da, x = Math.cos(a) * 15.5, z = Math.sin(a) * 15.5, b = new THREE.Mesh(new THREE.BoxGeometry(7, 3.4, 4.5), wallM); b.position.set(x, 1.7, z); b.rotation.y = -a; b.castShadow = true; C.add(b); const roof = new THREE.Mesh(new THREE.BoxGeometry(7.3, 0.4, 4.8), dark); roof.position.set(x, 3.6, z); roof.rotation.y = -a; C.add(roof); W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.4 }); }
   // floodlights on the walls
-  for (let i = 0; i < 4; i++) { const a = H.ga + Math.PI / 4 + i * Math.PI / 2; const L = new THREE.PointLight(0xc0e0ff, 25, 40); L.position.set(Math.cos(a) * (HUB_R - 2), WALL_H + 4, Math.sin(a) * (HUB_R - 2)); C.add(L); }
+  for (let i = 0; i < 2; i++) { const a = H.ga + Math.PI / 2 + i * Math.PI; const L = new THREE.PointLight(0xc0e0ff, 30, 50); L.position.set(Math.cos(a) * (HUB_R - 2), WALL_H + 4, Math.sin(a) * (HUB_R - 2)); C.add(L); }
 }
 
 // Logs the marines can find, one per point of interest on each map
@@ -305,4 +310,45 @@ function placePOIs(g, W, T, D, mapId, path) {
   }
   // rock spires round the hive: you have to come close to hit its guardians
   for (let i = 0; i < 18; i++) { const a = i / 18 * 6.28 + R() * 0.2, rr = 24 + R() * 8, x = hv.x + Math.cos(a) * rr, z = hv.z + Math.sin(a) * rr; if (path.near(x, z).d < 8 || Math.abs(x) > BOUNDS - 2 || Math.abs(z) > BOUNDS - 2) continue; const sp = M.spire(R, D.rock); sp.position.set(x, T.raw(x, z), z); g.add(sp); W.colliders.push({ x, z, r: 1.9, h: 12 }); }
+}
+
+// Signs of a long war: fallen marines, dead aliens, wrecked tanks and mechs, sandbag lines, tank traps, dead turrets, burnt crates, flags.
+function battlefield(g, W, T, D, mapId, path) {
+  const R = rng(mapId.length * 4447 + 5), H = T.hub, hv = W.hiveP;
+  const free = (x, z, clear) => Math.abs(x) < BOUNDS - 6 && Math.abs(z) < BOUNDS - 6 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 6 && Math.hypot(x - hv.x, z - hv.z) > 14 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 2;
+  const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); };
+  // battle lines along the track: sandbags, tank traps, bodies and wrecks 12-40 m from it
+  for (let s = 30; s < path.len - 40; s += 22) {
+    const q = path.at(s);
+    for (const sd of [-1, 1]) {
+      if (R() < 0.35) continue; const off = 14 + R() * 26, x = q.x - q.tz * sd * off, z = q.z + q.tx * sd * off; if (!free(x, z, 12)) continue; const k = R();
+      if (k < 0.3) { const m = M.sandbags(R); m.position.set(x, T.raw(x, z), z); m.rotation.y = Math.atan2(q.tx, q.tz) + (sd > 0 ? Math.PI / 2 : -Math.PI / 2); g.add(m); W.colliders.push({ x, z, r: 2.5, h: 1.1 }); }
+      else if (k < 0.45) put(M.tankTrap, x, z, [1, 1.8]);
+      else if (k < 0.62) put(M.corpse, x, z);
+      else if (k < 0.8) put(M.carcass, x, z);
+      else if (k < 0.88) put(M.deadTurret, x, z, [1.1, 1.5]);
+      else if (k < 0.94) put(M.tank, x, z, [3.4, 2.6]);
+      else put(M.mech, x, z, [2.4, 3]);
+    }
+  }
+  // scattered all over, and gathered in the craters
+  for (let i = 0; i < 160; i++) { const x = (R() * 2 - 1) * (BOUNDS - 8), z = (R() * 2 - 1) * (BOUNDS - 8); if (!free(x, z, 8)) continue; const k = R();
+    if (k < 0.3) put(M.corpse, x, z); else if (k < 0.55) put(M.carcass, x, z); else if (k < 0.68) put(M.burntCrate, x, z, [1.6, 1.2]); else if (k < 0.76) put(M.flag, x, z); else if (k < 0.84) put(M.tankTrap, x, z, [1, 1.8]); else if (k < 0.9) put(M.tank, x, z, [3.4, 2.6]); else if (k < 0.95) put(M.mech, x, z, [2.4, 3]); else put(M.deadTurret, x, z, [1.1, 1.5]); }
+  for (const c of T.craters) if (!c.small || R() < 0.4) { const x = c.x + (R() - 0.5) * c.r, z = c.z + (R() - 0.5) * c.r; if (free(x, z, 8)) put(R() < 0.5 ? M.carcass : M.debris, x, z); }
+}
+// Every still piece of scenery is merged into one mesh per material, so the graphics card draws a few dozen things instead of thousands.
+function mergeStatic(g, keep) {
+  g.updateMatrixWorld(true); const by = new Map(), extras = [];
+  for (const child of [...g.children]) {
+    if (keep.has(child) || child.isLight) continue; let any = false;
+    child.traverse(o => { if (o.isLight || o.isSprite || o.isPoints || o.isLineSegments) { extras.push(o); return; } if (!o.isMesh || !o.geometry || o.material.vertexColors) return; any = true; let geo = o.geometry.clone(); geo.applyMatrix4(o.matrixWorld); if (geo.index) geo = geo.toNonIndexed(); if (!geo.attributes.normal) geo.computeVertexNormals(); const k = o.material.uuid; if (!by.has(k)) by.set(k, { mat: o.material, geos: [], shadow: false }); const e = by.get(k); e.geos.push(geo); e.shadow = e.shadow || o.castShadow; });
+    if (any || child.children.length || child.isMesh) g.remove(child);
+  }
+  for (const o of extras) g.attach(o);
+  for (const { mat, geos, shadow } of by.values()) {
+    let n = 0; for (const q of geos) n += q.attributes.position.count; const P = new Float32Array(n * 3), N = new Float32Array(n * 3); let off = 0;
+    for (const q of geos) { P.set(q.attributes.position.array, off * 3); N.set(q.attributes.normal.array, off * 3); off += q.attributes.position.count; q.dispose(); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(P, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(N, 3)); geo.computeBoundingSphere();
+    const m = new THREE.Mesh(geo, mat); m.castShadow = shadow; m.receiveShadow = true; g.add(m);
+  }
 }

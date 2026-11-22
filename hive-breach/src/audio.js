@@ -62,6 +62,17 @@ export class Audio {
       const url = URL.createObjectURL(new Blob([b], { type: 'audio/wav' })); this.el = new window.Audio(url); this.el.loop = true; this.el.volume = 0.01; this.el.setAttribute('playsinline', ''); } catch (e) { this.el = 1; } }
     if (this.el && this.el.play && this.el.paused) this.el.play().catch(() => { });
   }
+  // a continuous roar for the drop pod: deep engine rumble plus wind howl; level 0..1 sets how violent it is (0 fades it out)
+  rumble(level) {
+    const c = this.ctx; if (!c || !this.out) return;
+    if (!this.rmb) { const n = c.sampleRate * 2, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); let lp = 0; for (let i = 0; i < n; i++) { lp += (Math.random() * 2 - 1 - lp) * 0.08; d[i] = lp * 3; }
+      const src = c.createBufferSource(); src.buffer = b; src.loop = true; const lo = c.createBiquadFilter(); lo.type = 'lowpass'; lo.frequency.value = 120; const g = c.createGain(); g.gain.value = 0;
+      const src2 = c.createBufferSource(); src2.buffer = this.buf(2); src2.loop = true; const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = 0.8; const g2 = c.createGain(); g2.gain.value = 0;
+      src.connect(lo); lo.connect(g); g.connect(this.out); src2.connect(bp); bp.connect(g2); g2.connect(this.out); src.start(); src2.start(); this.rmb = { g, g2, lo, bp, src, src2 }; }
+    const R = this.rmb, t = c.currentTime, v = Math.max(0, Math.min(1, level)) * this.vol * 2.2;
+    R.g.gain.setTargetAtTime(v * 1.4, t, 0.15); R.g2.gain.setTargetAtTime(v * v * 0.7, t, 0.2); R.lo.frequency.setTargetAtTime(80 + level * 180, t, 0.2); R.bp.frequency.setTargetAtTime(300 + level * 1400 + Math.random() * 200, t, 0.1);
+    if (level <= 0 && R) { setTimeout(() => { if (this.rmb === R && R.g.gain.value < 0.01) { try { R.src.stop(); R.src2.stop(); } catch (e) { } this.rmb = null; } }, 2500); }
+  }
   // is sound actually able to play right now?
   ok() { return !!this.ctx && this.ctx.state === 'running'; }
   // everything goes through a compressor (so a wall of gunfire stays loud without crackling) and a battlefield echo

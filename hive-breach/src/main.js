@@ -14,8 +14,8 @@ renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.shadowMap.enable
 const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(75, 1, 0.05, 400); scene.add(camera);
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
-const audio = new Audio(), music = new Music(audio);
-addEventListener('pointerdown', () => { audio.unlock(); music.start(); });
+const audio = new Audio(), music = new Music(audio); window.hbMusic = music;
+addEventListener('pointerdown', () => { audio.unlock(); music.start(); const h = document.getElementById('soundHint'); if (h) h.hidden = true; });
 addEventListener('keydown', () => { audio.unlock(); music.start(); });
 
 // ---------------------------------------------------------------- input
@@ -486,7 +486,7 @@ function hud(dt, S) {
   setT('gold', Math.floor(my.gold)); setT('hpTxt', `${Math.ceil(my.hp)} / ${my.mhp}`); $('hpBar').style.width = (my.hp / my.mhp * 100) + '%';
   setT('ammo', G.me.rel > 0 ? 'RELOADING' : `${G.me.ammo} / ${st.mag}`); setT('gunName', C.gun.name);
   setT('waveTxt', S.ph === 'assault' ? 'ASSAULT THE HIVE' : S.w ? `WAVE ${S.w}${S.en || S.w > WAVES ? '' : ' / ' + WAVES}` : 'PREPARE'); $('hubBar').style.width = S.hub + '%'; setT('hubTxt', `HUB ${Math.ceil(S.hub)}%`);
-  let info = ''; if (S.ph === 'assault') { const g = S.A.filter(a => a.type === 'guardian').length; info = g ? `FINAL ASSAULT: destroy ${g} Hive Guardian${g > 1 ? 's' : ''}, then the hive` : 'FINAL ASSAULT: the shield is down, destroy the hive!'; } else if (S.ph === 'wave') info = `${S.left} aliens left`; else if (S.ph === 'build') info = (S.w ? `Wave ${S.w + 1}` : 'First wave') + ` in ${Math.max(0, Math.ceil(S.tm))} s · build your defenses` + (G.mode === 'client' ? '' : ' (Enter: send it now)');
+  let info = ''; if (S.ph === 'assault') { const g = S.A.filter(a => a.type === 'guardian').length; info = g ? `FINAL ASSAULT: destroy ${g} Hive Guardian${g > 1 ? 's' : ''}, then the hive` : 'FINAL ASSAULT: the shield is down, destroy the hive!'; } else if (S.ph === 'wave') info = `${S.left} aliens left`; else if (S.ph === 'build') info = (S.w ? `Wave ${S.w + 1}` : 'First wave') + ` in ${Math.max(0, Math.ceil(S.tm))} s · build your defenses`;
   if (S.C && (S.ph === 'wave' || S.ph === 'assault')) info += ` · reinforcements in ${Math.max(0, Math.ceil(S.C.t))} s`;
   if (S.n > 1) info += ` · squad of ${S.n}: aliens x${((1 + 0.5 * (S.n - 1)) * (1 + 0.3 * (S.n - 1))).toFixed(1)}`;
   setT('waveInfo', info);
@@ -506,7 +506,7 @@ function hud(dt, S) {
   if (!promptSet) $('prompt').hidden = true; promptSet = false;
   // end screens
   const end = S.ph === 'lose' || S.ph === 'win'; $('end').hidden = !end;
-  if (end) { setT('endTitle', S.ph === 'win' ? 'VICTORY' : 'THE HUB HAS FALLEN'); setT('endText', S.ph === 'win' ? 'The hive is destroyed and the colony is safe. Every wave held.' : `Your squad held out until wave ${S.w}.`); setT('endKey', G.mode === 'client' ? 'Waiting for the host…' : S.ph === 'win' ? 'ENTER: keep fighting in endless mode' : 'ENTER: try again'); if (document.pointerLockElement) document.exitPointerLock(); }
+  if (end) { setT('endTitle', S.ph === 'win' ? 'VICTORY' : 'THE HUB HAS FALLEN'); setT('endText', S.ph === 'win' ? 'The hive is destroyed and the colony is safe. Every wave held.' : `Your squad held out until wave ${S.w}.`); setT('endKey', G.mode === 'client' ? 'Waiting for the host to choose…' : ''); $('btnAgain').hidden = G.mode === 'client'; $('btnAgain').textContent = S.ph === 'win' ? 'Keep fighting (endless mode)' : 'Try again'; if (document.pointerLockElement) document.exitPointerLock(); }
   $('pause').hidden = locked() || G.shop || end;
   $('board').hidden = !keys.Tab; if (keys.Tab) setH('boardT', '<tr><th>Marine</th><th>Class</th><th>Kills</th><th>Gold</th></tr>' + S.P.map(p => `<tr><td>${esc(p.name)}${p.dead ? ' ✝' : ''}</td><td>${CLASSES[p.cls].name}</td><td>${p.kills}</td><td>${Math.floor(p.gold)}</td></tr>`).join(''));
   if (G.shop) shopDraw(my);
@@ -548,10 +548,9 @@ let last = performance.now(), netT = 0, poseT = 0;
 function frame(now) {
   requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; G.time += dt;
   if (hits.KeyM) toast(music.toggle() ? 'Music on (M)' : 'Music off (M)', 2);
-  if (!G.on) { music.set('calm'); if (G.W) renderer.render(scene, camera); clearHits(); return; }
+  if (!G.on) { music.set('title'); if (G.W) renderer.render(scene, camera); clearHits(); return; }
   const S = state(); if (!S) { clearHits(); return; }
   // keys that work any time
-  if (hits.Enter && G.mode !== 'client') req({ a: 'start' }); else if (hits.Enter && S.ph === 'build') toast('The host starts the waves.', 2);
   if (hits.KeyB) openShop(!G.shop); if (G.shop) { if (hits.Escape) openShop(false); for (let i = 0; i < 6; i++) if (hits['Digit' + (i + 1)]) req({ a: 'buy', up: UPGRADES[i].id }); for (const [k, w] of [['Digit7', 'rate'], ['Digit8', 'size'], ['Digit9', 'gunner'], ['Digit0', 'rocketeer'], ['Minus', 'medic']]) if (hits[k]) req({ a: 'cmd', w }); }
   music.set(S.ph === 'assault' ? 'boss' : S.ph === 'wave' ? (S.A.some(a => ALIENS[a.type].boss) ? 'boss' : 'battle') : S.ph === 'lose' ? 'off' : 'calm');
   const paused = G.mode === 'solo' && !locked() && S.ph !== 'lose' && S.ph !== 'win';
@@ -608,6 +607,8 @@ $('code').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnJoin')
 $('mvol').value = music.vol; $('mvol').oninput = e => music.setVol(+e.target.value);
 $('sens').value = sens; $('sens').oninput = e => { sens = +e.target.value; localStorage.setItem('hb-sens', sens); };
 $('btnQuit').onclick = () => location.reload();
+$('btnAgain').onclick = () => { req({ a: 'start' }); canvas.requestPointerLock(); };
+$('btnEndQuit').onclick = () => location.reload();
 
 // title screen pickers
 G.name = store.get('hb-name', ''); $('name').value = G.name; G.cls = store.get('hb-cls', 'assault'); G.map = store.get('hb-map', 'mars'); if (!CLASSES[G.cls]) G.cls = 'assault'; if (!MAPS[G.map]) G.map = 'mars';

@@ -32,7 +32,7 @@ const S = {
 export class Audio {
   constructor() { this.ctx = null; this.vol = 0.5; this.noise = {}; this.last = {}; }
   unlock() {
-    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.chain(); } catch (e) { } }
+    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.chain(); let i = 0; const kinds = ['rifle', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   }
   // everything goes through a compressor (so a wall of gunfire stays loud without crackling) and a battlefield echo
@@ -46,34 +46,47 @@ export class Audio {
   }
   noiseN(f0, f1, type, dur, v, t0, dest, q = 0.7) { const c = this.ctx, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = this.buf(Math.max(0.05, dur)); fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t0); if (f1 !== f0) fl.frequency.exponentialRampToValueAtTime(f1, t0 + dur); s.connect(fl); fl.connect(g); g.connect(dest); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur); s.start(t0); s.stop(t0 + dur + 0.02); return g; }
   tone(f0, f1, type, dur, v, t0, dest) { const c = this.ctx, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); o.connect(g); g.connect(dest); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur); o.start(t0); o.stop(t0 + dur + 0.02); }
-  // A gunshot in layers: crack, body, thump and echo. power grows with weapon upgrades; far (0..1) muffles it and adds echo.
-  gun(kind, vol = 1, power = 1, far = 0) {
-    const c = this.ctx; if (!c || c.state !== 'running' || vol < 0.03) return; const t = c.currentTime + Math.random() * 0.004;
-    const k = 'g' + kind; if (this.last[k] && t - this.last[k] < 0.022) return; this.last[k] = t;
-    const bus = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 18000 - far * 16500; bus.connect(lp); lp.connect(this.out); const send = c.createGain(); send.gain.value = 0.25 + far * 0.9; lp.connect(send); send.connect(this.verbIn);
-    const v = vol * this.vol * (0.7 + 0.3 * power) * (1 - far * 0.55);
-    if (kind === 'rifle' || kind === 'mini') {
-      this.noiseN(6000, 2500, 'highpass', 0.025, 0.9 * v, t, bus);                     // crack
-      this.noiseN(1400, 500, 'bandpass', 0.13, 0.85 * v, t, bus, 0.9);                 // body
-      this.tone(170 * (kind === 'mini' ? 1.1 : 1), 38, 'sine', 0.16 + 0.05 * power, 1.1 * v * power, t, bus);   // thump
-      if (power > 1.3) this.tone(90, 28, 'triangle', 0.22, 0.6 * v * (power - 1), t, bus);
-    } else if (kind === 'smg') {
-      this.noiseN(7000, 3000, 'highpass', 0.02, 0.75 * v, t, bus);
-      this.noiseN(2000, 800, 'bandpass', 0.08, 0.6 * v, t, bus, 1.1);
-      this.tone(240, 60, 'sine', 0.09 + 0.03 * power, 0.75 * v * power, t, bus);
-      this.tone(2400, 1200, 'square', 0.02, 0.05 * v, t, bus);                         // arc buzz
-    } else if (kind === 'rocket') {
-      this.noiseN(3000, 600, 'lowpass', 0.5, 0.8 * v, t, bus);
-      this.tone(120, 40, 'sine', 0.3, 1.2 * v * power, t, bus);
-      this.noiseN(800, 2400, 'bandpass', 0.9, 0.35 * v, t + 0.05, bus, 2);              // whoosh
-    } else if (kind === 'boom') {
-      this.tone(95, 22, 'sine', 1.1, 1.6 * v, t, bus);                                 // sub-bass blast
-      this.noiseN(900, 120, 'lowpass', 1.3, 1.2 * v, t, bus);                          // the roar
-      this.noiseN(5000, 3000, 'highpass', 0.04, 0.8 * v, t, bus);                      // the snap
-      for (let i = 0; i < 5; i++) this.noiseN(3000, 1500, 'bandpass', 0.05, 0.25 * v, t + 0.12 + Math.random() * 0.5, bus, 2);   // debris crackle
-    } else if (kind === 'artillery') {
-      this.tone(60, 20, 'sine', 1.6, 0.9 * v, t, bus); this.noiseN(300, 80, 'lowpass', 2.2, 0.8 * v, t, bus);
+  // Real-sounding gunfire is rendered sample by sample once, a few variations per weapon:
+  // an instant crack, a distorted noise blast, a deep low thump (no pitch sweep), a cliff slapback and a dark tail.
+  shot(P, seed) {
+    const c = this.ctx, sr = c.sampleRate, n = Math.floor(sr * P.dur), b = c.createBuffer(1, n, sr), d = b.getChannelData(0);
+    let r = seed * 9301 + 49297; const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 116640 - 1; };
+    const k = fc => 1 - Math.exp(-2 * Math.PI * fc / sr); let lb = 0, lb2 = 0, lo = 0, lo2 = 0, lt = 0; const slap = Math.floor(sr * P.slap), drive = P.drive, nd = Math.tanh(drive);
+    const raw = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i / sr, w = rnd();
+      const fcB = P.bc1 + (P.bc0 - P.bc1) * Math.exp(-t / P.bd); lb += (w - lb) * k(fcB); lb2 += (lb - lb2) * k(fcB);
+      lo += (w - lo) * k(P.lo); lo2 += (lo - lo2) * k(P.lo); lt += (w - lt) * k(P.tc);
+      const crack = w * Math.exp(-t / 0.0012) * P.tr, blast = lb2 * Math.exp(-t / P.bd) * P.bg * 3, body = lo2 * Math.exp(-t / P.ld) * P.lg * 14, tail = lt * Math.exp(-t / P.td) * P.tg;
+      raw[i] = crack + blast + body + tail;
     }
+    for (let i = 0; i < n; i++) { let x = raw[i]; if (i >= slap) x += raw[i - slap] * P.sg; d[i] = Math.tanh(drive * x) / nd * 0.9; }
+    return b;
+  }
+  shots(kind) {
+    this.sb = this.sb || {}; if (this.sb[kind]) return this.sb[kind];
+    const P = {
+      rifle: { dur: 0.9, tr: 1, bc0: 9000, bc1: 700, bd: 0.03, bg: 1, lo: 140, ld: 0.09, lg: 1.2, tc: 1200, td: 0.22, tg: 0.35, slap: 0.11, sg: 0.32, drive: 3 },
+      mini: { dur: 0.6, tr: 0.9, bc0: 8000, bc1: 800, bd: 0.022, bg: 1, lo: 150, ld: 0.06, lg: 1.1, tc: 1300, td: 0.14, tg: 0.3, slap: 0.09, sg: 0.25, drive: 3 },
+      smg: { dur: 0.6, tr: 0.9, bc0: 11000, bc1: 1200, bd: 0.018, bg: 0.9, lo: 200, ld: 0.045, lg: 0.8, tc: 1800, td: 0.12, tg: 0.3, slap: 0.08, sg: 0.25, drive: 2.5 },
+      rocket: { dur: 1.4, tr: 0.6, bc0: 3000, bc1: 400, bd: 0.25, bg: 0.9, lo: 90, ld: 0.2, lg: 1.4, tc: 900, td: 0.5, tg: 0.5, slap: 0.14, sg: 0.3, drive: 2.5 },
+      boom: { dur: 3.2, tr: 1, bc0: 5000, bc1: 150, bd: 0.18, bg: 1.2, lo: 70, ld: 0.6, lg: 2.4, tc: 500, td: 1.1, tg: 0.9, slap: 0.2, sg: 0.35, drive: 3.5 },
+      artillery: { dur: 3, tr: 0.15, bc0: 900, bc1: 120, bd: 0.3, bg: 0.7, lo: 55, ld: 0.8, lg: 2.2, tc: 300, td: 1.2, tg: 0.8, slap: 0.35, sg: 0.4, drive: 2 },
+    }[kind];
+    return this.sb[kind] = [1, 2, 3, 4].map(sd => this.shot(P, sd * 7 + kind.length));
+  }
+  // play a shot: power (from upgrades) makes it louder and deeper, far (0..1) muffles it and drowns it in echo
+  gun(kind, vol = 1, power = 1, far = 0) {
+    const c = this.ctx; if (!c || c.state !== 'running' || vol < 0.03) return; const t = c.currentTime;
+    const k = 'g' + kind; if (this.last[k] && t - this.last[k] < 0.022) return; this.last[k] = t;
+    const list = this.shots(kind), src = c.createBufferSource(); src.buffer = list[(Math.random() * list.length) | 0];
+    src.playbackRate.value = (0.94 + Math.random() * 0.12) / (1 + (power - 1) * 0.35);
+    const g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 16000 - far * 14500; lp.Q.value = 0.5;
+    g.gain.value = vol * this.vol * 1.4 * (0.75 + 0.25 * power) * (1 - far * 0.5);
+    src.connect(lp); lp.connect(g); g.connect(this.out); const send = c.createGain(); send.gain.value = 0.18 + far * 0.8; g.connect(send); send.connect(this.verbIn);
+    src.start(t);
+    // fully upgraded guns get an extra heavy boom layer underneath
+    if (power > 1.3 && (kind === 'rifle' || kind === 'smg' || kind === 'mini')) { const s2 = c.createBufferSource(), g2 = c.createGain(); s2.buffer = this.shots('rocket')[0]; s2.playbackRate.value = 1.6; g2.gain.value = vol * this.vol * 0.5 * (power - 1.2) * (1 - far * 0.6); s2.connect(g2); g2.connect(lp); s2.start(t); s2.stop(t + 0.3); }
   }
   buf(dur) { const c = this.ctx, k = Math.round(dur * 100); if (this.noise[k]) return this.noise[k]; const n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), ch = b.getChannelData(0); for (let i = 0; i < n; i++) ch[i] = Math.random() * 2 - 1; return this.noise[k] = b; }
   // vol can be lowered for far-away sounds; a sound is not played twice within 30 ms

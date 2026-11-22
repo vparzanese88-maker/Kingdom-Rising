@@ -73,7 +73,7 @@ export class World {
   addBox(x, y, z, hx, hy, hz, th, color, f = {}) {
     const b = Object.assign({ x, y, z, hx, hy, hz, ax: Math.cos(th), az: Math.sin(th), rad: Math.hypot(hx, hz), solid: true, dx: 0, dy: 0, dz: 0 }, f);
     if (color !== null) { const rock = color === ROCK; color = this.color(color); let m; if (b.beam) { m = M.fallenTree(Math.max(hx, hz) * 2 + 1.2, 0.34); m.rotation.y = -th + (hz > hx ? Math.PI / 2 : 0); m.position.set(x, y - 0.08, z); } else if (b.log) { m = M.fallenTree(hx * 2, hy, b.log === 2 ? this.theme.tree[0] : 0); m.rotation.y = -th; m.position.set(x, y, z); } else { m = new THREE.Mesh(rock ? this.rg.boxes[this.rk++ % 4] : M.GEO.boxG, typeof color === 'object' ? color : M.mat(color, { flat: 1 })); m.scale.set(hx * 2, hy * 2, hz * 2); m.position.set(x, y, z); m.rotation.y = -th; } m.castShadow = m.receiveShadow = true; this.scene.add(m); b.mesh = m; }
-    if (b.log || b.beam) { const lx = b.beam && hz > hx ? -b.az * hz : b.ax * hx, lz = b.beam && hz > hx ? b.ax * hz : b.az * hx; this.limb(x - lx, y, z - lz, x + lx, y, z + lz); }
+    // fallen trees lie on the ground: nothing for a whip to wrap round
     this.boxes.push(b); if (b.mover) this.movers.push(b); return b;
   }
   addCyl(x, y, z, r, hy, color, f = {}) {
@@ -129,7 +129,7 @@ export class World {
     if (s.rain) this.add(new RockRain(this, s, s.rain === true ? 0.5 : s.rain)); if (s.wind) this.add(new Wind(this, s));
     if ((s.t === 'path' || s.t === 'ramp' || s.t === 'traps' || s.t === 'chase' || s.t === 'ambush') && s.coins !== 0) this.coinLine(s, 2, s.len - 2, a => Math.sin(a * 0.16 + s.idx) * (s.w - 2.2), 1, Math.floor(s.len / 4.5));
     for (const m of s.mobs || []) { const f = s.at(m[1] * s.len, m[2] || 0, 0); this.add(new Mob(this, m[0], f.x, f.z, { range: m[3] || Math.min(16, s.len / 2) })); if (G.coop && this.def.diff > 0 && ['grunt', 'brute', 'shield', 'boar', 'ram'].includes(m[0])) { const g = s.at(Math.min(s.len - 2, m[1] * s.len + 4), -(m[2] || 0) + 1.5, 0); this.add(new Mob(this, m[0], g.x, g.z, { range: m[3] || Math.min(16, s.len / 2) })); } }
-    if (s.chest) { const f = s.at(s.len / 2, -s.w + 2, 0); this.add(new Chest(this, f.x, f.z, s.chest, f.yaw + Math.PI / 2)); }
+    if (false && s.chest) { const f = s.at(s.len / 2, -s.w + 2, 0); this.add(new Chest(this, f.x, f.z, s.chest, f.yaw + Math.PI / 2)); }
     for (const n0 of []) { if (!n0.stall) continue; const n = Object.assign({}, n0, { lines: [] }); const f = s.at(n.a === undefined ? s.len / 2 : n.a, n.lat === undefined ? -s.w + 1.6 : n.lat, 0); if (n.stall) { const st = M.stall(); st.position.set(f.x - f.nx * 1.4, this.T.hAt(f.x, f.z), f.z - f.nz * 1.4); st.rotation.y = Math.atan2(f.nx, f.nz); this.scene.add(st); } this.add(new NPC(this, f.x, f.z, { name: n.name, model: n.model(), lines: n.lines, after: n.after, prompt: n.prompt })); }
     if (s.tip) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 't' + this.def.id + s.idx, fn: () => G.ui.toast(s.tip, 9) });
     if (false) this.triggers.push({ p0: s.p0, p1: s.p0 + 10 / sp.R(s.p0), key: 'b' + this.def.id + s.idx, fn: () => G.ui.bark(s.bark[0], s.bark[1]) });
@@ -241,13 +241,15 @@ export class World {
     for (let i = 0; i < 5; i++) { const f = s.at(3.1, (i - 2) * 1.6, 1.5 + i % 3 * (r - 2.5) / 2); this.coin(f.x, f.y, f.z); }
   }
   b_cliff(s) {
-    const w = s.w + 1.5, r = s.rise; { const f = s.at(6, 0, 0); this.addBox(f.x, s.y0 + (r - 1) / 2 + 0.015, f.z, w, (r + 1) / 2, 2.4, f.th, ROCK); }
-    for (const l of [-2.5, 2.5]) { this.anchor(s, 2.5, l, r + 3.1, 'grapple'); this.deco(s, 4.4, l, r + 1.6, M.cyl(0x5a3c22, 0.2, 3.2, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 3, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, 3.2, l, r + 3.1, br); this.slimb(s, 1.8, l, r + 3.1, 4.6, l, r + 3.1); this.slimb(s, 4.4, l, r, 4.4, l, r + 3.2); }
+    const w = s.w + 1.5, r = s.rise; { const f = s.at(6, 0, 0); this.addBox(f.x, s.y0 + (r - 1) / 2 + 0.015, f.z, w, (r + 1) / 2, 2.4, f.th, ROCK, { climb: true }); this.deco(s, 3.46, 0, r / 2, this.vines(5, r), 0); }      // vines up the middle for anyone without a hook
+    for (const l of [-4.2, 4.2]) { this.anchor(s, 2.5, l, r + 3.1, 'grapple'); this.deco(s, 4.4, l, r + 1.6, M.cyl(0x5a3c22, 0.2, 3.2, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 3, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, 3.2, l, r + 3.1, br); this.slimb(s, 1.8, l, r + 3.1, 4.6, l, r + 3.1); this.slimb(s, 4.4, l, r, 4.4, l, r + 3.2); }
   }
   b_chasm(s) {
     const { a0, a1 } = this.pit(s); for (const l of [-2, 2]) { this.anchor(s, a1 - 0.9, l, 3.4, 'grapple'); this.deco(s, a1 + 0.9, l, 1.7, M.cyl(0x5a3c22, 0.2, 3.4, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 2.8, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, a1 - 0.2, l, 3.4, br); this.slimb(s, a1 - 1.6, l, 3.4, a1 + 1.2, l, 3.4); this.slimb(s, a1 + 0.9, l, 0, a1 + 0.9, l, 3.4); }
-    this.coinLine(s, a0 + 3, a1 - 3, 0, 2.2);
+    this.coinLine(s, a0 + 3, a1 - 3, 0, 2.2); this.whipTrees(s, a0, a1, s.depth || 9);
   }
+  // Old trees leaning over a drop, close enough together to swing from one to the next with nothing but a whip.
+  whipTrees(s, a0, a1, d) { const n = Math.max(1, Math.round((a1 - a0 - 10.5) / 11) + 1), gap = n > 1 ? (a1 - a0 - 10.5) / (n - 1) : 0; for (let i = 0; i < n; i++) { const a = n > 1 ? a0 + 5.5 + i * gap : (a0 + a1) / 2; this.anchors.push(Object.assign(s.at(a, 0, 8.45), { kind: 'whip' })); this.deco(s, a, 0, 0, M.whipPost(7.5, d)); this.slimb(s, a, -3.6, 8.15, a, 1.9, 8.75); } }
   b_swing(s) {
     const { a0, d } = this.pit(s);
     for (let i = 0; i < s.n; i++) { const a = a0 + 5.5 + i * 11; this.anchors.push(Object.assign(s.at(a, 0, 8.45), { kind: 'whip' })); this.deco(s, a, 0, 0, M.whipPost(7.5, d)); this.slimb(s, a, -3.6, 8.15, a, 1.9, 8.75); this.coinLine(s, a - 3, a + 3, 0, q => 0.6 - Math.sin(q * Math.PI) * 1.2, 4); }
@@ -265,7 +267,7 @@ export class World {
   }
   b_glide(s) {
     const { a0, a1, d } = this.pit(s, { a0: 12 }); this.sb(s, 6, -2.5, 2.5, 2.2, 2.5, 2.6, ROCK, { climb: true }); this.deco(s, 3.36, -2.5, 2.5, this.vines(3.6, 5), 0);
-    const span = a1 - a0;
+    const span = a1 - a0; this.whipTrees(s, a0, a1, d);
     const nd = Math.max(2, Math.round(span / 20)); for (let i = 0; i < nd; i++) { const q = (i + 0.7) / (nd + 0.4), f = s.at(a0 + span * q, 0, 0); this.drafts.push({ x: f.x, z: f.z, r: 6.5, y0: f.y - d, y1: f.y + 18, str: 46 }); const m = M.cyl(0xffffff, 6.5, d + 18, f.x, f.y + (18 - d) / 2, f.z, { op: 0.13 }); m.castShadow = false; this.scene.add(m); this.coinLine(s, a0 + span * q, a0 + span * q, 0, u => 3 + u * 6, 4); }
   }
   b_river(s) {
@@ -274,7 +276,7 @@ export class World {
     else if (st === 'log') { for (const [o, l] of [[-8.7, 0.9], [0, -0.9], [8.7, 0.9]]) this.sb(s, ac + o, l, -0.3, 0.42, 0.3, 3.1, LOG, { beam: true }); this.coinLine(s, ac - 10, ac + 10, 0, 1.1); }
     else if (st === 'swing') for (const o of [-9.6, 0, 9.6]) { this.anchors.push(Object.assign(s.at(ac + o, 0, 8.45), { kind: 'whip' })); this.deco(s, ac + o, 0, 0, M.whipPost(7.5, 3)); this.slimb(s, ac + o, -3.6, 8.15, ac + o, 1.9, 8.75); this.coinLine(s, ac + o - 3, ac + o + 3, 0, q => 0.8 - Math.sin(q * Math.PI) * 1.2, 4); }
     else if (st === 'raft') { const f = s.at(ac, 0, -1.1); this.addBox(f.x, f.y, f.z, 1.6, 0.25, 1.6, f.th, PLANK, { mover: (t, b) => { const q = Math.sin(t * 0.5) * 11.6; b.x = f.x + f.tx * q; b.z = f.z + f.tz * q; } }); }
-    else if (st === 'hook') { for (const l of [-1.5, 1.5]) { this.anchor(s, ac + 12.2, l, 3.3, 'grapple'); this.deco(s, ac + 14, l, 1.6, M.cyl(0x5a3c22, 0.2, 3.2, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 3, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, ac + 12.7, l, 3.3, br); this.slimb(s, ac + 11.2, l, 3.3, ac + 14.2, l, 3.3); this.slimb(s, ac + 14, l, 0, ac + 14, l, 3.2); } }
+    else if (st === 'hook') { [-11.4, -7.6, -3.8, 0, 3.8, 7.6, 11.4].forEach((o, i) => { const f = s.at(ac + o, i % 2 ? 1.7 : -1.7, -2.4); this.addCyl(f.x, f.y, f.z, 0.95, 2.2, ROCK); }); for (const l of [-4, 4]) { this.anchor(s, ac + 12.2, l, 3.3, 'grapple'); this.deco(s, ac + 14, l, 1.6, M.cyl(0x5a3c22, 0.2, 3.2, 0, 0, 0)); const br = M.cyl(0x5a3c22, 0.13, 3, 0, 0, 0); br.rotation.x = Math.PI / 2; this.deco(s, ac + 12.7, l, 3.3, br); this.slimb(s, ac + 11.2, l, 3.3, ac + 14.2, l, 3.3); this.slimb(s, ac + 14, l, 0, ac + 14, l, 3.2); } }
     else if (st === 'planks') for (let o = -10.4; o <= 10.5; o += 2.6) this.sb(s, ac + o, 0, -0.2, 1.2, 0.18, 1.2, PLANK, { crumble: true, noGrab: true });
     this.add(new Pike(this, s, ac));
     const sg = M.sign(); this.deco(s, ac - 15.5, -s.w + 1, 0, sg, Math.PI / 2); sg.position.y = this.T.hAt(sg.position.x, sg.position.z);

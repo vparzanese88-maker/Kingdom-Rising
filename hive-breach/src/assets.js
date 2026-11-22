@@ -18,7 +18,7 @@ let done = false;
 export const PROG = { total: 1, got: 0 };   // loading progress, for the cover screen's bar
 export const ready = () => done;
 export function loadAll(extra = []) {
-  const list = [...MANIFEST, ...STRUCT_FILES, ...PROP_FILES, ...extra]; PROG.total = list.length; PROG.got = 0;
+  const list = [...MANIFEST, ...STRUCT_FILES, ...PROP_FILES, ...ALIEN_FILES, ...extra]; PROG.total = list.length; PROG.got = 0;
   return Promise.all(list.map(n => loader.loadAsync(BASE + n + '.glb').then(g => { prep(g); A[n] = g; if (n === 'marine_anims') A.marine_assault = g; }).catch(() => { /* missing: keep the simple model */ }).finally(() => { PROG.got++; }))).then(() => { done = true; });
 }
 function prep(g) {
@@ -191,4 +191,48 @@ export function fpArms(cls, gun, mode = 'two') {
   g.quaternion.copy(q); g.scale.setScalar(s); g.position.copy(A2).sub(A.clone().multiplyScalar(s).applyQuaternion(q));
   g.traverse(o => { o.castShadow = false; if (o.isMesh) { o.frustumCulled = false; o.material = o.material.clone(); o.material.side = THREE.DoubleSide; } }); g.userData.fpArms = true;   // double-sided so the cut sleeve ends look solid
   return g;
+}
+
+// ---- the Mars aliens: Meshy models, rigged as four-legged beasts with leopard moves (run, walk, pounce, roar, idle, die).
+// Each one is sized to match the simple model it replaces (same length and the same height off the ground), so hit boxes still fit.
+export const ALIEN_GLB = { crawler: 'a_crawler', spitter: 'a_spitter', brute: 'a_brute', ravager: 'a_ravager', queen: 'a_queen', royal: 'a_royal', broodqueen: 'a_broodqueen', flyer: 'a_flyer' };
+export const ALIEN_FILES = Object.values(ALIEN_GLB);
+const ACLIP = { run: /run/i, walk: /walk/i, pounce: /pounce/i, roar: /roar/i, idle: /idle/i, die: /death/i }, HEAVY = new Set(['brute', 'ravager', 'queen']);
+export function alienGLB(type, ref) {
+  const n = ALIEN_GLB[type], src = n && A[n]; if (!src) return null;
+  const g = new THREE.Group(), body = new THREE.Group(), holder = new THREE.Group(), root = SU.clone(src.scene); g.add(body); body.add(holder); holder.add(root); holder.rotation.y = Math.PI;   // Meshy faces +z; the game's aliens face -z
+  // size: as long as the simple model, standing where it stood
+  if (!src.userData.box) src.userData.box = new THREE.Box3().setFromObject(src.scene);
+  const sb = src.userData.box, ss = sb.getSize(new THREE.Vector3()), rs = ref.getSize(new THREE.Vector3());
+  const s = Math.max(rs.x, rs.z) / Math.max(ss.x, ss.z, 0.001) * (type === 'flyer' ? 1.1 : 1); holder.scale.setScalar(s); holder.position.y = (type === 'flyer' ? ref.min.y : 0) - sb.min.y * s;
+  const u = { type, body, glb: true, legs: [], arms: [], wings: [], sacs: [], root };
+  if (src.animations.length) {
+    u.mixer = new THREE.AnimationMixer(root); u.act = {};
+    for (const [k, re] of Object.entries(ACLIP)) { const c = src.animations.find(a => re.test(a.name)); if (!c) continue; const a = u.mixer.clipAction(c); if (k === 'die' || k === 'pounce') { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } u.act[k] = a; }
+    // pin the root over its feet: the game moves the alien
+    for (const a of Object.values(u.act)) for (const tr of a.getClip().tracks) if (/\.position$/.test(tr.name)) { const v = tr.values; if (v.length > 3 && /hips|root|pelvis|spine/i.test(tr.name)) { const x0 = v[0], z0 = v[2]; for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; } } }
+    const k0 = type === 'broodqueen' ? 'idle' : HEAVY.has(type) ? 'walk' : 'run'; if (u.act[k0]) { u.act[k0].play(); u.act[k0].time = Math.random() * u.act[k0].getClip().duration; u.cur = k0; } u.mixer.update(0);
+  } else if (type === 'flyer') u.flap = splitWings(root);
+  g.userData = u; return g;
+}
+// the wraith's wings: cut the far-left and far-right of the mesh into two pieces that hinge at the body
+function splitWings(root) {
+  let mesh = null; root.traverse(o => { if (o.isMesh && !mesh) mesh = o; }); if (!mesh) return null;
+  const geo = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone(), pos = geo.attributes.position; geo.computeBoundingBox();
+  const bb = geo.boundingBox, cx = (bb.min.x + bb.max.x) / 2, half = (bb.max.x - bb.min.x) / 2, cut = half * 0.28, L = [], R = [], C = [];
+  for (let t = 0; t < pos.count; t += 3) { const xs = [0, 1, 2].map(q => pos.getX(t + q) - cx); (xs.every(x => x < -cut) ? L : xs.every(x => x > cut) ? R : C).push(t); }
+  if (L.length < 10 || R.length < 10) return null;
+  const pick = list => { const g2 = new THREE.BufferGeometry(); for (const k in geo.attributes) { const a = geo.attributes[k], arr = new a.array.constructor(list.length * 3 * a.itemSize); list.forEach((t, j) => { for (let q = 0; q < 3; q++) for (let c = 0; c < a.itemSize; c++) arr[(j * 3 + q) * a.itemSize + c] = a.array[(t + q) * a.itemSize + c]; }); g2.setAttribute(k, new THREE.BufferAttribute(arr, a.itemSize, a.normalized)); } return g2; };
+  mesh.geometry = pick(C); const cy = (bb.min.y + bb.max.y) / 2, hinge = [];
+  for (const [list, sd] of [[L, -1], [R, 1]]) { const pv = new THREE.Group(); pv.position.set(cx + sd * cut, cy, 0); mesh.add(pv); const w = new THREE.Mesh(pick(list), mesh.material); w.position.set(-(cx + sd * cut), -cy, 0); pv.add(w); hinge.push({ pv, sd }); }
+  return hinge;
+}
+export function animAlienGLB(m, t) {
+  const u = m.userData, dt = Math.max(0, Math.min(0.1, t - (u.lt ?? t))); u.lt = t;
+  if (u.flap) { for (const h of u.flap) h.pv.rotation.z = Math.sin(t * 14) * 0.55 * h.sd; u.body.position.y = Math.sin(t * 3) * 0.25; return; }
+  if (!u.mixer) return;
+  let k = u.cur; if (u.type === 'broodqueen') k = Math.sin(t * 0.35) > 0.6 ? 'roar' : 'idle'; else if (dt === 0) k = 'idle'; else k = HEAVY.has(u.type) ? 'walk' : 'run';
+  if (u.body.position.z < -0.15 && u.act.pounce) k = 'pounce';   // the game lunges the body forward on a strike
+  if (k !== u.cur && u.act[k]) { const nx = u.act[k]; nx.reset().play(); if (u.cur && u.act[u.cur]) u.act[u.cur].crossFadeTo(nx, 0.2, false); u.cur = k; }
+  u.mixer.update(dt === 0 ? 1 / 60 : dt * (u.type === 'crawler' ? 1.6 : 1.1));
 }

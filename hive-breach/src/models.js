@@ -114,11 +114,14 @@ function scythe(parent, x, y, z, len, m, side) {
   const fore = new THREE.Group(); fore.position.set(0, -len * 0.42, -len * 0.3); sh.add(fore); const bl = K(fore, 0.07, len, 0xd8d0b8, 0, -len * 0.1, -len * 0.45, { m: 0.4, r: 0.3 }); bl.rotation.x = -1.9; bl.scale.set(1, 1, 0.35);
   sh.rotation.z = side * 0.15; return sh;
 }
-export function alien(type) {
+const _aBox = {};
+export function alien(type, plain) {
+  // the Meshy model for a Mars alien, sized from the simple one (measured once per type)
+  if (!plain && AS.ALIEN_GLB[type] && AS.A[AS.ALIEN_GLB[type]]) { if (!_aBox[type]) _aBox[type] = new THREE.Box3().setFromObject(alien(type, true)); const mg = AS.alienGLB(type, _aBox[type]); if (mg) return mg; }
   // planet breeds: a base alien recoloured, resized and given its own growths (ice crystals, thorns, an acid sac)
   const VAR = { shard: ['crawler', 0x7fd0ff, 'ice', 1.05], cryospit: ['spitter', 0xa8ecff, 'ice', 1], glacier: ['brute', 0xc0eaff, 'ice', 1.18], frostwraith: ['flyer', 0x90c8ff, 'ice', 1], creeper: ['crawler', 0x2f5a22, 'thorn', 0.95], bloater: ['spitter', 0x7aa020, 'bloat', 1.1], thornback: ['brute', 0x2a4a1a, 'thorn', 1.08], moth: ['flyer', 0x8a50b0, 'moth', 0.8] };
   if (VAR[type]) {
-    const [base, col, deco, sc] = VAR[type], out = new THREE.Group(), inner = alien(base); inner.scale.setScalar(sc); out.add(inner); out.userData = inner.userData; const tc = new THREE.Color(col);
+    const [base, col, deco, sc] = VAR[type], out = new THREE.Group(), inner = alien(base, true); inner.scale.setScalar(sc); out.add(inner); out.userData = inner.userData; const tc = new THREE.Color(col);
     inner.traverse(o => { if (o.isMesh && o.material && o.material.color && !(o.material.emissive && o.material.emissiveIntensity > 1)) { o.material = o.material.clone(); o.material.color.lerp(tc, 0.55); } });
     const b = inner.userData.body || inner;
     if (deco === 'ice') { const cm = mat(0xbff4ff, { e: 0x4fb0e0, ei: 1.2, op: 0.85, m: 0.2, r: 0.1 }); for (let i = 0; i < 6; i++) { const c = K(b, 0.09 + Math.random() * 0.06, 0.5 + Math.random() * 0.4, cm, (Math.random() - 0.5) * 0.5, 1.2 + Math.random() * 0.3, -0.4 + i * 0.18); c.rotation.set(-0.3 + Math.random() * 0.6, 0, (Math.random() - 0.5) * 0.8); } }
@@ -128,7 +131,7 @@ export function alien(type) {
   }
   // the Brood Queen is a Hive Tyrant grown huge, dragging a glowing egg sac; Royal Guards are big crimson Juggernauts with crests
   if (type === 'broodqueen' || type === 'royal') {
-    const out = new THREE.Group(), inner = alien(type === 'broodqueen' ? 'queen' : 'brute'); inner.scale.setScalar(type === 'broodqueen' ? 2.4 : 1.2); out.add(inner); out.userData = inner.userData;
+    const out = new THREE.Group(), inner = alien(type === 'broodqueen' ? 'queen' : 'brute', true); inner.scale.setScalar(type === 'broodqueen' ? 2.4 : 1.2); out.add(inner); out.userData = inner.userData;
     if (type === 'broodqueen') { const sac = S(inner, 0.95, mat(0xffb040, { e: 0xc06010, ei: 1.2, op: 0.82 }), 0, 1.05, 2.1, 1, 0.85, 1.7); inner.userData.sacs.push(sac); for (let i = 0; i < 8; i++) S(inner, 0.12, mat(0xfff0a0, { e: 0xffa020, ei: 1.5, op: 0.9 }), (Math.random() - 0.5) * 1.2, 0.85 + Math.random() * 0.4, 1.6 + Math.random() * 1.3); for (let i = 0; i < 5; i++) K(inner, 0.08, 0.7, 0xd04030, (i - 2) * 0.22, 2.2, -0.2, { e: 0x601008 }).rotation.x = -0.4; }
     else { inner.traverse(o => { if (o.isMesh && o.material && o.material.color) { o.material = o.material.clone(); o.material.color.lerp(new THREE.Color(0x8a1a1a), 0.45); } }); for (let i = 0; i < 5; i++) K(inner, 0.08, 0.5, 0xffc040, (i - 2) * 0.16, 2.0, -0.4, { e: 0x804000 }).rotation.x = -0.3; }
     return out;
@@ -189,6 +192,7 @@ export function alien(type) {
   return g;
 }
 export function animAlien(m, t) {
+  if (m.userData.glb) return AS.animAlienGLB(m, t);
   const u = m.userData; if (u.type === 'guardian' || u.type === 'hivecore') { u.body.rotation.y = t * 0.6; return; } if (u.type === 'nest') { u.body.scale.setScalar(1 + Math.sin(t * 2) * 0.04); return; }
   if (u.fly) { u.wings.forEach((p, i) => p.rotation.z = Math.sin(t * 30 + (i > 1 ? 1.2 : 0)) * 0.5 * (i % 2 ? 1 : -1)); u.body.position.y = Math.sin(t * 3) * 0.2; if (u.tail) u.tail.rotation.x = Math.sin(t * 4) * 0.25; return; }
   const sp = u.type === 'brute' || u.type === 'ravager' || u.type === 'queen' ? 5 : 9;

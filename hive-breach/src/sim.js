@@ -1,5 +1,5 @@
 // The battle itself. Only the host (or a solo player) runs this; friends receive what it decides.
-import { techMul, CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
+import { scrapCost, techMul, CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
 import { placeError, HUB_R } from './world.js';
 import { PATH_W, SPECIALS, MISSILE, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST, MAX_ALLIES } from './data.js';
 
@@ -28,7 +28,7 @@ export class Sim {
     for (const p of this.players.values()) this.resetPlayer(p);
     this.scrap = []; this.scrapT = 0; for (let i = 0; i < SCRAP_PILES; i++) this.spawnScrap();   // after the id counter is set
   }
-  resetPlayer(p) { p.scrap = 0; p.dr = DRESS; p.kits = KITS; p.pw = pwMax(p.cls); p.special = ''; p.acd = [0, 0, 0, 0]; p.items = CLASSES[p.cls] ? CLASSES[p.cls].throw.n : 2; p.buf = {}; p.cl = 0; p.adrT = 0; p.stimT = 0; p.rv = p.rv || 0; p.gold = START_GOLD; p.ups = { dmg: 0, rate: 0, mag: 0, spd: 0, hp: 0, arm: 0 }; p.mhp = p.hp = maxHp(p.cls, p.ups); p.dead = false; p.rt = 0; p.kills = 0; p.sp = (p.sp || 0) + 1; }
+  resetPlayer(p) { p.scrap = 25; p.dr = DRESS; p.kits = KITS; p.pw = pwMax(p.cls); p.special = ''; p.acd = [0, 0, 0, 0]; p.items = CLASSES[p.cls] ? CLASSES[p.cls].throw.n : 2; p.buf = {}; p.cl = 0; p.adrT = 0; p.stimT = 0; p.rv = p.rv || 0; p.gold = START_GOLD; p.ups = { dmg: 0, rate: 0, mag: 0, spd: 0, hp: 0, arm: 0 }; p.mhp = p.hp = maxHp(p.cls, p.ups); p.dead = false; p.rt = 0; p.kills = 0; p.sp = (p.sp || 0) + 1; }
   addPlayer(id, name, cls) {
     let p = this.players.get(id); if (p) { p.name = name; if (p.cls !== cls) { p.cls = cls; p.items = CLASSES[cls].throw.n; p.mhp = maxHp(cls, p.ups); p.hp = Math.min(p.hp, p.mhp); } return p; }
     { const f = bossScale(this.players.size + 1) / bossScale(this.players.size); for (const a of this.aliens) if (a.type === 'broodqueen' || a.type === 'royal') { a.hp *= f; a.mhp *= f; } }
@@ -42,7 +42,7 @@ export class Sim {
   spawnScrap() { const W = this.W, Wr = W.wrecks || []; for (let k = 0; k < 20; k++) { let x, z; if (Wr.length) { const w = Wr[Math.random() * Wr.length | 0], a = Math.random() * 6.283, d = (w.r || 2) + 1.5 + Math.random() * 6; x = w.x + Math.cos(a) * d; z = w.z + Math.sin(a) * d; if (Math.abs(x) > BOUNDS - 4 || Math.abs(z) > BOUNDS - 4) continue; } else { x = (Math.random() * 2 - 1) * (BOUNDS - 6); z = (Math.random() * 2 - 1) * (BOUNDS - 6); } if (W.T.chasm(x, z) < 0.99 || Math.hypot(x - W.hubP.x, z - W.hubP.z) < 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 36) continue; this.scrap.push({ id: this.nid++, x, z, n: 3 + (Math.random() * 4 | 0) }); return; } }
   // put the turret you are carrying back in your pack: its gold and the kit come back
   stow(p) { const i = this.turrets.findIndex(q => q.carry === p.id); if (i < 0) return; const t = this.turrets[i]; if (t.owner !== p.id) { t.carry = 0; this.settle(t); return; }   // someone else's turret just goes down where you stand
-    this.turrets.splice(i, 1); p.kits = Math.min(KITS, (p.kits ?? KITS) + 1); this.emit({ k: 'stowed', to: p.id, n: TURRETS[t.kind].name }); }
+    this.turrets.splice(i, 1); p.kits = Math.min(KITS, (p.kits ?? KITS) + 1); p.scrap = (p.scrap || 0) + scrapCost(t.kind); this.emit({ k: 'stowed', to: p.id, n: TURRETS[t.kind].name }); }
   removePlayer(id) { const p = this.players.get(id); if (!p) return; this.players.delete(id); this.emit({ k: 'toast', m: p.name + ' left.' }); }
   living() { return [...this.players.values()].filter(p => !p.dead && !(p.buf && p.buf.cloak > 0)); }
 
@@ -54,9 +54,10 @@ export class Sim {
     if (r.a === 'place') {
       const T = TURRETS[r.kind], C = CLASSES[p.cls]; if (!T || ![C.sentry, C.defense, C.third].includes(r.kind)) return;
       if ((p.kits ?? KITS) < 1) return say('No turret kits left: pick up more in the hub (you carry 2).');
+      const sc = scrapCost(r.kind); if ((p.scrap || 0) < sc) return say(`Need ${sc} scrap for a ${T.name}. Run over the scrap piles around the wrecks.`);
       if (this.turrets.filter(t => t.owner === id).length >= MAX_TURRETS) return say(`You can have ${MAX_TURRETS} at once. Sell one (Y) first.`);
       const err = this.dropError(r.x, r.z); if (err) return say(err);
-      p.kits = (p.kits ?? KITS) - 1; const t = { id: this.nid++, kind: r.kind, owner: id, x: r.x, z: r.z, ry: r.ry || 0, lvl: 1, hp: T.hp, mhp: T.hp, cd: 0, tg: 0, spent: T.cost, ch: T.charges || T.uses || 0, y: this.W.top(r.x, r.z), b: BUILD[r.kind], bt: BUILD[r.kind], fresh: true };
+      p.kits = (p.kits ?? KITS) - 1; p.scrap -= sc; const t = { id: this.nid++, kind: r.kind, owner: id, x: r.x, z: r.z, ry: r.ry || 0, lvl: 1, hp: T.hp, mhp: T.hp, cd: 0, tg: 0, spent: T.cost, ch: T.charges || T.uses || 0, y: this.W.top(r.x, r.z), b: BUILD[r.kind], bt: BUILD[r.kind], fresh: true };
       if (T.ball && r.thrown) { this.settle(t); } else { this.stow(p); t.carry = id; this.settle(t); }
       this.turrets.push(t); this.emit({ k: 'placed', x: t.x, z: t.z, by: id });
     } else if (r.a === 'upg') {
@@ -80,7 +81,7 @@ export class Sim {
       const t = this.turrets.find(q => q.carry === id); if (!t) return; const err = this.dropError(+r.x, +r.z);
       if (err) { t.x = p.x; t.z = p.z; } else { t.x = +r.x; t.z = +r.z; } t.ry = +r.ry || 0; t.carry = 0; this.settle(t); this.emit({ k: 'dropped', id: t.id, x: t.x, z: t.z, by: id });
     } else if (r.a === 'sell') {
-      const i = this.turrets.findIndex(q => q.id === r.id && q.owner === id); if (i < 0) return; const t = this.turrets[i]; p.kits = Math.min(KITS, (p.kits ?? KITS) + 1); this.turrets.splice(i, 1); this.emit({ k: 'boom', x: t.x, y: 0.5, z: t.z, r: 1.5, small: 1 });
+      const i = this.turrets.findIndex(q => q.id === r.id && q.owner === id); if (i < 0) return; const t = this.turrets[i]; p.kits = Math.min(KITS, (p.kits ?? KITS) + 1); p.scrap = (p.scrap || 0) + Math.floor(scrapCost(t.kind) * 0.6); this.turrets.splice(i, 1); this.emit({ k: 'boom', x: t.x, y: 0.5, z: t.z, r: 1.5, small: 1 });
     } else if (r.a === 'buy-disabled') {
       if (!UPGRADES.some(u => u.id === r.up)) return; const lv = p.ups[r.up] || 0; if (lv >= 5) return; const c = UPG_PRICES[lv]; if (p.gold < c) return say(`Need ${c} gold.`);
       p.gold -= c; p.ups[r.up] = lv + 1; const m = maxHp(p.cls, p.ups); p.hp += m - p.mhp; p.mhp = m; this.emit({ k: 'bought', to: id });

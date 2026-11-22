@@ -1,7 +1,7 @@
 // Hive Breach: first-person tower defense. Marines hold the hub against waves of aliens marching down the track.
 import * as THREE from 'three';
 import * as M from './models.js';
-import { techMul, SIDEARM, SPECIALS, MISSILE, CLASSES, TURRETS, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, MAPS, BOUNDS, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST } from './data.js';
+import { scrapCost, techMul, SIDEARM, SPECIALS, MISSILE, CLASSES, TURRETS, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, MAPS, BOUNDS, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST } from './data.js';
 import { buildWorld, placeError, LIQUID } from './world.js';
 import { Sim, upgradeCost, tStat } from './sim.js';
 import { Net, VER } from './net.js';
@@ -556,7 +556,8 @@ function dropNew(kind, my) {
   const T = TURRETS[kind]; if (!T) return;
   // pressing the key of the turret in your hands puts it back in your pack
   const held = (state() || { T: [] }).T.find(t => t.carry === G.myId); if (held && held.kind === kind) { req({ a: 'stow' }); G.me.carry = 0; audio.sfx('pouch', 0.8); return; }
-  if (held) { req({ a: 'stow' }); my = Object.assign({}, my, { kits: (my.kits ?? 2) + 1 }); }
+  if (held) { req({ a: 'stow' }); my = Object.assign({}, my, { kits: (my.kits ?? 2) + 1, scrap: (my.scrap || 0) + scrapCost(held.kind) }); }
+  if ((my.scrap || 0) < scrapCost(kind) && !(held && held.kind === kind)) { audio.sfx('nope'); toast(`Need ${scrapCost(kind)} scrap for a ${T.name}: run over the scrap piles around wrecks.`, 2.5); return; }
   if ((my.kits ?? 2) < 1) { audio.sfx('nope'); toast('No turret kits left: pick up more in the hub (you carry 2).', 2.5); return; }
   if (T.ball) { // the sentry ball is thrown, not carried: it arcs out to where you are looking
     const r = aimRay(0), hl = Math.hypot(r.d.x, r.d.z) || 1; let d = G.W.T.ray(r.o, r.d, 26); d = Math.min(isFinite(d) ? d : 18, 26 / hl, 26); const x = r.o.x + r.d.x * d, z = r.o.z + r.d.z * d, y1 = G.W.top(x, z);
@@ -859,7 +860,7 @@ function hud(dt, S) {
   const mt = S.T.filter(t => t.owner === G.myId).length, sT = TURRETS[C.sentry], dT = TURRETS[C.defense];
   const sp = my.special, TH = C.throw, tT = TURRETS[C.third];
   const pwPct = Math.round((my.pw ?? 100) / (G.cls === 'engineer' ? 160 : 100) * 100), wpn = [[C.gun.name, icon(G.cls), '', 0], [SIDEARM.name, icon('pistol'), '', 1], ['Welding torch', icon('welder'), pwPct + '%', 2], [TH.name, icon(TH.kind), `${my.items ?? 0}`, 3], ['Field dressing', icon('medkit'), `${my.dr ?? 2}`, 5], ...(C.heal ? [['Heal beam', icon('beam'), '', 4]] : [])];
-  const bslot = (key, kind) => { const T0 = TURRETS[kind]; return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${(my.kits ?? 2) < 1 ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i></i></div>`; };
+  const bslot = (key, kind) => { const T0 = TURRETS[kind]; return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${(my.kits ?? 2) < 1 || (my.scrap || 0) < scrapCost(kind) ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i>${scrapCost(kind)}</i></div>`; };
   setH('slots', wpn.map(([n, ic, c, sl], i) => `<div class="slot w ${G.me.slot === sl ? 'on' : ''} ${(sl === 3 && !my.items) || (sl === 5 && !my.dr) || (sl === 2 && (my.pw ?? 1) <= 0) ? 'poor' : ''}"><b>${i + 1}</b>${ic}<i>${c}</i></div>`).join('') + `<div class="gap"></div><div class="kits" title="turret kits">${'▮'.repeat(my.kits ?? 2)}${'▯'.repeat(Math.max(0, 2 - (my.kits ?? 2)))}<small>KITS</small></div>` + bslot('sentry', C.sentry) + bslot('defense', C.defense) + bslot('third', C.third) + `<div class="slot ${sp ? 'ready sp' : 'poor'}"><b>${keyName(KB.special)}</b>${sp ? icon(sp) : icon('empty')}</div>`);
   setT('slotName', G.me.place ? TURRETS[G.me.place].name : sp && G.time - (G.spT ?? -9) < 3 ? SPECIALS[sp].name : (wpn.find(w => w[3] === G.me.slot) || wpn[0])[0]); if (sp !== G.lastSp) { G.lastSp = sp; G.spT = G.time; }
   $('roundsBar').style.width = (G.me.slot <= 1 ? Math.min(100, G.me.ammo / st.mag * 100) : 0) + '%';
@@ -1036,13 +1037,13 @@ function infoHTML(k) {
   h += row('4·G', th.kind, th.name, thTxt, `${th.n} carried`);
   h += row('5', 'medkit', 'Field dressing', 'Click to bandage yourself.', '+40 health · 2 carried');
   if (c.heal) h += row('6', 'beam', 'Heal beam', 'Hold on a teammate to heal them.', '');
-  for (const [key, kind] of [['T', c.sentry], ['F', c.defense], ['V', c.third]]) { const t = TURRETS[kind]; h += row(key, kind, t.name, t.desc, t.ball ? 'Thrown · uses a turret kit' : 'Left click places it · uses a turret kit'); }
+  for (const [key, kind] of [['T', c.sentry], ['F', c.defense], ['V', c.third]]) { const t = TURRETS[kind]; h += row(key, kind, t.name, t.desc, `${scrapCost(kind)} scrap · ` + (t.ball ? 'thrown' : 'left click places it')); }
   h += row('X', 'supply', 'Special', 'Found in supply drops. Air strikes, troops and more.', '');
   h += row('E', 'crate', 'Use', 'Pick up turrets, salvage wrecks, use teleporters.', '');
   return h + '</div><p class="sub2">Refill ammo, turret kits and dressings in the hub · B at the comms console changes class · K closes</p>';
 }
 function kitHTML(k) {
-  const c = CLASSES[k], g = c.gun, bl = (key, kind) => `<p><b>${key}</b> ${TURRETS[kind].name}: ${TURRETS[kind].desc}</p>`;
+  const c = CLASSES[k], g = c.gun, bl = (key, kind) => `<p><b>${key}</b> ${TURRETS[kind].name} (${scrapCost(kind)} scrap): ${TURRETS[kind].desc}</p>`;
   return `<p class="role">${c.role} · ${c.hp} health</p><p><b>1</b> ${g.name}${g.pellets ? ' (pellets, deadly up close)' : g.pierce ? ' (pierces 3 aliens)' : g.kind === 'rocket' ? ' (explodes)' : g.spin ? ' (spins up first)' : ''} · <b>2</b> side arm · <b>3</b> welding torch${k === 'engineer' ? ' (3x faster)' : ''} · <b>4</b> or <b>G</b> ${c.throw.name} ×${c.throw.n}${c.heal ? ' · <b>5</b> heal beam' : ''}</p><p><b>Team</b> ${c.team}</p>` + bl(keyName(KB.sentry), c.sentry) + bl(keyName(KB.defense), c.defense) + bl(keyName(KB.third), c.third);
 }
 function drawPickers() {

@@ -72,6 +72,8 @@ export const SPECIALS = {
 export const MISSILE = { launch: 2.5, speed: 75, radius: 12, dmg: 1400 };
 
 // lvl 1-3. Upgrading a turret costs its price times UPG_COST[lvl].
+// building a turret costs scrap: a tenth of its old gold price
+export const scrapCost = kind => Math.max(4, Math.round((TURRETS[kind].cost || 0) / 10));
 export const TURRETS = {
   pulse: { name: 'Pulse Rifle Sentry', cost: 90, hp: 240, range: 22, rate: 6, dmg: 14, key: 'sentry', desc: 'Accurate long-range shots.' },
   minigun: { name: 'Minigun Turret', cost: 100, hp: 260, range: 17, rate: 12, dmg: 7.5, key: 'sentry', desc: 'Spins up and shreds anything close.' },

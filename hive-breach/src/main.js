@@ -407,7 +407,7 @@ function syncView(S, dt) {
     const building = t.b > 0 || t.up > 0;
     if (false && building && !v.scaf) { v.scaf = scaffold(t.kind === 'barricade' ? 7 : 2.6, t.kind === 'barricade' ? 2.4 : 3.4); v.scaf.position.set(t.x, t.y, t.z); if (t.kind === 'barricade') v.scaf.rotation.y = t.ry; scene.add(v.scaf); }
     if (v.scaf) { v.scaf.visible = building; if (building) { const f = t.up > 0 ? t.up : 1 - t.b / (t.bt || 1), txt = t.up > 0 ? `WELDING Lv${t.lvl + 1} ${Math.round(t.up * 100)}%` : `BUILDING ${t.b.toFixed(1)}s`; v.scaf.position.copy(v.mesh.position); v.scaf.userData.bar.scale.x = Math.max(0.01, f); v.scaf.userData.bar.position.x = -(1 - f) * 0.9; if (v.scaf.userData.txt !== txt) setLabel(v.scaf.userData.label, txt); v.scaf.userData.txt = txt; v.scaf.userData.cage.rotation.y += dt * 0.6; v.scaf.userData.cage.children.forEach((c, i) => { if (c.userData.ring) c.position.y = ((G.time * 0.7 + i * 0.5) % 1) * v.scaf.userData.h; }); if (Math.random() < dt * 8) burst(t.x + (Math.random() - 0.5) * 1.5, t.y + Math.random() * 2.5, t.z + (Math.random() - 0.5) * 1.5, 0xffd060, 2, 2, 0.3); } }
-    const sc0 = [1, 1.28, 1.55][t.lvl - 1] || 1, grow = t.fresh ? 0.15 + 0.85 * (1 - t.b / (t.bt || 1)) : 1; let mk = 1; if (v.morph > 0) { v.morph = Math.max(0, v.morph - dt / 1.3); const m = v.morph; mk = 1 + Math.sin((1 - m) * Math.PI * 4) * 0.18 * m - 0.25 * m * m; if (u.head) u.head.rotation.y += dt * 14 * m; if (v.up) { const e = Math.min(1, (1 - m) * 1.6); v.up.scale.setScalar(e); v.up.userData.head.scale.setScalar(e); } if (Math.random() < dt * 30 * m) burst(v.mesh.position.x + (Math.random() - 0.5) * 2, v.mesh.position.y + Math.random() * 3 * sc0, v.mesh.position.z + (Math.random() - 0.5) * 2, Math.random() < 0.5 ? 0x9fe8ff : 0xffd040, 3, 3, 0.5); }
+    const sc0 = [1, 1.28, 1.55][t.lvl - 1] || 1, grow = t.fresh && !t.carry ? 0.15 + 0.85 * (1 - t.b / (t.bt || 1)) : 1; let mk = 1; if (v.morph > 0) { v.morph = Math.max(0, v.morph - dt / 1.3); const m = v.morph; mk = 1 + Math.sin((1 - m) * Math.PI * 4) * 0.18 * m - 0.25 * m * m; if (u.head) u.head.rotation.y += dt * 14 * m; if (v.up) { const e = Math.min(1, (1 - m) * 1.6); v.up.scale.setScalar(e); v.up.userData.head.scale.setScalar(e); } if (Math.random() < dt * 30 * m) burst(v.mesh.position.x + (Math.random() - 0.5) * 2, v.mesh.position.y + Math.random() * 3 * sc0, v.mesh.position.z + (Math.random() - 0.5) * 2, Math.random() < 0.5 ? 0x9fe8ff : 0xffd040, 3, 3, 0.5); }
     v.mesh.scale.set(sc0 * mk, sc0 * grow * mk, sc0 * mk);
     v.alert = Math.max(0, (v.alert || 0) - dt); if (v.alert > 0 && !v.mark) { v.mark = markSprite(); scene.add(v.mark); } if (v.mark) { v.mark.visible = v.alert > 0 && Math.sin(G.time * 12) > -0.3; v.mark.position.set(v.mesh.position.x, v.mesh.position.y + 4.2 * sc0, v.mesh.position.z); }
     if (t.hp < t.mhp * 0.35 && Math.random() < dt * 6) burst(t.x, 1.6, t.z, 0x303030, 1, 1, 1, 2);
@@ -794,6 +794,12 @@ function updateMe(dt, S) {
   G.punch = Math.max(0, (G.punch || 0) - dt * 30); const fov = me.scope ? 20 : me.ads ? SET.fov * 0.55 : SET.fov + (run > 1 && me.moving ? 6 : 0) - G.punch * 0.6 - me.kh * 3; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 14); camera.updateProjectionMatrix(); }
   camera.position.set(me.x + (Math.random() - 0.5) * sh, (my.dead ? 3.5 : 1.7 - me.kh * 0.75) + me.y + Math.sin(me.bob) * 0.05 + (Math.random() - 0.5) * sh, me.z);
   camera.rotation.set(me.pitch, me.yaw, 0, 'YXZ');
+  // carrying a turret: the camera swings back over the shoulder so you can see where it's going
+  me.tp = Math.max(0, Math.min(1, (me.tp || 0) + (me.carry && !my.dead ? dt : -dt) * 3));
+  if (me.tp > 0) { const e = me.tp * me.tp * (3 - 2 * me.tp), fx = -Math.sin(me.yaw) * Math.cos(me.pitch), fy = Math.sin(me.pitch), fz = -Math.cos(me.yaw) * Math.cos(me.pitch), rx = Math.cos(me.yaw), rz = -Math.sin(me.yaw);
+    let x = camera.position.x - fx * 6 * e + rx * 1.1 * e, y = camera.position.y - fy * 6 * e + 2.4 * e, z = camera.position.z - fz * 6 * e + rz * 1.1 * e; y = Math.max(y, G.W.top(x, z) + 0.6); camera.position.set(x, y, z); }
+  if (!view2.self || view2.selfCls !== G.cls) { if (view2.self) scene.remove(view2.self); view2.self = M.marine(CLASSES[G.cls].color, G.cls); view2.selfCls = G.cls; scene.add(view2.self); }
+  view2.self.visible = me.tp > 0.25 && !my.dead; if (view2.self.visible) { view2.self.position.set(me.x, me.y, me.z); view2.self.rotation.y = me.yaw; M.animMarine(view2.self, me.bob * 0.9, me.moving ? 4 : 0); }
   // gun
   me.cd -= dt; me.gcd -= dt; me.kick = Math.max(0, me.kick - dt * 9); G.flash = Math.max(0, (G.flash || 0) - dt); view2.flash.intensity = G.flash > 0 ? 25 : 0; view2.fsp.visible = G.flash > 0; view2.fsp.scale.setScalar((G.cls === 'heavy' ? 1.6 : 0.9) * (0.7 + Math.random() * 0.8) * (1 + 0.08 * ((mine(S) || {}).ups || {}).dmg)); view2.fsp.material.rotation = Math.random() * 6;
   if (me.rel > 0) {
@@ -820,6 +826,7 @@ function updateMe(dt, S) {
     if (u.rocket) u.rocket.visible = me.rel > 0 ? f > 0.66 : me.ammo > 0; }
   gn.position.set(0.21 - me.kh * 0.06 + Math.sin(me.bob * 0.5) * 0.01, -0.21 + me.kh * 0.03 + Math.abs(Math.cos(me.bob * 0.5)) * 0.008 - rf * 0.12 + me.kick * 0.012, -0.42 + me.kick * (G.cls === 'heavy' ? 0.14 : 0.07)); gn.rotation.set(me.kick * (G.cls === 'heavy' ? 0.25 : 0.12) - rf * 0.7, (Math.random() - 0.5) * me.kick * 0.03, rf * 0.3 + me.kick * 0.04 - me.kh * 0.08); gn.visible = me.slot === 0 && !my.dead && !me.place && !me.scope; if (me.ads && me.slot === 0) { if (G.cls === 'gunner' || G.cls === 'heavy') { gn.position.x += 0.06; gn.position.y -= 0.1; } else { gn.position.x = 0.0; gn.position.y = -0.12; gn.position.z -= 0.08; } }   // big guns stay at the hip when aiming so they don't block the view if (me.ads && view2.pistol) { view2.pistol.position.set(0, -0.15, -0.4); } else if (view2.pistol) view2.pistol.position.set(0.2, -0.22, -0.45);
   animReload(me, gn, my, dt);
+  if (me.tp > 0.25) { for (const c of camera.children) if (c.isObject3D && !c.isLight) c.visible = false; }   /* third person: no first-person gun */
   if (!live) { me.place = null; updatePlace(S); return; }
   if (locked() && !G.shop && !frozen) {
     if (hits[KB.reload] && me.rel <= 0 && !me.shells && me.ammo < st.mag && me.reserve >= 1) startReload(st, S);
@@ -1011,13 +1018,13 @@ function onMsg(m) {
   }
 }
 function status(s) { $('netStatus').textContent = s; const h = $('hudCode'); if (G.mode === 'host' && G.net && G.net.code) h.textContent = 'Online code: ' + G.net.code; }
-function readTitle() { clampPick(); G.name = ($('name').value.trim() || 'Marine').slice(0, 14); store.set('hb-name', G.name); store.set('hb-cls', G.cls); store.set('hb-map', G.map); audio.unlock(); }
+function readTitle() { G.name = ($('name').value.trim() || 'Marine').slice(0, 14); store.set('hb-name', G.name); store.set('hb-cls', G.cls); store.set('hb-map', G.map); audio.unlock(); }
 function startLocal(mode) {
   readTitle(); G.mode = mode; G.myId = mode === 'host' ? G.net.id : 'me'; G.sim = null; G.snap = null;
   begin(G.map); G.sim = new Sim(G.W, emit); G.sim.addPlayer(G.myId, G.name, G.cls).seen = 1e9;
   if ((G.diff || 0) === 0) playDropIntro();
 }
-$('btnSolo').onclick = () => startLocal('solo');
+$('btnSolo').onclick = () => { const u = unlocks(); if (u[G.map] === undefined || (G.diff || 0) > (u[G.map] ?? 0)) { $('netStatus').textContent = '🔒 That one is still locked in the campaign. Win the one before it, or host an online game: online you can play any planet and difficulty.'; return; } startLocal('solo'); };
 $('btnHost').onclick = () => { readTitle(); G.net = new Net(onMsg, status); G.mode = 'host'; if (!G.net.host()) return; startLocal('host'); status(G.net.loop ? 'Hosting (test). Code: ' + G.net.code : 'Starting online game...'); $('hudCode').textContent = 'Online code: ' + G.net.code; };
 $('btnJoin').onclick = () => { const code = $('code').value; if (!code.trim()) { status('Type the code your friend gave you.'); return; } readTitle(); G.net = new Net(onMsg, status); G.mode = 'client'; G.myId = G.net.id; G.sim = null; G.net.join(code, () => { G.net.send({ t: 'hello', n: G.name, c: G.cls, v: VER }); status('Connected. Waiting for the battle...'); }); };
 $('code').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnJoin').click(); });
@@ -1085,15 +1092,15 @@ function unlocks() { const u = store.get('hb-unlock', null); return u && typeof 
 function unlockAfterWin(map, diff) { const u = unlocks(); if (diff < 2) u[map] = Math.max(u[map] ?? -1, diff + 1); else { const nx = PLANET_ORDER[(PLANET_ORDER.indexOf(map) + 1) % PLANET_ORDER.length]; u[map] = 2; u[nx] = Math.max(u[nx] ?? -1, 0); } store.set('hb-unlock', u); }
 function clampPick() { const u = unlocks(); if (u[G.map] === undefined) G.map = 'mars'; if ((G.diff || 0) > (u[G.map] ?? 0)) G.diff = u[G.map] ?? 0; }
 function drawPickers() {
-  clampPick(); const U = unlocks();
+  const U = unlocks();
   const best = store.get('hb-best2', {}), mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   $('classes').innerHTML = Object.entries(CLASSES).map(([k, c]) => `<button class="pick ${k === G.cls ? 'on' : ''}" data-cls="${k}" style="--c:#${c.color.toString(16).padStart(6, '0')}"><h3>${c.name}</h3>${kitHTML(k)}</button>`).join('');
-  $('diffs').innerHTML = DIFFS.map((d, i) => `<button class="pick ${i === (G.diff || 0) ? 'on' : ''} ${i > (U[G.map] ?? 0) ? 'locked' : ''}" data-diff="${i}" style="--c:${['#50d070', '#e0a030', '#e04040'][i]}"><h3>${i > (U[G.map] ?? 0) ? '🔒 ' : ''}${d.name}</h3><p>${i > (U[G.map] ?? 0) ? `Win ${DIFFS[i - 1].name} on this planet to unlock.` : ['The planet as surveyed, by day. Threat starts at level 1.', 'The map mirrored, at dusk. Threat starts at level 3, more aliens, a tougher queen with more guards.', 'Mirrored the other way, at night. Threat starts at level 6, far more aliens, the toughest queen.'][i]}</p></button>`).join('');
-  $('maps').innerHTML = Object.entries(MAPS).map(([k, m]) => `<button class="pick map ${k === G.map ? 'on' : ''} ${U[k] === undefined ? 'locked' : ''}" data-map="${k}" style="--c:#${m.ground.toString(16).padStart(6, '0')}"><h3>${U[k] === undefined ? '🔒 ' : ''}${m.name}</h3><p>${U[k] === undefined ? 'Win the Hard hive on the planet before it to unlock.' : m.sub}</p><p class="kit">${best[k] ? 'Longest hold: ' + mmss(best[k]) : 'Not yet played'}</p></button>`).join('');
+  $('diffs').innerHTML = DIFFS.map((d, i) => `<button class="pick ${i === (G.diff || 0) ? 'on' : ''} ${i > (U[G.map] ?? 0) ? 'locked' : ''}" data-diff="${i}" style="--c:${['#50d070', '#e0a030', '#e04040'][i]}"><h3>${i > (U[G.map] ?? 0) ? '🔒 ' : ''}${d.name}</h3><p>${i > (U[G.map] ?? 0) ? `🔒 Campaign: win ${DIFFS[i - 1].name} here to unlock. Online games can pick it now.` : ['The planet as surveyed, by day. Threat starts at level 1.', 'The map mirrored, at dusk. Threat starts at level 3, more aliens, a tougher queen with more guards.', 'Mirrored the other way, at night. Threat starts at level 6, far more aliens, the toughest queen.'][i]}</p></button>`).join('');
+  $('maps').innerHTML = Object.entries(MAPS).map(([k, m]) => `<button class="pick map ${k === G.map ? 'on' : ''} ${U[k] === undefined ? 'locked' : ''}" data-map="${k}" style="--c:#${m.ground.toString(16).padStart(6, '0')}"><h3>${U[k] === undefined ? '🔒 ' : ''}${m.name}</h3><p>${U[k] === undefined ? '🔒 Campaign: win the Hard hive on the planet before it. Online games can pick it now.' : m.sub}</p><p class="kit">${best[k] ? 'Longest hold: ' + mmss(best[k]) : 'Not yet played'}</p></button>`).join('');
 }
 $('classes').onclick = e => { const b = e.target.closest('[data-cls]'); if (b) { G.cls = b.dataset.cls; drawPickers(); } };
-$('maps').onclick = e => { const b = e.target.closest('[data-map]'); if (b) { if (unlocks()[b.dataset.map] === undefined) { b.classList.add('nope'); setTimeout(() => b.classList.remove('nope'), 400); return; } G.map = b.dataset.map; drawPickers(); } };
-$('diffs').onclick = e => { const b = e.target.closest('[data-diff]'); if (b) { if (+b.dataset.diff > (unlocks()[G.map] ?? 0)) { b.classList.add('nope'); setTimeout(() => b.classList.remove('nope'), 400); return; } G.diff = +b.dataset.diff; store.set('hb-diff', G.diff); drawPickers(); } };
+$('maps').onclick = e => { const b = e.target.closest('[data-map]'); if (b) { G.map = b.dataset.map; drawPickers(); } };
+$('diffs').onclick = e => { const b = e.target.closest('[data-diff]'); if (b) { G.diff = +b.dataset.diff; store.set('hb-diff', G.diff); drawPickers(); } };
 drawPickers();
 // show a map behind the title screen
 G.W = buildWorld(scene, G.map); camera.position.set(0, 40, 70); camera.lookAt(0, 0, 0);

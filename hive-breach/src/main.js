@@ -1,4 +1,4 @@
-// Hive Breach: first-person tower defense. Marines hold the hub against waves of aliens marching down the track.
+// OWFR Team Foxtrot (Off World First Response): first-person tower defense. Marines hold the hub against waves of aliens marching down the track.
 import * as THREE from 'three';
 import * as M from './models.js';
 const assetsP = M.AS.loadAll();   /* Meshy models stream in behind the cover screen */

@@ -230,7 +230,8 @@ export class Sim {
     if (this.phase === 'build') { if (this.timer > 0) { this.timer -= dt; if (this.timer <= 0) this.startWave(); } }
     else if (this.phase === 'assault') { this.hazards(dt); }
     else if (this.phase === 'wave') {
-      this.qt += dt; while (this.q.length && this.q[0].t <= this.qt) this.spawn(this.q.shift().type);
+      // the stream keeps flowing, but never more than about 110 aliens on the field at once (the rest wait their turn)
+      const alive = this.aliens.length; if (alive < 110) this.qt += dt; while (this.q.length && this.q[0].t <= this.qt && this.aliens.length < 110) this.spawn(this.q.shift().type);
       this.lvlT -= dt; if (this.lvlT <= 0) this.startWave(); this.el = (this.el || 0) + dt;
       this.podT += dt; if (this.podT >= 60) { this.podT = 0; this.dropPods(2); }
       this.hazards(dt);

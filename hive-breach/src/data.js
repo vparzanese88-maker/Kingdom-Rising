@@ -114,7 +114,7 @@ export const ALIENS = {
   nest: { name: 'Alien Nest', hp: 600, speed: 0, hub: 0, bounty: 80, r: 2.0, h: 1.0, dmg: 0, nest: 1, static: 1 },
   guardian: { name: 'Hive Guardian', hp: 2600, speed: 0, hub: 0, bounty: 150, r: 1.7, h: 3.2, dmg: 13, static: 1, armor: 0.2, guard: 26 },
   // the endgame: the Brood Queen sits in a cave at the start of the track, births the swarm and is guarded by Royal Guards
-  broodqueen: { name: 'Brood Queen', hp: 26000, speed: 0, hub: 0, bounty: 2000, r: 3.4, h: 4.2, dmg: 34, static: 1, armor: 0.3, ranged: 24 },
+  broodqueen: { name: 'Brood Queen', hp: 20000, speed: 0, hub: 0, bounty: 2000, r: 3.4, h: 4.2, dmg: 34, static: 1, armor: 0.3, ranged: 24 },
   royal: { name: 'Royal Guard', hp: 950, speed: 6.4, hub: 6, bounty: 45, r: 1.1, h: 1.8, dmg: 30, melee: 1, armor: 0.15 },
   hivecore: { name: 'The Hive', hp: 12000, speed: 0, hub: 0, bounty: 1500, r: 5.5, h: 2.4, dmg: 0, static: 1 },
 };
@@ -125,7 +125,8 @@ export const MIX = { mars: { brute: 1.6, brute0: 3 }, ice: { flyer: 1.7, flyer0:
 export function waveList(w, map) {
   const X = MIX[map] || {}, L0 = waveBase(w, X), L = [];
   // the first threat levels come in light, building up to full strength by level 11
-  const ease = Math.min(1, 0.5 + 0.05 * (w - 1));
+  // the swarm thickens with every threat level: light at first, then more and more aliens (strength never changes)
+  const ease = Math.min(1, 0.5 + 0.05 * (w - 1)) * (1 + 0.035 * Math.max(0, w - 1));
   for (const [t, c, g] of L0) L.push([t, ALIENS[t].boss ? c : Math.max(1, Math.round(c * (X[t] || 1) * ease)), g]);
   if (X.brute0 && w >= X.brute0 && w < 5 && w !== 10) L.push(['brute', 1, 3]);
   if (X.flyer0 && w >= X.flyer0 && w < 6 && w !== 10) L.push(['flyer', 2 + w - X.flyer0, 0.8]);
@@ -148,9 +149,10 @@ function waveBase(w) {
 // guardians and the hive get 60% more health instead), so 2 marines face about 2x, 3 face 3.2x, 4 face 4.75x.
 export const squad = n => Math.max(1, n);
 export const countScale = n => 1 + 0.5 * (squad(n) - 1);
-// weapons tech keeps pace with the swarm: every threat level makes marine guns, turrets and reinforcements 9% stronger
-export const techMul = w => 1 + 0.09 * Math.max(0, (w || 1) - 1);
-export const hpScale = (w, players) => (1 + 0.11 * (w - 1) + (w > 20 ? 0.12 * (w - 20) ** 1.3 : 0)) * (1 + 0.3 * (squad(players) - 1));
+// no automatic weapon upgrades: damage stays the same all game
+export const techMul = () => 1;
+// aliens never get stronger over time: only more of them come (more players still means tougher aliens)
+export const hpScale = (w, players) => 1 + 0.3 * (squad(players) - 1);
 export const bossScale = n => 1 + 0.6 * (squad(n) - 1);
 
 export const MAPS = {

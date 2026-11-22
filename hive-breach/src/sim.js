@@ -1,5 +1,5 @@
 // The battle itself. Only the host (or a solo player) runs this; friends receive what it decides.
-import { CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
+import { techMul, CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
 import { placeError, HUB_R } from './world.js';
 import { PATH_W, SPECIALS, MISSILE, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST, MAX_ALLIES } from './data.js';
 
@@ -15,14 +15,15 @@ export function pickSpecial() { const e = Object.entries(SPECIALS), tot = e.redu
 export const LEVEL_T = 60, DROP_FALL = 9, DROP_LIFE = 60;
 export const START_GOLD = 350, FIRST_COUNT = 5, NEXT_COUNT = 25;
 export function maxHp(cls, ups) { return CLASSES[cls].hp + 25 * (ups.hp || 0); }
-export function tStat(t) { const T = TURRETS[t.kind], l = t.lvl - 1; return { mark: T.mark ? T.mark + 0.1 * l : 0, range: (T.range || 0) * LV.rng[l], dmg: (T.dmg || 0) * LV.dmg[l], rate: (T.rate || 0) * LV.rate[l], heal: (T.heal || 0) * LV.dmg[l], chain: (T.chain || 0) + l, slow: T.slow ? Math.max(0.25, T.slow - l * 0.08) : 0, splash: T.splash || 0 }; }
+export const TECH = { k: 1 };
+export function tStat(t) { const T = TURRETS[t.kind], l = t.lvl - 1; return { mark: T.mark ? T.mark + 0.1 * l : 0, range: (T.range || 0) * LV.rng[l], dmg: (T.dmg || 0) * LV.dmg[l] * TECH.k, rate: (T.rate || 0) * LV.rate[l], heal: (T.heal || 0) * LV.dmg[l], chain: (T.chain || 0) + l, slow: T.slow ? Math.max(0.25, T.slow - l * 0.08) : 0, splash: T.splash || 0 }; }
 export function upgradeCost(t) { return t.lvl >= 3 ? 0 : Math.round(TURRETS[t.kind].cost * UPG_COST[t.lvl]); }
 
 export class Sim {
   constructor(W, emit) {
     this.W = W; this.path = W.path; this.emit = emit; this.players = new Map(); this.reset();
   }
-  reset() {
+  reset() { TECH.k = 1;
     this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.items = []; this.pools = []; this.tm = []; this.drones = []; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = []; this.stormT = 0; this.stormI = 0; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0] }; this.spawnHive(1);
     for (const p of this.players.values()) this.resetPlayer(p);
     this.scrap = []; this.scrapT = 0; for (let i = 0; i < SCRAP_PILES; i++) this.spawnScrap();   // after the id counter is set
@@ -177,7 +178,7 @@ export class Sim {
   // ---------------------------------------------------------------- waves
   // No separate waves: the threat level rises every LEVEL_T seconds, and that level's aliens join one steady stream.
   startWave() {
-    const first = this.phase !== 'wave'; this.wave++; this.phase = 'wave'; this.lvlT = LEVEL_T;
+    const first = this.phase !== 'wave'; this.wave++; TECH.k = techMul(this.wave); this.phase = 'wave'; this.lvlT = LEVEL_T;
     const N = this.players.size, cs = countScale(N), rest = [], bosses = [];
     for (const [type, n0] of waveList(this.wave, this.W.id)) { const boss = ALIENS[type].boss, n = boss ? n0 : Math.round(n0 * cs); for (let i = 0; i < n; i++) (boss ? bosses : rest).push(type); }
     for (let i = rest.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [rest[i], rest[j]] = [rest[j], rest[i]]; }
@@ -410,7 +411,7 @@ export class Sim {
       const A = ALLIES[m.type]; m.cd -= dt; m.tg = 0;
       if (A.heal) { for (const o of this.allies) if (o !== m && o.hp < o.mhp && Math.hypot(o.x - m.x, o.z - m.z) < 8) o.hp = Math.min(o.mhp, o.hp + A.heal * dt); for (const p of this.living()) if (p.hp < p.mhp && Math.hypot(p.x - m.x, p.z - m.z) < 8) p.hp = Math.min(p.mhp, p.hp + A.heal * 0.6 * dt); }
       let tg = null, bd = A.range; for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !this.inCave(m.x, m.z)) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < bd && Math.abs(a.y - m.y) < 9) { bd = d; tg = a; } }
-      if (tg) { m.tg = tg.id; m.ry = Math.atan2(-(tg.x - m.x), -(tg.z - m.z)); if (m.cd <= 0) { m.cd = 1 / A.rate; if (A.splash) { const dur = 0.2 + bd / 30; this.shells.push({ tg: tg.id, x: tg.x, y: tg.y, z: tg.z, t: dur, d: A.dmg, r: A.splash, owner: null }); this.emit({ k: 'msl', a: [m.x, m.y + 1.6, m.z], tg: tg.id, b: [tg.x, tg.y, tg.z], t: dur, rk: 1 }); } else this.hurtAlien(tg, A.dmg, null); } continue; }
+      if (tg) { m.tg = tg.id; m.ry = Math.atan2(-(tg.x - m.x), -(tg.z - m.z)); if (m.cd <= 0) { m.cd = 1 / A.rate; if (A.splash) { const dur = 0.2 + bd / 30; this.shells.push({ tg: tg.id, x: tg.x, y: tg.y, z: tg.z, t: dur, d: A.dmg * TECH.k * 1.25, r: A.splash, owner: null }); this.emit({ k: 'msl', a: [m.x, m.y + 1.6, m.z], tg: tg.id, b: [tg.x, tg.y, tg.z], t: dur, rk: 1 }); } else this.hurtAlien(tg, A.dmg * TECH.k * 1.25, null); } continue; }
       if (m.s > 7) { m.s -= A.speed * dt; const q = P.at(m.s); m.x = q.x - q.tz * m.lat; m.z = q.z + q.tx * m.lat; m.y = q.y; m.ry = Math.atan2(q.tx, q.tz); }
       else { // the end of the track: push on through the cavern toward the queen until she is in range
         const Q = this.aliens.find(a => a.type === 'broodqueen' && !a.dead); if (Q) { const dx = Q.x - m.x, dz = Q.z - m.z, d = Math.hypot(dx, dz), want = Math.max(6, A.range * 0.7) + ALIENS.broodqueen.r; if (d > want) { const st = Math.min(d - want, A.speed * dt); m.x += dx / d * st + (m.lat || 0) * 0.02 * dz / d; m.z += dz / d * st - (m.lat || 0) * 0.02 * dx / d; m.y = this.W.ground(m.x, m.z, m.y + 1); m.ry = Math.atan2(-dx, -dz); } }

@@ -57,7 +57,7 @@ function decode(m) {
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9], rv: a[10] })),
     T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], carry: t[15], up: t[16], s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
     P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {} })),
-    O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4] })), el: m.el, I: (m.I || []).map(i => ({ id: i[0], kind: i[1], x: i[2], z: i[3] })), SC: (m.SC || []).map(c => ({ id: c[0], x: c[1], z: c[2] })),
+    O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4], kind: o[5] === 1 ? 'ammo' : o[5] === 2 ? 'dress' : '' })), el: m.el, I: (m.I || []).map(i => ({ id: i[0], kind: i[1], x: i[2], z: i[3] })), SC: (m.SC || []).map(c => ({ id: c[0], x: c[1], z: c[2] })),
     M: (m.M || []).map(c => ({ id: c[0], x: c[1], z: c[2], life: c[3] })), Z: (m.Z || []).map(c => ({ x: c[0], z: c[1], r: c[2] })), K: (m.K || []).map(q => ({ x: q[0], y: q[1], z: q[2], r: q[3], fire: q[4] })), D: (m.D || []).map(d => ({ id: d[0], x: d[1], y: d[2], z: d[3], tg: d[4] })), Q: (m.Q || []).map(q => ({ id: q[0], x: q[1], y: q[2], z: q[3], r: q[4], t: q[5] })), S2: (m.S2 || []).map(d => ({ x: d[0], y: d[1], z: d[2], r: d[3] })),
   };
 }
@@ -154,7 +154,7 @@ function fx(e) {
     case 'clear': banner(`WAVE ${e.w} CLEARED`, `+${e.b} gold · resupply`); audio.sfx('win'); break;
     case 'roar': audio.sfx('roar'); toast(`The ${ALIENS[e.t].name} has emerged from the hive!`, 4); G.shake = 0.6; break;
     case 'hubhit': G.hubFlash = 0.5; boomFx(e.x, e.y + 1, e.z, 2, 1); if (G.time - lastHubMsg > 6) { lastHubMsg = G.time; toast('The hub is under attack!', 2.5); audio.sfx('alarm', 0.5); } break;
-    case 'pod': burst(e.x, G.W.top(e.x, e.z) + 1, e.z, 0xffd040, 14, 5, 0.6); if (e.by === G.myId) { audio.sfx('pickup'); toast('Supply crate: ammo and welder power' + (e.sp ? `, and a special: ${SPECIALS[e.sp].name} (press ${keyName(KB.special)})` : ''), 4); G.me.reserve = Math.min(stats().reserve, G.me.reserve + stats().reserve * 0.5); } break;
+    case 'pod': burst(e.x, G.W.top(e.x, e.z) + 1, e.z, 0xffd040, 14, 5, 0.6); if (e.by === G.myId) { audio.sfx('pickup'); toast(e.kind === 'ammo' ? 'Commander\'s ammo crate: full ammo, items and welder power' : e.kind === 'dress' ? 'Commander\'s med crate: field dressings restocked' : 'Supply crate: ammo and welder power' + (e.sp ? `, and a special: ${SPECIALS[e.sp].name} (press ${keyName(KB.special)})` : ''), 4); G.me.reserve = Math.min(stats().reserve, G.me.reserve + stats().reserve * 0.5); } break;
     case 'drop2': toast(`✈ Supply drop! ${e.n} crates parachuting in: grab them within 60 seconds of landing (yellow on the minimap).`, 5); audio.sfx('wave', 0.6); break;
     case 'podgone': smoke(e.x, G.W.top(e.x, e.z) + 0.5, e.z, 3, 1); break;
     case 'placed': audio.sfx('place', vol(dist(e.x, e.z))); burst(e.x, 0.5, e.z, 0x80c0ff, 8, 3, 0.4); break;
@@ -174,6 +174,8 @@ function fx(e) {
     case 'kit': if (e.to === G.myId) toast(`Turret kit picked up (${e.n}/2)`, 1.5); break;
     case 'carry': case 'dropped': audio.sfx('place', vol(dist(e.x ?? G.me.x, e.z ?? G.me.z)) * 0.7); break;
     case 'stowed': if (e.to === G.myId) toast(`${e.n} back in your pack`, 1.5); break;
+    case 'radio': radioSay(e.w, e.m); break;
+    case 'dresskit': break;
     case 'scrap': if (e.to === G.myId) { audio.sfx('tink', 0.9); G.scrapFlash = 0.5; } break;
     case 'ammo': if (e.to === G.myId) { refillAmmo(1); audio.sfx('pickup'); toast('Ammo: fully stocked.', 2); } break;
     case 'resup': if (e.to === G.myId) { refillAmmo(e.f); if (!G.resupT || G.time - G.resupT > 6) { G.resupT = G.time; toast('Forward Resupply: restocking slowly…', 2); } } break;
@@ -182,7 +184,7 @@ function fx(e) {
     case 'mortar': flyer('spit', e.a, e.b, e.t); audio.sfx('rocket', vol(dist(e.a[0], e.a[2])) * 0.5); break;
     case 'tmiss': tacMissile(e); break;
     case 'nuke': boomFx(e.x, e.y + 1, e.z, 9); boomFx(e.x + 4, e.y + 2, e.z - 3, 6); boomFx(e.x - 4, e.y + 1, e.z + 3, 6); smoke(e.x, e.y + 2, e.z, 20, 10); G.shake = Math.max(G.shake, 1.2 - Math.min(1, dist(e.x, e.z) / 120)); flashLight(e.x, e.y + 10, e.z, 600, 0.6); break;
-    case 'dropship': { const m = M.dropship(); m.position.set(...e.a); scene.add(m); FX.proj.push({ mesh: m, kind: 'ship', met: { t: e.t + 4 }, a: e.a, b: e.b, t0: 1e9, t: 0, ship: { t: 0, T: e.t } }); audio.sfx('alarm', 0.4); break; }
+    case 'dropship': { const m = M.dropship(); m.position.set(...e.a); scene.add(m); FX.proj.push({ mesh: m, kind: 'ship', met: { t: e.t + (e.hold || 0) + 5 }, a: e.a, b: e.b, t0: 1e9, t: 0, ship: { t: 0, T: e.t, hold: e.hold || 0 } }); audio.sfx('rotor', vol(dist(e.b[0], e.b[2])) * 0.9); break; }
     case 'bomber': { const m = M.jet(); scene.add(m); FX.proj.push({ mesh: m, kind: 'jet', met: { t: e.t + 1.5 }, a: [e.a[0], e.y, e.a[1]], b: [e.b[0], e.y, e.b[1]], t0: 1e9, t: 0, jet: { t: 0, T: e.t } }); audio.gun('artillery', 0.8, 1, 0.3); break; }
     case 'orbital': { const beam = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 400, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xff60ff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); beam.position.set(e.x, e.y + 200, e.z); scene.add(beam); FX.proj.push({ mesh: beam, kind: 'beam', met: { t: e.t }, a: [e.x, e.y, e.z], b: [e.x, e.y, e.z], t0: 1e9, t: 0, orb: 1 }); audio.sfx('zap'); G.shake = Math.max(G.shake, 0.4); break; }
     case 'emp': case 'cryo': { const c = e.k === 'emp' ? 0x60a0ff : 0xc0f0ff, r = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 48), new THREE.MeshBasicMaterial({ color: c, transparent: true, side: THREE.DoubleSide, depthWrite: false })); r.rotation.x = -Math.PI / 2; r.position.set(e.x, e.y + 0.5, e.z); scene.add(r); FX.booms.push({ mesh: r, t: 0, r: e.k === 'emp' ? 50 : 30, ring: 1 }); burst(e.x, e.y + 1, e.z, c, 40, 10, 0.8); audio.sfx('zap'); flashLight(e.x, e.y + 4, e.z, 200, 0.3); break; }
@@ -241,8 +243,8 @@ function tacMissile(e) {
 }
 function updateShips(dt) {
   for (const p of FX.proj) {
-    if (p.ship) { const S0 = p.ship; S0.t += dt; const f = Math.min(1, S0.t / S0.T); if (S0.t < S0.T) { const e = 1 - (1 - f) * (1 - f); p.mesh.position.set(p.a[0] + (p.b[0] - p.a[0]) * e, p.a[1] + (p.b[1] + 6 - p.a[1]) * e, p.a[2] + (p.b[2] - p.a[2]) * e); p.mesh.lookAt(p.b[0], p.mesh.position.y, p.b[2]); }
-      else { const u = S0.t - S0.T; if (!S0.dropped) { S0.dropped = 1; burst(p.b[0], p.b[1] + 1, p.b[2], 0xc0a060, 20, 5, 0.7); audio.sfx('place'); } p.mesh.position.y = p.b[1] + 6 + u * u * 4; p.mesh.position.x += dt * 20 * Math.min(1, u); }
+    if (p.ship) { const S0 = p.ship; S0.t += dt; const f = Math.min(1, S0.t / S0.T); if (S0.t < S0.T) { const e = 1 - (1 - f) * (1 - f), hy = S0.hold ? 2.6 : 6; p.mesh.position.set(p.a[0] + (p.b[0] - p.a[0]) * e, p.a[1] + (p.b[1] + hy - p.a[1]) * e, p.a[2] + (p.b[2] - p.a[2]) * e); p.mesh.lookAt(p.b[0], p.mesh.position.y, p.b[2]); }
+      else { const u0 = S0.t - S0.T, u = Math.max(0, u0 - (S0.hold || 0)), hy = S0.hold ? 2.6 : 6; if (!S0.dropped) { S0.dropped = 1; burst(p.b[0], p.b[1] + 1, p.b[2], 0xc0a060, 20, 5, 0.7); audio.sfx('place', vol(dist(p.b[0], p.b[2]))); } if (u0 < (S0.hold || 0) && Math.random() < 0.3) burst(p.b[0] + (Math.random() - 0.5) * 8, p.b[1] + 0.3, p.b[2] + (Math.random() - 0.5) * 8, 0xb09878, 2, 3, 0.8); p.mesh.position.y = p.b[1] + hy + u * u * 4; p.mesh.position.x += dt * 20 * Math.min(1, u); if (u > 0 && !S0.up) { S0.up = 1; audio.sfx('rotor', vol(dist(p.b[0], p.b[2])) * 0.7); } }
       if (Math.random() < 0.5) burst(p.mesh.position.x, p.mesh.position.y - 1, p.mesh.position.z, 0x80c0ff, 1, 1, 0.3); }
     if (p.jet) { const J = p.jet; J.t += dt; const f = (J.t / (J.T + 1.5)) * 2 - 0.5; p.mesh.position.set(p.a[0] + (p.b[0] - p.a[0]) * f, p.a[1], p.a[2] + (p.b[2] - p.a[2]) * f); p.mesh.lookAt(p.b[0] * 2 - p.a[0], p.a[1], p.b[2] * 2 - p.a[2]); }
     if (p.orb) { p.mesh.material.opacity = 0.4 + Math.random() * 0.4; p.mesh.scale.x = p.mesh.scale.z = 0.8 + Math.random() * 0.5; if (Math.random() < 0.6) burst(p.a[0] + (Math.random() - 0.5) * 6, p.a[1] + 0.5, p.a[2] + (Math.random() - 0.5) * 6, 0xff80ff, 3, 6, 0.4); }
@@ -431,7 +433,7 @@ function syncView(S, dt) {
     m.children.forEach(c => { if (c.userData.chute) { c.visible = land > 0; c.rotation.z = Math.sin(G.time * 2 + o.id) * 0.08; } if (c.userData.beam) c.material.opacity = 0.22 + Math.sin(G.time * 3 + o.id) * 0.1; if (c.userData.ring) { c.visible = land <= 0; const k = 1 + (G.time * 0.8 % 1) * 0.6; c.scale.set(k, k, 1); c.material.opacity = 0.9 * (1 - (G.time * 0.8 % 1)); } });
     if (land <= 0 && Math.random() < dt * 4) smoke(o.x, m.gy + 1.2, o.z, 1, 0.6);
     if (land <= 0 && !m.landed) { m.landed = 1; burst(o.x, m.gy + 0.3, o.z, 0xc0a060, 12, 4, 0.6); smoke(o.x, m.gy + 2.4, o.z, 3, 1); audio.sfx('place', vol(dist(o.x, o.z))); }
-    const txt = land > 0 ? 'INCOMING' : `${life}s`; if (m.userData.txt !== txt) { m.userData.txt = txt; setLabel(m.userData.label, txt); }
+    const txt = (o.kind === 'ammo' ? 'AMMO ' : o.kind === 'dress' ? 'MEDS ' : '') + (land > 0 ? 'INCOMING' : `${life}s`); if (o.kind && !m.tinted) { m.tinted = 1; m.children.forEach(c => { if (c.userData.beam || c.userData.ring) c.material.color.setHex(o.kind === 'ammo' ? 0x60ff80 : 0xff6060); }); } if (m.userData.txt !== txt) { m.userData.txt = txt; setLabel(m.userData.label, txt); }
     m.userData.label.material.opacity = land <= 0 && life <= 10 ? (Math.sin(G.time * 10) > 0 ? 1 : 0.3) : 1;
   }
   for (const [id, m] of view.pods) if (!seen.has(id)) { scene.remove(m); view.pods.delete(id); }
@@ -844,6 +846,10 @@ const ICON = { pulse: '🎯', ammocache: '📦', resupply: '⛽', uav: '🛰', f
 ICON.missile_sp = '🚀';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let toastT = 0, bannerT = 0, promptSet = false;
+// radio chatter: the commander on the ground and General Hale on Station Olympus, shown one message at a time
+const radioQ = []; let radioBusy = 0;
+function radioSay(w, m) { radioQ.push({ w, m }); if (radioQ.length > 4) radioQ.shift(); if (!radioBusy) radioNext(); }
+function radioNext() { const r = radioQ.shift(), el = $('radio'); if (!r) { radioBusy = 0; el.classList.remove('on'); return; } radioBusy = 1; el.className = 'on ' + r.w; $('radioW').textContent = r.w === 'gen' ? '🛰 GEN. HALE · STATION OLYMPUS' : '📡 COMMANDER VANCE · GROUND'; $('radioM').textContent = r.m; audio.sfx('tick', 0.5); setTimeout(() => audio.sfx('tick', 0.35), 120); setTimeout(radioNext, Math.max(4500, r.m.length * 70)); }
 function toast(m, t = 3) { const d = document.createElement('div'); d.textContent = m; $('toasts').prepend(d); setTimeout(() => d.remove(), t * 1000); while ($('toasts').children.length > 3) $('toasts').lastChild.remove(); }
 function banner(a, b) { $('bannerA').textContent = a; $('bannerB').textContent = b; $('banner').hidden = false; bannerT = 3; }
 function prompt(html) { promptSet = true; const p = $('prompt'); if (p._h !== html) { p.innerHTML = html; p._h = html; } p.hidden = false; }

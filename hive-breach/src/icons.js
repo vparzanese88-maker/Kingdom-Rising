@@ -26,6 +26,7 @@ const P = {
   railgun: '<path d="M2 12h15"/><rect x="5" y="9" width="8" height="6" rx="1"/><path d="M17 8.5v7M20 9.5v5M22 10.5v3"/>',
   mine: '<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v4.5M12 17v4.5M2.5 12H7M17 12h4.5M5.3 5.3l3 3M15.7 15.7l3 3M18.7 5.3l-3 3M8.3 15.7l-3 3"/>',
   uav: '<path d="M3 6h6M15 6h6M6 6v2.5M18 6v2.5"/><path d="M6 9.5h12l-2.5 5h-7z"/><circle cx="12" cy="17.5" r="1.5"/>',
+  ball: '<circle cx="12" cy="11" r="6.5"/><path d="M5.5 11h13"/><circle cx="12" cy="8.5" r="1.3"/><path d="M8 17l-2 4M16 17l2 4M12 17.5V21"/>',
   strike: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>',
   shield: '<path d="M12 2.5l8 3v6.5c0 5-3.5 8.5-8 9.5-4.5-1-8-4.5-8-9.5V5.5z"/><path d="M12 7v10"/>',
   squad: '<path d="M4 13.5l8-6 8 6M4 19l8-6 8 6"/>',
@@ -35,7 +36,7 @@ const P = {
   empty: '<circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/>',
 };
 const MAP = {
-  pulse: 'sentry', minigun: 'minigunT', tesla: 'tesla', missile: 'missile', barricade: 'barricade', resupply: 'crate', ammocache: 'crate', mortar: 'mortar', medbay: 'medbay', stasis: 'stasis', flamer: 'flame', railgun: 'railgun', mines: 'mine', claymore: 'claymore', uav: 'uav',
+  pulse: 'sentry', minigun: 'minigunT', tesla: 'tesla', missile: 'missile', barricade: 'barricade', resupply: 'crate', ammocache: 'crate', mortar: 'mortar', medbay: 'medbay', stasis: 'stasis', flamer: 'flame', railgun: 'railgun', mines: 'mine', claymore: 'claymore', uav: 'ball',
   frag: 'frag', medkit: 'medkit', ammo: 'ammo', ammodrop: 'ammo', dropship: 'squad', squad: 'squad', drone: 'uav', airstrike: 'strike', orbital: 'strike', napalm: 'flame', emp: 'tesla', cryo: 'cryo', dome: 'shield', hubrepair: 'wrench', fixall: 'wrench', sentrydrop: 'sentry', barrage: 'missile', healnade: 'medkit',
   assault: 'rifle', engineer: 'shotgun', heavy: 'launcher', gunner: 'minigun', sniper: 'sniper', medic: 'carbine',
 };

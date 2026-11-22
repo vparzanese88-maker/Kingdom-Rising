@@ -390,7 +390,7 @@ function syncView(S, dt) {
     { const f = Math.max(0, t.hp / t.mhp); v.hpb.visible = f < 0.995 && !TURRETS[t.kind].mine; if (v.hpb.visible) { v.hpb.position.set(v.mesh.position.x, v.mesh.position.y + (t.kind === 'barricade' ? 3 : 4.6) * ([1, 1.28, 1.55][t.lvl - 1] || 1), v.mesh.position.z); v.hpb.userData.fg.scale.x = 1.9 * f + 0.001; v.hpb.userData.fg.material.color.setHex(f < 0.3 ? 0xff4040 : f < 0.6 ? 0xffc040 : 0x40e070); } }
     if (v.lvl !== t.lvl) { if (v.lvl && t.lvl > v.lvl) { v.morph = 1; audio.sfx('upg', vol(dist(t.x, t.z))); flashAt([t.x, t.y + 2, t.z], 4); } if (v.up) { v.mesh.remove(v.up); if (v.up.userData.head.parent) v.up.userData.head.parent.remove(v.up.userData.head); } v.up = M.upgradeParts(t.kind, t.lvl, colorOf(t.owner, S)); v.mesh.add(v.up); (v.mesh.userData.head || v.mesh).add(v.up.userData.head); }
     if (v.lvl !== t.lvl) { v.lvl = t.lvl; if (v.stars) v.mesh.remove(v.stars); v.stars = new THREE.Group(); for (let i = 0; i < t.lvl; i++) M.S(v.stars, 0.12, 0xffd040, (i - (t.lvl - 1) / 2) * 0.35, 0, 0, 1, 1, 1, { e: 0xffa000 }); v.stars.position.y = t.kind === 'barricade' ? 2.3 : 3.3; v.mesh.add(v.stars); }
-    if (t.kind === 'resupply' || t.kind === 'uav') u.head.rotation.y += dt * 1.5; if (t.kind === 'uav') u.head.position.y = 6 + Math.sin(G.time * 2) * 0.3;
+    if (t.kind === 'resupply' || t.kind === 'uav') u.head.rotation.y += dt * 1.5; if (t.kind === 'uav' && !t.carry) { u.head.position.y = 0.55; if (!t.fresh) { if (!v.ping) { v.ping = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 64), new THREE.MeshBasicMaterial({ color: 0x40c0ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); v.ping.rotation.x = -Math.PI / 2; scene.add(v.ping); } const f = (G.time / 2.5 + t.id * 0.37) % 1, R = TURRETS.uav.range * f; v.ping.position.set(v.mesh.position.x, v.mesh.position.y + 0.3, v.mesh.position.z); v.ping.scale.set(R, R, 1); v.ping.material.opacity = 0.7 * (1 - f); } }
     if (t.kind === 'mines') u.head.children.forEach((c, i) => c.visible = i < (t.ch ?? 3) * 2);
     if (t.kind === 'flamer' && t.tg) { const ry = u.head.rotation.y, s0 = v.mesh.scale.x, mx = t.x - Math.sin(ry) * 1.05 * s0, mz = t.z - Math.cos(ry) * 1.05 * s0; for (let i = 0; i < 3; i++) flame(mx, t.y + 1.25 * s0, mz, -Math.sin(ry + (Math.random() - 0.5) * 0.9) * 11, -Math.cos(ry + (Math.random() - 0.5) * 0.9) * 11); v.facc = (v.facc || 0) + dt; if (v.facc > 0.2) { v.facc = 0; audio.sfx('flame', vol(dist(t.x, t.z)) * 0.8); } }
     if (t.kind === 'stasis') u.head.rotation.y += dt * 2;
@@ -409,7 +409,7 @@ function syncView(S, dt) {
     v.alert = Math.max(0, (v.alert || 0) - dt); if (v.alert > 0 && !v.mark) { v.mark = markSprite(); scene.add(v.mark); } if (v.mark) { v.mark.visible = v.alert > 0 && Math.sin(G.time * 12) > -0.3; v.mark.position.set(v.mesh.position.x, v.mesh.position.y + 4.2 * sc0, v.mesh.position.z); }
     if (t.hp < t.mhp * 0.35 && Math.random() < dt * 6) burst(t.x, 1.6, t.z, 0x303030, 1, 1, 1, 2);
   }
-  for (const [id, v] of view.turrets) if (!seen.has(id)) { scene.remove(v.mesh); if (v.mark) scene.remove(v.mark); if (v.scaf) scene.remove(v.scaf); if (v.hpb) scene.remove(v.hpb); view.turrets.delete(id); }
+  for (const [id, v] of view.turrets) if (!seen.has(id)) { scene.remove(v.mesh); if (v.mark) scene.remove(v.mark); if (v.scaf) scene.remove(v.scaf); if (v.ping) scene.remove(v.ping); if (v.hpb) scene.remove(v.hpb); view.turrets.delete(id); }
   seen.clear();
   for (const p of S.P) {
     if (p.id === G.myId) continue; seen.add(p.id); let v = view.players.get(p.id);
@@ -559,6 +559,11 @@ function dropNew(kind, my) {
   if (held) { req({ a: 'stow' }); my = Object.assign({}, my, { kits: (my.kits ?? 2) + 1, gold: my.gold + (held.spent || 0) }); }
   if ((my.kits ?? 2) < 1) { audio.sfx('nope'); toast('No turret kits left: pick up more in the hub (you carry 2).', 2.5); return; }
   if (my.gold < T.cost) { audio.sfx('nope'); toast(`Need ${T.cost} gold for a ${T.name}.`, 2); return; }
+  if (T.ball) { // the sentry ball is thrown, not carried: it arcs out to where you are looking
+    const r = aimRay(0), hl = Math.hypot(r.d.x, r.d.z) || 1; let d = G.W.T.ray(r.o, r.d, 26); d = Math.min(isFinite(d) ? d : 18, 26 / hl, 26); const x = r.o.x + r.d.x * d, z = r.o.z + r.d.z * d, y1 = G.W.top(x, z);
+    const ball = M.turret('uav', CLASSES[G.cls].color); ball.scale.setScalar(0.8); scene.add(ball); const a = new THREE.Vector3(G.me.x, G.me.y + 1.5, G.me.z), t0 = performance.now(); audio.sfx('grenade', 0.6);
+    const fly = () => { const f = Math.min(1, (performance.now() - t0) / 700); ball.position.set(a.x + (x - a.x) * f, a.y + (y1 - a.y) * f + Math.sin(f * Math.PI) * 4, a.z + (z - a.z) * f); ball.rotation.x += 0.3; if (f < 1) requestAnimationFrame(fly); else { scene.remove(ball); req({ a: 'place', kind, x: +x.toFixed(2), z: +z.toFixed(2), ry: 0, thrown: 1 }); audio.sfx('tink', 0.8); } };
+    requestAnimationFrame(fly); return; }
   req({ a: 'place', kind, ...frontOf(1.7) }); audio.sfx('place', 0.6); toast(`${T.name} in hand: left click puts it down · press the key again or switch weapons to put it away`, 2.5);
 }
 function dropCarried() { if (!G.me.carry) return; req({ a: 'drop', ...frontOf(1.9) }); G.me.carry = 0; G.me.holdFire = true; audio.sfx('place', 0.8); }
@@ -802,7 +807,7 @@ function updateMe(dt, S) {
     // carrying a turret: left click or changing weapon puts it down in front of you
     const carried = S.T.find(t => t.carry === G.myId); me.carry = carried ? carried.id : 0;
     if (carried) { prompt(`Carrying <b>${TURRETS[carried.kind].name}</b> · <b>Left click</b> puts it down · its key or a weapon key puts it back in your pack`); if (clickL) { clickL = false; dropCarried(); } }
-    if (me.slot === 5) { const n = my.dr ?? 2; if (mouseL && !me.carry && n > 0 && my.hp < my.mhp) { if (!me.dressT) audio.sfx('pouch', 0.8); me.dressT = (me.dressT || 0) + dt; prompt(`Applying field dressing… ${Math.min(100, Math.round(me.dressT / 2 * 100))}%`); if (view2.dress) view2.dress.position.y = -0.2 + Math.sin(me.dressT * 9) * 0.02 - me.dressT * 0.03; if (me.dressT >= 2) { me.dressT = 0; req({ a: 'dress' }); setSlot(0); } } else { me.dressT = 0; prompt(n < 1 ? '<span class="bad">No field dressings</span> · more in the hub' : my.hp >= my.mhp ? `Field dressing ×${n} · you are not hurt` : `Field dressing ×${n} · <b>hold left click</b> to patch yourself up (+40 health)`); } }
+    if (me.slot === 5) { const n = my.dr ?? 2; if (me.dressT > 0) { me.dressT -= dt; if (view2.dress) view2.dress.position.y = -0.2 - Math.sin(me.dressT * 9) * 0.04; if (me.dressT <= 0) setSlot(0); } else if (clickL && !me.carry) { clickL = false; if (n > 0 && my.hp < my.mhp) { req({ a: 'dress' }); audio.sfx('pouch', 0.9); me.dressT = 0.45; } else audio.sfx('nope'); } else prompt(n < 1 ? '<span class="bad">No field dressings</span> · more in the hub' : my.hp >= my.mhp ? `Field dressing ×${n} · you are not hurt` : `Field dressing ×${n} · <b>click</b> to bandage (+40 health)`); }
     if (me.slot === 3 && clickL && !me.place && me.cd <= 0) { clickL = false; me.cd = 0.8; throwItem(my); }
     if (hits[KB.grenade] && !me.place && (me.gcd || 0) <= 0) { me.gcd = 0.8; throwItem(my); }
     if (!me.place) {
@@ -848,7 +853,7 @@ let mapT = 0;
 function hud(dt, S) {
   const my = mine(S); if (!my) return; const st = stats(), C = CLASSES[G.cls];
   const hpv = G.explore && G.ex ? G.ex.hp * my.mhp / 100 : my.hp; setT('gold', Math.floor(my.gold)); setT('scrapN', String(my.scrap || 0)); G.scrapFlash = Math.max(0, (G.scrapFlash || 0) - dt); $('scrapBox').classList.toggle('fl', G.scrapFlash > 0); setT('hpTxt', `${Math.ceil(hpv)} / ${my.mhp}`); $('hpBar').style.width = (hpv / my.mhp * 100) + '%';
-  const slotNames = [C.gun.name, SIDEARM.name, 'Welding torch' + (G.cls === 'engineer' ? ' (3x)' : ''), C.throw.name + ' (left click throws)', 'Heal beam']; setT('ammo', G.me.slot === 3 ? String(my.items ?? 0) : G.me.slot === 5 ? String(my.dr ?? 0) : G.me.slot === 2 ? Math.round((my.pw ?? 100) / (G.cls === 'engineer' ? 160 : 100) * 100) + '%' : G.me.slot >= 2 ? '∞' : G.me.rel > 0 ? '--' : String(G.me.ammo)); setT('reserve', G.me.slot === 3 ? '/ ' + C.throw.n : G.me.slot === 5 ? '/ 2' : G.me.slot === 2 ? 'PWR' : G.me.slot >= 2 ? '' : '/ ' + Math.floor(G.me.reserve)); setT('gunName', `SLOT ${G.me.slot + 1}`); const low = G.me.reserve < st.mag && G.me.ammo < st.mag * 0.5; $('ammoWarn').hidden = !(low || G.me.resup); setT('ammoWarn', G.me.resup ? 'RESUPPLYING' : G.me.reserve < 1 && G.me.ammo === 0 ? 'OUT OF AMMO: BACK TO THE HUB' : 'LOW AMMO'); setT('clsName', C.name);
+  const slotNames = [C.gun.name, SIDEARM.name, 'Welding torch' + (G.cls === 'engineer' ? ' (3x)' : ''), C.throw.name + ' (left click throws)', 'Heal beam']; setT('ammo', G.me.slot === 3 ? String(my.items ?? 0) : G.me.slot === 5 ? String(my.dr ?? 0) : G.me.slot === 2 ? Math.round((my.pw ?? 100) / (G.cls === 'engineer' ? 160 : 100) * 100) + '%' : G.me.slot >= 2 ? '∞' : G.me.rel > 0 ? '--' : String(G.me.ammo)); setT('reserve', G.me.slot === 3 ? '/ ' + C.throw.n : G.me.slot === 5 ? '/ 2' : G.me.slot === 2 ? 'PWR' : G.me.slot >= 2 ? '' : '/ ' + Math.floor(G.me.reserve)); setT("gunName", `SLOT ${[1, 2, 3, 4, 6, 5][G.me.slot]}`); const low = G.me.reserve < st.mag && G.me.ammo < st.mag * 0.5; $('ammoWarn').hidden = !(low || G.me.resup); setT('ammoWarn', G.me.resup ? 'RESUPPLYING' : G.me.reserve < 1 && G.me.ammo === 0 ? 'OUT OF AMMO: BACK TO THE HUB' : 'LOW AMMO'); setT('clsName', C.name);
   const mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('waveTxt', S.ph === 'build' ? `GET READY ${Math.max(0, Math.ceil(S.tm))}` : `⏱ ${mmss(S.el || 0)}`); $('hubBar').style.width = S.hub + '%'; setT('hubTxt', `HUB ${Math.ceil(S.hub)}%`);
   let info = S.ph === 'build' ? 'Stand by: the swarm is coming' : `${S.left} aliens on the field`; if (G.W.cave && Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z) < 40) info = 'The Brood Queen\'s lair: kill her to win';
   setT('waveInfo', info);
@@ -867,7 +872,7 @@ function hud(dt, S) {
   $('hit').classList.toggle('head', !!G.hitHead);
   $('hit').style.borderColor = G.hitWeak ? '#888' : ''; $('hit').classList.toggle('weak', !!G.hitWeak);
   $('hit').style.opacity = G.hitT > 0 ? 1 : 0; G.hitT -= dt; G.hurtT = Math.max(0, (G.hurtT || 0) - dt); $('hurt').style.opacity = Math.min(0.8, G.hurtT * 2.5 + (my.hp / my.mhp < 0.3 ? 0.25 : 0));
-  $('dead').hidden = !my.dead || S.ph === 'lose'; if (my.dead) setT('deadT', `Respawning in ${my.rt} s`);
+  $('dead').hidden = !my.dead || S.ph === 'lose'; if (my.dead) setT("deadT", `Respawning in ${Math.ceil(my.rt)} s`);
   // the last seconds before a wave are counted out loud
   const cd = S.ph === 'build' ? Math.ceil(S.tm) : 0; if (cd !== G.lastCd) { G.lastCd = cd; if (cd >= 1 && cd <= 5) { banner(String(cd), cd === 1 ? 'GO!' : 'The alien bastards know we\'re coming. Get inside the hive and kill the queen! We will extract you as soon as your mission is complete.'); bannerT = 0.9; audio.sfx('tick'); } }
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').hidden = true; }
@@ -1027,22 +1032,20 @@ $('btnEndQuit').onclick = () => location.reload();
 G.name = store.get('hb-name', ''); $('name').value = G.name; G.cls = store.get('hb-cls', 'assault'); G.map = store.get('hb-map', 'mars'); if (!CLASSES[G.cls]) G.cls = 'assault'; if (!MAPS[G.map]) G.map = 'mars';
 // K: the full gear guide for your class: every weapon, the welder, items and structures, with what they do and their numbers
 function infoHTML(k) {
-  const c = CLASSES[k], g = c.gun, row = (key, ico, name, text, stats) => `<div class="gi"><div class="gk">${key}</div>${icon(ico)}<div><b>${name}</b><p>${text}</p>${stats ? `<small>${stats}</small>` : ''}</div></div>`;
-  const gunTxt = g.pellets ? `Fires ${g.pellets} pellets per shot: devastating up close, weak far away.` : g.kind === 'rocket' ? 'Fires rockets that explode and hurt everything nearby, and punch through armour.' : g.spin ? 'Spins up before it fires (right click spins it early), then pours out tracer rounds.' : g.pierce ? 'A rail slug that goes through up to 3 aliens. Right click opens the scope.' : 'Your main weapon. Right click aims down the sights.';
-  const gunSt = `${Math.round(g.dmg)}${g.pellets ? ' × ' + g.pellets : ''} damage · ${g.rate} shots/s · ${g.mag} round magazine · ${g.reserve} spare rounds · ${g.reload}s reload`;
-  const T = kind => { const t = TURRETS[kind]; return [t.name, t.desc, [t.cost + ' gold', t.hp < 9999 ? t.hp + ' health' : '', t.range ? t.range + ' m range' : '', t.dmg ? Math.round(t.dmg) + ' damage' : ''].filter(Boolean).join(' · ')]; };
-  const th = c.throw, thTxt = { frag: 'A grenade that explodes after a short fuse. Great against packs.', claymore: 'A directional mine you throw down: it blasts the first aliens that walk in front of it. Up to 3 out.', medkit: 'Drop a health kit (+60) that any marine can pick up.', ammo: 'Drop an ammo box that refills a teammate\'s spare rounds.' }[th.kind] || 'Your class item.';
-  let h = `<h2>${c.name} · gear guide</h2><p class="small">${c.role} · ${c.hp} health · ${c.team}</p><div class="gg">`;
-  h += row('1', k, g.name, gunTxt, gunSt);
-  h += row('2', 'pistol', SIDEARM.name, 'A reliable side arm for when the main gun runs dry. Right click aims.', `${SIDEARM.dmg} damage · ${SIDEARM.mag} round magazine · ${SIDEARM.reserve} spare`);
-  h += row('3', 'welder', 'Welding laser', 'A short beam. Repairs turrets and barricades, welds on upgrades (scrap: 15 for level 2, 30 for level 3), and burns aliens up close. Uses its power cell while lit; recharge in the hub, at a Forward Resupply or Ammo Cache, or from supply drops.', k === 'engineer' ? 'Engineer: 3× faster welding, a bigger cell, 8 m reach, burns harder' : '6 m reach · about 1.5 upgrades per charge');
-  h += row('4 · G', th.kind, th.name, thTxt, `${th.n} carried · restock in the hub`);
-  h += row('5', 'medkit', 'Field dressing', 'Hold left click for 2 seconds to patch yourself up out in the field.', '+40 health · 2 carried · restock in the hub');
-  if (c.heal) h += row('6', 'beam', 'Heal beam', 'Hold left click on a teammate or reinforcement to heal them; it slowly heals you when aimed at nothing.', '28 health/s · 16 m');
-  for (const [key, kind] of [['T', c.sentry], ['F', c.defense], ['V', c.third]]) { const [n, d, st] = T(kind); h += row(key, kind, n, d + ' Press the key to take it in hand, left click to put it down. E picks it up again.', st + ' · uses 1 of your 2 turret kits'); }
-  h += row('X', 'supply', 'Special', 'Supply drops (yellow diamonds on the minimap) sometimes carry a special: drone strikes, dropships of marines, med or ammo drops and more. You hold one at a time.', '');
-  h += row('E', 'crate', 'Use', 'Pick up turrets, salvage downed dropships for ammo, use teleporters.', '');
-  return h + '</div><p class="small">K closes this guide · B at the hub comms console to change class</p>';
+  const c = CLASSES[k], g = c.gun, th = c.throw, row = (key, ico, name, text, stats) => `<div class="gi"><div class="gk">${key}</div>${icon(ico)}<div><b>${name}</b><p>${text}</p>${stats ? `<small>${stats}</small>` : ''}</div></div>`;
+  const gunTxt = g.pellets ? 'Shotgun. Deadly up close.' : g.kind === 'rocket' ? 'Rockets that explode and break armour.' : g.spin ? 'Spins up, then fires a stream of bullets.' : g.pierce ? 'Shoots through 3 aliens. Right click to scope.' : 'Your main gun. Right click to aim.';
+  const thTxt = { frag: 'Throw it at a pack of aliens.', claymore: 'Throw it down. It blasts aliens that walk in front.', medkit: 'Drop it for a teammate: +60 health.', ammo: 'Drop it for a teammate: refills ammo.' }[th.kind] || 'Your class item.';
+  let h = `<h2>${c.name}</h2><p class="sub2">${c.role} · ${c.hp} health · ${c.team}</p><div class="gg">`;
+  h += row('1', k, g.name, gunTxt, `${Math.round(g.dmg)}${g.pellets ? '×' + g.pellets : ''} dmg · ${g.mag} mag · ${g.reserve} spare`);
+  h += row('2', 'pistol', 'Side arm', 'Backup pistol for when you run dry.', `${SIDEARM.mag} mag · ${SIDEARM.reserve} spare`);
+  h += row('3', 'welder', 'Welding laser', 'Repairs turrets, welds on upgrades, burns aliens up close.', `Upgrades cost scrap: 15, then 30${k === 'engineer' ? ' · you weld 3x faster' : ''}`);
+  h += row('4·G', th.kind, th.name, thTxt, `${th.n} carried`);
+  h += row('5', 'medkit', 'Field dressing', 'Click to bandage yourself.', '+40 health · 2 carried');
+  if (c.heal) h += row('6', 'beam', 'Heal beam', 'Hold on a teammate to heal them.', '');
+  for (const [key, kind] of [['T', c.sentry], ['F', c.defense], ['V', c.third]]) { const t = TURRETS[kind]; h += row(key, kind, t.name, t.desc, `${t.cost} gold${t.ball ? ' · thrown' : ' · left click places it'}`); }
+  h += row('X', 'supply', 'Special', 'Found in supply drops. Air strikes, troops and more.', '');
+  h += row('E', 'crate', 'Use', 'Pick up turrets, salvage wrecks, use teleporters.', '');
+  return h + '</div><p class="sub2">Refill ammo, turret kits and dressings in the hub · B at the comms console changes class · K closes</p>';
 }
 function kitHTML(k) {
   const c = CLASSES[k], g = c.gun, bl = (key, kind) => `<p><b>${key}</b> ${TURRETS[kind].name} (${TURRETS[kind].cost}g): ${TURRETS[kind].desc}</p>`;

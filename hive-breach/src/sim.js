@@ -10,7 +10,7 @@ export const pwMax = cls => cls === 'engineer' ? 160 : 100;
 export const DRESS = 2;
 // scrap: piles everywhere, picked up just by running over them; welded upgrades cost scrap
 export const SCRAP_COST = [0, 15, 30], SCRAP_PILES = 150;   // field dressings: a little health back out in the field
-export const BUILD = { teleporter: 3, pulse: 4,  ammocache: 2,  resupply: 5, uav: 3,  minigun: 4, tesla: 5, missile: 6, barricade: 3, repair: 4, stasis: 3, flamer: 4, railgun: 6, mines: 2, beacon: 3, mortar: 5, medbay: 4 };
+export const BUILD = { teleporter: 3, pulse: 4,  ammocache: 2,  resupply: 5, uav: 1,  minigun: 4, tesla: 5, missile: 6, barricade: 3, repair: 4, stasis: 3, flamer: 4, railgun: 6, mines: 2, beacon: 3, mortar: 5, medbay: 4 };
 export function pickSpecial() { const e = Object.entries(SPECIALS), tot = e.reduce((a, [, v]) => a + v.w, 0); let r = Math.random() * tot; for (const [k, v] of e) { r -= v.w; if (r <= 0) return k; } return 'stim'; }
 export const LEVEL_T = 60, DROP_FALL = 9, DROP_LIFE = 60;
 export const START_GOLD = 350, FIRST_COUNT = 5, NEXT_COUNT = 25;
@@ -56,8 +56,7 @@ export class Sim {
       if (this.turrets.filter(t => t.owner === id).length >= MAX_TURRETS) return say(`You can have ${MAX_TURRETS} at once. Sell one (Y) first.`);
       const err = this.dropError(r.x, r.z); if (err) return say(err);
       p.gold -= T.cost; p.kits = (p.kits ?? KITS) - 1; const t = { id: this.nid++, kind: r.kind, owner: id, x: r.x, z: r.z, ry: r.ry || 0, lvl: 1, hp: T.hp, mhp: T.hp, cd: 0, tg: 0, spent: T.cost, ch: T.charges || T.uses || 0, y: this.W.top(r.x, r.z), b: BUILD[r.kind], bt: BUILD[r.kind], fresh: true };
-      this.stow(p);
-      t.carry = id; this.settle(t);
+      if (T.ball && r.thrown) { this.settle(t); } else { this.stow(p); t.carry = id; this.settle(t); }
       this.turrets.push(t); this.emit({ k: 'placed', x: t.x, z: t.z, by: id });
     } else if (r.a === 'upg') {
       const t = this.turrets.find(q => q.id === r.id); if (!t || t.lvl >= 3) return; const c = upgradeCost(t); if (p.gold < c) return say(`Need ${c} gold to upgrade.`);

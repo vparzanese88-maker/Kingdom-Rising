@@ -16,8 +16,8 @@ export const CLASSES = {
     name: 'Engineer', color: 0xe0b22e, hp: 120, speed: 8.4, role: 'Builder, repairer, resupply',
     gun: { name: 'Breacher Pump Shotgun', dmg: 13, pellets: 8, rate: 1.4, mag: 8, reserve: 64, reload: 2.4, spread: 0.07, kind: 'hit', sound: 'shotgun', recoil: 0.05, near: 8, far: 24, max: 34 },
     throw: { kind: 'frag', name: 'Sticky charge', n: 2 },
-    team: 'Builds Tesla Towers, Flame Turrets and Forward Resupplies, and welds three times faster than anyone.',
-    sentry: 'tesla', defense: 'flamer', third: 'resupply',
+    team: 'Builds Flame Turrets, Forward Resupplies and Teleporter Pads back to the hub, and welds three times faster than anyone with a bigger power cell.',
+    sentry: 'flamer', defense: 'resupply', third: 'teleporter',
   },
   heavy: {
     name: 'Heavy', color: 0xc94a3a, hp: 175, speed: 7.0, role: 'Demolitions and protector',
@@ -81,6 +81,7 @@ export const TURRETS = {
   resupply: { name: 'Forward Resupply', cost: 130, hp: 320, range: 6, key: 'defense', desc: 'Refills ammo and carried items slowly and heals very slowly. Upgrade it to work faster. Aliens go out of their way to wreck one built near their track.' },
   mortar: { name: 'Toxin Mortar', cost: 150, hp: 220, range: 30, rate: 0.4, dmg: 40, splash: 5, key: 'sentry', desc: 'Lobs acid shells that leave a burning pool for 4 s.' },
   medbay: { name: 'Med Bay', cost: 110, hp: 220, range: 9, heal: 14, key: 'defense', desc: 'Heals marines and reinforcements standing nearby.' },
+  teleporter: { name: 'Teleporter Pad', cost: 90, hp: 350, key: 'third', desc: 'Stand on it and press E to beam back to the hub. From the hub, the teleporter by the spawn point sends anyone out to the newest pad.' },
   flamer: { name: 'Flame Turret', cost: 120, hp: 300, range: 9, rate: 10, dmg: 4.5, cone: 0.6, key: 'sentry', desc: 'Sprays fire over every alien in a cone. Ignores armor.' },
   railgun: { name: 'Railgun Tower', cost: 200, hp: 220, range: 42, rate: 0.35, dmg: 230, key: 'sentry', desc: 'A long-range beam that pierces every alien in its line.' },
   mines: { name: 'Mine Field', cost: 70, hp: 99999, range: 2.6, dmg: 260, splash: 4.5, charges: 3, onPath: true, mine: true, key: 'defense', desc: 'Three proximity charges on the track. Walkers that step on them blow up.' },

@@ -168,7 +168,7 @@ function fx(e) {
     case 'meteor': meteor(e); break;
     case 'alarm': audio.sfx('alarm'); break;
     case 'fob': startFob(); break;
-    case 'beam': if (e.f !== G.myId || true) { tracer(e.a, e.b, e.c, 0.12, e.torch ? 0.08 : 0.12); burst(e.b[0], e.b[1], e.b[2], e.c, 2, 1.5, 0.3); if (e.f === G.myId && Math.random() < 0.3) audio.sfx(e.torch ? 'torch' : 'heal', 0.4); } break;
+    case 'beam': if (!(e.torch && e.f === G.myId)) { tracer(e.a, e.b, e.c, 0.12, e.torch ? 0.08 : 0.12); burst(e.b[0], e.b[1], e.b[2], e.c, 2, 1.5, 0.3); if (e.f === G.myId && Math.random() < 0.3) audio.sfx(e.torch ? 'torch' : 'heal', 0.4); } break;
     case 'dressed': if (e.to === G.myId) { audio.sfx('heal'); toast('Field dressing: +40 health', 2); } break;
     case 'kit': if (e.to === G.myId) toast(`Turret kit picked up (${e.n}/2)`, 1.5); break;
     case 'carry': case 'dropped': audio.sfx('place', vol(dist(e.x ?? G.me.x, e.z ?? G.me.z)) * 0.7); break;
@@ -322,17 +322,20 @@ function nameTag(text, color) {
 }
 // scaffolding with a progress bar and a countdown, over turrets being built or upgraded
 function timerLabel() { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true })); sp.userData.cv = cv; sp.scale.set(2.4, 0.6, 1); sp.renderOrder = 6; return sp; }
-function setLabel(sp, text) { const cv = sp.userData.cv, g = cv.getContext('2d'); g.clearRect(0, 0, 256, 64); g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(0, 8, 256, 48); g.fillStyle = '#ffd040'; g.font = 'bold 30px system-ui,sans-serif'; g.textAlign = 'center'; g.fillText(text, 128, 43); sp.material.map.needsUpdate = true; }
+function setLabel(sp, text) { const cv = sp.userData.cv, g = cv.getContext('2d'); g.clearRect(0, 0, 256, 64); g.fillStyle = 'rgba(4,14,24,.65)'; g.fillRect(0, 8, 256, 48); g.fillStyle = '#9fe8ff'; g.font = 'bold 30px system-ui,sans-serif'; g.textAlign = 'center'; g.fillText(text, 128, 43); sp.material.map.needsUpdate = true; }
 const _tv = new THREE.Vector3();
+// a hologram over turrets being built or upgraded: scanning rings, light pillars, a progress bar and a label
 function scaffold(w, h) {
-  const g = new THREE.Group(), cage = new THREE.Group(), pole = M.mat(0xffc020, { m: 0.3 });
-  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.08, h, 0.08), pole); p.position.set(x * w / 2, h / 2, z * 1.3); cage.add(p); }
-  for (const y of [0.1, h / 2, h]) for (const z of [-1, 1]) { const r = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, 0.06), pole); r.position.set(0, y, z * 1.3); cage.add(r); const r2 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 2.6), pole); r2.position.set(z * w / 2, y, 0); cage.add(r2); }
+  const g = new THREE.Group(), cage = new THREE.Group(), add = (geo, c, o) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); cage.add(m); return m; };
+  const R = Math.max(1.5, w * 0.5);
+  for (let i = 0; i < 2; i++) { const r = add(new THREE.TorusGeometry(R, 0.03, 6, 48), 0x40b0ff, 0.55); r.rotation.x = Math.PI / 2; r.userData.ring = 1; }
+  for (let i = 0; i < 3; i++) { const a = i / 3 * 6.283, p = add(new THREE.CylinderGeometry(0.02, 0.02, h, 6), 0x40b0ff, 0.3); p.position.set(Math.cos(a) * R, h / 2, Math.sin(a) * R); }
+  const floor = add(new THREE.RingGeometry(R * 0.2, R, 40), 0x3090ff, 0.18); floor.rotation.x = -Math.PI / 2; floor.position.y = 0.06;
   g.add(cage);
-  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false })); label.userData.cv = cv; label.scale.set(2.8, 0.7, 1); label.position.y = h + 1.3; label.renderOrder = 6; g.add(label);
-  const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x202020, depthTest: false })); bg.scale.set(1.9, 0.16, 1); bg.position.y = h + 0.75; bg.renderOrder = 6; g.add(bg);
-  const bar = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x40ff80, depthTest: false })); bar.scale.set(1.8, 0.12, 1); bar.center.set(0.5, 0.5); bar.position.y = h + 0.75; bar.renderOrder = 7; g.add(bar);
-  g.userData = { cage, label, bar }; return g;
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true })); label.userData.cv = cv; label.scale.set(2.8, 0.7, 1); label.position.y = h + 1.3; label.renderOrder = 6; g.add(label);
+  const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x0a1a28, depthTest: false })); bg.scale.set(1.9, 0.16, 1); bg.position.y = h + 0.75; bg.renderOrder = 6; g.add(bg);
+  const bar = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x60e0ff, depthTest: false })); bar.scale.set(1.8, 0.12, 1); bar.center.set(0.5, 0.5); bar.position.y = h + 0.75; bar.renderOrder = 7; g.add(bar);
+  g.userData = { cage, label, bar, h }; return g;
 }
 let markMat = null;
 function markSprite() {
@@ -365,7 +368,7 @@ function syncView(S, dt) {
     if (!['barricade', 'resupply', 'stasis', 'mines', 'uav', 'claymore', 'medbay'].includes(t.kind)) { let dr = t.ry - u.head.rotation.y; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; u.head.rotation.y += dr * Math.min(1, k * 1.5); }
     if (!v.hpb) { v.hpb = new THREE.Group(); const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x200000, depthTest: false })); bg.scale.set(2, 0.18, 1); const fg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x40e070, depthTest: false })); fg.center.set(0, 0.5); fg.position.x = -0.95; fg.scale.set(1.9, 0.12, 1); bg.renderOrder = 6; fg.renderOrder = 7; v.hpb.add(bg, fg); v.hpb.userData.fg = fg; scene.add(v.hpb); }
     { const f = Math.max(0, t.hp / t.mhp); v.hpb.visible = f < 0.995 && !TURRETS[t.kind].mine; if (v.hpb.visible) { v.hpb.position.set(v.mesh.position.x, v.mesh.position.y + (t.kind === 'barricade' ? 3 : 4.6) * ([1, 1.28, 1.55][t.lvl - 1] || 1), v.mesh.position.z); v.hpb.userData.fg.scale.x = 1.9 * f + 0.001; v.hpb.userData.fg.material.color.setHex(f < 0.3 ? 0xff4040 : f < 0.6 ? 0xffc040 : 0x40e070); } }
-    if (v.lvl !== t.lvl) { if (v.up) { v.mesh.remove(v.up); if (v.up.userData.head.parent) v.up.userData.head.parent.remove(v.up.userData.head); } v.up = M.upgradeParts(t.kind, t.lvl, colorOf(t.owner, S)); v.mesh.add(v.up); (v.mesh.userData.head || v.mesh).add(v.up.userData.head); }
+    if (v.lvl !== t.lvl) { if (v.lvl && t.lvl > v.lvl) { v.morph = 1; audio.sfx('upg', vol(dist(t.x, t.z))); flashAt([t.x, t.y + 2, t.z], 4); } if (v.up) { v.mesh.remove(v.up); if (v.up.userData.head.parent) v.up.userData.head.parent.remove(v.up.userData.head); } v.up = M.upgradeParts(t.kind, t.lvl, colorOf(t.owner, S)); v.mesh.add(v.up); (v.mesh.userData.head || v.mesh).add(v.up.userData.head); }
     if (v.lvl !== t.lvl) { v.lvl = t.lvl; if (v.stars) v.mesh.remove(v.stars); v.stars = new THREE.Group(); for (let i = 0; i < t.lvl; i++) M.S(v.stars, 0.12, 0xffd040, (i - (t.lvl - 1) / 2) * 0.35, 0, 0, 1, 1, 1, { e: 0xffa000 }); v.stars.position.y = t.kind === 'barricade' ? 2.3 : 3.3; v.mesh.add(v.stars); }
     if (t.kind === 'resupply' || t.kind === 'uav') u.head.rotation.y += dt * 1.5; if (t.kind === 'uav') u.head.position.y = 6 + Math.sin(G.time * 2) * 0.3;
     if (t.kind === 'mines') u.head.children.forEach((c, i) => c.visible = i < (t.ch ?? 3) * 2);
@@ -380,8 +383,9 @@ function syncView(S, dt) {
     }
     const building = t.b > 0 || t.up > 0;
     if (building && !v.scaf) { v.scaf = scaffold(t.kind === 'barricade' ? 7 : 2.6, t.kind === 'barricade' ? 2.4 : 3.4); v.scaf.position.set(t.x, t.y, t.z); if (t.kind === 'barricade') v.scaf.rotation.y = t.ry; scene.add(v.scaf); }
-    if (v.scaf) { v.scaf.visible = building; if (building) { const f = t.up > 0 ? t.up : 1 - t.b / (t.bt || 1), txt = t.up > 0 ? `WELDING Lv${t.lvl + 1} ${Math.round(t.up * 100)}%` : `BUILDING ${t.b.toFixed(1)}s`; v.scaf.position.copy(v.mesh.position); v.scaf.userData.bar.scale.x = Math.max(0.01, f); v.scaf.userData.bar.position.x = -(1 - f) * 0.9; if (v.scaf.userData.txt !== txt) setLabel(v.scaf.userData.label, txt); v.scaf.userData.txt = txt; v.scaf.userData.cage.rotation.y += dt * 0.6; if (Math.random() < dt * 8) burst(t.x + (Math.random() - 0.5) * 1.5, t.y + Math.random() * 2.5, t.z + (Math.random() - 0.5) * 1.5, 0xffd060, 2, 2, 0.3); } }
-    const sc0 = [1, 1.28, 1.55][t.lvl - 1] || 1, grow = t.fresh ? 0.15 + 0.85 * (1 - t.b / (t.bt || 1)) : 1; v.mesh.scale.set(sc0, sc0 * grow, sc0);
+    if (v.scaf) { v.scaf.visible = building; if (building) { const f = t.up > 0 ? t.up : 1 - t.b / (t.bt || 1), txt = t.up > 0 ? `WELDING Lv${t.lvl + 1} ${Math.round(t.up * 100)}%` : `BUILDING ${t.b.toFixed(1)}s`; v.scaf.position.copy(v.mesh.position); v.scaf.userData.bar.scale.x = Math.max(0.01, f); v.scaf.userData.bar.position.x = -(1 - f) * 0.9; if (v.scaf.userData.txt !== txt) setLabel(v.scaf.userData.label, txt); v.scaf.userData.txt = txt; v.scaf.userData.cage.rotation.y += dt * 0.6; v.scaf.userData.cage.children.forEach((c, i) => { if (c.userData.ring) c.position.y = ((G.time * 0.7 + i * 0.5) % 1) * v.scaf.userData.h; }); if (Math.random() < dt * 8) burst(t.x + (Math.random() - 0.5) * 1.5, t.y + Math.random() * 2.5, t.z + (Math.random() - 0.5) * 1.5, 0xffd060, 2, 2, 0.3); } }
+    const sc0 = [1, 1.28, 1.55][t.lvl - 1] || 1, grow = t.fresh ? 0.15 + 0.85 * (1 - t.b / (t.bt || 1)) : 1; let mk = 1; if (v.morph > 0) { v.morph = Math.max(0, v.morph - dt / 1.3); const m = v.morph; mk = 1 + Math.sin((1 - m) * Math.PI * 4) * 0.18 * m - 0.25 * m * m; if (u.head) u.head.rotation.y += dt * 14 * m; if (v.up) { const e = Math.min(1, (1 - m) * 1.6); v.up.scale.setScalar(e); v.up.userData.head.scale.setScalar(e); } if (Math.random() < dt * 30 * m) burst(v.mesh.position.x + (Math.random() - 0.5) * 2, v.mesh.position.y + Math.random() * 3 * sc0, v.mesh.position.z + (Math.random() - 0.5) * 2, Math.random() < 0.5 ? 0x9fe8ff : 0xffd040, 3, 3, 0.5); }
+    v.mesh.scale.set(sc0 * mk, sc0 * grow * mk, sc0 * mk);
     v.alert = Math.max(0, (v.alert || 0) - dt); if (v.alert > 0 && !v.mark) { v.mark = markSprite(); scene.add(v.mark); } if (v.mark) { v.mark.visible = v.alert > 0 && Math.sin(G.time * 12) > -0.3; v.mark.position.set(v.mesh.position.x, v.mesh.position.y + 4.2 * sc0, v.mesh.position.z); }
     if (t.hp < t.mhp * 0.35 && Math.random() < dt * 6) burst(t.x, 1.6, t.z, 0x303030, 1, 1, 1, 2);
   }
@@ -530,7 +534,7 @@ function frontOf(d) { const me = G.me; return { x: +(me.x - Math.sin(me.yaw) * d
 function dropNew(kind, my) {
   const T = TURRETS[kind]; if (!T) return; if ((my.kits ?? 2) < 1) { audio.sfx('nope'); toast('No turret kits left: pick up more in the hub (you carry 2).', 2.5); return; }
   if (my.gold < T.cost) { audio.sfx('nope'); toast(`Need ${T.cost} gold for a ${T.name}.`, 2); return; }
-  req({ a: 'place', kind, ...frontOf(2.8) }); G.me.holdFire = true; audio.sfx('place', 0.8);
+  req({ a: 'place', kind, ...frontOf(1.7) }); audio.sfx('place', 0.6); toast(`${T.name} in hand: left click puts it down`, 2);
 }
 function dropCarried() { if (!G.me.carry) return; req({ a: 'drop', ...frontOf(1.9) }); G.me.carry = 0; G.me.holdFire = true; audio.sfx('place', 0.8); }
 function setSlot(n) {
@@ -624,15 +628,28 @@ const H = { scene, camera, audio, keys, hits, KB, G, M, toast: (m, t) => toast(m
 function reloadMul(S) { return S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? 0.75 : 1; }
 // medic heal beam and engineer plasma torch: find what is in the crosshair and tell the host ten times a second
 function updateBeam(dt, S) {
-  const me = G.me; if (!me.beam) { me.beamAcc = 0; return; } const rc = me.slot === 4 ? 'heal' : 'repair', fx = -Math.sin(me.yaw) * Math.cos(me.pitch), fy = Math.sin(me.pitch), fz = -Math.cos(me.yaw) * Math.cos(me.pitch), ey = me.y + 1.7;
-  let best = null, bs = 0.95, k = '';
-  const look = (q, kk, range) => { const dx = q.x - me.x, dy = (q.y || 0) + 1.1 - ey, dz = q.z - me.z, d = Math.hypot(dx, dy, dz); if (d > range || d < 0.5) return; const c = (dx * fx + dy * fy + dz * fz) / d; if (c > bs) { bs = c; best = q; k = kk; } };
+  const me = G.me, laser = view2.laser; if (laser) laser.visible = false; $('weld').hidden = true;
+  if (!me.beam) { me.beamAcc = 0; return; } const rc = me.slot === 4 ? 'heal' : 'repair', fx = -Math.sin(me.yaw) * Math.cos(me.pitch), fy = Math.sin(me.pitch), fz = -Math.cos(me.yaw) * Math.cos(me.pitch), ey = me.y + 1.7;
+  let best = null, bs = 0.95, k = ''; const reach = G.cls === 'engineer' ? 8 : 6;
+  const look = (q, kk, range, h = 1.1) => { const dx = q.x - me.x, dy = (q.y || 0) + h - ey, dz = q.z - me.z, d = Math.hypot(dx, dy, dz); if (d > range || d < 0.5) return; const c = (dx * fx + dy * fy + dz * fz) / d; if (c > bs) { bs = c; best = q; k = kk; } };
   if (rc === 'heal') { for (const p of S.P) if (p.id !== G.myId && !p.dead) look(p, 'p', 16); for (const m of S.L || []) look(m, 'a', 16); }
-  else for (const t of S.T) if (!t.carry && t.kind !== 'claymore') look(t, 't', G.cls === 'engineer' ? 12 : 5);
+  else { for (const t of S.T) if (!t.carry && t.kind !== 'claymore') look(t, 't', reach + 1.5); if (!best) { bs = 0.93; for (const a of S.A) if (!a.dead) look(a, 'x', reach + ALIENS[a.type].r, ALIENS[a.type].h * 0.6); } }
+  const my = mine(S) || {}, pw = my.pw ?? 100, pmax = G.cls === 'engineer' ? 160 : 100;
+  if (rc === 'repair') {
+    // the torch is a short laser: it ends at what it touches, or a few metres out
+    const m = muzzleTool(), end = best ? [best.x, (best.y || 0) + (k === 'x' ? ALIENS[best.type].h * 0.6 : 1.1), best.z] : [ey * 0 + me.x + fx * reach * 0.7, ey + fy * reach * 0.7, me.z + fz * reach * 0.7];
+    if (pw > 0) { if (!laser) { view2.laser = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); view2.laser.add(new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 1, 8, 1, true), new THREE.MeshBasicMaterial({ color: k === 'x' ? 0xff6020 : 0x3090ff, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false }))); scene.add(view2.laser); }
+      const L = view2.laser, a = new THREE.Vector3(...m), b = new THREE.Vector3(...end), len = a.distanceTo(b); L.position.copy(a).lerp(b, 0.5); L.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); L.scale.set(0.022 + Math.random() * 0.01, len, 0.022 + Math.random() * 0.01); L.children[0].material.color.setHex(k === 'x' ? 0xff6020 : 0x3090ff); L.material.color.setHex(k === 'x' ? 0xffc090 : 0xbff0ff); L.visible = true;
+      if (Math.random() < 0.7) burst(end[0], end[1], end[2], k === 'x' ? 0xff8040 : 0x9fe0ff, 2, 2.2, 0.25); if (Math.random() < dt * 8) audio.sfx('torch', 0.35); }
+    // the build bar: repair, or an upgrade climbing to completion
+    if (best && k === 't') { const T = TURRETS[best.kind], up = best.hp < best.mhp ? null : best.lvl >= 3 ? 'max' : (best.up || 0); $('weld').hidden = false;
+      setT('weldT', up === null ? `REPAIRING ${T.name.toUpperCase()}` : up === 'max' ? `${T.name.toUpperCase()} · MAX LEVEL` : `UPGRADING TO LV ${best.lvl + 1}`); $('weldBar').style.width = (up === null ? best.hp / best.mhp : up === 'max' ? 1 : up) * 100 + '%'; $('weld').classList.toggle('rep', up === null); }
+    else if (best && k === 'x') { $('weld').hidden = false; setT('weldT', `BURNING ${ALIENS[best.type].name.toUpperCase()}`); $('weldBar').style.width = Math.max(0, best.hp / best.mhp) * 100 + '%'; $('weld').classList.add('rep'); }
+    if (pw <= 0) prompt('<span class="bad">Welder out of power</span> · recharge in the hub, at a Forward Resupply or Ammo Cache, or grab a supply drop'); else if (!best) prompt(`Welding laser · repairs and upgrades turrets, burns aliens up close · power ${Math.round(pw / pmax * 100)}%`);
+  }
   me.beamAcc = (me.beamAcc || 0) + dt; if (me.beamAcc < 0.1) return; const d0 = me.beamAcc; me.beamAcc = 0;
-  if (rc === 'heal') { req({ a: 'heal', id: best ? best.id : '', k: best ? k : '', dt: +d0.toFixed(2) }); prompt(best ? `Healing ${best.name ? esc(best.name) : ALLIES[best.type].name} · ${Math.ceil(best.hp)}/${best.mhp}` : 'Heal beam: aim at a teammate (healing yourself slowly)'); }
-  else { const my = mine(S) || {}, pw = my.pw ?? 100; if (best && pw > 0) req({ a: 'repair', id: best.id, dt: +d0.toFixed(2) }); const what = !best ? 'Welding torch: aim at a turret to repair it, or at a healthy one to weld on an upgrade' : best.hp < best.mhp ? `Repairing ${TURRETS[best.kind].name} · ${Math.ceil(best.hp)}/${best.mhp}` : best.lvl >= 3 ? `${TURRETS[best.kind].name} is at max level` : `Welding upgrade on ${TURRETS[best.kind].name}: ${Math.round((best.up || 0) * 100)}% (${upgradeCost(best)} gold)`; prompt(pw <= 0 ? '<span class="bad">Welder out of power</span> · recharge in the hub, at a Forward Resupply or Ammo Cache, or grab a supply drop' : `${what} · power ${Math.round(pw / (G.cls === 'engineer' ? 160 : 100) * 100)}%`); }
-  if (Math.random() < 0.5) burst(...muzzleTool(), rc === 'heal' ? 0x60ff90 : 0x60c0ff, 2, 1.5, 0.2);
+  if (rc === 'heal') { req({ a: 'heal', id: best ? best.id : '', k: best ? k : '', dt: +d0.toFixed(2) }); prompt(best ? `Healing ${best.name ? esc(best.name) : ALLIES[best.type].name} · ${Math.ceil(best.hp)}/${best.mhp}` : 'Heal beam: aim at a teammate (healing yourself slowly)'); if (Math.random() < 0.5) burst(...muzzleTool(), 0x60ff90, 2, 1.5, 0.2); }
+  else if (pw > 0) req({ a: 'repair', id: best ? best.id : '', k: k === 'x' ? 'a' : 't', dt: +d0.toFixed(2) });
 }
 // any marine can patch up a damaged turret, wall or mine by holding the repair key close to it
 function handRepair(dt, S) {
@@ -767,13 +784,18 @@ function updateMe(dt, S) {
       const t = me.carry || me.beam ? null : lookTurret(S); G.lookT = t;
       if (t) {
         const T = TURRETS[t.kind], own = S.P.find(p => p.id === t.owner), c = upgradeCost(t);
-        prompt(`<b>${T.name}</b> Lv${t.lvl}${own ? ' · ' + esc(own.name) : ''} · ${Math.ceil(t.hp)}/${t.mhp} · ` + (t.b > 0 ? `building: ${t.b.toFixed(1)} s` : t.lvl < 3 ? (t.up ? `welding upgrade ${Math.round(t.up * 100)}%` : `weld it with <b>3</b> to upgrade (${c})`) : 'max level') + (t.carry ? '' : ` · <b>${keyName(KB.use)}</b> pick up`) + (t.owner === G.myId ? ` · <b>${keyName(KB.sell)}</b> sell` : ''));
+        prompt(`<b>${T.name}</b> Lv${t.lvl}${own ? ' · ' + esc(own.name) : ''} · ${Math.ceil(t.hp)}/${t.mhp} · ` + (t.b > 0 ? `building: ${t.b.toFixed(1)} s` : t.lvl < 3 ? (t.up ? `welding upgrade ${Math.round(t.up * 100)}%` : `weld it with <b>3</b> to upgrade (free)`) : 'max level') + (t.carry ? '' : ` · <b>${keyName(KB.use)}</b> pick up`) + (t.owner === G.myId ? ` · <b>${keyName(KB.sell)}</b> sell` : ''));
         if (hits[KB.use] && !t.carry) { hits[KB.use] = false; req({ a: 'carry', id: t.id }); audio.sfx('place', 0.6); } if (hits[KB.sell] && t.owner === G.myId) req({ a: 'sell', id: t.id });
       }
     }
   }
   updatePlace(S);
   { const l = (G.W.lore || []).find(q => !q.silent && Math.hypot(q.x - me.x, q.z - me.z) < 3.5); $('lore').hidden = !l; if (l && G.loreOpen !== l) { G.loreOpen = l; $('loreT').textContent = l.title; $('loreX').textContent = l.text; audio.sfx('pickup', 0.5); G.loreSeen = G.loreSeen || new Set(); if (!G.loreSeen.has(l.title)) { G.loreSeen.add(l.title); toast(`Log found: ${l.title}`, 3); } } if (!l) G.loreOpen = null; }
+  // teleporters: an Engineer's pad beams you to the hub; the hub pad sends you out to the newest one
+  if (!G.explore && live && !me.carry) { const pads = S.T.filter(t => t.kind === 'teleporter' && !t.carry && !(t.b > 0)), onPad = pads.find(t => Math.hypot(t.x - me.x, t.z - me.z) < 1.8), hp = G.W.hubPad, atHub = hp && Math.hypot(hp.x - me.x, hp.z - me.z) < 1.8;
+    const go = (x, z, msg) => { me.x = x; me.z = z; me.y = G.W.top(x, z) + 0.3; me.vy = 0; audio.sfx('rail', 0.7); flashAt([x, me.y + 1, z], 3); burst(x, me.y + 1, z, 0x80e8ff, 30, 4, 0.8); $('hurt').style.opacity = 0; toast(msg, 2); };
+    if (onPad) { prompt(`<b>${keyName(KB.use)}</b> teleport back to the hub`); if (hits[KB.use]) { hits[KB.use] = false; go(G.W.spawn.x, G.W.spawn.z, 'Teleported to the hub'); } }
+    else if (atHub) { const tp = pads.sort((a, b) => b.id - a.id)[0]; prompt(tp ? `<b>${keyName(KB.use)}</b> teleport out to the Engineer's pad` : 'Hub teleporter · an Engineer has to put down a Teleporter Pad first'); if (tp && hits[KB.use]) { hits[KB.use] = false; go(tp.x + 1.6, tp.z, 'Teleported to the forward pad'); } } }
   // salvage: downed dropships still hold ammunition (each one refills again after 90 s)
   { const L = !G.explore && live ? (G.W.loot || []).find(q => Math.hypot(q.x - me.x, q.z - me.z) < 4.5) : null; if (L && !me.carry) { G.lootCd ??= new Map(); const cd = (G.lootCd.get(L) || 0) - G.time;
     prompt(cd > 0 ? `${L.name}: picked clean · more salvage in ${Math.ceil(cd)} s` : `<b>${keyName(KB.use)}</b> salvage ammunition and power cells from the ${L.name.toLowerCase()}`);

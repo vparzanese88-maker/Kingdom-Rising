@@ -196,6 +196,10 @@ export function turret(kind, color) {
   } else if (kind === 'mines') {
     g.add(head); for (const [x, z] of [[-1.6, 0.4], [0, -0.3], [1.6, 0.5]]) { C(head, 0.42, 0.5, 0.18, 0x3a4030, x, 0.09, z); S(head, 0.09, 0xff3020, x, 0.22, z, 1, 1, 1, { e: 0xff1000, ei: 2 }); }
     parts.muzzle = new THREE.Vector3(0, 0.3, 0);
+  } else if (kind === 'teleporter') { // a ring pad with three pylons and a glowing column of light
+    g.add(head); C(head, 1.3, 1.45, 0.25, 0x3a424a, 0, 0.12, 0); const disc = new THREE.Mesh(new THREE.CircleGeometry(1.1, 32), mat(0x60e0ff, { e: 0x30b0ff, ei: 2 })); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.26; head.add(disc);
+    for (let i = 0; i < 3; i++) { const a = i / 3 * 6.283; B(head, 0.22, 1.6, 0.22, 0x5a646e, Math.cos(a) * 1.3, 0.9, Math.sin(a) * 1.3); S(head, 0.13, 0x80f0ff, Math.cos(a) * 1.3, 1.8, Math.sin(a) * 1.3, 1, 1, 1, { e: 0x40d0ff, ei: 3 }); B(head, 0.24, 0.1, 0.5, color, Math.cos(a) * 1.3, 0.3, Math.sin(a) * 1.3).rotation.y = -a; }
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.05, 3.2, 24, 1, true), mat(0x80e8ff, { e: 0x40c0ff, op: 0.22, ds: true })); col.position.y = 1.85; head.add(col); parts.col = col; parts.muzzle = new THREE.Vector3(0, 1, 0);
   } else if (kind === 'resupply') {
     B(g, 2.2, 1.4, 1.6, 0x4a5a3a, 0, 0.7, 0); B(g, 2.25, 0.25, 1.65, 0xe0b22e, 0, 1.25, 0, { e: 0x604000 }); C(g, 0.5, 0.5, 1.6, 0x8a96a2, -1.6, 0.8, 0); C(g, 0.5, 0.5, 1.6, 0x8a96a2, 1.6, 0.8, 0);
     head.position.y = 2.1; g.add(head); C(head, 0.06, 0.06, 1.2, 0x333333, 0, 0, 0); S(head, 0.18, 0x40ff80, 0, 0.7, 0, 1, 1, 1, { e: 0x20c050, ei: 2 }); for (let i = 0; i < 4; i++) B(head, 0.12, 0.3, 0.12, 0xc8a040, Math.cos(i * 1.57) * 0.5, -0.5, Math.sin(i * 1.57) * 0.5, { m: 0.8 });

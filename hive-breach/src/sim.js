@@ -8,7 +8,7 @@ export const KITS = 2;   // turret kits a marine can carry; more are picked up i
 // welding torch power cell: about 1.5 upgrades for most marines, far more for the Engineer
 export const pwMax = cls => cls === 'engineer' ? 160 : 100;
 export const DRESS = 2;   // field dressings: a little health back out in the field
-export const BUILD = { pulse: 4,  ammocache: 2,  resupply: 5, uav: 3,  minigun: 4, tesla: 5, missile: 6, barricade: 3, repair: 4, stasis: 3, flamer: 4, railgun: 6, mines: 2, beacon: 3, mortar: 5, medbay: 4 };
+export const BUILD = { teleporter: 3, pulse: 4,  ammocache: 2,  resupply: 5, uav: 3,  minigun: 4, tesla: 5, missile: 6, barricade: 3, repair: 4, stasis: 3, flamer: 4, railgun: 6, mines: 2, beacon: 3, mortar: 5, medbay: 4 };
 export function pickSpecial() { const e = Object.entries(SPECIALS), tot = e.reduce((a, [, v]) => a + v.w, 0); let r = Math.random() * tot; for (const [k, v] of e) { r -= v.w; if (r <= 0) return k; } return 'stim'; }
 export const LEVEL_T = 60, DROP_FALL = 9, DROP_LIFE = 60;
 export const START_GOLD = 350, FIRST_COUNT = 75, NEXT_COUNT = 25;
@@ -49,7 +49,8 @@ export class Sim {
       if (this.turrets.filter(t => t.owner === id).length >= MAX_TURRETS) return say(`You can have ${MAX_TURRETS} at once. Sell one (Y) first.`);
       const err = this.dropError(r.x, r.z); if (err) return say(err);
       p.gold -= T.cost; p.kits = (p.kits ?? KITS) - 1; const t = { id: this.nid++, kind: r.kind, owner: id, x: r.x, z: r.z, ry: r.ry || 0, lvl: 1, hp: T.hp, mhp: T.hp, cd: 0, tg: 0, spent: T.cost, ch: T.charges || T.uses || 0, y: this.W.top(r.x, r.z), b: BUILD[r.kind], bt: BUILD[r.kind], fresh: true };
-      this.settle(t);
+      const held = this.turrets.find(q => q.carry === id); if (held) { held.carry = 0; this.settle(held); }
+      t.carry = id; this.settle(t);
       this.turrets.push(t); this.emit({ k: 'placed', x: t.x, z: t.z, by: id });
     } else if (r.a === 'upg') {
       const t = this.turrets.find(q => q.id === r.id); if (!t || t.lvl >= 3) return; const c = upgradeCost(t); if (p.gold < c) return say(`Need ${c} gold to upgrade.`);
@@ -86,16 +87,20 @@ export class Sim {
       const tg = r.k === 'a' ? this.allies.find(m => m.id === r.id) : r.k === 'p' ? this.players.get(r.id) : null;
       if (tg && !tg.dead && Math.hypot(tg.x - p.x, tg.z - p.z) < 16) { tg.hp = Math.min(tg.mhp, tg.hp + 28 * dt); this.emit({ k: 'beam', c: 0x40ff80, a: [p.x, p.y + 1.3, p.z], b: [tg.x, (tg.y || 0) + 1.2, tg.z], f: id }); } else p.hp = Math.min(p.mhp, p.hp + 8 * dt);
     } else if (r.a === 'repair') {
-      const eng = p.cls === 'engineer', dt = Math.min(0.5, +r.dt || 0), t = this.turrets.find(q => q.id === r.id);
-      if (t && Math.hypot(t.x - p.x, t.z - p.z) < (eng ? 12 : 5)) {
-        if ((p.pw ?? 100) <= 0) { if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say('Welder out of power: recharge in the hub, at a Forward Resupply or Ammo Cache, or grab a supply drop.'); } return; }
-        let work = false; if (t.hp < t.mhp) { t.hp = Math.min(t.mhp, t.hp + (eng ? 81 : 27) * dt); work = true; p.pw = Math.max(0, (p.pw ?? 100) - 4 * dt); }
+      // the welding torch: a short laser that repairs turrets, welds on free upgrades, and burns aliens; it always draws power while lit
+      const eng = p.cls === 'engineer', dt = Math.min(0.5, +r.dt || 0), pm = pwMax(p.cls), reach = eng ? 8 : 6;
+      if ((p.pw ?? pm) <= 0) { if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say('Welder out of power: recharge in the hub, at a Forward Resupply or Ammo Cache, or grab a supply drop.'); } return; }
+      p.pw = Math.max(0, (p.pw ?? pm) - 2 * dt);
+      if (r.k === 'a') { const a = this.aliens.find(q => q.id === r.id); if (a && !a.dead && Math.hypot(a.x - p.x, a.z - p.z) < reach + ALIENS[a.type].r) { p.pw = Math.max(0, p.pw - 6 * dt); this.hurtAlien(a, (eng ? 95 : 60) * dt, id, true); this.emit({ k: 'beam', c: 0xff8040, a: [p.x, p.y + 1.3, p.z], b: [a.x, a.y + ALIENS[a.type].h * 0.6, a.z], f: id, torch: 1 }); } return; }
+      const t = this.turrets.find(q => q.id === r.id);
+      if (t && Math.hypot(t.x - p.x, t.z - p.z) < reach + 1.5) {
+        if (t.hp < t.mhp) { t.hp = Math.min(t.mhp, t.hp + (eng ? 81 : 27) * dt); p.pw = Math.max(0, p.pw - 2 * dt); }
         else if (t.lvl < 3 && !t.fresh && !t.carry) {
-          if (!t.next) { const c = upgradeCost(t); if (p.gold < c) { if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say(`Need ${c} gold to weld on an upgrade.`); } return; } p.gold -= c; t.spent += c; t.next = t.lvl + 1; t.up = 0; this.emit({ k: 'upgstart', id: t.id, by: id, x: t.x, z: t.z }); }
-          t.up = (t.up || 0) + dt / (4 + 2 * t.lvl) * (eng ? 3 : 1); work = true; p.pw = Math.max(0, (p.pw ?? 100) - 12 * dt);
-          if (t.up >= 1) { t.lvl = t.next; t.next = 0; t.up = 0; const k = TURRETS[t.kind].hp * (1 + 0.4 * (t.lvl - 1)); t.hp += k - t.mhp; t.mhp = k; this.emit({ k: 'upg', id: t.id }); }
+          if (!t.next) { t.next = t.lvl + 1; t.up = 0; this.emit({ k: 'upgstart', id: t.id, by: id, x: t.x, z: t.z }); }
+          t.up = (t.up || 0) + dt / (4 + 2 * t.lvl) * (eng ? 3 : 1); p.pw = Math.max(0, p.pw - 10 * dt);
+          if (t.up >= 1) { t.lvl = t.next; t.next = 0; t.up = 0; const k = TURRETS[t.kind].hp * (1 + 0.4 * (t.lvl - 1)); t.hp += k - t.mhp; t.mhp = k; this.emit({ k: 'upg', id: t.id, lvl: t.lvl, x: t.x, z: t.z }); }
         }
-        if (work) this.emit({ k: 'beam', c: eng ? 0x60c0ff : 0xffc060, a: [p.x, p.y + 1.3, p.z], b: [t.x, t.y + 1.2, t.z], f: id, torch: 1 });
+        this.emit({ k: 'beam', c: eng ? 0x60c0ff : 0xffc060, a: [p.x, p.y + 1.3, p.z], b: [t.x, t.y + 1.2, t.z], f: id, torch: 1 });
       }
     } else if (r.a === 'ability') {
       if (!CLASSES[p.cls].abilities) return; const n = Math.max(0, Math.min(3, r.n | 0)), A = CLASSES[p.cls].abilities[n]; if (p.acd[n] > 0) return; p.acd[n] = A.cd; this.ability(p, A.id, r); this.emit({ k: 'ability', id: A.id, by: id, x: p.x, y: p.y, z: p.z, n: p.name, name: A.name });

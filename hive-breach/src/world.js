@@ -232,6 +232,8 @@ export function buildWorld(scene, mapId) {
   }
   const sky = { mars: [[0xd8c0a0, 26, -0.6, 0.35], [0xa09080, 9, 0.9, 0.5]], ice: [[0x6a8ad0, 60, 0.4, 0.3], [0xe0d0c0, 12, -0.9, 0.55]], jungle: [[0xb0a0e0, 45, -0.3, 0.32], [0xf0e0c0, 14, 1.1, 0.6], [0xc0f0d0, 7, 1.6, 0.45]] }[mapId];
   for (const [c, rad, a, el] of sky) { const pl = new THREE.Mesh(new THREE.SphereGeometry(rad, 32, 16), new THREE.MeshBasicMaterial({ color: c, fog: false })); pl.position.set(Math.cos(a) * 650, Math.sin(el) * 650, Math.sin(a) * 650); g.add(pl); if (rad > 20) { const rg = new THREE.Mesh(new THREE.RingGeometry(rad * 1.3, rad * 1.9, 64), new THREE.MeshBasicMaterial({ color: c, fog: false, transparent: true, opacity: 0.35, side: THREE.DoubleSide })); rg.position.copy(pl.position); rg.lookAt(0, 0, 0); rg.rotateX(1.1); g.add(rg); } }
+  // the hub teleporter beside the spawn point: it sends marines out to the newest Engineer's Teleporter Pad
+  { const hx = W.spawn.x - Math.sin(T.hub.ga) * 4.5, hz = W.spawn.z + Math.cos(T.hub.ga) * 4.5, pad = M.turret('teleporter', 0x3fc0ff); pad.position.set(hx, T.top(hx, hz), hz); g.add(pad); W.hubPad = { x: hx, z: hz }; W.hubPadMesh = pad; }
   placePOIs(g, W, T, D, mapId, path);
   battlefield(g, W, T, D, mapId, path);
   lookouts(g, W, T, D, mapId, path);

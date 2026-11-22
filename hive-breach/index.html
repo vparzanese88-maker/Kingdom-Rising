@@ -19,6 +19,8 @@ h1 span{color:var(--warn)}
 .sub{color:var(--dim);margin:2px 0 18px;font-size:17px}
 h2{font-size:14px;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin:18px 0 8px}
 .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+#classes{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+input[type=range]{padding:0;vertical-align:middle;width:130px;border:0;background:none}
 .pick{text-align:left;background:var(--panel);border:2px solid var(--line);border-left:6px solid var(--c);border-radius:6px;padding:10px 14px}
 .pick.on{border-color:var(--c);box-shadow:0 0 0 2px var(--c) inset}
 .pick h3{margin:0 0 2px;font-size:20px}
@@ -45,6 +47,10 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 #hit:before,#hit:after{content:"";position:absolute;background:#ff5050}
 #hit:before{left:14px;top:0;width:2px;height:30px;clip-path:polygon(0 0,100% 0,100% 30%,0 30%,0 70%,100% 70%,100% 100%,0 100%)}
 #hit:after{top:14px;left:0;height:2px;width:30px;clip-path:polygon(0 0,30% 0,30% 100%,0 100%,0 0,70% 0,100% 0,100% 100%,70% 100%)}
+#scope{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 36vh,#000 36.3vh);}
+#scope:before,#scope:after{content:"";position:absolute;background:rgba(0,0,0,.85)}
+#scope:before{left:50%;top:14vh;bottom:14vh;width:2px;transform:translateX(-50%)}
+#scope:after{top:50%;left:calc(50% - 36vh);right:calc(50% - 36vh);height:2px;transform:translateY(-50%)}
 #dirs,#arrows{position:absolute;left:50%;top:50%;width:0;height:0}
 .dmgdir{position:absolute;left:0;top:0;width:220px;height:220px;border-radius:50%;border-top:10px solid rgba(255,40,30,.85);animation:fade .9s forwards}
 @keyframes fade{from{opacity:1}to{opacity:0}}
@@ -116,14 +122,14 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/audio.js": "./src/audio.js?v=1795315706",
-"./src/data.js": "./src/data.js?v=1795315706",
-"./src/main.js": "./src/main.js?v=1795315706",
-"./src/models.js": "./src/models.js?v=1795315706",
-"./src/music.js": "./src/music.js?v=1795315706",
-"./src/net.js": "./src/net.js?v=1795315706",
-"./src/sim.js": "./src/sim.js?v=1795315706",
-"./src/world.js": "./src/world.js?v=1795315706"
+"./src/audio.js": "./src/audio.js?v=1795319138",
+"./src/data.js": "./src/data.js?v=1795319138",
+"./src/main.js": "./src/main.js?v=1795319138",
+"./src/models.js": "./src/models.js?v=1795319138",
+"./src/music.js": "./src/music.js?v=1795319138",
+"./src/net.js": "./src/net.js?v=1795319138",
+"./src/sim.js": "./src/sim.js?v=1795319138",
+"./src/world.js": "./src/world.js?v=1795319138"
 }
 }
 </script>
@@ -133,6 +139,7 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 
 <div id="hud" hidden>
   <div id="hurt"></div>
+  <div id="scope" hidden></div>
   <div id="cross"></div><div id="hit"></div><div id="dirs"></div><div id="arrows"></div>
   <div id="hunt" hidden><span id="huntT"></span></div><div id="regen" hidden>+ HUB REPAIRING YOUR ARMOR</div>
   <div id="top" class="panel"><div id="waveTxt">PREPARE</div><div id="waveInfo"></div><div class="bar"><i id="hubBar" style="width:100%"></i></div><div id="hubTxt">HUB 100%</div></div>
@@ -150,13 +157,14 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 </div>
 
 <div id="shop" class="screen" hidden><div class="card"><h2>Armory</h2><div id="shopList"></div><p class="small">Click an upgrade or press its key. B or Esc to close. The battle keeps going online, so be quick.</p></div></div>
-<div id="pause" class="screen" hidden><div class="card"><h2>Click to fight</h2><p class="small">Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p><p class="small">Music volume <input type="range" id="mvol" min="0" max="1" step="0.05" value="0.55"> · M turns music on or off</p><button class="btn alt" id="btnQuit" style="pointer-events:auto">Quit to title</button></div></div>
+<div id="pause" class="screen" hidden><div class="card"><h2>Click to fight</h2><p class="small">Mouse speed <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1"></p><p class="small">Music <input type="range" id="mvol" min="0" max="1" step="0.05" value="0.75"> · Effects <input type="range" id="svol" min="0" max="1" step="0.05" value="0.5"> · M turns music on or off</p><button class="btn alt" id="btnQuit" style="pointer-events:auto">Quit to title</button></div></div>
 <div id="end" class="screen" hidden><div class="card"><h2 id="endTitle"></h2><p id="endText"></p><p id="endKey"></p><button class="btn" id="btnAgain">Try again</button> <button class="btn alt" id="btnEndQuit">Quit to title</button></div></div>
 
 <div id="title" class="screen"><div class="card">
   <h1>Hive <span>Breach</span></h1>
   <p id="soundHint" class="small" style="color:var(--gold)">🔊 Click anywhere to turn on the sound and music (M turns music on or off).</p>
-  <p class="sub">The year is 2387. Alien swarms pour out of the hive and march down the track toward your colony's power hub. Fight them yourself, build sentries in their path, and hold out for 20 waves, then storm the alien hive and destroy it.</p>
+  <p class="small">Music <input type="range" id="mvol2" min="0" max="1" step="0.05" value="0.75"> · Effects <input type="range" id="svol2" min="0" max="1" step="0.05" value="0.5"></p>
+  <p class="sub">The year is 2387. Alien swarms pour out of the hive and march down the track toward your colony's power hub. Fight them yourself, build sentries in their path, and destroy the alien hive to win. Its shield drops when both Hive Guardians are destroyed, at any wave; hold out all 20 waves and you get a final assault.</p>
   <h2>Your name</h2>
   <input id="name" maxlength="14" placeholder="Marine">
   <h2>Pick your class</h2>
@@ -173,7 +181,8 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
   <h2>Controls</h2>
   <div class="keys">
     <b>W A S D · Shift · Space</b><span>Move · sprint · jump (mouse looks)</span>
-    <b>Left click · R</b><span>Shoot · reload</span>
+    <b>Left click · R</b><span>Shoot · reload (Sniper: right click to scope)</span>
+    <b>C or Ctrl</b><span>Kneel: steadier aim, half the recoil</span>
     <b>Q</b><span>Build your class sentry (click to place, right click cancels)</span>
     <b>E</b><span>Build your class defense</span>
     <b>G</b><span>Throw a grenade</span>
@@ -188,6 +197,6 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795315706"></script>
+<script type="module" src="./src/main.js?v=1795319138"></script>
 </body>
 </html>

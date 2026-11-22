@@ -28,11 +28,14 @@ const S = {
   tick: [[880, 880, 0.12, 'square', 0.12]],
   thunder: [['n', 220, 2.2, 0.6], [55, 35, 1.8, 'sine', 0.3]],
   grenade: [[400, 300, 0.1, 'triangle', 0.08]],
+  spin: [[200, 900, 0.45, 'sawtooth', 0.05]],
+  flame: [['n', 1200, 0.25, 0.12]],
+  rail: [[3000, 200, 0.35, 'sawtooth', 0.1], ['n', 5000, 0.2, 0.15]],
 };
 export class Audio {
-  constructor() { this.ctx = null; this.vol = 0.5; this.noise = {}; this.last = {}; }
+  constructor() { this.ctx = null; this.vol = 0.5; try { const v = +localStorage.getItem('hb-sfx'); if (localStorage.getItem('hb-sfx') !== null && v >= 0) this.vol = v; } catch (e) { } this.noise = {}; this.last = {}; }
   unlock() {
-    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.chain(); let i = 0; const kinds = ['rifle', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
+    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.chain(); let i = 0; const kinds = ['rifle', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   }
   // everything goes through a compressor (so a wall of gunfire stays loud without crackling) and a battlefield echo
@@ -42,7 +45,7 @@ export class Audio {
     // a made-up impulse response: a long, dark, decaying rumble, like shots echoing off cliffs
     const len = c.sampleRate * 2.6, ir = c.createBuffer(2, len, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < len; i++) { const t = i / len; lp += (Math.random() * 2 - 1 - lp) * (0.35 - t * 0.25); d[i] = lp * Math.pow(1 - t, 2.4) * (i < 400 ? i / 400 : 1); } }
-    this.verb = c.createConvolver(); this.verb.buffer = ir; this.verbIn = c.createGain(); this.verbIn.gain.value = 0.9; this.verbIn.connect(this.verb); this.verb.connect(this.out);
+    this.verb = c.createConvolver(); this.verb.buffer = ir; this.verbIn = c.createGain(); this.verbIn.gain.value = 0.4; this.verbIn.connect(this.verb); this.verb.connect(this.out);
   }
   noiseN(f0, f1, type, dur, v, t0, dest, q = 0.7) { const c = this.ctx, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = this.buf(Math.max(0.05, dur)); fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t0); if (f1 !== f0) fl.frequency.exponentialRampToValueAtTime(f1, t0 + dur); s.connect(fl); fl.connect(g); g.connect(dest); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur); s.start(t0); s.stop(t0 + dur + 0.02); return g; }
   tone(f0, f1, type, dur, v, t0, dest) { const c = this.ctx, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); o.connect(g); g.connect(dest); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur); o.start(t0); o.stop(t0 + dur + 0.02); }
@@ -66,12 +69,13 @@ export class Audio {
   shots(kind) {
     this.sb = this.sb || {}; if (this.sb[kind]) return this.sb[kind];
     const P = {
-      rifle: { dur: 0.9, tr: 1, bc0: 9000, bc1: 700, bd: 0.03, bg: 1, lo: 140, ld: 0.09, lg: 1.2, tc: 1200, td: 0.22, tg: 0.35, slap: 0.11, sg: 0.32, drive: 3 },
-      mini: { dur: 0.6, tr: 0.9, bc0: 8000, bc1: 800, bd: 0.022, bg: 1, lo: 150, ld: 0.06, lg: 1.1, tc: 1300, td: 0.14, tg: 0.3, slap: 0.09, sg: 0.25, drive: 3 },
-      smg: { dur: 0.6, tr: 0.9, bc0: 11000, bc1: 1200, bd: 0.018, bg: 0.9, lo: 200, ld: 0.045, lg: 0.8, tc: 1800, td: 0.12, tg: 0.3, slap: 0.08, sg: 0.25, drive: 2.5 },
-      rocket: { dur: 1.4, tr: 0.6, bc0: 3000, bc1: 400, bd: 0.25, bg: 0.9, lo: 90, ld: 0.2, lg: 1.4, tc: 900, td: 0.5, tg: 0.5, slap: 0.14, sg: 0.3, drive: 2.5 },
-      boom: { dur: 3.2, tr: 1, bc0: 5000, bc1: 150, bd: 0.18, bg: 1.2, lo: 70, ld: 0.6, lg: 2.4, tc: 500, td: 1.1, tg: 0.9, slap: 0.2, sg: 0.35, drive: 3.5 },
-      artillery: { dur: 3, tr: 0.15, bc0: 900, bc1: 120, bd: 0.3, bg: 0.7, lo: 55, ld: 0.8, lg: 2.2, tc: 300, td: 1.2, tg: 0.8, slap: 0.35, sg: 0.4, drive: 2 },
+      rifle: { dur: 0.5, tr: 0.8, bc0: 8000, bc1: 700, bd: 0.026, bg: 1, lo: 140, ld: 0.08, lg: 1.1, tc: 1200, td: 0.12, tg: 0.12, slap: 0.11, sg: 0.07, drive: 2 },
+      sniper: { dur: 1.0, tr: 1, bc0: 9000, bc1: 500, bd: 0.04, bg: 1.2, lo: 100, ld: 0.16, lg: 1.6, tc: 900, td: 0.3, tg: 0.16, slap: 0.15, sg: 0.1, drive: 2.4 },
+      mini: { dur: 0.4, tr: 0.7, bc0: 7000, bc1: 800, bd: 0.02, bg: 1, lo: 150, ld: 0.055, lg: 1, tc: 1300, td: 0.09, tg: 0.1, slap: 0.09, sg: 0.05, drive: 3 },
+      smg: { dur: 0.4, tr: 0.7, bc0: 9000, bc1: 1200, bd: 0.016, bg: 0.9, lo: 200, ld: 0.04, lg: 0.8, tc: 1800, td: 0.08, tg: 0.1, slap: 0.08, sg: 0.05, drive: 2.5 },
+      rocket: { dur: 1.4, tr: 0.6, bc0: 3000, bc1: 400, bd: 0.25, bg: 0.9, lo: 90, ld: 0.2, lg: 1.4, tc: 900, td: 0.35, tg: 0.25, slap: 0.14, sg: 0.1, drive: 2.5 },
+      boom: { dur: 2.2, tr: 0.8, bc0: 4500, bc1: 150, bd: 0.15, bg: 1.1, lo: 70, ld: 0.45, lg: 2, tc: 500, td: 0.6, tg: 0.45, slap: 0.2, sg: 0.12, drive: 2.5 },
+      artillery: { dur: 3, tr: 0.15, bc0: 900, bc1: 120, bd: 0.3, bg: 0.7, lo: 55, ld: 0.8, lg: 2.2, tc: 300, td: 0.9, tg: 0.5, slap: 0.35, sg: 0.15, drive: 2 },
     }[kind];
     return this.sb[kind] = [1, 2, 3, 4].map(sd => this.shot(P, sd * 7 + kind.length));
   }
@@ -82,12 +86,13 @@ export class Audio {
     const list = this.shots(kind), src = c.createBufferSource(); src.buffer = list[(Math.random() * list.length) | 0];
     src.playbackRate.value = (0.94 + Math.random() * 0.12) / (1 + (power - 1) * 0.35);
     const g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 16000 - far * 14500; lp.Q.value = 0.5;
-    g.gain.value = vol * this.vol * 1.4 * (0.75 + 0.25 * power) * (1 - far * 0.5);
-    src.connect(lp); lp.connect(g); g.connect(this.out); const send = c.createGain(); send.gain.value = 0.18 + far * 0.8; g.connect(send); send.connect(this.verbIn);
+    g.gain.value = vol * this.vol * 0.7 * (0.8 + 0.2 * power) * (1 - far * 0.55);
+    src.connect(lp); lp.connect(g); g.connect(this.out); const send = c.createGain(); send.gain.value = 0.04 + far * 0.3; g.connect(send); send.connect(this.verbIn);
     src.start(t);
     // fully upgraded guns get an extra heavy boom layer underneath
-    if (power > 1.3 && (kind === 'rifle' || kind === 'smg' || kind === 'mini')) { const s2 = c.createBufferSource(), g2 = c.createGain(); s2.buffer = this.shots('rocket')[0]; s2.playbackRate.value = 1.6; g2.gain.value = vol * this.vol * 0.5 * (power - 1.2) * (1 - far * 0.6); s2.connect(g2); g2.connect(lp); s2.start(t); s2.stop(t + 0.3); }
+    if (power > 1.3 && (kind === 'rifle' || kind === 'smg' || kind === 'mini')) { const s2 = c.createBufferSource(), g2 = c.createGain(); s2.buffer = this.shots('rocket')[0]; s2.playbackRate.value = 1.6; g2.gain.value = vol * this.vol * 0.25 * (power - 1.2) * (1 - far * 0.6); s2.connect(g2); g2.connect(lp); s2.start(t); s2.stop(t + 0.3); }
   }
+  setVol(v) { this.vol = v; try { localStorage.setItem('hb-sfx', v); } catch (e) { } }
   buf(dur) { const c = this.ctx, k = Math.round(dur * 100); if (this.noise[k]) return this.noise[k]; const n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), ch = b.getChannelData(0); for (let i = 0; i < n; i++) ch[i] = Math.random() * 2 - 1; return this.noise[k] = b; }
   // vol can be lowered for far-away sounds; a sound is not played twice within 30 ms
   sfx(name, vol = 1) {

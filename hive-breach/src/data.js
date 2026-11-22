@@ -19,6 +19,18 @@ export const CLASSES = {
     sentry: 'missile', defense: 'stasis',
     blurb: 'Rocket launcher. Deploys long-range Missile Turrets and Stasis Fields that slow every alien inside.',
   },
+  gunner: {
+    name: 'Gunner', color: 0x6a8a3a, hp: 190, speed: 6.0,
+    gun: { name: 'M-56 Hand Minigun', dmg: 7, rate: 18, mag: 120, reload: 3.4, spread: 0.03, kind: 'hit', sound: 'mini', recoil: 0.0035, near: 14, far: 45, max: 65, spin: 0.5 },
+    sentry: 'flamer', defense: 'mines',
+    blurb: 'Hand-held minigun: spins up, then shreds. Tough but slow, slower still while firing. Deploys Flame Turrets and Mine Fields.',
+  },
+  sniper: {
+    name: 'Sniper', color: 0x4aa8a0, hp: 90, speed: 7.4,
+    gun: { name: 'XR-9 Rail Rifle', dmg: 150, rate: 0.85, mag: 5, reload: 2.5, spread: 0.035, scoped: 0.0006, kind: 'hit', sound: 'sniper', recoil: 0.09, near: 300, far: 300, max: 220, pierce: 3 },
+    sentry: 'railgun', defense: 'beacon',
+    blurb: 'Rail rifle: right click to scope. Full damage at any range and pierces 3 aliens. Deploys Railgun Towers and Sensor Beacons.',
+  },
 };
 
 // lvl 1-3. Upgrading a turret costs its price times UPG_COST[lvl].
@@ -28,6 +40,10 @@ export const TURRETS = {
   missile: { name: 'Missile Turret', cost: 180, hp: 240, range: 28, rate: 0.55, dmg: 90, splash: 4, key: 'sentry', desc: 'Long range missiles that blow up groups.' },
   barricade: { name: 'Barricade', cost: 60, hp: 600, onPath: true, key: 'defense', desc: 'An energy wall across the track. Every alien, flyers too, must stop and tear it down.' },
   repair: { name: 'Repair Station', cost: 120, hp: 200, range: 9, heal: 9, key: 'defense', desc: 'Heals marines and repairs turrets, walls and the hub nearby.' },
+  flamer: { name: 'Flame Turret', cost: 120, hp: 300, range: 9, rate: 10, dmg: 4.5, cone: 0.6, key: 'sentry', desc: 'Sprays fire over every alien in a cone. Ignores armor.' },
+  railgun: { name: 'Railgun Tower', cost: 200, hp: 220, range: 42, rate: 0.35, dmg: 230, key: 'sentry', desc: 'A long-range beam that pierces every alien in its line.' },
+  mines: { name: 'Mine Field', cost: 70, hp: 99999, range: 2.6, dmg: 260, splash: 4.5, charges: 3, onPath: true, mine: true, key: 'defense', desc: 'Three proximity charges on the track. Walkers that step on them blow up.' },
+  beacon: { name: 'Sensor Beacon', cost: 80, hp: 160, range: 12, mark: 1.25, anyPlace: true, key: 'defense', desc: 'Aliens nearby take 25% more damage, and aliens in tunnels show up for turrets.' },
   stasis: { name: 'Stasis Field', cost: 90, hp: 200, range: 7.5, slow: 0.45, anyPlace: true, key: 'defense', desc: 'Aliens inside move at half speed.' },
 };
 export const UPG_COST = [0, 0.8, 1.3];      // cost to go from lvl 1->2, 2->3
@@ -52,8 +68,8 @@ export const ALIENS = {
   ravager: { name: 'Ravager', hp: 3400, speed: 2.1, hub: 30, bounty: 220, r: 2.2, h: 2.2, dmg: 40, melee: 1, armor: 0.35, boss: 1, hunt: { t: 14, p: 9, leash: 20, time: 10, cd: 5 } },
   queen: { name: 'Hive Queen', hp: 15000, speed: 1.5, hub: 100, bounty: 1000, r: 3.4, h: 3.3, dmg: 55, melee: 1, armor: 0.35, boss: 1, ranged: 24 },
   nest: { name: 'Alien Nest', hp: 600, speed: 0, hub: 0, bounty: 80, r: 2.0, h: 1.0, dmg: 0, nest: 1, static: 1 },
-  guardian: { name: 'Hive Guardian', hp: 1800, speed: 0, hub: 0, bounty: 150, r: 1.7, h: 3.2, dmg: 13, static: 1, armor: 0.2, guard: 26 },
-  hivecore: { name: 'The Hive', hp: 9000, speed: 0, hub: 0, bounty: 1500, r: 5.5, h: 2.4, dmg: 0, static: 1 },
+  guardian: { name: 'Hive Guardian', hp: 2600, speed: 0, hub: 0, bounty: 150, r: 1.7, h: 3.2, dmg: 13, static: 1, armor: 0.2, guard: 26 },
+  hivecore: { name: 'The Hive', hp: 12000, speed: 0, hub: 0, bounty: 1500, r: 5.5, h: 2.4, dmg: 0, static: 1 },
 };
 
 export const WAVES = 20;

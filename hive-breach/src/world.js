@@ -97,9 +97,9 @@ export function placeError(kind, x, z, path, turrets, hubP, hiveP, T) {
   if (Math.hypot(x - hubP.x, z - hubP.z) < 10) return 'Too close to the hub';
   if (Math.hypot(x - hiveP.x, z - hiveP.z) < 11) return 'Too close to the hive';
   if (K.onPath) {
-    if (n.d > PATH_W / 2) return 'Barricades go across the alien track'; if (n.s < 14 || n.s > path.len - 14) return 'Too close to the end of the track';
+    if (n.d > PATH_W / 2) return `${K.name} goes on the alien track`; if (n.s < 14 || n.s > path.len - 14) return 'Too close to the end of the track';
     if (T && T.tunnelAt(n.s, 2)) return 'Not inside a tunnel';
-    for (const t of turrets) if (t.kind === 'barricade' && Math.abs(t.s - n.s) < 6) return 'Another barricade is too close'; return '';
+    for (const t of turrets) if (t.kind === kind && Math.abs(t.s - n.s) < 6) return `Another ${K.name} is too close`; return '';
   }
   if (!K.anyPlace && n.d < PATH_W / 2 + 1.2) return 'Not on the alien track';
   if (T) {
@@ -107,7 +107,7 @@ export function placeError(kind, x, z, path, turrets, hubP, hiveP, T) {
     if (n.d < PATH_W / 2 + 2 && T.tunnelAt(n.s, 1)) return 'Not on a tunnel roof';
     const h = T.top(x, z); for (const [dx, dz] of [[1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2]]) if (Math.abs(T.top(x + dx, z + dz) - h) > 1.3) return 'Too steep here';
   }
-  for (const t of turrets) if (t.kind !== 'barricade' && Math.hypot(t.x - x, t.z - z) < 2.6) return 'Too close to another turret';
+  for (const t of turrets) if (!TURRETS[t.kind].onPath && Math.hypot(t.x - x, t.z - z) < 2.6) return 'Too close to another turret';
   return '';
 }
 

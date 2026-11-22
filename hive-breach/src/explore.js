@@ -420,11 +420,23 @@ export function dropIntro(H, squad, done) {
   pod.rotation.y = doorYaw; pod.position.set(padX, SY + 2, padZ); G.me.yaw = 0; G.me.pitch = -0.05;   /* your look is relative to the pod: 0 faces the door */
   const T0 = 12;   // seconds of the opening shot of the station before you're strapped in
   if (MU && MU.dropScore) MU.dropScore(T0);
-  const t0 = performance.now(); let last = t0, said = {}, shakeK = 0, prevAlt = 0, spd = 0, flyDoor = 0; H.fade(false);
+  const t0 = performance.now(); let last = t0, said = {}, shakeK = 0, prevAlt = 0, spd = 0, flyDoor = 0, handed = false; H.fade(false);
   const once = (k, f) => { if (!said[k]) { said[k] = 1; f(); } };
+  // the landing is over: keep the pod (walls, seats, the crew) as a real place on the pad, give you control at your seat, and walk the others out
+  const handoff = () => {
+    for (const o of [space, st, ...wing.map(w => w.m)]) scene.remove(o); for (const s of streaks) pod.remove(s); for (const c of clouds) scene.remove(c);
+    pod.position.set(padX, padY - 0.3, padZ); pod.rotation.set(0, doorYaw, 0); W.group.attach(pod); W.group.attach(pad); for (const o of shell) o.visible = true; fl.material.opacity = 0; pod.userData.heat.material.opacity = 0;
+    if (meBody.parent) meBody.parent.remove(meBody);
+    // the pod's wall: a ring of small posts you can't walk through, open where the door was (straight ahead of your seat)
+    pod.updateMatrixWorld(true); for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, rel = Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2)); if (Math.abs(rel) < 0.55) continue; const p = pod.localToWorld(V(Math.cos(a) * 1.95, 0, Math.sin(a) * 1.95)); W.colliders.push({ x: p.x, z: p.z, r: 0.42, h: 4.5, gy: padY }); }
+    W.group.visible = true; scene.background = bg0; scene.fog = fog0; G.cineFog = false; heat.remove(); hud.remove(); document.body.classList.remove('pov'); A.rumble(0); if (MU && MU.endScore) MU.endScore();
+    cap('', 'Vance: Marines, move out! Get to that hive! I\'ll run things from the hub.');
+    const me = pod.localToWorld(V(0, 0, 0.6)), door = pod.localToWorld(V(0, 0, -3.4));
+    done({ marines: crew.filter(c => !c.cmd).length, x: me.x, z: me.z, yaw: G.me.yaw + doorYaw, ax: door.x, az: door.z, allyDelay: 2.2 });
+  };
   const step = () => {
     const now = performance.now(), t = (now - t0) / 1000 * (G.filmRate || 1) - T0, dt = Math.min(0.1, (now - last) / 1000) * (G.filmRate || 1); last = now; ring.rotation.z += dt * 0.03;
-    let shake = 0, rum = 0.06, streakO = 0, temp = 21; const y = yAt(t); pod.position.set(padX, y, padZ);
+    let shake = 0, rum = 0.06, streakO = 0, temp = 21; const y = handed ? padY - 0.3 : yAt(t);   /* once landed, the pod sits on the pad with its floor at ground level */ pod.position.set(padX, y, padZ);
     // the other pods fall the same way, a beat behind, and peel away in the clouds
     for (const w of wing) { const tt = t - w.dl, wy = yAt(Math.max(0, tt)), spread = 1 + cl((tt - 13) / 9) * 2.5; w.m.position.set(padX + w.o.x * spread, (tt < 22 ? wy : yAt(22) - (tt - 22) * 260), padZ + w.o.z * spread); w.m.rotation.z = Math.sin(t * 7 + w.dl * 5) * 0.03 * cl(tt - 13);
       w.m.userData.flame.material.opacity = tt > 7 && tt < 13 ? 0.6 : 0; w.m.userData.heat.material.opacity = tt > 13 && tt < 22 ? Math.min(0.9, (tt - 13) / 7) : 0; if (tt > 24) w.m.visible = false; }
@@ -446,7 +458,7 @@ export function dropIntro(H, squad, done) {
       if (t > 5.2) once('c', () => { cap('', 'Vance: Here we go. Hold on to something!'); A.sfx('alarm', 0.7); });
       red.intensity = 4 + (Math.sin(t * 6) > 0 ? 6 : 0); strobe.emissiveIntensity = Math.sin(t * 6) > 0 ? 4 : 0.3; shake = 0.04; if (t > 5) shake = 0.12;
     } else if (t < 13) { // EJECT: the clamps blow, every pod drops away from the station, thrusters lit
-      once('d', () => { cap('', 'EJECT! EJECT! EJECT!'); A.sfx('boom', 0.4); A.sfx('rail', 0.3); shakeK = 1.5; });
+      once('d', () => { cap('', 'EJECT! EJECT! EJECT!'); A.sfx('boom', 0.4); shakeK = 1.5; });
       fl.material.opacity = 0.6; rum = 0.45; shake = 0.25; red.intensity = 3; strobe.emissiveIntensity = Math.sin(t * 9) > 0 ? 4 : 0.3;
       if (Math.random() < dt * 4) { const w = pod.localToWorld(V((Math.random() - 0.5) * 8, 6, (Math.random() - 0.5) * 8)); H.burst(w.x, w.y, w.z, 0xfff0c0, 2, 5, 0.4); }
       if (t > 10.5) once('e', () => cap('', `Vance: Clean drop. ${PN} dead ahead. Brace for the burn!`));
@@ -479,15 +491,17 @@ export function dropIntro(H, squad, done) {
     } else { // impact, then the door blows off and the squad pours out
       const u = t - 29;
       once('i', () => { fl.material.opacity = 0; A.sfx('boom', 0.45); H.boomFx(padX, padY + 0.5, padZ, 5, 1); shakeK = 2.8; red.intensity = 0; blue.intensity = 0; strobe.emissiveIntensity = 0; for (let k = 0; k < 30; k++) H.burst(padX + (Math.random() - 0.5) * 12, padY + 0.3, padZ + (Math.random() - 0.5) * 12, 0xb09878, 2, 5, 1.2); cap('', 'Vance: We\'re down! Door! Door!'); for (const c of clouds) scene.remove(c); clouds.length = 0; scene.fog = fog0; scene.background = bg0; G.cineFog = false; });
-      if (u > 1.4) once('j', () => { A.sfx('boom', 0.7); A.sfx('rail', 0.5); flyDoor = 1; day.intensity = 8; heat.style.opacity = 0; for (let k = 0; k < 14; k++) { const w = pod.localToWorld(V(0, 1.4, -2.6)); H.burst(w.x, w.y, w.z, 0xd0c0a0, 3, 4, 1); } cap('', 'Vance: Marines, move out! Get to that hive! I\'ll run things from the hub.'); });
+      if (u > 1.4) once('j', () => { A.sfx('boom', 0.5); flyDoor = 1; day.intensity = 8; heat.style.opacity = 0; for (let k = 0; k < 14; k++) { const w = pod.localToWorld(V(0, 1.4, -2.6)); H.burst(w.x, w.y, w.z, 0xd0c0a0, 3, 4, 1); } });
       if (flyDoor) { const k = u - 1.4; doorG.position.set(0, Math.max(-0.3, k * 2.5 - k * k * 5), -k * 9); doorG.rotation.x = -k * 2.2; if (k > 1.4) doorG.visible = false; }
       rum = Math.max(0, 0.3 - u * 0.15); shake = u < 1 ? 0.5 : 0.02;
       crew.forEach((c, i) => { const k = u - 2.2 - (c.cmd ? 2.6 : i * 0.6); const m = c.m; if (k < 0) return;
-        if (!c.out) { m.userData.legL.rotation.x = m.userData.legR.rotation.x = 0; m.userData.sit = 0; m.position.y = 0.3; const f = Math.min(1, k / 0.8), sx = Math.cos(c.a) * 1.25, sz = Math.sin(c.a) * 1.25; m.position.x = L(sx, 0, f); m.position.z = L(sz, -1.7, f); m.rotation.y = Math.atan2(-(0 - sx), -(-1.7 - sz)); M.animMarine(m, k * 10, 5); if (f >= 1) { c.out = true; const w = pod.localToWorld(V(0, 0, -2.4)); cabin.remove(m); m.scale.setScalar(1); add(m); m.position.set(w.x, padY, w.z); c.k0 = k; } }
+        if (!c.out) { m.userData.legL.rotation.x = m.userData.legR.rotation.x = 0; m.userData.sit = 0; m.position.y = 0.3; const f = Math.min(1, k / 0.8), sx = Math.cos(c.a) * 1.25, sz = Math.sin(c.a) * 1.25; m.position.x = L(sx, 0, f); m.position.z = L(sz, -1.7, f); m.rotation.y = Math.atan2(-(0 - sx), -(-1.7 - sz)); M.animMarine(m, k * 10, 5); if (f >= 1) { c.out = true; const w = pod.localToWorld(V(0, 0, -2.4)); cabin.remove(m); m.scale.setScalar(1); add(m); m.position.set(w.x, padY, w.z); c.k0 = k; if (!c.cmd) { scene.remove(m); c.gone = true; } } }
         else { const kk = k - c.k0; if (c.cmd) { const f = Math.min(1, kk / 6), x = L(padX, hubC.x, f), z = L(padZ, hubC.z, f); m.position.set(x, W.top(x, z), z); m.rotation.y = Math.atan2(-(hubC.x - padX), -(hubC.z - padZ)); if (f < 1) M.animMarine(m, kk * 7, 2.5); }
           else { const s = Math.max(0, sL - 2 - kk * 6.5), qq = P.at(s), lat = (i - 2) * 1.6, x = kk < 1.2 ? L(m.position.x, qq.x, 0.08) : qq.x - qq.tz * lat, z = kk < 1.2 ? L(m.position.z, qq.z, 0.08) : qq.z + qq.tx * lat; m.position.set(x, W.top(x, z), z); m.rotation.y = Math.atan2(qq.tx, qq.tz); M.animMarine(m, kk * 11, 6.5); } } });
-      if (u > 8.6) once('k', () => cap('', 'Your turn, marine. Out the door.'));
+      // the door's gone: you're in control from here, standing in the pod; walk out yourself
+      if (u > 1.7 && !handed) { handed = true; handoff(); }
     }
+    if (handed) { if (t - 29 > 16) { for (const c of crew) if (c.cmd && c.m.parent) W.group.attach(c.m); return; } requestAnimationFrame(step); return; }   // after the hand-off this loop only walks the commander to the hub
     streakM.opacity = streakO; if (streakO > 0) for (const s of streaks) { s.position.y += dt * 45; if (s.position.y > 9) s.position.y -= 15; }
     // helmet readout
     const alt = y < 900 ? (y - padY) * 8 : 7200 + (y - 900) * 75; spd = L(spd, Math.abs(prevAlt - alt) / Math.max(dt, 0.001), 0.1); prevAlt = alt;
@@ -497,12 +511,6 @@ export function dropIntro(H, squad, done) {
     pod.updateMatrixWorld(); const eye = pod.localToWorld(eyeL.clone());   /* your head, in your seat */ G.me.pitch = Math.max(-1.2, Math.min(1.2, G.me.pitch));
     camera.position.set(eye.x + (Math.random() - 0.5) * sh * 0.07, eye.y + (Math.random() - 0.5) * sh * 0.07, eye.z + (Math.random() - 0.5) * sh * 0.07);
     camera.rotation.set(G.me.pitch + (Math.random() - 0.5) * sh * 0.02 + pod.rotation.x, G.me.yaw + doorYaw + (Math.random() - 0.5) * sh * 0.02, (Math.random() - 0.5) * sh * 0.03 + pod.rotation.z, 'YXZ');
-    if (t > 29 + 10) {
-      // you step out; the pod and its pad stay where they landed, door blown open
-      for (const o of objs) scene.remove(o); pod.remove(cabin); for (const s of streaks) pod.remove(s); for (const o of shell) o.visible = true; pod.userData.door.rotation.x = -1.55; pod.rotation.set(0, doorYaw, 0); W.group.add(pod); W.group.add(pad);
-      W.group.visible = true; scene.background = bg0; scene.fog = fog0; G.cineFog = false; heat.remove(); hud.remove(); document.body.classList.remove('pov'); A.rumble(0); if (MU && MU.endScore) MU.endScore();
-      const w = pod.localToWorld(V(0, 0, -3.6)); done({ marines: crew.filter(c => !c.cmd).length, x: w.x, z: w.z, yaw: G.me.yaw + doorYaw }); return;
-    }
     requestAnimationFrame(step);
   };
   requestAnimationFrame(step);

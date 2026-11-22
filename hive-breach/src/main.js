@@ -677,8 +677,9 @@ function playDropIntro() {
   const S0 = state(), squad = (S0 && S0.P.length ? S0.P : [{ cls: G.cls }]).map(p => ({ cls: p.cls, color: CLASSES[p.cls].color }));
   dropIntro(H, squad, r => {
     G.cine = false; document.body.classList.remove('cine'); canvas.requestPointerLock();
-    if (r.x !== undefined) { G.me.x = r.x; G.me.z = r.z; G.me.y = G.W.top(r.x, r.z); G.me.vy = 0; G.me.yaw = r.yaw; G.me.pitch = 0; }
-    if (G.sim) { G.sim.timer = 5; const P = G.W.path; for (let i = 0; i < (r.marines || 0); i++) { const s = P.len - 40 - i * 2, q = P.at(s), lat = (i - 1) * 1.6, A = ALLIES.trooper; G.sim.allies.push({ id: G.sim.nid++, type: 'trooper', s, lat, x: q.x - q.tz * lat, y: P.y(s), z: q.z + q.tx * lat, hp: A.hp, mhp: A.hp, ry: Math.atan2(q.tx, q.tz), cd: 0, tg: 0 }); } }
+    if (r.x !== undefined) { const my0 = mine(state()); if (my0) G.me.sp = my0.sp; G.me.x = r.x; G.me.z = r.z; G.me.y = G.W.top(r.x, r.z); G.me.vy = 0; G.me.yaw = r.yaw; G.me.pitch = 0; }
+    // the marine from the pod becomes a real reinforcement as he steps out of the door
+    if (G.sim) { G.sim.timer = 5; const P = G.W.path, sim = G.sim; setTimeout(() => { for (let i = 0; i < (r.marines || 0); i++) { const x = r.ax ?? P.at(P.len - 40).x, z = r.az ?? P.at(P.len - 40).z, s = P.near(x, z).s, q = P.at(s), A = ALLIES.trooper; sim.allies.push({ id: sim.nid++, type: 'trooper', s, lat: 0, x, y: G.W.top(x, z), z, hp: A.hp, mhp: A.hp, ry: Math.atan2(q.tx, q.tz), cd: 0, tg: 0 }); } }, (r.allyDelay || 0) * 1000); }
   });
 }
 function nextOf(map, diff) { if (diff < 2) return { map, diff: diff + 1 }; return { map: PLANET_ORDER[(PLANET_ORDER.indexOf(map) + 1) % PLANET_ORDER.length], diff: 0, planet: 1 }; }

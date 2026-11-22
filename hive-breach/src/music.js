@@ -96,9 +96,9 @@ export class Music {
     if (big === 'major') { const nx = this.next; this.next = t; for (const i of [0, 4, 7]) this.voice(this.choirBus, midi(root + 24 + i), 5, 0.08, 3); this.next = nx; }   // voice() starts at this.next
   }
   synth(t, f, dur, v) { // a growling saw bass with a filter that bites and closes
-    const c = this.a.ctx, g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 6; lp.frequency.setValueAtTime(180, t); lp.frequency.exponentialRampToValueAtTime(1500, t + 0.02); lp.frequency.exponentialRampToValueAtTime(220, t + dur); lp.connect(g); g.connect(this.L.synth);
+    const c = this.a.ctx, g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1.2; lp.frequency.value = 420;   // a steady dark growl: no filter sweep (a sweep on every note sounds like a laser) lp.connect(g); g.connect(this.L.synth);
     for (const [ty, m, d] of [['sawtooth', 1, -8], ['sawtooth', 1, 8], ['square', 0.5, 0]]) { const o = c.createOscillator(); o.type = ty; o.frequency.value = f * m; o.detune.value = d; o.connect(lp); o.start(t); o.stop(t + dur + 0.1); }
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.07 * v, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.05);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.06 * v, t + 0.02); g.gain.setValueAtTime(0.06 * v, t + dur * 0.7); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.06);
   }
   playDrop(step, t) {
     const ft = t - this.sc0, s = step & 15, bar = (step >> 4) & 3, sx = 60 / this.bpm / 4;
@@ -110,7 +110,6 @@ export class Music {
       const k = ft / 7; if (s === 0 || s === 3) this.taiko(t, s === 0 ? 0.7 : 0.45, 0.7);
       if (s % 2 === 0) this.synth(t, midi(26), sx * 1.6, 0.35 + k * 0.6);
       if (s === 0 && bar % 2 === 0) { for (const i of [0, 3, 7]) this.voice(this.choirBus, midi(50 + i), sx * 32, 0.05, 2); this.strings(t, midi(62), sx * 32); this.strings(t, midi(65), sx * 32); }
-      if (ft > 4.5) this.spicc(t, midi(74 + (s % 2) * 12), sx * 0.8);
       return;
     }
     if (ft > 30.3) { // after the door: heroic D major, then it settles toward the game's own music
@@ -122,7 +121,7 @@ export class Music {
     if (DDRUM[s]) this.taiko(t, DDRUM[s] * (burn ? 1.15 : 1));
     if (burn && s % 4 === 2) this.taiko(t, 0.45, 1.7);
     if (hard && s % 2 === 1) this.taiko(t, 0.3, 2.2);
-    this.spicc(t, midi(root + 24 + (s % 4 === 0 ? 0 : s % 4 === 2 ? 12 : 7)), sx * 0.8);
+    if (s % 4 === 0) this.strings(t, midi(root + 24), sx * 3.5);   // a low string pulse instead of a plinking arpeggio
     for (const [st, iv, l] of DTHEME[bar]) if (st === s) { this.brass(t, midi(62 + iv - 12), sx * l); this.brass(t, midi(62 + iv - 24), sx * l, 0.7); if (burn) this.brass(t, midi(62 + iv), sx * l, 0.5); }
     if (s === 0) { this.timpani(t, midi(root), 0.9); for (const i of [0, q[1], 7]) this.voice(this.choirBus, midi(root + 24 + i + (burn ? 12 : 0)), sx * 16, 0.06, 2); this.strings(t, midi(root + 12), sx * 16); this.strings(t, midi(root + 19), sx * 16); }
   }

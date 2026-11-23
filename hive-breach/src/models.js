@@ -65,6 +65,7 @@ export function marine(color, cls) {
 }
 // a combat synth: a chrome robot soldier with a skull-like head and red eyes, carrying a flamethrower or a pulse rifle
 export function synth(weapon) {
+  { const mg = AS.marineGLB(weapon === 'flame' ? 'engineer' : 'assault', 'r_synth'); if (mg) return mg; }   // the Meshy chrome combat synth
   const g = new THREE.Group(), chrome = mat(0xb8c0c8, { m: 0.9, r: 0.25 }), dark = mat(0x2a2e34, { m: 0.6, r: 0.4 }), eye = mat(0xff2010, { e: 0xff1000, ei: 3 });
   const legL = new THREE.Group(), legR = new THREE.Group(); legL.position.set(-0.2, 1.0, 0); legR.position.set(0.2, 1.0, 0); g.add(legL, legR);
   for (const L of [legL, legR]) { C(L, 0.07, 0.07, 0.5, chrome, 0, -0.25, 0); S(L, 0.09, dark, 0, -0.52, 0); C(L, 0.06, 0.06, 0.45, chrome, 0, -0.76, 0); B(L, 0.18, 0.08, 0.34, dark, 0, -0.98, -0.05); }
@@ -79,6 +80,7 @@ export function synth(weapon) {
 }
 // the war mech: a big two-legged walker with a minigun on its left arm and a rocket pod on its right
 export function warMech() {
+  { const mg = AS.mechGLB(); if (mg) return mg; }
   const g = new THREE.Group(), hull = mat(0x5a6670, { m: 0.6, r: 0.45 }), dark = mat(0x23282e, { m: 0.5, r: 0.5 }), stripe = mat(0xd09030), glow = mat(0x60e0ff, { e: 0x30a0ff, ei: 2.5 });
   const legL = new THREE.Group(), legR = new THREE.Group(); legL.position.set(-0.75, 2.3, 0); legR.position.set(0.75, 2.3, 0); g.add(legL, legR);
   for (const L of [legL, legR]) { B(L, 0.55, 1.2, 0.7, hull, 0, -0.55, 0.1); S(L, 0.3, dark, 0, -1.2, 0.15); const sh = B(L, 0.45, 1.1, 0.5, hull, 0, -1.7, -0.05); sh.rotation.x = 0.2; B(L, 0.8, 0.25, 1.2, dark, 0, -2.22, -0.1); }
@@ -93,7 +95,7 @@ export function warMech() {
 }
 export function kneel(m, k) { if (m.userData.glb) { if (k === 2) { AS.setPose(m, 'sit', 0); m.userData.mixer.update(0.01); m.userData.sit = 1; if (m.userData.gun) m.userData.gun.visible = false; } return; } m.rotation.x = 0; if (k === 2) { const u = m.userData; u.kn = 0; m.rotation.x = 0; m.children.forEach(c => { c.userData.y0 ??= c.position.y; }); m.rotation.order = 'YXZ'; m.rotation.x = -1.45; m.position.y += 0.35; return; }
    const u = m.userData; u.kn = (u.kn || 0) + ((k ? 1 : 0) - (u.kn || 0)) * 0.2; u.legL.rotation.x = u.kn ? -1.3 * u.kn : u.legL.rotation.x; u.legR.rotation.x = u.kn ? 0.2 * u.kn : u.legR.rotation.x; m.children.forEach(c => { if (c !== u.legL && c !== u.legR) c.position.y = (c.userData.y0 ??= c.position.y) - u.kn * 0.5; }); }
-export function animMarine(m, t, sp, opt) { if (m.userData.glb) { if (!m.userData.sit) { if (m.userData.gun) m.userData.gun.visible = true; AS.animGLB(m, sp, opt); } else { const u = m.userData, now = performance.now(); u.mixer.update(Math.min(0.1, (now - (u.lt || now)) / 1000)); u.lt = now; } return; } const u = m.userData, a = Math.sin(t) * Math.min(1, sp / 4) * 0.8; u.legL.rotation.x = a; u.legR.rotation.x = -a; }
+export function animMarine(m, t, sp, opt) { if (m.userData.glbMech) { const b = m.userData.body; b.position.y = Math.abs(Math.sin(t * 0.8)) * 0.18 * Math.min(1, sp / 2); b.rotation.z = Math.sin(t * 0.8) * 0.04 * Math.min(1, sp / 2); return; } if (m.userData.glb) { if (!m.userData.sit) { if (m.userData.gun) m.userData.gun.visible = true; AS.animGLB(m, sp, opt); } else { const u = m.userData, now = performance.now(); u.mixer.update(Math.min(0.1, (now - (u.lt || now)) / 1000)); u.lt = now; } return; } const u = m.userData, a = Math.sin(t) * Math.min(1, sp / 4) * 0.8; u.legL.rotation.x = a; u.legR.rotation.x = -a; }
 
 // ---------------------------------------------------------------- aliens
 // ---------------------------------------------------------------- the Kharn: an armored alien war-species
@@ -406,7 +408,7 @@ export function rover(rnd) {
   B(r, 3.2, 1.0, 2.0, body, 0, 0.9, 0); B(r, 1.2, 0.8, 1.8, 0x4a6a8a, -0.9, 1.7, 0, { op: 0.7, m: 0.6 }); for (const x of [-1.2, 0, 1.2]) for (const z of [-1.15, 1.15]) C(r, 0.45, 0.45, 0.35, dark, x, 0.45, z).rotation.x = Math.PI / 2;
   C(r, 0.04, 0.04, 1.8, 0x888888, 1.2, 2.2, 0.6); S(r, 0.1, 0xff3020, 1.2, 3.1, 0.6, 1, 1, 1, { e: 0xff1000, ei: 2 }); B(r, 1.0, 0.05, 0.8, 0x1a3a7a, 0.6, 1.45, 0, { e: 0x081830 }); return g;
 }
-export function debris(rnd) {
+export function debris(rnd) { { const mg = AS.propGLB('debris', rnd); if (mg) return mg; }
   const g = new THREE.Group(); for (let i = 0; i < 10; i++) { const k = rnd(); const d = k < 0.5 ? B(g, 0.4 + rnd() * 1.6, 0.08, 0.3 + rnd() * 1.2, k < 0.25 ? 0x6a727a : 0x3a3430, (rnd() - 0.5) * 8, 0.1, (rnd() - 0.5) * 8) : C(g, 0.08, 0.08, 1 + rnd() * 2.5, 0x5a5a5a, (rnd() - 0.5) * 8, 0.3, (rnd() - 0.5) * 8); d.rotation.set(rnd() * 3, rnd() * 6, rnd() * 3); } return g;
 }
 export function terminal() { { const mg = AS.propGLB('terminal'); if (mg) return mg; }
@@ -414,7 +416,7 @@ export function terminal() { { const mg = AS.propGLB('terminal'); if (mg) return
   return g;
 }
 export function spire(rnd, color) { { const mg = AS.propGLB('spireHive', rnd); if (mg) return mg; } const g = new THREE.Group(); const h = 8 + rnd() * 9; const m = new THREE.Mesh(new THREE.ConeGeometry(1.6 + rnd(), h, 7), mat(color, { flat: false, r: 1 })); m.position.y = h / 2 - 0.5; m.rotation.set((rnd() - 0.5) * 0.2, rnd() * 6, (rnd() - 0.5) * 0.2); m.castShadow = true; g.add(m); return g; }
-export function dropship() { const g = new THREE.Group(), hull = mat(0x5a6670, { m: 0.5, r: 0.5 }); B(g, 3, 2.2, 9, hull, 0, 0, 0); B(g, 2.4, 1.2, 2.5, 0x80c0e0, 0, 0.9, -3.8, { op: 0.7, m: 0.8 }); for (const sd of [-1, 1]) { B(g, 4, 0.3, 3, hull, sd * 3.2, 0.2, 1); C(g, 0.8, 0.9, 2.2, 0x2a2e34, sd * 4.8, 0, 1).rotation.x = Math.PI / 2; S(g, 0.6, 0x80c0ff, sd * 4.8, 0, 2.2, 1, 1, 1, { e: 0x4080ff, ei: 2 }); } B(g, 3.2, 0.3, 1.5, 0xd09030, 0, 1.2, 2); return g; }
+export function dropship() { { const mg = AS.craftGLB('v_dropship', 14, Math.PI / 2); if (mg) return mg; } const g = new THREE.Group(), hull = mat(0x5a6670, { m: 0.5, r: 0.5 }); B(g, 3, 2.2, 9, hull, 0, 0, 0); B(g, 2.4, 1.2, 2.5, 0x80c0e0, 0, 0.9, -3.8, { op: 0.7, m: 0.8 }); for (const sd of [-1, 1]) { B(g, 4, 0.3, 3, hull, sd * 3.2, 0.2, 1); C(g, 0.8, 0.9, 2.2, 0x2a2e34, sd * 4.8, 0, 1).rotation.x = Math.PI / 2; S(g, 0.6, 0x80c0ff, sd * 4.8, 0, 2.2, 1, 1, 1, { e: 0x4080ff, ei: 2 }); } B(g, 3.2, 0.3, 1.5, 0xd09030, 0, 1.2, 2); return g; }
 export function jet() { const g = new THREE.Group(), hull = mat(0x4a525a, { m: 0.6, r: 0.4 }); B(g, 1.4, 1.0, 8, hull, 0, 0, 0); const n = new THREE.Mesh(new THREE.ConeGeometry(0.7, 2.5, 8), hull); n.rotation.x = -Math.PI / 2; n.position.z = -5.2; g.add(n); B(g, 9, 0.2, 2.5, hull, 0, 0, 1); B(g, 0.2, 2, 1.6, hull, 0, 1, 3.4); S(g, 0.5, 0xffa040, 0, 0, 4.2, 1, 1, 1, { e: 0xff6000, ei: 2 }); return g; }
 export function drone() { // a gunship drone: armoured body, four ducted rotors, a chin gun, and bright running lights
   const g = new THREE.Group(), hull = mat(0x4a545e, { m: 0.6, r: 0.4 }); B(g, 1.6, 0.5, 2.2, hull, 0, 0, 0); B(g, 1.2, 0.35, 1.0, 0x2a3036, 0, 0.35, 0.2); B(g, 0.9, 0.3, 0.5, mat(0x80c8e8, { op: 0.7, m: 0.8 }), 0, 0.15, -1.1);
@@ -447,7 +449,7 @@ export function mech(rnd) { { const mg = AS.propGLB('mech', rnd); if (mg) return
   const g = new THREE.Group(), m = mat(0x5a646e, { m: 0.5 }), dark = mat(0x2a2e34), r = new THREE.Group(); r.rotation.set(rnd() * 0.3, rnd() * 6, Math.PI / 2 * (rnd() < 0.6 ? 1 : 0.2)); r.position.y = 1.2; g.add(r);
   B(r, 2.2, 1.8, 1.8, m, 0, 2.2, 0); B(r, 1.4, 0.6, 0.4, 0x80c0e0, 0, 2.5, -0.9, { op: 0.7 }); for (const sd of [-1, 1]) { B(r, 0.6, 2.2, 0.7, dark, sd * 0.8, 0.6, 0); B(r, 0.9, 0.4, 1.3, dark, sd * 0.8, -0.5, -0.2); C(r, 0.25, 0.25, 1.6, 0x2a2a2a, sd * 1.5, 2.3, -0.8).rotation.x = Math.PI / 2; } return g;
 }
-export function sandbags(rnd) { const g = new THREE.Group(), m = mat(0x8a7a5a, { r: 1 }), n = 6 + (rnd() * 6 | 0), arc = 0.8 + rnd(); for (let row = 0; row < 3; row++) for (let i = 0; i < n - row; i++) { const a = (i + row * 0.5) / n * arc - arc / 2; const sb = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.5, 2, 6), m); sb.rotation.z = Math.PI / 2; sb.rotation.y = -a; sb.position.set(Math.sin(a) * 4, 0.22 + row * 0.38, -Math.cos(a) * 4 + 4); sb.castShadow = true; g.add(sb); } return g; }
+export function sandbags(rnd) { { const mg = AS.bagsGLB(); if (mg) return mg; } const g = new THREE.Group(), m = mat(0x8a7a5a, { r: 1 }), n = 6 + (rnd() * 6 | 0), arc = 0.8 + rnd(); for (let row = 0; row < 3; row++) for (let i = 0; i < n - row; i++) { const a = (i + row * 0.5) / n * arc - arc / 2; const sb = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.5, 2, 6), m); sb.rotation.z = Math.PI / 2; sb.rotation.y = -a; sb.position.set(Math.sin(a) * 4, 0.22 + row * 0.38, -Math.cos(a) * 4 + 4); sb.castShadow = true; g.add(sb); } return g; }
 export function tankTrap() { const g = new THREE.Group(), m = mat(0x3a3a3a, { m: 0.6 }); for (const [x, y, z] of [[0.8, 0, 0], [0, 0.8, 0], [0, 0, 0.8]]) { const b = B(g, 0.22, 2.2, 0.22, m, 0, 0.9, 0); b.rotation.set(x, y, z); } return g; }
 export function deadTurret(rnd) { { const mg = AS.propGLB('deadTurret', rnd); if (mg) return mg; } const g = new THREE.Group(), m = mat(0x3e464e), burnt = mat(0x22201e); C(g, 0.9, 1.1, 0.4, m, 0, 0.2, 0); C(g, 0.35, 0.45, 0.9, burnt, 0, 0.8, 0); const h = B(g, 0.8, 0.55, 0.9, burnt, 0.6, 0.35, 0.8); h.rotation.set(0.4, rnd() * 3, 1.0); C(g, 0.05, 0.05, 1.1, 0x222222, 1.2, 0.1, 1.4).rotation.set(1.4, 0, 0.3); return g; }
 export function burntCrate(rnd) { { const mg = AS.propGLB('burntCrate', rnd); if (mg) return mg; } const g = new THREE.Group(); for (let i = 0; i < 1 + (rnd() * 3 | 0); i++) { const c = B(g, 1.2, 1.0, 1.0, rnd() < 0.5 ? 0x2a2622 : 0x4a5a3a, (rnd() - 0.5) * 2.5, 0.5, (rnd() - 0.5) * 2.5); c.rotation.set(0, rnd() * 3, rnd() < 0.3 ? 1.2 : 0); } return g; }

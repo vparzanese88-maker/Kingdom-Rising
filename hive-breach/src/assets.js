@@ -78,15 +78,15 @@ function clips() {
   return CLIPS;
 }
 const H = {};   // height of each marine file, measured once
-export function marineGLB(cls) {
-  const n = 'marine_' + cls, src = A[n] || A.marine_assault; if (!src || !clips()) return null;
+export function marineGLB(cls, from) {
+  const n = from || 'marine_' + cls, src = A[n] || (from ? null : A.marine_assault); if (!src || !clips()) return null;
   const root = SU.clone(src.scene), g = new THREE.Group(), holder = new THREE.Group(); holder.rotation.y = Math.PI; holder.add(root); g.add(holder); fixBounds(root);
   if (!H[n]) { const b = new THREE.Box3().setFromObject(src.scene); H[n] = b.max.y - b.min.y || 1.85; }
   holder.scale.setScalar(2.1 / H[n]);
   const mixer = new THREE.AnimationMixer(root), act = {};
   for (const [k, c] of Object.entries(CLIPS)) { const a = mixer.clipAction(c); if (k === 'die' || k === 'throw' || k === 'reload' || k === 'hit') { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } act[k] = a; }
   const rh = root.getObjectByName('RightHand'), lh = root.getObjectByName('LeftHand');
-  const gun = weapon(cls); if (gun) g.add(gun);
+  const gun = weapon(WEAP[cls] ? cls : 'assault'); if (gun) g.add(gun);
   g.userData = { legL: new THREE.Object3D(), legR: new THREE.Object3D(), arms: new THREE.Group(), glb: true, mixer, act, cur: null, rh, lh, gun, root, cls };
   setPose(g, 'idle'); mixer.update(0.01); aimGun(g);
   return g;
@@ -150,7 +150,7 @@ export function structGLB(kind, g, head) {
 export let mapId = 'mars';
 export const setMap = m => { mapId = m; };
 const PROP = {
-  satellite: [['l_satellite'], 'w', 6], capsule: [['l_capsule'], 'w', 4.5], wreck: [['l_shipwreck'], 'w', 12], tank: [['l_tank'], 'w', 7.5], mech: [['l_mech'], 'w', 7], deadTurret: [['l_deadturret'], 'h', 2.4],
+  satellite: [['l_satellite'], 'w', 6], capsule: [['l_capsule'], 'w', 4.5], wreck: [['l_debris'], 'w', 17], debris: [['l_crashship'], 'w', 6], tank: [['l_tank'], 'w', 7.5], mech: [['l_mech'], 'w', 7], deadTurret: [['l_deadturret'], 'h', 2.4],
   crate: [['l_crates'], 'w', 2.8], burntCrate: [['l_crates'], 'w', 2.6], terminal: [['l_terminal'], 'h', 1.7], spireHive: [['l_hive_spire'], 'h', 13],
   rock: [['l_rock_mars1', 'l_rock_mars2'], 'w', 5], ice: [['l_rock_ice2'], 'h', 4.5], spire: [['l_rock_ice2'], 'h', 9], tree: [['l_tree_jungle'], 'h', 8.5], shroom: [['l_plant_jungle1'], 'h', 5],
   boulder: [null, 'w', 4.5],
@@ -208,7 +208,7 @@ export function fpArms(cls, gun, mode = 'two') {
 // Each one is sized to match the simple model it replaces (same length and the same height off the ground), so hit boxes still fit.
 export const ALIEN_GLB = { crawler: 'a_crawler', spitter: 'a_spitter', brute: 'a_brute', ravager: 'a_ravager', queen: 'a_queen', royal: 'a_royal', broodqueen: 'a_broodqueen', flyer: 'a_flyer' };
 export const ALIEN_FILES = Object.values(ALIEN_GLB);
-export const SCENE_FILES = ['p_station', 'p_droppod', 'p_seat', 'h_reactor', 'h_wall'];
+export const SCENE_FILES = ['p_station', 'p_droppod', 'p_seat', 'h_reactor', 'h_wall', 'r_synth', 'r_mech', 'v_dropship', 's_scrap', 'l_sandbags', 'v_vtol', 'v_rover'];
 const BIG = new Set(['brute', 'ravager', 'queen', 'broodqueen']);
 const ACLIP = { run: /run/i, walk: /walk/i, pounce: /pounce/i, roar: /roar/i, idle: /idle/i, die: /death/i }, HEAVY = new Set(['brute', 'ravager', 'queen']);
 export function alienGLB(type, ref) {
@@ -266,3 +266,15 @@ export function wallPiece(len, h, d) {
   const b = src.userData.box, s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3()), o = new THREE.Group(), inner = src.scene.clone(true); o.add(inner);
   inner.scale.set(len / s.x, h / s.y, d / s.z); inner.position.set(-c.x * len / s.x, -b.min.y * h / s.y, -c.z * d / s.z); return o;
 }
+
+// ---- the War Mech: a big Meshy walker; it bobs and sways as it strides (its minigun arm and rocket pod are part of the model)
+export function mechGLB() {
+  const o = fit('r_mech', 'h', 5.2, false); if (!A.r_mech) return null; o.traverse(q => { if (q.isMesh) { q.material = q.material.clone(); q.material.transparent = false; q.material.opacity = 1; q.material.depthWrite = true; q.castShadow = true; } });
+  const g = new THREE.Group(), body = new THREE.Group(); body.add(o); o.rotation.y = Math.PI; g.add(body); g.userData = { legL: new THREE.Object3D(), legR: new THREE.Object3D(), arms: new THREE.Group(), mech: 1, glbMech: true, body }; return g;
+}
+// ---- vehicles: flying Meshy craft, turned to face +z (the way the game points them at their target)
+export function craftGLB(name, len, ry = 0) { if (!A[name]) return null; const o = fit(name, 'w', len, true), g = new THREE.Group(); o.rotation.y = ry; g.add(o); g.userData = { rotors: [] }; return g; }
+// ---- the map's sandbag walls: a round Meshy sandbag bunker lying on the ground
+export function bagsGLB() { if (!A.l_sandbags) return null; const src = A.l_sandbags.scene.clone(true), o = new THREE.Group(), w = new THREE.Group(); w.add(src); src.rotation.x = -Math.PI / 2; o.add(w); w.updateMatrixWorld(true); let b = new THREE.Box3().setFromObject(w); const s = b.getSize(new THREE.Vector3()), k = 5 / Math.max(s.x, s.z); w.scale.setScalar(k); w.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(w); const c = b.getCenter(new THREE.Vector3()); w.position.set(-c.x, -b.min.y - 0.1, -c.z); return o; }
+// ---- a scrap pile
+export function scrapGLB() { return A.s_scrap ? fit('s_scrap', 'w', 1.5, true) : null; }

@@ -54,7 +54,7 @@ const SET = { quality: 'medium', fov: 75, fps: false, invert: false, zoomSens: 1
 function saveSettings() { try { localStorage.setItem('hb-set', JSON.stringify(SET)); localStorage.setItem('hb-keys5', JSON.stringify(KB)); } catch (e) { } }
 function applyQuality() { const q = SET.quality; renderer.setPixelRatio(Math.min(q === 'low' ? 0.75 : q === 'high' ? 1.75 : 1.25, devicePixelRatio)); resize(); if (G.W) G.W.sun.castShadow = q !== 'low'; G.maxParts = q === 'low' ? 120 : q === 'high' ? 320 : 220; }
 const G = { pings: [], on: false, mode: 'solo', myId: 'me', name: 'Marine', cls: 'assault', map: 'mars', W: null, sim: null, net: null, snap: null, out: [], time: 0, shop: false, me: null };
-window.G = G; G.M = M; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
+window.G = G; G.M = M; G.veh = { vtol: vtolModel, rover: roverModel }; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } };
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
@@ -375,6 +375,7 @@ function scrapMesh() {
       metal: M.mat(0xd8dce2, { m: 0.5, r: 0.25, e: 0x704010, ei: 0.9 }), rust: M.mat(0xc06a30, { m: 0.3, r: 0.6, e: 0x803010, ei: 0.9 }), glow: new THREE.MeshBasicMaterial({ color: 0xffa030, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }), disc: new THREE.CircleGeometry(1.1, 24), ringM: new THREE.MeshBasicMaterial({ color: 0xff9020, opacity: 0.75, side: THREE.DoubleSide, ...add }), shaftM: new THREE.MeshBasicMaterial({ color: 0xffa040, opacity: 0.35, side: THREE.DoubleSide, ...add }) }; }
   const K = scrapK, g = new THREE.Group(), m = (geo, mat, x, y, z, rx, ry, rz) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); g.add(o); return o; };
   // a bundle of salvage floating a little off the ground, turning slowly, like a pickup in an arena shooter
+  { const sg = M.AS.scrapGLB(); if (sg) { const piv = new THREE.Group(); piv.add(sg); g.add(piv); const gl = new THREE.Mesh(K.disc, K.glow); gl.rotation.x = -Math.PI / 2; gl.position.y = 0.08; g.add(gl); sg.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xffa040); o.material.emissiveMap = o.material.map; o.material.emissiveIntensity = 0.55; } }); g.userData = { piv, gl }; return g; } }   // the Meshy scrap pile, lit warm from within
   m(K.plate, K.metal, 0, -0.18, 0, 0.1, 0.3, 0.15); m(K.plate, K.rust, 0.15, 0, 0.05, -0.25, 1.4, 0.2); m(K.pipe, K.metal, -0.2, 0, 0.1, 0.2, 0, 1.3); m(K.gear, K.rust, 0.15, 0.2, -0.15, 0.6, 0, 0.3);
   const piv = new THREE.Group(); for (const c of [...g.children]) piv.add(c); piv.scale.setScalar(1.05); g.add(piv); const gl = new THREE.Mesh(K.disc, K.glow); gl.rotation.x = -Math.PI / 2; gl.position.y = 0.08; g.add(gl); g.userData = { piv, gl }; return g;   /* lit from within, a soft glow on the ground under it */
 }

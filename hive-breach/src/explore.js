@@ -8,6 +8,7 @@ import { rng } from './world.js';
 const B = M.B, C = M.C, S = M.S, mat = M.mat;
 // ---------------------------------------------------------------- vehicles and ships
 export function vtol() {
+  { const mg = M.AS.craftGLB('v_vtol', 13, -Math.PI / 2); if (mg) return mg; }   // the Meshy tilt-rotor gunship (nose forward along -z, like the old one)
   const g = new THREE.Group(), hull = mat(0x4e5a64, { m: 0.5, r: 0.5 }), dark = mat(0x2a3036), glass = mat(0x80c8e8, { op: 0.6, m: 0.8, r: 0.1 }), stripe = mat(0xd09030);
   B(g, 2.6, 2.2, 8, hull, 0, 0, 0); B(g, 2.2, 1.4, 2.6, glass, 0, 0.6, -3.6); B(g, 2.0, 1.0, 1.4, dark, 0, -0.2, -4.6); B(g, 0.8, 1.6, 4.4, hull, 0, 0.6, 5.4); B(g, 4.4, 0.2, 1.4, hull, 0, 1.2, 7.2); B(g, 0.2, 2, 1.4, hull, 0, 2, 7.2);
   B(g, 2.62, 0.3, 3, stripe, 0, 0.9, 0.5); C(g, 0.12, 0.12, 1.6, dark, 0, -1.2, -4.4).rotation.x = Math.PI / 2;
@@ -18,6 +19,7 @@ export function vtol() {
   g.userData.rotors = rotors; return g;
 }
 export function rover() {
+  { const o = M.AS.fitGLB('v_rover', 'w', 6, false); if (o) { const mg = new THREE.Group(); o.rotation.y = -Math.PI / 2; mg.add(o); const tur = new THREE.Group(), gun = new THREE.Group(); tur.add(gun); mg.add(tur); mg.userData = { tur, gun, wheels: [] }; return mg; } }   // the Meshy armoured rover
   const g = new THREE.Group(), hull = mat(0x5a6448, { m: 0.3, r: 0.7 }), dark = mat(0x22262a), wheel = mat(0x1a1a1a);
   B(g, 2.8, 1.1, 5.2, hull, 0, 1.2, 0); B(g, 2.4, 0.9, 1.8, mat(0x80c0e0, { op: 0.6, m: 0.7 }), 0, 1.9, -1.2); B(g, 2.9, 0.3, 5.4, dark, 0, 0.7, 0);
   const wheels = []; for (const z of [-1.8, 0, 1.8]) for (const sd of [-1, 1]) { const w = C(g, 0.6, 0.6, 0.45, wheel, sd * 1.6, 0.6, z); w.rotation.z = Math.PI / 2; wheels.push(w); }

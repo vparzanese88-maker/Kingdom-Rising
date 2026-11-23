@@ -461,7 +461,6 @@ export function dropIntro(H, squad, done) {
     // the pod's wall: a ring of small posts you can't walk through, open where the door was (straight ahead of your seat)
     pod.updateMatrixWorld(true); for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, rel = Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2)); if (Math.abs(rel) < 0.55) continue; const p = pod.localToWorld(V(Math.cos(a) * 1.95, 0, Math.sin(a) * 1.95)); W.colliders.push({ x: p.x, z: p.z, r: 0.42, h: 4.5, gy: padY }); }
     W.group.visible = true; scene.background = bg0; scene.fog = fog0; G.cineFog = false; heat.remove(); hud.remove(); document.body.classList.remove('pov'); A.rumble(0); if (A.roar) A.roar(0); if (MU && MU.endScore) MU.endScore();
-    cap('', 'Vance: Marines, move out! Get to that hive! I\'ll run things from the hub.');
     const me = pod.localToWorld(V(Math.cos(myA) * 0.75, 0, Math.sin(myA) * 0.75)), door = pod.localToWorld(V(0, 0, -3.4));
     done({ marines: crew.filter(c => !c.cmd).length, x: me.x, z: me.z, yaw: G.me.yaw + doorYaw, ax: door.x, az: door.z, allyDelay: 2.2 });
   };
@@ -474,7 +473,6 @@ export function dropIntro(H, squad, done) {
     if (t < 0) { // the opening shot: Station Olympus in high orbit, the drop pods hanging in its bay, then down to yours
       once('o1', () => { cap('STATION OLYMPUS', `High orbit over ${PN} · 7th Orbital Drop Wing`); for (const o of shell) o.visible = true; cabin.traverse(o => { if (!o.isLight && o !== cabin && o.isMesh && o.visible) { o.visible = false; (cabin.userData.hid = cabin.userData.hid || []).push(o); } }); hud.style.display = 'none';   /* hide the cabin's meshes but keep its lights on: a light count change rebuilds every shader */ document.body.classList.remove('pov'); });   /* letterboxed, like a film, until you're in your seat */
       if (t > -11.6) once('o2', () => cap('', 'General Hale: Drop teams, this is Olympus. The swarm holds the planet. Go down there and take it back.'));   /* 7.9 s: done before Vance speaks */
-      if (t > -2.6) once('o3', () => cap('', 'Commander Vance: Strap in, marines. We drop in thirty.'));
       if (t > -0.6) once('o4', () => H.fade(true));
       const sp = st.position, pp = pod.position; let cp, cl;
       if (t < -6) { const f = (t + 12) / 6, a = 0.6 + f * 1.1, r = 230 - f * 50; cp = V(sp.x + Math.cos(a) * r, sp.y + 70 - f * 40, sp.z + Math.sin(a) * r); cl = V(sp.x, sp.y - 10, sp.z); }
@@ -484,23 +482,21 @@ export function dropIntro(H, squad, done) {
     }
     once('o5', () => { for (const o of shell) o.visible = false; for (const o of cabin.userData.hid || []) o.visible = true; cabin.userData.hid = null; hud.style.display = ''; document.body.classList.add('pov'); H.fade(false); });
     if (t < 7) { // docked: alarms, red strobes, the commander's countdown
-      once('a', () => { cap('', `Station Olympus, drop bay 3 · destination ${PN}`); A.sfx('alarm', 0.5); });
+      once('a', () => A.sfx('alarm', 0.5));
       // the countdown is real: "thirty seconds" is said exactly 30 s before the clamps blow (eject at tr = 7 + DOCK)
       const EJ = 7 + DOCK;
       if (tr > EJ - 30) once('b', () => cap('', 'Commander Vance: Listen up! Thirty seconds to drop. Hands off the straps until we\'re down.'));
-      if (tr > EJ - 20) once('b2', () => { cap('DROP BAY 3', 'Bay depressurising · 20 seconds'); A.sfx('alarm', 0.55); });
-      if (tr > EJ - 10) once('b3', () => { cap('DROP BAY 3', 'Pod clamps armed · 10 seconds'); A.sfx('alarm', 0.6); });
-      if (tr > EJ - 5) once('c', () => { cap('', 'Vance: Here we go. Hold on to something!'); A.sfx('alarm', 0.7); });
+      if (tr > EJ - 20) once('b2', () => A.sfx('alarm', 0.55));
+      if (tr > EJ - 10) once('b3', () => A.sfx('alarm', 0.6));
+      if (tr > EJ - 5) once('c', () => A.sfx('alarm', 0.7));
       { const pu = 0.5 + 0.5 * Math.sin(tr * 2.6); red.intensity = 4 + 4 * pu; strobe.emissiveIntensity = 0.6 + 2.6 * pu; }   /* a slow alarm pulse, no hard flashing */ shake = 0.04; if (tr > EJ - 10) shake = 0.08; if (tr > EJ - 5) shake = 0.12;
     } else if (t < 13) { // EJECT: the clamps blow, every pod drops away from the station, thrusters lit
       once('d', () => { cap('', 'EJECT! EJECT! EJECT!'); A.sfx('boom', 0.4); shakeK = 1.5; if (MU && MU.eject) MU.eject(); });
       fl.material.opacity = 0.6; rum = 0.45; ror = 0.3 * cl((t - 7) / 2); shake = 0.25; red.intensity = 3; strobe.emissiveIntensity = 0.6 + 2.6 * (0.5 + 0.5 * Math.sin(t * 2.6));
       if (Math.random() < dt * 4) { const w = pod.localToWorld(V((Math.random() - 0.5) * 8, 6, (Math.random() - 0.5) * 8)); H.burst(w.x, w.y, w.z, 0xfff0c0, 2, 5, 0.4); }
-      if (t > 10.5) once('e', () => cap('', 'Vance: Clean drop. Planet dead ahead. Brace for the burn!'));
     } else if (t < 22) { // atmospheric entry: the planet swells below, the air catches fire, everything shakes
       const f = (t - 13) / 9; space.position.y = L(SY, 1240, f);
-      once('f', () => { cap('', 'Hull temperature critical · atmospheric entry'); A.sfx('alarm', 0.8); });
-      if (t > 17) once('g', () => cap('', 'Vance: Hold together, you old bucket!'));
+      once('f', () => A.sfx('alarm', 0.8));
       pod.rotation.z = Math.sin(t * 31) * 0.025 * f; pod.rotation.x = Math.sin(t * 23) * 0.015 * f; fl.material.opacity = 0; pod.userData.heat.material.opacity = Math.min(0.9, f * 1.3);
       rum = 0.45 + f * 0.55; ror = 0.45 + f * 0.55; shake = 0.3 + f * 1.1; orange.intensity = 2 + f * 10 + Math.random() * 3; heat.style.opacity = (0.12 + f * 0.5 + Math.random() * 0.1).toFixed(2); streakO = cl(f * 1.6) * (0.55 + Math.random() * 0.3); temp = 200 + f * 1500;
       strobe.emissiveIntensity = 0.6 + 2.6 * (0.5 + 0.5 * Math.sin(t * 2.6));
@@ -526,7 +522,7 @@ export function dropIntro(H, squad, done) {
       if (burn && y - padY < 40 && Math.random() < 0.7) H.burst(padX + (Math.random() - 0.5) * 16, padY + 0.3, padZ + (Math.random() - 0.5) * 16, 0xb09878, 2, 6, 1);
     } else { // impact, then the door blows off and the squad pours out
       const u = t - 29;
-      once('i', () => { fl.material.opacity = 0; A.sfx('boom', 0.45); H.boomFx(padX, padY + 0.5, padZ, 5, 1); shakeK = 2.8; red.intensity = 0; blue.intensity = 0; strobe.emissiveIntensity = 0; for (let k = 0; k < 30; k++) H.burst(padX + (Math.random() - 0.5) * 12, padY + 0.3, padZ + (Math.random() - 0.5) * 12, 0xb09878, 2, 5, 1.2); cap('', 'Vance: We\'re down! Door! Door!'); if (MU && MU.land) MU.land();   /* touchdown: guitars */ for (const c of clouds) scene.remove(c); clouds.length = 0; scene.fog = fog0; scene.background = bg0; G.cineFog = false; });
+      once('i', () => { fl.material.opacity = 0; A.sfx('boom', 0.45); H.boomFx(padX, padY + 0.5, padZ, 5, 1); shakeK = 2.8; red.intensity = 0; blue.intensity = 0; strobe.emissiveIntensity = 0; for (let k = 0; k < 30; k++) H.burst(padX + (Math.random() - 0.5) * 12, padY + 0.3, padZ + (Math.random() - 0.5) * 12, 0xb09878, 2, 5, 1.2); 0; if (MU && MU.land) MU.land();   /* touchdown: guitars */ for (const c of clouds) scene.remove(c); clouds.length = 0; scene.fog = fog0; scene.background = bg0; G.cineFog = false; });
       if (u > 1.4) once('j', () => { A.sfx('boom', 0.5); A.sfx('place', 1); flyDoor = 1; hinge.attach(doorG); day.intensity = 8; heat.style.opacity = 0; for (let k = 0; k < 14; k++) { const w = pod.localToWorld(V(0, 1.4, -2.6)); H.burst(w.x, w.y, w.z, 0xd0c0a0, 3, 4, 1); } });
       if (flyDoor) { const k = Math.min(1, (u - 1.4) / 0.55); hinge.rotation.x = -1.48 * k * k + (k >= 1 ? Math.sin(Math.min(1, (u - 1.95) / 0.4) * Math.PI) * 0.06 : 0); }   // the door falls open outward and lands as a ramp
       rum = Math.max(0, 0.3 - u * 0.15); shake = u < 1 ? 0.5 : 0.02;

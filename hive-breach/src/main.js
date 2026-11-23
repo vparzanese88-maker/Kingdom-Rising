@@ -29,6 +29,9 @@ function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.asp
 // switching fullscreen fires a burst of resize events: rebuild the drawing buffers once it settles, not on every one (that froze the page and the sound)
 let resizeT = 0; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 180); }); resize();
 const audio = new Audio(), music = new Music(audio), voice = new Voice(audio); window.hbMusic = music;
+// the comm card: while Hale or Vance talks, a small framed portrait of him shows at the side of the screen; a line about the queen also opens a card with her turning 360°
+voice.onLine = (v, dur) => { const c = $('comm'), gen = v.who === 'General Hale'; $('commImg').src = './assets/portraits/' + (gen ? 'hale' : 'vance') + '.webp'; $('commN').textContent = gen ? 'GEN. HALE · OLYMPUS' : 'CMDR. VANCE · GROUND'; c.className = gen ? 'gen talk' : 'talk'; c.hidden = false; clearTimeout(c._t); c._t = setTimeout(() => { c.hidden = true; }, (dur + 0.6) * 1000);
+  if (/queen/i.test(v.text) && !G.cine) { G.qcardT = dur + 1.5; $('qcard').hidden = false; } };
 voice.onTalk = dur => { music.fade(0.6, 0.15); clearTimeout(voice.duckT); voice.duckT = setTimeout(() => music.fade(1, 0.6), dur * 1000); };   /* the music dips while someone talks in your helmet */
 // one-time sound reset: a saved master volume of zero, music switched off, or a silent effects slider made the whole game silent for good
 try { if (!localStorage.getItem('hb-snd-reset1')) { localStorage.setItem('hb-snd-reset1', '1'); const st = JSON.parse(localStorage.getItem('hb-set') || '{}'); if (!(st.master > 0.05)) { st.master = 1; localStorage.setItem('hb-set', JSON.stringify(st)); } if (!music.on || !(music.vol > 0.05)) { music.on = true; music.vol = Math.max(music.vol || 0, 0.75); music.save(); } if (!(audio.vol > 0.05)) audio.setVol(0.5); } } catch (e) { }
@@ -213,7 +216,7 @@ function fx(e) {
     case 'beam': if (!(e.torch && e.f === G.myId)) { tracer(e.a, e.b, e.c, 0.12, e.torch ? 0.08 : 0.12); if (e.torch) spark(e.b[0], e.b[1], e.b[2], 4, 0xe8f6ff); else burst(e.b[0], e.b[1], e.b[2], e.c, 2, 1.5, 0.3); if (e.f === G.myId && Math.random() < 0.3) audio.sfx(e.torch ? 'torch' : 'heal', 0.4); } break;
     case 'dressed': if (e.to === G.myId) { audio.sfx('heal'); toast('Field dressing: +40 health', 2); } break;
     case 'kit': if (e.to === G.myId) toast(`Turret kit picked up (${e.n}/2)`, 1.5); break;
-    case 'carry': case 'dropped': audio.sfx('place', vol(dist(e.x ?? G.me.x, e.z ?? G.me.z)) * 0.7); break;
+    case 'carry': case 'dropped': audio.sfx('place', vol(dist(e.x ?? G.me.x, e.z ?? G.me.z)) * 0.7); if (e.k === 'dropped' && e.by === G.myId) voice.bark('marine_turret', 15); break;
     case 'stowed': if (e.to === G.myId) toast(`${e.n} back in your pack`, 1.5); break;
     case 'radio': radioSay(e.w, e.m); break;
     case 'dresskit': break;
@@ -237,7 +240,7 @@ function fx(e) {
     case 'upgstart': audio.sfx('place', vol(dist(e.x, e.z))); break;
     case 'built': audio.sfx('buy', vol(dist(e.x, e.z)) * 0.7); burst(e.x, G.W.top(e.x, e.z) + 1, e.z, 0x80c0ff, 12, 3, 0.5); if (e.o === G.myId) toast(`${TURRETS[e.kind].name} is online.`, 2); break;
     case 'drop': break;
-    case 'adie': burst(e.x, e.y + 1, e.z, 0xa02020, 8, 3, 0.6); break;
+    case 'adie': burst(e.x, e.y + 1, e.z, 0xa02020, 8, 3, 0.6); if (dist(e.x, e.z) < 30) voice.bark('marine_mandown', 25); break;
     case 'banner': banner(e.a, e.b); audio.sfx('wave'); break;
     case 'assault': banner('FINAL ASSAULT', 'Go into the cave and kill the Brood Queen'); audio.sfx('alarm'); toast('Wave 20 survived! No more waves: push to the hive and destroy it.', 8); break;
     case 'win': audio.sfx('win'); record(e.el); unlockAfterWin(G.map, G.diff || 0); setTimeout(startFob, 900); break;
@@ -674,7 +677,7 @@ function aimPoint(max) { const r = aimRay(0), t = Math.min(max, G.W.T.ray(r.o, r
 // slot 4: a frag or sticky charge is thrown here; health kits, ammo packs and claymores are placed by the host
 function throwItem(my) {
   const T0 = CLASSES[G.cls].throw; if ((my.items || 0) <= 0) { toast(`No ${T0.name.toLowerCase()}s left: restock at the hub or a Forward Resupply.`, 2.5); return; }
-  if (T0.kind === 'frag') { const r = aimRay(0), side = new THREE.Vector3(Math.cos(G.me.yaw), 0, -Math.sin(G.me.yaw)), a = [r.o.x + r.d.x * 0.6 + side.x * 0.25, r.o.y + 0.05, r.o.z + r.d.z * 0.6 + side.z * 0.25], v = [r.d.x * 27, r.d.y * 27 + 4.5, r.d.z * 27]; G.me.throwT = 0.45;   /* a hard overhand throw: about twice as far as before */ grenade(a, v, true); send({ k: 'gr', a: a.map(q => +q.toFixed(2)), v: v.map(q => +q.toFixed(2)) }); req({ a: 'throw' }); audio.sfx('grenade'); return; }
+  if (T0.kind === 'frag') { const r = aimRay(0), side = new THREE.Vector3(Math.cos(G.me.yaw), 0, -Math.sin(G.me.yaw)), a = [r.o.x + r.d.x * 0.6 + side.x * 0.25, r.o.y + 0.05, r.o.z + r.d.z * 0.6 + side.z * 0.25], v = [r.d.x * 27, r.d.y * 27 + 4.5, r.d.z * 27]; G.me.throwT = 0.45; voice.bark('marine_grenade', 6);   /* a hard overhand throw: about twice as far as before */ grenade(a, v, true); send({ k: 'gr', a: a.map(q => +q.toFixed(2)), v: v.map(q => +q.toFixed(2)) }); req({ a: 'throw' }); audio.sfx('grenade'); return; }
   const [x, z] = aimPoint(12); req({ a: 'throw', x: +x.toFixed(1), z: +z.toFixed(1), ry: +G.me.yaw.toFixed(2) }); audio.sfx('grenade');
 }
 function frontOf(d) { const me = G.me; return { x: +(me.x - Math.sin(me.yaw) * d).toFixed(2), z: +(me.z - Math.cos(me.yaw) * d).toFixed(2), ry: +me.yaw.toFixed(2) }; }
@@ -775,7 +778,7 @@ function animReload(me, gn, my, dt) {
   if (f >= 0.22 && f < 0.5 && !(me.rs & 64) && u.mag) { me.rs |= 64; const m = u.mag.isGroup ? u.mag.clone() : new THREE.Mesh(u.mag.geometry, u.mag.material); m.scale.setScalar(u.mag.isGroup ? g.scale.x : 0.55); hd.updateMatrixWorld(); const w = new THREE.Vector3(0, -(magH / 2 + 0.03), -0.01); hd.localToWorld(w); camera.worldToLocal(w); m.position.copy(w); m.quaternion.copy(hd.quaternion); camera.add(m); view2.drops.push({ m, t: 0, vy: -0.5 }); }
   if (view2.arms && !view2.oneHand) hd.visible = false;   // a two-handed Meshy gun (the minigun): both hands stay on it; the reload is the gun tipping and jolting
 }
-function startReload(st, S) { const g = curGun(), me = G.me; if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.22; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
+function startReload(st, S) { const g = curGun(), me = G.me; voice.bark('marine_reload', 10); if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.22; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
 function surface(me) {
   const T = G.W.T, W = G.W; if (W.fob) return T.hubAt(me.x, me.z) ? 'concrete' : W.def.weather === 'snow' ? 'snow' : W.def.weather === 'rain' ? 'grass' : 'sand';
   const raw = T.raw(me.x, me.z), n = W.path.near(me.x, me.z);
@@ -811,7 +814,7 @@ function playDropIntro() {
   const S0 = state(), squad = (S0 && S0.P.length ? S0.P : [{ id: G.myId, cls: G.cls }]).map(p => ({ id: p.id, cls: p.cls, color: CLASSES[p.cls].color }));
   dropIntro(H, squad, r => {
     G.cine = false; document.body.classList.remove('cine'); canvas.requestPointerLock();
-    G.barrage = { t: 45, next: 1.2, inc: [], orb: 2.5, hubT: 1, thump: 0.5 }; radioSay('gen', 'Olympus to all batteries: fire for effect on that hive! Fleet guns, orbital lances, everything you have!'); audio.rumble(0.25);   // the fleet, the station and the hub shell the hive while you land
+    G.barrage = { t: 45, next: 1.2, inc: [], orb: 2.5, hubT: 1, thump: 0.5 }; radioSay('gen', 'All batteries, fire for effect on that hive!'); audio.rumble(0.25);   // the fleet, the station and the hub shell the hive while you land
     if (r.x !== undefined) { const my0 = mine(state()); if (my0) G.me.sp = my0.sp; G.me.x = r.x; G.me.z = r.z; G.me.y = G.W.top(r.x, r.z); G.me.vy = 0; G.me.yaw = r.yaw; G.me.pitch = 0; }
     // the marine from the pod becomes a real reinforcement as he steps out of the door
     banner('MOVE OUT', 'The alien bastards know we\'re coming. Get inside the hive and kill the queen! We will extract you as soon as your mission is complete.'); bannerT = 5; voice.say('alien bastards know');
@@ -1066,6 +1069,18 @@ function updVehs(S, dt) {
   const my = mine(S); if (my && !my.drive && !my.dead && !G.cine) { let best = null, bd = 6; for (const sv of S.V || []) if (!sv.driver) { const d = Math.hypot(sv.x - me.x, sv.z - me.z); if (d < bd) { bd = d; best = sv; } }
     if (best) { prompt(`<b>${keyName(KB.use)}</b> drive the ${VEHICLES[best.kind].name} · armour ${Math.round(best.hp)}/${best.mhp}`); if (hits[KB.use] && locked()) { hits[KB.use] = 0; req({ a: 'drive', id: best.id }); } } }
 }
+// the queen turning slowly in her card: her model drawn into the card's rectangle of the main canvas, after the world
+let qcard = null;
+function drawQueenCard(dt) {
+  const el = $('qcard'); if (!(G.qcardT > 0)) { if (!el.hidden) el.hidden = true; return; } G.qcardT -= dt;
+  if (!qcard) { const qs = new THREE.Scene(), m = M.alien('broodqueen'); qs.add(new THREE.HemisphereLight(0xc8d8ff, 0x402018, 2.2)); const dl = new THREE.DirectionalLight(0xffb080, 2.5); dl.position.set(3, 5, 4); qs.add(dl); const rim = new THREE.DirectionalLight(0x80ff60, 1.6); rim.position.set(-4, 2, -5); qs.add(rim);
+    m.position.set(0, 0, 0); m.rotation.set(0, 0, 0); qs.add(m); m.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(m), c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3()), r = Math.max(sz.x, sz.y, sz.z) * 0.62;
+    const cam = new THREE.PerspectiveCamera(32, 1, 0.1, r * 20); cam.position.set(c.x, c.y + r * 0.35, c.z + r / Math.tan(16 * Math.PI / 180)); cam.lookAt(c); qcard = { qs, m, cam, piv: c }; }
+  qcard.m.rotation.y += dt * 0.7;   /* a full turn about every 9 s */
+  const r = el.getBoundingClientRect(), cv = renderer.domElement, cr = cv.getBoundingClientRect(), x = r.left - cr.left, w = r.width, h = r.height, y = cr.height - (r.top - cr.top) - h;   /* CSS pixels: three.js scales them by the pixel ratio */
+  const cc = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha(); renderer.setScissorTest(true); renderer.setScissor(x, y, w, h); renderer.setViewport(x, y, w, h); renderer.setClearColor(0x0a0608, 1); renderer.clear(true, true, false);
+  renderer.render(qcard.qs, qcard.cam); renderer.setScissorTest(false); renderer.setViewport(0, 0, cr.width, cr.height); renderer.setClearColor(cc, ca);
+}
 function updateMe(dt, S) {
   const me = G.me, my = mine(S); if (!my || G.cine) return;
   if (G.explore && G.ex && G.ex.veh) { G.ex.drive(dt); updateFootless(); return; }
@@ -1209,7 +1224,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 let toastT = 0, bannerT = 0, promptSet = false;
 // radio chatter: the commander on the ground and General Hale on Station Olympus, shown one message at a time
 const radioQ = []; let radioBusy = 0;
-function radioSay(w, m) { radioQ.push({ w, m }); if (radioQ.length > 4) radioQ.shift(); if (!radioBusy) radioNext(); }
+function radioSay(w, m) { if (!voice.has(m)) { toast(m, 4); return; }   /* the radio box only carries lines with a recorded voice; the rest are short notes */ radioQ.push({ w, m }); if (radioQ.length > 4) radioQ.shift(); if (!radioBusy) radioNext(); }
 function radioNext() { const r = radioQ.shift(), el = $('radio'); if (!r) { radioBusy = 0; el.classList.remove('on'); return; } radioBusy = 1; el.className = 'on ' + r.w; $('radioW').textContent = r.w === 'gen' ? '🛰 GEN. HALE · STATION OLYMPUS' : '📡 COMMANDER VANCE · GROUND'; $('radioM').textContent = r.m; voice.say(r.m); audio.sfx('tick', 0.5); setTimeout(() => audio.sfx('tick', 0.35), 120); setTimeout(radioNext, Math.max(4500, r.m.length * 70)); }
 function toast(m, t = 3) { const d = document.createElement('div'); d.textContent = m; $('toasts').prepend(d); setTimeout(() => d.remove(), t * 1000); while ($('toasts').children.length > 3) $('toasts').lastChild.remove(); }
 function banner(a, b) { $('bannerA').textContent = a; $('bannerB').textContent = b; $('banner').hidden = false; bannerT = 2.4; }
@@ -1308,6 +1323,9 @@ function hud(dt, S) {
         + `<h4 class="t">YOUR TURRETS (${myT.length})</h4>` + (tRows || '<p>None placed. F T V take one out of a kit.</p>') + (myT.some(t => t.hp < t.mhp) ? '<p>The hub doesn\'t fix turrets: repair them with the welder (3).</p>' : ''); }
     else if (low.length && !my.dead && !G.cine) { rs.hidden = false; rs.classList.add('mini'); rs.innerHTML = `<h4>LOW ON SUPPLIES</h4>` + low.map(([n, v, mx]) => `<div><span>${n}</span><span class="low">${v} / ${mx}</span></div>`).join('') + '<p>Go back to the hub to restock.</p>'; }
     else rs.hidden = true; }
+  // your marine's shouts: hurt, low on ammo, aliens closing in after a quiet spell
+  if (!my.dead && !G.cine && !G.explore) { if (my.hp < my.mhp * 0.33) voice.bark('marine_hurt', 25); if (G.me.slot <= 1 && G.me.reserve < stats().reserve * 0.12) voice.bark('marine_ammo', 40);
+    let near = 1e9; for (const v of view.aliens.values()) { const d = Math.hypot(v.x - G.me.x, v.z - G.me.z); if (d < near) near = d; } if (near < 22) { if (G.time - (G.quietT ?? -99) > 20) voice.bark('marine_contact', 30); G.quietT = G.time; } }
   { const sb = $('stamBar'); if (sb) { sb.style.width = (G.me.stam ?? 100) + '%'; sb.classList.toggle('tired', !!G.me.tired); } }
   setH('status', [(my.gear & 1 || my.jet) ? '<span class="b">🚀 Jetpack</span>' : '', (my.gear & 2 || my.boots) ? '<span class="b">⚡ Shock boots</span>' : '', my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get under cover, or crouch behind something on the windward side</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', G.me.braced ? '<span class="g">▤ Braced on sandbags</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
   // a boss bar while a big one is alive
@@ -1400,7 +1418,7 @@ function frame(now) {
   syncView(S, paused ? 0 : dt);
   hud(dt, S);
   G.fpsN = (G.fpsN || 0) + 1; G.fpsT = (G.fpsT || 0) + dt; if (G.fpsT > 0.5) { $('fps').hidden = !SET.fps; $('fps').textContent = Math.round(G.fpsN / G.fpsT) + ' fps'; G.fpsN = G.fpsT = 0; }
-  renderer.render(scene, camera); clearHits();
+  renderer.render(scene, camera); drawQueenCard(dt); clearHits();
 }
 function clearHits() { for (const k in hits) delete hits[k]; clickL = clickR = false; }
 requestAnimationFrame(frame);
@@ -1415,7 +1433,7 @@ function begin(mapId) {
   setT('mapName', G.W.def.name);
   toast(music.on ? 'Music on (N turns it off) · M opens the live map' : 'Music is off: press N to turn it on', 4);
   toast(`${MAPS[mapId].name}: hold the hub. Aliens follow the glowing track from the Brood Queen's cave.`, 6);
-  voice.say('alien bastards know'); banner('YOUR MISSION', 'The alien bastards know we\'re coming. Get inside the hive and kill the queen! We will extract you as soon as your mission is complete.'); bannerT = 6;
+  setTimeout(() => { if (G.cine) return; voice.say('alien bastards know'); banner('YOUR MISSION', 'The alien bastards know we\'re coming. Get inside the hive and kill the queen! We will extract you as soon as your mission is complete.'); bannerT = 6; }, 700);   /* only when there's no drop: after a drop the briefing plays as you land */
 }
 function onMsg(m) {
   if (G.mode === 'host') {

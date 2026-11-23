@@ -31,16 +31,40 @@ export const VOICE = [
   { k: 'vance_kills', who: 'Commander Vance', text: 'Your kills just bought us more troops, marines. Keep killing, it\'s paying off!', re: /kills just bought|body count|it's paying off/ },
   { k: 'hale_more', who: 'General Hale', text: 'Olympus here. I\'m releasing more of my people to you, Commander.', re: /releasing more of my people|authorises more troops|what you need down there/ },
   { k: 'vance_copy', who: 'Commander Vance', text: 'Copy, Olympus. Marines: more troops are on the way.', re: /^Copy, Olympus\. Marines:/ },
+  // harvesters, scrap and vehicles
+  { k: 'vance_harvest_intro', who: 'Commander Vance', text: 'See those blue harvester sites? Weld them up. They pull material out of the ground, and that unlocks our vehicles.', re: /^See\ those\ blue\ harvester\ sit/ },
+  { k: 'vance_harvest_up', who: 'Commander Vance', text: 'Harvester online. Every one you build gets us vehicles sooner.', re: /^Harvester\ online\.\ Every\ one\ / },
+  { k: 'vance_harvest_attack', who: 'Commander Vance', text: 'A harvester is under attack! Defend it!', re: /^A\ harvester\ is\ under\ attack!/ },
+  { k: 'vance_harvest_lost', who: 'Commander Vance', text: 'We lost a harvester! Get a welder on it and rebuild it!', re: /^We\ lost\ a\ harvester!\ Get\ a\ w/ },
+  { k: 'vance_harvest_raid', who: 'Commander Vance', text: 'Movement under one of the harvesters! They\'re digging up to wreck it. Get over there!', re: /^Movement\ under\ one\ of\ the\ ha/ },
+  { k: 'vance_scrap_intro', who: 'Commander Vance', text: 'Weld wrecks and junk for scrap and bring it back to the hub. Scrap builds the vehicles.', re: /^Weld\ wrecks\ and\ junk\ for\ scr/ },
+  { k: 'vance_quad_unl', who: 'Commander Vance', text: 'The quad bike is unlocked. Bring me fifty scrap and it\'s yours.', re: /^The\ quad\ bike\ is\ unlocked\.\ B/ },
+  { k: 'vance_truck_unl', who: 'Commander Vance', text: 'The gun truck is unlocked. Bring me a hundred and thirty scrap and I\'ll build it.', re: /^The\ gun\ truck\ is\ unlocked\.\ B/ },
+  { k: 'vance_vtol_unl', who: 'Commander Vance', text: 'The VTOL is unlocked. Two hundred and forty scrap and you can fly.', re: /^The\ VTOL\ is\ unlocked\.\ Two\ hu/ },
+  { k: 'vance_veh_parts', who: 'Commander Vance', text: 'We have the scrap for a vehicle. Order it at the comms console.', re: /^We\ have\ the\ scrap\ for\ a\ vehi/ },
+  { k: 'vance_veh_ready', who: 'Commander Vance', text: 'Your ride is waiting in its bay. Lock a turret on it and go.', re: /^Your\ ride\ is\ waiting\ in\ its\ / },
+  { k: 'vance_veh_lost', who: 'Commander Vance', text: 'We lost a vehicle! Bring me scrap and I\'ll build another.', re: /^We\ lost\ a\ vehicle!\ Bring\ me\ / },
+  { k: 'hale_batteries', who: 'General Hale', text: 'All batteries, fire for effect on that hive!', re: /^All\ batteries,\ fire\ for\ effe/ },
+  // your marine shouting out loud (no radio): played by key from what you do, never from text
+  { k: 'marine_reload', who: 'Marine', text: 'Reloading!', re: /(?!)/, bark: 1 },
+  { k: 'marine_grenade', who: 'Marine', text: 'Frag out!', re: /(?!)/, bark: 1 },
+  { k: 'marine_turret', who: 'Marine', text: 'Turret\'s up!', re: /(?!)/, bark: 1 },
+  { k: 'marine_contact', who: 'Marine', text: 'Contact! Here they come!', re: /(?!)/, bark: 1 },
+  { k: 'marine_hurt', who: 'Marine', text: 'I\'m hit!', re: /(?!)/, bark: 1 },
+  { k: 'marine_ammo', who: 'Marine', text: 'I need ammo!', re: /(?!)/, bark: 1 },
+  { k: 'marine_mandown', who: 'Marine', text: 'Man down!', re: /(?!)/, bark: 1 },
   // the end
   { k: 'vance_victory', who: 'Commander Vance', text: 'The queen is dead! Outstanding work, marines. Extraction is inbound.', re: /The queen is dead!/ },
 ];
 // play recordings that exist: assets/voice/lines.json maps each line's key to its file
 export class Voice {
-  constructor(audio) { this.a = audio; this.files = {}; this.buf = {}; fetch('./assets/voice/lines.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).then(j => { this.files = j || {}; }).catch(() => { }); }
+  constructor(audio) { this.a = audio; this.files = {}; this.buf = {}; fetch('./assets/voice/lines.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).then(j => { this.files = j || {}; }).catch(() => { });
+    this.pre = setInterval(() => { if (!this.a.ctx || !Object.keys(this.files).length) return; clearInterval(this.pre); for (const k in this.files) this.load(k); }, 500); }   // every recording is loaded up front, so each line plays exactly on its cue
+  has(text) { const v = this.find(text); return !!(v && this.files[v.k]); }
   find(text) { return VOICE.find(v => v.re.test(text)); }
-  async load(k) {
-    if (this.buf[k] !== undefined) return this.buf[k]; const f = this.files[k]; if (!f || !this.a.ctx) return null; this.buf[k] = null;
-    try { const ab = await (await fetch('./assets/voice/' + f)).arrayBuffer(); this.buf[k] = await this.a.ctx.decodeAudioData(ab); } catch (e) { this.buf[k] = null; } return this.buf[k];
+  load(k) {   // one shared load per recording: a line asked for while it's still loading waits for it instead of being skipped
+    if (this.buf[k]) return Promise.resolve(this.buf[k]); const f = this.files[k]; if (!f || !this.a.ctx) return Promise.resolve(null); this.pr = this.pr || {};
+    return this.pr[k] || (this.pr[k] = (async () => { try { const ab = await (await fetch('./assets/voice/' + f)).arrayBuffer(); this.buf[k] = await this.a.ctx.decodeAudioData(ab); } catch (e) { this.buf[k] = null; this.pr[k] = null; } return this.buf[k]; })());
   }
   // a little noise buffer for the comms squelch and the static under the voice
   noise() { if (this.nb) return this.nb; const c = this.a.ctx, n = c.sampleRate, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; return this.nb = b; }
@@ -52,14 +76,15 @@ export class Voice {
     const now = c.currentTime; if (this.end && now < this.end - 0.05) { this.q = this.q || []; if (!this.q.includes(text) && this.q.length < 3) this.q.push(text); clearTimeout(this.qT); this.qT = setTimeout(() => this.next(), (this.end - now) * 1000 + 300); return 0; }   // one voice at a time: a line that arrives while someone is talking waits its turn
     const t0 = now + 0.08, s = c.createBufferSource(); s.buffer = b;
     // everything goes through one fader (the Voice volume setting), well under the music and the battle
-    const out = c.createGain(); out.gain.value = 0.7 * (this.vol ?? 0.6); out.connect(this.a.bus || c.destination);
+    const gen = v.who === 'General Hale';   // Hale talks from orbit: a thinner, more distant channel; Vance is close in your helmet
+    const out = c.createGain(); out.gain.value = (gen ? 0.85 : 0.7) * (this.vol ?? 0.6); out.connect(this.a.bus || c.destination);
     // the helmet's tiny speaker: no bass, no air, a boxy hollow middle and a hard little resonance, driven a touch into crackle
-    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 520; hp.Q.value = 1.1;
-    const hp2 = c.createBiquadFilter(); hp2.type = 'highpass'; hp2.frequency.value = 420; hp2.Q.value = 0.7;
-    const box = c.createBiquadFilter(); box.type = 'peaking'; box.frequency.value = 950; box.Q.value = 1.6; box.gain.value = 6;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = gen ? 700 : 380; hp.Q.value = 1.1;
+    const hp2 = c.createBiquadFilter(); hp2.type = 'highpass'; hp2.frequency.value = gen ? 600 : 300; hp2.Q.value = 0.7;
+    const box = c.createBiquadFilter(); box.type = 'peaking'; box.frequency.value = gen ? 1400 : 900; box.Q.value = 1.6; box.gain.value = gen ? 7 : 4;
     const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 2200; pk.Q.value = 2.2; pk.gain.value = 5;
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2900; lp.Q.value = 1.2;
-    const lp2 = c.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 3400; lp2.Q.value = 0.7;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = gen ? 2500 : 3600; lp.Q.value = 1.2;
+    const lp2 = c.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = gen ? 2900 : 4200; lp2.Q.value = 0.7;
     const pre = c.createGain(); pre.gain.value = 0.7;
     const sh = c.createWaveShaper(), cv = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1, y = Math.tanh(x * 1.8) / Math.tanh(1.8); cv[i] = Math.round(y * 48) / 48; } sh.curve = cv;   /* soft clip plus a little bit-crush: a cheap radio speaker */
     s.connect(hp); hp.connect(hp2); hp2.connect(box); box.connect(pk); pk.connect(pre); pre.connect(sh); sh.connect(lp); lp.connect(lp2); lp2.connect(out);
@@ -68,9 +93,12 @@ export class Voice {
     // the static bed under the voice
     const st = c.createBufferSource(); st.buffer = this.noise(); st.loop = true; const sb = c.createBiquadFilter(); sb.type = 'bandpass'; sb.frequency.value = 1800; sb.Q.value = 0.7; const sg = c.createGain(); sg.gain.setValueAtTime(0, t0); sg.gain.linearRampToValueAtTime(0, t0 + 0.03); sg.gain.setValueAtTime(0, t0 + b.duration);   /* no static hiss under the voice */ sg.gain.linearRampToValueAtTime(0, t0 + b.duration + 0.1); st.connect(sb); sb.connect(sg); sg.connect(out); st.start(t0); st.stop(t0 + b.duration + 0.15);
     this.click(now + 0.02, 0.05, 0.35, out); this.click(t0 + b.duration + 0.04, 0.07, 0.28, out);   // squelch on, and off
-    s.start(t0); this.end = t0 + b.duration + 0.1; if (this.q && this.q.length) { clearTimeout(this.qT); this.qT = setTimeout(() => this.next(), (b.duration + 0.4) * 1000); } if (this.onTalk) this.onTalk(b.duration + 0.25); return b.duration;
+    s.start(t0); this.end = t0 + b.duration + 0.1; if (this.q && this.q.length) { clearTimeout(this.qT); this.qT = setTimeout(() => this.next(), (b.duration + 0.4) * 1000); } if (this.onTalk) this.onTalk(b.duration + 0.25); if (this.onLine) this.onLine(v, b.duration + 0.25); return b.duration;
   }
 
 
+  // a marine's shout: in the open air (no helmet speaker, no portrait), each with its own cooldown so they never spam; it never blocks the radio
+  async bark(k, cd = 8) { if (!this.files[k] || !this.a.ctx) return; const now = performance.now(); this.bt = this.bt || {}; if (now - (this.bt[k] || -1e9) < cd * 1000 || now - (this.btAny || -1e9) < 1500) return; this.bt[k] = this.btAny = now;
+    const b = await this.load(k), c = this.a.ctx; if (!b) return; const s = c.createBufferSource(); s.buffer = b; const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 140; const g = c.createGain(); g.gain.value = 0.75 * (this.vol ?? 0.6); s.connect(hp); hp.connect(g); g.connect(this.a.bus || c.destination); s.start(); }
   next() { const t = this.q && this.q.shift(); if (t) this.say(t); }
 }

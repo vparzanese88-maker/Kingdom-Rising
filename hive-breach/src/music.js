@@ -13,7 +13,7 @@ export class Music {
   // the music's level through the mission (at the default Music slider; the slider scales it): 40% on the title screen, rising steadily
   // through the station shot and the fall to 70% at landing, then easing back to 50% for the rest of the game
   level() { return this.on ? this.stageK() * (this.vol / 0.75) * (this.mul ?? 1) : 0; }
-  stageK() { const st = this.stage || 'title'; if (st === 'title') return 0.4; if (st === 'land') return 0.7; if (st === 'drop') return 0.4 + 0.3 * Math.min(1, Math.max(0, (performance.now() - this.riseT) / 41000)); return 0.5; }
+  stageK() { const st = this.stage || 'title'; if (st === 'title') return 0.4; if (st === 'land') return 0.7; if (st === 'drop') return this.riseT ? 0.4 + 0.3 * Math.min(1, Math.max(0, (performance.now() - this.riseT) / 22000)) : 0.4; return 0.5; }   /* 40% until the pod ejects, then a slow climb through the descent to 70% at touchdown (about 22 s) */
   start() {
     const c = this.a.ctx; if (!c || this.master) return;
     this.master = c.createGain(); this.master.gain.value = this.level(); this.master.connect(this.a.bus || c.destination);
@@ -45,14 +45,14 @@ export class Music {
   // the drop: the title's war theme carries straight on (no new track); it drops to a soft level and slowly swells over the whole ride.
   // The landing track is loaded now, so it's ready the instant the pod hits the ground.
   dropScore() {
-    this.stage = 'drop'; this.riseT = performance.now();
+    this.stage = 'drop'; this.riseT = 0;
     if (!this.master) this.start(); if (!this.master) return; this.lock = true; this.mode = 'drop'; const tr = this.track('war');
     if (tr.au.paused || this.cur !== 'war') { try { tr.au.currentTime = 0; } catch (e) { } } this.play('war', 2);
     this.fk = 1; this.master.gain.setTargetAtTime(this.level(), this.a.ctx.currentTime, 1.2);
     clearInterval(this.riseI); this.riseI = setInterval(() => { if (!this.master || this.stage !== 'drop') return clearInterval(this.riseI); this.master.gain.setTargetAtTime(this.level() * (this.fk ?? 1), this.a.ctx.currentTime, 0.5); }, 400);
     const rk = this.track('rock'); rk.au.loop = false; try { rk.au.load(); } catch (e) { }
   }
-  eject() { }
+  eject() { if (this.stage === 'drop') this.riseT = performance.now(); }   // the descent begins: start the slow climb to 70%
   brace() { }   // no dip before the impact: the music keeps climbing to 70% at landing
   endScore() { if (!this.lock) return; if (this.rocking) return; if (this.stage === 'drop') this.stage = 'game'; clearInterval(this.riseI); this.lock = false; this.mode = 'calm'; this.want = null; this.fade(1); this.play('calm', 4); }
   // touchdown: the drop theme is cut under the crash and the metal track slams in on its first hit, played through once; then the game's own moods take over again

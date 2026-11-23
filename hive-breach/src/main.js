@@ -360,13 +360,17 @@ function record(w) { const b = store.get('hb-best2', {}); if ((b[G.map] || 0) < 
 
 // grenades: anyone may throw one; only the thrower's game asks for the blast
 function grenade(a, v, own) {
-  const m = new THREE.Group(); M.S(m, 0.14, 0x404a30, 0, 0, 0); M.S(m, 0.05, 0xff3030, 0, 0.12, 0, 1, 1, 1, { e: 0xff0000 }); m.position.set(...a); scene.add(m);
-  FX.proj.push({ mesh: m, kind: 'gr', a, b: a, t0: 1e9, t: 0, gr: { x: a[0], y: a[1], z: a[2], vx: v[0], vy: v[1], vz: v[2], t: 1.6, own } });
+  // the real frag grenade, tumbling end over end, with a blinking fuse light and a thin smoke trail
+  const m = new THREE.Group(), fm = M.throwModel('frag'); if (fm) { fm.scale.multiplyScalar(1.6); fm.traverse(o => { o.castShadow = false; }); m.add(fm); } else M.S(m, 0.14, 0x404a30, 0, 0, 0);
+  const led = M.S(m, 0.035, 0xff3030, 0, 0.1, 0, 1, 1, 1, { e: 0xff2010, ei: 3 }); m.userData.led = led; m.position.set(...a); scene.add(m);
+  FX.proj.push({ mesh: m, kind: 'gr', a, b: a, t0: 1e9, t: 0, gr: { x: a[0], y: a[1], z: a[2], vx: v[0], vy: v[1], vz: v[2], t: 2.0, own, spin: [8 + Math.random() * 6, (Math.random() - 0.5) * 6], bounces: 0 } });
 }
 function updateGrenades(dt) {
   for (const p of FX.proj) {
-    if (!p.gr) continue; const g = p.gr; g.t -= dt; g.vy -= 20 * dt; g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt;
-    const gy = G.W.ground(g.x, g.z, g.y + 0.3) + 0.14; if (g.y < gy) { g.y = gy; g.vy = Math.abs(g.vy) * 0.35; g.vx *= 0.6; g.vz *= 0.6; }
+    if (!p.gr) continue; const g = p.gr; g.t -= dt; g.vy -= 16 * dt; g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt;
+    const gy = G.W.ground(g.x, g.z, g.y + 0.3) + 0.1; if (g.y < gy) { const hard = g.vy < -4; g.y = gy; g.vy = Math.abs(g.vy) * 0.32; g.vx *= 0.55; g.vz *= 0.55; g.spin[0] *= 0.5; if (hard && g.bounces++ < 3) { burst(g.x, gy, g.z, G.W.def.ground, 4, 2, 0.4, 1.2); audio.sfx('place', Math.max(0.05, vol(dist(g.x, g.z)) * 0.35)); } }   // a thud and a skid off the ground
+    p.mesh.rotation.x += g.spin[0] * dt; p.mesh.rotation.z += g.spin[1] * dt; if (p.mesh.userData.led) p.mesh.userData.led.visible = Math.sin(g.t * (g.t < 0.6 ? 40 : 14)) > 0;   // tumbling, the fuse blinking faster at the end
+    if (Math.random() < 0.6 && g.vy * g.vy + g.vx * g.vx > 4) smoke(g.x, g.y, g.z, 1, 0.08);
     p.a = p.b = [g.x, g.y, g.z]; p.t = 0;
     if (g.t <= 0) { p.dead = true; scene.remove(p.mesh); if (g.own && G.explore && G.ex) G.ex.splash(g.x, g.y, g.z, 5.5, 140); else if (g.own) req({ a: 'boom', x: g.x, y: g.y, z: g.z, r: 5.5, d: 140 * dmgMul(), gren: 1 }); else if (G.mode === 'client') { } }
   }
@@ -652,7 +656,7 @@ function aimPoint(max) { const r = aimRay(0), t = Math.min(max, G.W.T.ray(r.o, r
 // slot 4: a frag or sticky charge is thrown here; health kits, ammo packs and claymores are placed by the host
 function throwItem(my) {
   const T0 = CLASSES[G.cls].throw; if ((my.items || 0) <= 0) { toast(`No ${T0.name.toLowerCase()}s left: restock at the hub or a Forward Resupply.`, 2.5); return; }
-  if (T0.kind === 'frag') { const r = aimRay(0), a = [r.o.x + r.d.x * 0.5, r.o.y - 0.2, r.o.z + r.d.z * 0.5], v = [r.d.x * 17, r.d.y * 17 + 5, r.d.z * 17]; grenade(a, v, true); send({ k: 'gr', a: a.map(q => +q.toFixed(2)), v: v.map(q => +q.toFixed(2)) }); req({ a: 'throw' }); audio.sfx('grenade'); return; }
+  if (T0.kind === 'frag') { const r = aimRay(0), side = new THREE.Vector3(Math.cos(G.me.yaw), 0, -Math.sin(G.me.yaw)), a = [r.o.x + r.d.x * 0.6 + side.x * 0.25, r.o.y + 0.05, r.o.z + r.d.z * 0.6 + side.z * 0.25], v = [r.d.x * 27, r.d.y * 27 + 4.5, r.d.z * 27]; G.me.throwT = 0.45;   /* a hard overhand throw: about twice as far as before */ grenade(a, v, true); send({ k: 'gr', a: a.map(q => +q.toFixed(2)), v: v.map(q => +q.toFixed(2)) }); req({ a: 'throw' }); audio.sfx('grenade'); return; }
   const [x, z] = aimPoint(12); req({ a: 'throw', x: +x.toFixed(1), z: +z.toFixed(1), ry: +G.me.yaw.toFixed(2) }); audio.sfx('grenade');
 }
 function frontOf(d) { const me = G.me; return { x: +(me.x - Math.sin(me.yaw) * d).toFixed(2), z: +(me.z - Math.cos(me.yaw) * d).toFixed(2), ry: +me.yaw.toFixed(2) }; }
@@ -1093,6 +1097,11 @@ function updateMe(dt, S) {
   // right click: aim down the sights on every gun; the Sniper's rail rifle uses its scope
   const rc = me.slot === 0 && G.cls === 'sniper' ? 'scope' : me.slot <= 1 ? 'ads' : '', rmb = mouseR && !me.holdFire && !me.carry && live && locked() && !me.place && !G.shop; me.scope = rc === 'scope' && rmb && me.rel <= 0; me.ads = rc === 'ads' && rmb; $('scope').hidden = !me.scope;
   me.beam = me.slot === 2 && mouseL && live && locked() && !me.place && !G.shop; for (const [k, n] of [['pistol', 1], ['tool', 2], ['thr', 3], ['extra', 4], ['dress', 5]]) if (view2[k]) view2[k].visible = me.slot === n && !my.dead && !me.place && !me.scope;
+  if (view2.thr) { const th = view2.thr; th.userData.bp ??= th.position.clone(); th.userData.br ??= th.rotation.clone(); th.position.copy(th.userData.bp); th.rotation.copy(th.userData.br);   // the overhand throw: wind up past the shoulder, whip it forward, then a fresh one comes up
+    if (me.throwT > 0) { me.throwT -= dt; th.visible = !my.dead; const f = 1 - me.throwT / 0.45, E = t => t * t * (3 - 2 * t);
+      if (f < 0.33) { const k = E(f / 0.33); th.position.x += 0.12 * k; th.position.y += 0.2 * k; th.position.z += 0.14 * k; th.rotation.x -= 1.1 * k; }
+      else if (f < 0.55) { const k = E((f - 0.33) / 0.22); th.position.x += 0.12 - 0.2 * k; th.position.y += 0.2 + 0.05 * k; th.position.z += 0.14 - 0.55 * k; th.rotation.x += -1.1 + 1.8 * k; if (k > 0.6) th.visible = false; }
+      else { const k = E((f - 0.55) / 0.45); th.position.y -= 0.3 * (1 - k); } } }
   if (gn.userData.spin) gn.userData.spin.rotation.z += dt * me.spin * 40;
   { const u = gn.userData, f = me.rel > 0 ? 1 - me.rel / (me.relT || 1) : 0; 
     if (u.pump) { u.pumpZ0 ??= u.pump.position.z; u.pump.position.z = u.pumpZ0 + ((me.pumpAnim || 0) > 0 ? Math.sin((0.3 - me.pumpAnim) / 0.3 * Math.PI) * 0.18 : 0); }

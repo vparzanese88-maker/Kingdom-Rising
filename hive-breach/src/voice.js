@@ -42,12 +42,26 @@ export class Voice {
     if (this.buf[k] !== undefined) return this.buf[k]; const f = this.files[k]; if (!f || !this.a.ctx) return null; this.buf[k] = null;
     try { const ab = await (await fetch('./assets/voice/' + f)).arrayBuffer(); this.buf[k] = await this.a.ctx.decodeAudioData(ab); } catch (e) { this.buf[k] = null; } return this.buf[k];
   }
-  // through a radio: band-limited, a little crunch, loud enough to sit over the battle
+  // a little noise buffer for the comms squelch and the static under the voice
+  noise() { if (this.nb) return this.nb; const c = this.a.ctx, n = c.sampleRate, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; return this.nb = b; }
+  click(t, dur = 0.05, amp = 0.35) { const c = this.a.ctx, s = c.createBufferSource(); s.buffer = this.noise(); const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.8; const g = c.createGain(); g.gain.setValueAtTime(amp, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); s.connect(bp); bp.connect(g); g.connect(this.a.bus || c.destination); s.start(t, Math.random() * 0.5, dur + 0.02); }
+  // through the speaker inside your helmet: a small band-limited speaker with a resonant bump, the short echoes of the helmet shell right round your head,
+  // a squelch click on and off, a faint static bed while it talks, and the music and battle ducking a little so you can hear it
   async say(text) {
     const v = this.find(text); if (!v || !this.files[v.k]) return 0; const b = await this.load(v.k), c = this.a.ctx; if (!b || !c) return 0;
     const now = c.currentTime; if (this.end && now < this.end - 0.05) return 0;   // one voice at a time
-    const s = c.createBufferSource(); s.buffer = b; const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 280; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3600;
-    const sh = c.createWaveShaper(), cv = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * 2.2) / Math.tanh(2.2); } sh.curve = cv;
-    const g = c.createGain(); g.gain.value = 1.4; s.connect(hp); hp.connect(lp); lp.connect(sh); sh.connect(g); g.connect(this.a.bus || c.destination); s.start(); this.end = now + b.duration; return b.duration;
+    const t0 = now + 0.08, out = this.a.bus || c.destination, s = c.createBufferSource(); s.buffer = b;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 380; hp.Q.value = 0.8;
+    const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 2300; pk.Q.value = 1.3; pk.gain.value = 7;   // the little speaker's resonance
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3300; lp.Q.value = 0.9;
+    const sh = c.createWaveShaper(), cv = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * 2.6) / Math.tanh(2.6); } sh.curve = cv;
+    const dry = c.createGain(); dry.gain.value = 1.25; s.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(sh); sh.connect(dry); dry.connect(out);
+    // the helmet shell: two very short echoes feeding back a little, darkened
+    for (const [ms, fb] of [[6.5, 0.32], [11.5, 0.24]]) { const d = c.createDelay(0.05); d.delayTime.value = ms / 1000; const f = c.createGain(); f.gain.value = fb; const dl = c.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 2600; const w = c.createGain(); w.gain.value = 0.38; sh.connect(d); d.connect(dl); dl.connect(f); f.connect(d); dl.connect(w); w.connect(out); }
+    // the static bed under the voice
+    const st = c.createBufferSource(); st.buffer = this.noise(); st.loop = true; const sb = c.createBiquadFilter(); sb.type = 'bandpass'; sb.frequency.value = 1900; sb.Q.value = 0.6; const sg = c.createGain(); sg.gain.setValueAtTime(0, t0); sg.gain.linearRampToValueAtTime(0.022, t0 + 0.03); sg.gain.setValueAtTime(0.022, t0 + b.duration); sg.gain.linearRampToValueAtTime(0, t0 + b.duration + 0.1); st.connect(sb); sb.connect(sg); sg.connect(out); st.start(t0); st.stop(t0 + b.duration + 0.15);
+    this.click(now + 0.02, 0.05, 0.3); this.click(t0 + b.duration + 0.04, 0.07, 0.22);   // squelch on, and off
+    s.start(t0); this.end = t0 + b.duration + 0.1; if (this.onTalk) this.onTalk(b.duration + 0.25); return b.duration;
   }
+
 }

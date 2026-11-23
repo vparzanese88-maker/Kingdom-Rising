@@ -36,10 +36,10 @@ voice.onLine = (v, dur) => { const c = $('comm'), gen = v.who === 'General Hale'
 // the signal line on the comm card: a scrolling heartbeat-style trace that spikes with the voice, flat between words, only while someone talks
 const sig = { pts: new Array(70).fill(0), on: false, ph: 0 };
 function sigLoop() { if (sig.on) return; sig.on = true; const cv = $('commSig'), g = cv.getContext('2d');
-  const step = () => { if ($('comm').hidden) { sig.on = false; sig.pts.fill(0); return; } const lv = Math.min(1, voice.level() * 9), gen = $('comm').classList.contains('gen');
+  const step = () => { if ($('comm').hidden) { sig.on = false; sig.pts.fill(0); return; } const lv = Math.min(1, voice.level() * 12), gen = $('comm').classList.contains('gen');
     for (let k = 0; k < 2; k++) { sig.ph++; const beat = sig.ph % 7, y = lv < 0.04 ? 0 : (beat === 2 ? 0.9 : beat === 3 ? -0.75 : beat === 4 ? 0.35 : (Math.random() - 0.5) * 0.15) * (0.35 + lv * 0.65); sig.pts.push(y); sig.pts.shift(); }
     const W = cv.width, H = cv.height; g.clearRect(0, 0, W, H); g.strokeStyle = 'rgba(96,255,144,.12)'; g.lineWidth = 1; for (let x = 0; x < W; x += 23) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
-    g.beginPath(); sig.pts.forEach((p, i) => { const x = i / (sig.pts.length - 1) * W, y = H / 2 - p * H * 0.42; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.strokeStyle = gen ? '#a8c4ff' : '#60ff90'; g.lineWidth = 2.5; g.shadowColor = g.strokeStyle; g.shadowBlur = 8; g.stroke(); g.shadowBlur = 0;
+    g.beginPath(); sig.pts.forEach((p, i) => { const x = i / (sig.pts.length - 1) * W, y = H / 2 - p * H * 0.42; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.strokeStyle = gen ? '#b8d0ff' : '#70ff9c'; g.lineWidth = 4; g.shadowColor = g.strokeStyle; g.shadowBlur = 14; g.stroke(); g.shadowBlur = 0;
     requestAnimationFrame(step); };
   requestAnimationFrame(step); }
 voice.onTalk = dur => { music.fade(0.6, 0.15); clearTimeout(voice.duckT); voice.duckT = setTimeout(() => music.fade(1, 0.6), dur * 1000); };   /* the music dips while someone talks in your helmet */

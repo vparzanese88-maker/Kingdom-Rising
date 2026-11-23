@@ -1,7 +1,7 @@
 // The battle itself. Only the host (or a solo player) runs this; friends receive what it decides.
 import { VARIANTS, DIFFS, scrapCost, techMul, CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
 import { placeError, HUB_R } from './world.js';
-import { VEHICLES, mountable, mountAt } from './data.js';
+import { VEHICLES, mountable, mountAt, seatAt } from './data.js';
 import { PATH_W, SPECIALS, MISSILE, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST, MAX_ALLIES } from './data.js';
 
 const LV = { dmg: [1, 1.6, 2.4], rng: [1, 1.12, 1.25], rate: [1, 1.15, 1.32] };
@@ -191,6 +191,11 @@ export class Sim {
       this.bp = { kind: r.kind, prog: 0, spent: 0 }; this.emit({ k: 'bp', n: V.name, by: id });
     } else if (r.a === 'bpcancel') { if (this.bp) { this.parts += this.bp.spent; this.emit({ k: 'toast', m: `${VEHICLES[this.bp.kind].name} blueprint cancelled: ${Math.floor(this.bp.spent)} scrap back in the hub bank.` }); this.bp = null; }
     } else if (r.a === 'drive') { const v = this.vehs.find(q => q.id === r.id); if (!v || v.driver || p.drive || Math.hypot(v.x - p.x, v.z - p.z) > 6) return; v.driver = id; p.drive = v.id; this.emit({ k: 'drive', to: id, id: v.id });
+    } else if (r.a === 'board') { // ride as a passenger: the truck bed or a VTOL door; you keep your own weapons
+      const v = this.vehs.find(q => q.id === r.id), seats = v && VEHICLES[v.kind].seats; if (!seats || p.drive || p.seatv || Math.hypot(v.x - p.x, v.z - p.z) > 7) return;
+      const taken = new Set([...this.players.values()].filter(q => q.seatv === v.id).map(q => q.seat)), i = seats.findIndex((_, k) => !taken.has(k)); if (i < 0) return say('No free seats.');
+      p.seatv = v.id; p.seat = i; this.emit({ k: 'board', to: id, n: VEHICLES[v.kind].name });
+    } else if (r.a === 'unboard') { const v = this.vehs.find(q => q.id === p.seatv); p.seatv = 0; if (v) { p.x = v.x + Math.cos(v.ry) * 3.5; p.z = v.z - Math.sin(v.ry) * 3.5; p.y = this.W.top(p.x, p.z); this.emit({ k: 'exitveh', to: id, x: p.x, z: p.z }); }
     } else if (r.a === 'exitveh') { const v = this.vehs.find(q => q.id === p.drive); if (v) v.driver = 0; p.drive = 0;
     } else if (r.a === 'vpose') { const v = this.vehs.find(q => q.id === p.drive); if (v && [r.x, r.y, r.z, r.ry].every(Number.isFinite)) { v.x = Math.max(-BOUNDS, Math.min(BOUNDS, r.x)); v.y = r.y; v.z = Math.max(-BOUNDS, Math.min(BOUNDS, r.z)); v.ry = r.ry; }
     } else if (r.a === 'fall') {
@@ -201,7 +206,7 @@ export class Sim {
       if (r.fire && p.buf.napalm > 0) { p.buf.napalm = 0; this.pools.push({ x: +r.x, y: +r.y, z: +r.z, r: 7, t: 6, dps: 70, owner: id, fire: 1 }); }
     }
   }
-  pose(id, x, y, z, yaw, kn, veh) { const p = this.players.get(id); if (!p || p.dead) return; p.kn = kn || 0; p.veh = veh || 0; p.x = Math.max(-500, Math.min(500, x)); p.y = y; p.z = Math.max(-500, Math.min(500, z)); p.yaw = yaw; }
+  pose(id, x, y, z, yaw, kn, veh, am) { const p = this.players.get(id); if (!p) return; if (Number.isFinite(am)) p.am = Math.max(0, Math.min(100, am)); if (p.dead) return;   /* am: the marine's ammo, in percent, for the squad display */ if (p.seatv) { const v = this.vehs.find(q => q.id === p.seatv), st = v && seatAt(v, p.seat); if (st) { p.x = st.x; p.y = st.y; p.z = st.z; p.yaw = yaw; return; } p.seatv = 0; }   /* a passenger sits where the vehicle carries them */ p.kn = kn || 0; p.veh = veh || 0; p.x = Math.max(-500, Math.min(500, x)); p.y = y; p.z = Math.max(-500, Math.min(500, z)); p.yaw = yaw; }
 
   // ---------------------------------------------------------------- damage
   hurtAlien(a, d, owner, ap) {
@@ -585,7 +590,7 @@ export class Sim {
     }
     if (this.rides.some(r => r.ph >= 6)) { for (const r of this.rides) if (r.ph >= 6) for (const id of r.riders) { const q = this.players.get(id); if (q) q.ride = 0; } this.rides = this.rides.filter(r => r.ph < 6); }
   }
-  wreckVeh(v) { for (const t of this.turrets) if (t.veh === v.id) { t.veh = 0; this.settle(t); this.hurtTurret(t, t.mhp * 0.4); } this.emit({ k: 'boom', x: v.x, y: v.y + 1, z: v.z, r: 5 }); const q = v.driver && this.players.get(v.driver); if (q) { q.drive = 0; this.emit({ k: 'exitveh', to: q.id, x: v.x + 3, z: v.z }); } this.radio('cmd', 'We lost a vehicle! Bring me scrap and I\'ll build another.', 1); this.vehs = this.vehs.filter(o => o !== v); }
+  wreckVeh(v) { for (const q of this.players.values()) if (q.seatv === v.id) { q.seatv = 0; this.emit({ k: 'exitveh', to: q.id, x: v.x + 3, z: v.z }); } for (const t of this.turrets) if (t.veh === v.id) { t.veh = 0; this.settle(t); this.hurtTurret(t, t.mhp * 0.4); } this.emit({ k: 'boom', x: v.x, y: v.y + 1, z: v.z, r: 5 }); const q = v.driver && this.players.get(v.driver); if (q) { q.drive = 0; this.emit({ k: 'exitveh', to: q.id, x: v.x + 3, z: v.z }); } this.radio('cmd', 'We lost a vehicle! Bring me scrap and I\'ll build another.', 1); this.vehs = this.vehs.filter(o => o !== v); }
   // aliens nesting in a wreck burst out at a marine
   ambush(w, p, n) {
     const P = this.path; this.emit({ k: 'ambush', x: w.x, z: w.z }); for (let i = 0; i < n; i++) { const a = this.spawn(Math.random() < 0.7 ? 'crawler' : 'mite', 0), ang = Math.random() * 6.283; a.x = w.x + Math.cos(ang) * (w.r * 0.6); a.z = w.z + Math.sin(ang) * (w.r * 0.6); a.y = this.W.ground(a.x, a.z, 99); a.s = P.near(a.x, a.z).s; a.lat = 0; this.aggro(a, 'p', p.id, true); a.amb = 1; a.stun = i * 0.2; }
@@ -704,7 +709,7 @@ export class Sim {
       w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), el: Math.floor(this.el || 0), n: this.players.size, wx: +(this.stormI || 0).toFixed(2), wa: +(this.windA || 0).toFixed(2),
       A: this.aliens.map(a => [a.id, a.type, r1(a.x), r1(a.y), r1(a.z), Math.round(a.hp), Math.round(a.mhp), +a.ry.toFixed(2), a.stun > 0 ? 1 : 0, a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0, a.rev > 0 || a.markT > 0 ? 1 : 0]),
       T: this.turrets.map(t => [t.id, t.kind, t.owner, r1(t.x), r1(t.z), +t.ry.toFixed(2), t.lvl, Math.round(t.hp), Math.round(t.mhp), t.tg, r1(t.y), r1(t.b || 0), t.bt || 0, t.fresh ? 1 : 0, t.ch || 0, t.carry || 0, t.next ? +(t.up || 0).toFixed(2) : 0, t.kind === 'rally' ? (t.b > 0 || t.carry ? 0 : this.allies.length >= MAX_ALLIES + 4 ? -1 : this.phase === 'wave' || this.phase === 'assault' ? Math.max(1, Math.ceil(t.rd ?? 20)) : -2) : 0, t.veh || 0, t.slot || 0]),
-      P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, Math.floor(p.scrap || 0), Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)])), p.ex ?? 0, (p.jet ? 1 : 0) | (p.boots ? 2 : 0), p.ride || 0, p.drive || 0]),
+      P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, Math.floor(p.scrap || 0), Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)])), p.ex ?? 0, (p.jet ? 1 : 0) | (p.boots ? 2 : 0), p.ride || 0, p.drive || 0, p.seatv || 0, p.seat || 0, p.am ?? 100]),
       I: this.items.map(it => [it.id, it.kind, r1(it.x), r1(it.z)]), SC: this.scrap.map(s => [s.id, r1(s.x), r1(s.z)]),
       M: this.ammo.map(c => [c.id, r1(c.x), r1(c.z), Math.ceil(c.life)]), Z: this.spores.map(c => [r1(c.x), r1(c.z), +(c.r * c.k).toFixed(1)]), K: this.pools.map(q => [r1(q.x), r1(q.y), r1(q.z), q.r, q.fire ? 1 : 0]), SV: Object.fromEntries((this.salv || []).map((v, i) => [i, v]).filter(([i, v]) => v < (this.W.salvage[i] || {}).amt).map(([i, v]) => [i, Math.round(Math.max(0, v) / this.W.salvage[i].amt * 100)])), NS: this.nodeS.map(n => [n.built, +n.prog.toFixed(2), Math.round(n.hp)]), V: this.vehs.map(v => [v.id, v.kind, r1(v.x), r1(v.y), r1(v.z), +v.ry.toFixed(2), Math.round(v.hp), v.mhp, v.driver || 0]), PT: Math.floor(this.parts), BP: this.bp ? [this.bp.kind, +this.bp.prog.toFixed(3)] : 0, R: this.rides.map(r => [r.id, r1(r.x), r1(r.y), r1(r.z), +r.ry.toFixed(2), r.ph, r.riders]), D: this.drones.map(d => [d.id, r1(d.x + Math.cos(d.a) * 8), r1(d.y + 7), r1(d.z + Math.sin(d.a) * 8), d.tg]), Q: this.medz.map(m => [m.id, r1(m.x), r1(m.y), r1(m.z), m.r, Math.ceil(m.t)]), S2: this.domes.map(d => [r1(d.x), r1(d.y), r1(d.z), d.r]),
       O: this.pods.map(p => [p.id, r1(p.x), r1(p.z), Math.ceil(Math.max(0, p.life)), r1(Math.max(0, p.land)), p.kind === 'ammo' ? 1 : p.kind === 'dress' ? 2 : 0]),

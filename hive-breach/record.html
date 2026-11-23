@@ -27,7 +27,8 @@ kbd{background:#1a2a36;border:1px solid var(--line);padding:0 5px;font-size:13px
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script type="module">
-import { VOICE } from './src/voice.js';
+import { VOICE as ALL } from './src/voice.js';
+const only = new URLSearchParams(location.search).get('line'), VOICE = only ? ALL.filter(v => v.k === only) : ALL;   // ?line=<key> records just that one line
 const $ = id => document.getElementById(id), rec = {}; let stream = null, mr = null, chunks = [], recK = null, cur = 0, an = null;
 const ext = t => /ogg/.test(t) ? 'ogg' : /mp4|aac|m4a/.test(t) ? 'm4a' : 'webm';
 function render() {

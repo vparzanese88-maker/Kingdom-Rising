@@ -74,7 +74,7 @@ export class Audio {
       const src2 = c.createBufferSource(); src2.buffer = this.buf(2); src2.loop = true; const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = 0.8; const g2 = c.createGain(); g2.gain.value = 0;
       src.connect(hp); hp.connect(lo); lo.connect(g); g.connect(this.out); src2.connect(bp); bp.connect(g2); g2.connect(this.out); src.start(); src2.start(); this.rmb = { g, g2, lo, bp, src, src2 }; }
     const R = this.rmb, t = c.currentTime, v = Math.max(0, Math.min(1, level || 0)) * this.vol * 0.5;
-    R.g.gain.setTargetAtTime(v * 0.55, t, 0.15); R.g2.gain.setTargetAtTime(v * v * 0.25, t, 0.2); R.lo.frequency.setTargetAtTime(80 + level * 180, t, 0.2); R.bp.frequency.setTargetAtTime(300 + level * 1400 + Math.random() * 200, t, 0.1);
+    R.g.gain.setTargetAtTime(v * 0.55, t, 0.15); R.g2.gain.setTargetAtTime(0, t, 0.2);   /* the jittery hiss layer is off: it read as static (the roar carries the air sound) */ R.lo.frequency.setTargetAtTime(80 + level * 180, t, 0.2); R.bp.frequency.setTargetAtTime(300 + level * 1400 + Math.random() * 200, t, 0.1);
     if (level <= 0 && R) { setTimeout(() => { if (this.rmb === R && R.g.gain.value < 0.01) { try { R.src.stop(); R.src2.stop(); } catch (e) { } this.rmb = null; } }, 2500); }
   }
   // re-entry: the roar of burning air round the pod (a wide band you hear on any speaker, not just sub-bass), a howling whistle
@@ -90,7 +90,7 @@ export class Audio {
     const R = this.ror, t = c.currentTime, v = this.vol;
     R.g1.gain.setTargetAtTime(L * 0.75 * v * (0.85 + Math.random() * 0.3), t, 0.12); R.b1.frequency.setTargetAtTime(260 + L * 520 + Math.random() * 120, t, 0.2);
     R.g2.gain.setTargetAtTime(L * L * 0.22 * v * (0.6 + 0.4 * Math.sin(t * 1.7) ** 2), t, 0.3); R.b2.frequency.setTargetAtTime(900 + L * 900 + Math.sin(t * 0.9) * 250, t, 0.4);
-    R.g3.gain.setTargetAtTime(Math.random() < L * 0.5 ? L * 0.5 * v * Math.random() : 0.01 * L * v, t, 0.012);   /* sputtering crackle */
+    R.g3.gain.setTargetAtTime(0, t, 0.05);   /* no crackle: it sounded like static */
     if (L <= 0) { setTimeout(() => { if (this.ror === R && R.g1.gain.value < 0.01) { try { R.s.forEach(q => q.stop()); } catch (e) { } this.ror = null; } }, 2500); }
   }
   // the welding arc, for as long as the beam is on: a mains-hum buzz, the frying sizzle of the arc and sputtering crackle; louder and harsher on contact

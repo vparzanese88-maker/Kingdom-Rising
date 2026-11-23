@@ -1074,7 +1074,7 @@ let qcard = null;
 function drawQueenCard(dt) {
   const el = $('qcard'); if (!(G.qcardT > 0)) { if (!el.hidden) el.hidden = true; return; } G.qcardT -= dt;
   if (!qcard) { const qs = new THREE.Scene(), m = M.alien('broodqueen'); qs.add(new THREE.HemisphereLight(0xc8d8ff, 0x402018, 2.2)); const dl = new THREE.DirectionalLight(0xffb080, 2.5); dl.position.set(3, 5, 4); qs.add(dl); const rim = new THREE.DirectionalLight(0x80ff60, 1.6); rim.position.set(-4, 2, -5); qs.add(rim);
-    m.position.set(0, 0, 0); m.rotation.set(0, 0, 0); qs.add(m); m.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(m), c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3()), r = Math.max(sz.x, sz.y, sz.z) * 0.62;
+    m.position.set(0, 0, 0); m.rotation.set(0, 0, 0); qs.add(m); m.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(m), c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3()), r = Math.max(sz.x, sz.y, sz.z) * 0.46;
     const cam = new THREE.PerspectiveCamera(32, 1, 0.1, r * 20); cam.position.set(c.x, c.y + r * 0.35, c.z + r / Math.tan(16 * Math.PI / 180)); cam.lookAt(c); qcard = { qs, m, cam, piv: c }; }
   qcard.m.rotation.y += dt * 0.7;   /* a full turn about every 9 s */
   const r = el.getBoundingClientRect(), cv = renderer.domElement, cr = cv.getBoundingClientRect(), x = r.left - cr.left, w = r.width, h = r.height, y = cr.height - (r.top - cr.top) - h;   /* CSS pixels: three.js scales them by the pixel ratio */

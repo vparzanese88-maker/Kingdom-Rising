@@ -405,6 +405,25 @@ export function dropIntro(H, squad, done) {
   for (let i = 0; i < 20; i++) { const a = i / 20 * 6.283; S(st, 0.9, i % 2 ? 0xff4040 : 0x40ff80, Math.cos(a) * 77, 0, Math.sin(a) * 77, 1, 1, 1, { e: i % 2 ? 0xff2020 : 0x20ff60, ei: 3 }); }
   for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283; S(st, 0.5, 0xffe0a0, Math.cos(a) * 21, -12.2, Math.sin(a) * 21, 1, 1, 1, { e: 0xffc060, ei: 3 }); }
   { const sm = M.AS.fitGLB('p_station', 'w', 230, true); if (sm) { const k1 = new THREE.DirectionalLight(0xbfd4ff, 1.6); k1.position.set(-200, 80, -150); st.add(k1); const k2 = new THREE.PointLight(0xffc080, 3, 120, 1); k2.position.set(0, -25, 0); st.add(k2); for (const c of [...st.children]) if (!(c.isMesh && c.geometry.type === 'SphereGeometry' && c.position.y < -10)) st.remove(c); sm.position.y = 4; st.add(sm); } }   // the Meshy station: Station Olympus
+  // ---- inside Station Olympus: the drop hangar (VTOLs, missile racks, a weapons rack, drop pods with marines running to them, a big window onto space).
+  // It sits low in the station's orbit so the window looks out over the planet's curve; it only shows during its own shots (no lights of its own, so no shader rebuilds).
+  const hg = add(new THREE.Group()); hg.position.set(padX + 400, SY - 330, padZ); hg.visible = false;
+  { const floorM = mat(0x2c3238, { m: 0.6, r: 0.5 }), wallM2 = mat(0x4a525c, { m: 0.5, r: 0.5 }), trimM = mat(0xffc020, { e: 0x604000 }), stripM = mat(0x80d8ff, { e: 0x60c0ff, ei: 2.5 }), glassM = new THREE.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.06, depthWrite: false });
+    B(hg, 28, 0.4, 64, floorM, 0, -0.2, 0); B(hg, 28, 0.4, 64, wallM2, 0, 12.2, 0); B(hg, 0.4, 12, 64, wallM2, -14, 6, 0); B(hg, 28, 12, 0.4, wallM2, 0, 6, -32); B(hg, 28, 12, 0.4, wallM2, 0, 6, 32);
+    // the window wall (+x): solid either side and below/above a big pane
+    B(hg, 0.4, 12, 22, wallM2, 14, 6, -21); B(hg, 0.4, 12, 18, wallM2, 14, 6, 23); B(hg, 0.4, 2, 24, wallM2, 14, 1, 2); B(hg, 0.4, 1.6, 24, wallM2, 14, 11.2, 2); B(hg, 0.05, 8.4, 24, glassM, 14, 6.2, 2);
+    for (const z of [-10, -4, 2, 8, 14]) B(hg, 0.5, 8.4, 0.35, darkM, 14, 6.2, z);   /* window mullions */
+    for (let z = -30; z <= 30; z += 6) { B(hg, 27, 0.15, 0.3, stripM, 0, 11.9, z); B(hg, 0.6, 0.05, 2.4, trimM, -6, 0.03, z); B(hg, 0.6, 0.05, 2.4, trimM, 6, 0.03, z); }   /* ceiling light strips, deck markings */
+    // two VTOLs parked down the bay
+    for (const z of [-22, -8]) { const v = vtol(); v.position.set(-6, 2.6, z); v.rotation.y = Math.PI; hg.add(v); }
+    // missile racks: rows of missiles with red tips
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 6; k++) { const ms = C(hg, 0.32, 0.32, 3.2, mat(0xd8dde2, { m: 0.5 }), -12.4 + r * 0.9, 0.6 + r * 0.9, -28 + k * 2.2, null, 10); ms.rotation.x = Math.PI / 2; const tip = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.7, 10), mat(0xc02020)); tip.rotation.x = Math.PI / 2; tip.position.set(-12.4 + r * 0.9, 0.6 + r * 0.9, -28 + k * 2.2 + 1.95); hg.add(tip); }
+    B(hg, 3.4, 0.2, 14, darkM, -12, 0.3, -22.5); B(hg, 3.4, 0.2, 14, darkM, -11.5, 1.2, -22.5);
+    // the weapons rack on the wall: every class's gun
+    B(hg, 0.3, 4, 14, darkM, -13.7, 2.4, 14); Object.keys(CLASSES).forEach((k, i) => { const g = M.gunModel(k, CLASSES[k].color); g.scale.setScalar(1.6); g.position.set(-13.2, 3.2 - (i % 2) * 1.4, 9 + (i >> 1) * 4.2); g.rotation.y = -Math.PI / 2; hg.add(g); });
+    // drop pods in a row by the window, hatches open, marines running to them
+    hg.userData.pods = []; for (let i = 0; i < 4; i++) { const pm = dropPod(0xd09030); pm.position.set(8, 0, 6 + i * 6.5); pm.rotation.y = -Math.PI / 2; pm.scale.setScalar(0.9); hg.add(pm); hg.userData.pods.push(pm); }
+    hg.userData.run = []; for (let i = 0; i < 7; i++) { const cls = Object.keys(CLASSES)[i % 6], m = M.marine(CLASSES[cls].color, cls), pd = hg.userData.pods[i % 4].position; m.position.set(-2 + (i % 3) * 1.6, 0, -26 - i * 1.8); hg.add(m); hg.userData.run.push({ m, to: V(pd.x - 3, 0, pd.z), ph: i * 0.7, sp: 5.2 + (i % 3) * 0.5 }); } }
   // ---- your pod (you only see its cabin from inside) and four more pods dropping beside you, in view of the windows
   const pod = add(dropPod(0xd09030)), cabin = podInterior(); pod.add(cabin); const { red, blue, strobe, doorG } = cabin.userData, fl = pod.userData.flame;
   const shell = pod.children.filter(o => o !== cabin && o !== fl && o !== pod.userData.heat); for (const o of shell) o.visible = false;
@@ -442,14 +461,14 @@ export function dropIntro(H, squad, done) {
     const warm = () => { const cull = []; scene.traverse(o => { if (o.isMesh || o.isPoints || o.isSprite || o.isLine) { cull.push([o, o.frustumCulled]); o.frustumCulled = false; } }); const camKids = camera.children.map(c => [c, c.visible]); for (const [c] of camKids) c.visible = true; const prev = R.getRenderTarget(); R.setRenderTarget(rt); R.render(scene, camera); R.setRenderTarget(prev); for (const [o, f] of cull) o.frustumCulled = f; for (const [c, v] of camKids) c.visible = v; };
     try { H.boomFx(padX, padY - 400, padZ, 6); H.burst(padX, padY - 400, padZ, 0xb09878, 4, 2, 0.2); H.burst(padX, padY - 400, padZ, 0xffa040, 4, 2, 0.2); H.burst(padX, padY - 400, padZ, 0xff7020, 4, 2, 0.2); H.tracer([padX, padY - 400, padZ], [padX, padY - 399, padZ], 0xffc070, 0.02, 0.1); } catch (er) { }   // the dust, fire and blast effects the landing uses
     try {
-    for (const o of shell) o.visible = true; R.compile(scene, camera); warm(); cabin.visible = false; R.compile(scene, camera); warm(); cabin.visible = true;
+    hg.visible = true; for (const o of shell) o.visible = true; R.compile(scene, camera); warm(); cabin.visible = false; R.compile(scene, camera); warm(); cabin.visible = true;
     W.group.visible = true; space.visible = false; st.visible = false; cc.position.copy(pod.position); scene.add(cc); scene.fog = cloudFog;
     const seen = new Set(); scene.traverse(o => { if (!o.material) return; for (const mm of [].concat(o.material)) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'alphaMap']) { const tx = mm[k]; if (tx && !seen.has(tx)) { seen.add(tx); R.initTexture(tx); } } });
     R.compile(scene, camera); warm();
-  } catch (err) { } rt.dispose(); scene.remove(cc); scene.fog = f0; W.group.visible = false; space.visible = true; st.visible = true; }
-  const T0 = 12;   // seconds of the opening shot of the station before you're strapped in
+  } catch (err) { } hg.visible = false; rt.dispose(); scene.remove(cc); scene.fog = f0; W.group.visible = false; space.visible = true; st.visible = true; }
+  const T0 = 18;   // seconds of the opening: inside the station's hangar (6 s), then the station from outside, down to your pod
   const ORB = 1.5;   // the eject, the fall through space and the burning entry last 1.5x longer
-  const DOCK = 11.2;   // extra seconds docked in the bay, so the eject comes exactly 30 s after Vance's "thirty seconds" at the start of the station shot (-11.8 + 30 = 7 + DOCK)
+  const DOCK = 5.2;   // extra seconds docked in the bay, so the eject comes exactly 30 s after Vance's "thirty seconds" at the start of the opening (-17.8 + 30 = 7 + DOCK)
   if (MU && MU.dropScore) MU.dropScore(T0);
   const t0 = performance.now(); let last = t0, said = {}, shakeK = 0, prevAlt = 0, spd = 0, flyDoor = 0, handed = false, podOut = false, crewParked = false; H.fade(false);
   const once = (k, f) => { if (!said[k]) { said[k] = 1; f(); } };
@@ -473,13 +492,24 @@ export function dropIntro(H, squad, done) {
       w.m.userData.flame.material.opacity = tt > 7 && tt < 13 ? 0.6 : 0; w.m.userData.heat.material.opacity = tt > 13 && tt < 22 ? Math.min(0.9, (tt - 13) / 7) : 0; if (tt > 24) w.m.visible = false; }
     if (t < 0) { // the opening shot: Station Olympus in high orbit, the drop pods hanging in its bay, then down to yours
       once('o1', () => { cap('STATION OLYMPUS', `High orbit over ${PN} · 7th Orbital Drop Wing`); for (const o of shell) o.visible = true; cabin.traverse(o => { if (!o.isLight && o !== cabin && o.isMesh && o.visible) { o.visible = false; (cabin.userData.hid = cabin.userData.hid || []).push(o); } }); hud.style.display = 'none';   /* hide the cabin's meshes but keep its lights on: a light count change rebuilds every shader */ document.body.classList.remove('pov'); });   /* letterboxed, like a film, until you're in your seat */
-      if (t > -11.8) once('b', () => cap('', 'Commander Vance: Listen up! Thirty seconds to drop. Hands off the straps until we\'re down.'));   /* right away: the eject comes exactly 30 s later */
-      if (t > -6.4) once('o2', () => cap('', 'General Hale: Drop teams, this is Olympus. The swarm holds the planet. Go down there and take it back.'));   /* after Vance (5 s) */
+      if (t > -17.8) once('b', () => cap('', 'Commander Vance: Listen up! Thirty seconds to drop. Hands off the straps until we\'re down.'));   /* right away: the eject comes exactly 30 s later */
+      if (t > -12.4) once('o2', () => cap('', 'General Hale: Drop teams, this is Olympus. The swarm holds the planet. Go down there and take it back.'));   /* after Vance (5 s) */
+      if (t > -3.4) once('b1', () => cap('', 'General Hale: Godspeed, marines. Bring that queen down.'));
       if (t > -0.6) once('o4', () => H.fade(true));
+      if (t < -8) { // inside the hangar: roaming shots, marines sprinting to the pods
+        hg.visible = true; const H0 = hg.position, P3 = (x, y, z) => V(H0.x + x, H0.y + y, H0.z + z), e = f => f * f * (3 - 2 * f); let cp, cl;
+        for (const r of hg.userData.run) { const m = r.m, d = V(r.to.x - m.position.x, 0, r.to.z - m.position.z), dl = d.length(); if (dl > 0.4) { const st2 = Math.min(dl, r.sp * dt); m.position.addScaledVector(d.normalize(), st2); m.rotation.y = Math.atan2(-d.x, -d.z); r.ph += dt * r.sp * 1.6; M.animMarine(m, r.ph, r.sp); } else { m.visible = false; } }   /* in through the hatch */
+        if (t < -14.5) { const f = e((t + 18) / 3.5); cp = P3(2.5, 2.2 + f, L(-29, -12, f)); cl = P3(-6, 2.4, L(-24, -6, f)); }   /* down the bay past the VTOLs and the missile racks */
+        else if (t < -12) { const f = e((t + 14.5) / 2.5); cp = P3(-9, 2.6, L(7, 20, f)); cl = P3(-13.5, 2.6, L(9.5, 20.5, f)); }   /* along the weapons rack */
+        else if (t < -10) { const f = e((t + 12) / 2); cp = P3(L(-4, -1, f), 3.2, L(-6, 0, f)); cl = P3(7, 2, L(8, 18, f)); }   /* marines sprinting for the pods */
+        else { const f = e((t + 10) / 2); cp = P3(L(4, 9, f), 4.5, L(-1, 1, f)); cl = P3(60, L(-6, -14, f), 2); }   /* out the window: the stars and the planet's curve */
+        camera.position.copy(cp); camera.lookAt(cl); A.rumble(0.03); requestAnimationFrame(step); return;
+      }
+      hg.visible = false; const ts = -12 + (t + 8) * 1.5;   /* the old 12 s station flyby, now in 8 s */
       const sp = st.position, pp = pod.position; let cp, cl;
-      if (t < -6) { const f = (t + 12) / 6, a = 0.6 + f * 1.1, r = 230 - f * 50; cp = V(sp.x + Math.cos(a) * r, sp.y + 70 - f * 40, sp.z + Math.sin(a) * r); cl = V(sp.x, sp.y - 10, sp.z); }
-      else if (t < -2) { const f = (t + 6) / 4, e2 = f * f * (3 - 2 * f), a = 1.7; const A0 = V(sp.x + Math.cos(a) * 180, sp.y - 70, sp.z + Math.sin(a) * 180), A1 = V(pp.x + 34, pp.y - 6, pp.z + 22); cp = A0.lerp(A1, e2); cl = V(L(sp.x, pp.x, e2), L(sp.y - 10, pp.y + 2, e2), L(sp.z, pp.z, e2)); }
-      else { const f = (t + 2) / 2; cp = V(pp.x + L(34, 6, f), pp.y + L(-6, 2.4, f), pp.z + L(22, 4, f)); cl = V(pp.x, pp.y + 2.4, pp.z); }
+      if (ts < -6) { const f = (ts + 12) / 6, a = 0.6 + f * 1.1, r = 230 - f * 50; cp = V(sp.x + Math.cos(a) * r, sp.y + 70 - f * 40, sp.z + Math.sin(a) * r); cl = V(sp.x, sp.y - 10, sp.z); }
+      else if (ts < -2) { const f = (ts + 6) / 4, e2 = f * f * (3 - 2 * f), a = 1.7; const A0 = V(sp.x + Math.cos(a) * 180, sp.y - 70, sp.z + Math.sin(a) * 180), A1 = V(pp.x + 34, pp.y - 6, pp.z + 22); cp = A0.lerp(A1, e2); cl = V(L(sp.x, pp.x, e2), L(sp.y - 10, pp.y + 2, e2), L(sp.z, pp.z, e2)); }
+      else { const f = (ts + 2) / 2; cp = V(pp.x + L(34, 6, f), pp.y + L(-6, 2.4, f), pp.z + L(22, 4, f)); cl = V(pp.x, pp.y + 2.4, pp.z); }
       camera.position.copy(cp); camera.lookAt(cl); A.rumble(0.04); requestAnimationFrame(step); return;
     }
     once('o5', () => { for (const o of shell) o.visible = false; for (const o of cabin.userData.hid || []) o.visible = true; cabin.userData.hid = null; hud.style.display = ''; document.body.classList.add('pov'); H.fade(false); });
@@ -488,7 +518,6 @@ export function dropIntro(H, squad, done) {
       // the countdown is real: "thirty seconds" (said as the station shot opens) comes exactly 30 s before the clamps blow (eject at tr = 7 + DOCK)
       const EJ = 7 + DOCK;
       if (tr > EJ - 20) once('b2', () => A.sfx('alarm', 0.55));
-      if (tr > 3) once('b1', () => cap('', 'General Hale: Godspeed, marines. Bring that queen down.'));
       if (tr > EJ - 10) once('b3', () => { A.sfx('alarm', 0.6); cap('', 'Commander Vance: Pod sealed. Harnesses locked. Ten seconds.'); });
       if (tr > EJ - 5) once('c', () => { A.sfx('alarm', 0.7); cap('', 'Vance: Here we go. Hold on to something!'); });
       { const pu = 0.5 + 0.5 * Math.sin(tr * 2.6); red.intensity = 4 + 4 * pu; strobe.emissiveIntensity = 0.6 + 2.6 * pu; }   /* a slow alarm pulse, no hard flashing */ shake = 0.04; if (tr > EJ - 10) shake = 0.08; if (tr > EJ - 5) shake = 0.12;

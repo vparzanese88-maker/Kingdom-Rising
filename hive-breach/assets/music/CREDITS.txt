@@ -3,4 +3,4 @@ Soundtrack (all CC0 / public domain, from OpenGameArt.org):
 - calm.mp3: "Inevitable"  https://opengameart.org/content/inevitable
 - battle.mp3: "QaziJamJam Orchestral Battle Theme"  https://opengameart.org/content/qazijamjam-orchestral-battle-theme
 - boss.mp3: Juhani Junkala, "Epic Boss Battle"  https://opengameart.org/content/boss-battle-music
-- rock.mp3: "Achilles" (starting 0:08.45, on the riff)  https://opengameart.org/content/achilles
+- rock.mp3: "Cybersecutor" (industrial metal, starting 1:04.94 on the hit)  https://opengameart.org/content/cybersecutor

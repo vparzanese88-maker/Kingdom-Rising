@@ -370,8 +370,8 @@ export function dropIntro(H, squad, done) {
   // First person, strapped into a seat: one unbroken fall from the station to the pad. Look around the cabin and out the windows with the mouse.
   const { scene, camera } = H, G = H.G, W = G.W, P = W.path, objs = [], add = o => { scene.add(o); objs.push(o); return o; }, V = (x, y, z) => new THREE.Vector3(x, y, z);
   const L = (a, b, f) => a + (b - a) * f, cl = f => Math.max(0, Math.min(1, f)), PN = { mars: 'Mars', ice: 'Kryos IV', jungle: 'Thessa' }[W.id] || 'the planet', cap = H.caption, A = H.audio, MU = G.music && G.music();
-  const bg0 = scene.background, fog0 = scene.fog, cBg0 = bg0 && bg0.isColor ? bg0.clone() : new THREE.Color(W.def.sky); W.group.visible = false; G.cineFog = true;
-  scene.background = new THREE.Color(0x02030a); scene.fog = null; document.body.classList.add('pov');
+  const bg0 = scene.background, fog0 = scene.fog, cBg0 = bg0 && bg0.isColor ? bg0.clone() : new THREE.Color(W.def.sky); W.group.visible = false; G.cineFog = true;   /* fog stays a Fog all the way down (never none), so shaders don't need rebuilding when it changes */
+  scene.background = new THREE.Color(0x02030a); scene.fog = new THREE.Fog(0x02030a, 1e5, 2e5); document.body.classList.add('pov');
   const heat = document.createElement('div'); heat.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:18;opacity:0;background:radial-gradient(ellipse at center,rgba(255,140,40,0) 35%,rgba(255,90,20,.55) 80%,rgba(255,40,0,.85))'; document.body.appendChild(heat);
   const hud = document.createElement('div'); hud.style.cssText = 'position:fixed;left:3vw;top:4vh;z-index:21;pointer-events:none;font:600 15px "Chakra Petch",monospace;color:#9fe8ff;text-shadow:0 0 6px #08f;line-height:1.5;letter-spacing:1px'; document.body.appendChild(hud);
   // ---- the landing pad beside the hub; the whole fall is straight down onto it
@@ -425,6 +425,15 @@ export function dropIntro(H, squad, done) {
   const fogC = new THREE.Color(0xdde3ea), cloudFog = new THREE.Fog(fogC.clone(), 0.5, 16);
   const yAt = t => t < 7 ? SY + 2 : t < 13 ? SY + 2 - ((t - 7) / 6) ** 2 * 160 - (t - 7) / 6 * 10 : t < 22 ? L(SY - 168, 900, (t - 13) / 9) : t < 29 ? padY + 0.6 + (900 - padY - 0.6) * (1 - (t - 22) / 7) ** 2.6 : padY + 0.6;
   pod.rotation.y = doorYaw; pod.position.set(padX, SY + 2, padZ); G.me.yaw = Math.atan2(Math.cos(myA), Math.sin(myA)); G.me.pitch = -0.05;   /* your look is relative to the pod: 0 faces the door */
+  // compile every shader and upload every texture the ride will need now, behind the opening fade, instead of in the middle of it
+  // Build every shader and upload every texture the ride will need now, behind the opening fade: once for space, once for the battlefield below
+  // (the world's lights switch on at the cloud layer, which otherwise rebuilds every shader mid-fall: that was the stutter)
+  if (H.renderer) { const R = H.renderer, cc = new THREE.Mesh(cloudG, cloudM), f0 = scene.fog; try {
+    for (const o of shell) o.visible = true; R.compile(scene, camera); cabin.visible = false; R.compile(scene, camera); cabin.visible = true;
+    W.group.visible = true; space.visible = false; st.visible = false; cc.position.copy(pod.position); scene.add(cc); scene.fog = cloudFog;
+    const seen = new Set(); scene.traverse(o => { if (!o.material) return; for (const mm of [].concat(o.material)) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'alphaMap']) { const tx = mm[k]; if (tx && !seen.has(tx)) { seen.add(tx); R.initTexture(tx); } } });
+    R.compile(scene, camera);
+  } catch (err) { } scene.remove(cc); scene.fog = f0; W.group.visible = false; space.visible = true; st.visible = true; }
   const T0 = 12;   // seconds of the opening shot of the station before you're strapped in
   if (MU && MU.dropScore) MU.dropScore(T0);
   const t0 = performance.now(); let last = t0, said = {}, shakeK = 0, prevAlt = 0, spd = 0, flyDoor = 0, handed = false, podOut = false, crewParked = false; H.fade(false);
@@ -477,7 +486,7 @@ export function dropIntro(H, squad, done) {
       pod.rotation.z = Math.sin(t * 31) * 0.025 * f; pod.rotation.x = Math.sin(t * 23) * 0.015 * f; fl.material.opacity = 0; pod.userData.heat.material.opacity = Math.min(0.9, f * 1.3);
       rum = 0.45 + f * 0.55; shake = 0.3 + f * 1.1; orange.intensity = 2 + f * 10 + Math.random() * 3; heat.style.opacity = (0.12 + f * 0.5 + Math.random() * 0.1).toFixed(2); streakO = cl(f * 1.6) * (0.55 + Math.random() * 0.3); temp = 200 + f * 1500;
       strobe.emissiveIntensity = Math.sin(t * 12) > 0 ? 5 : 0.3;
-      for (let k = 0; k < 3; k++) { const a = Math.random() * 6.283, w = pod.localToWorld(V(Math.cos(a) * 2.6, 1 + Math.random() * 3, Math.sin(a) * 2.6)); H.burst(w.x, w.y, w.z, Math.random() < 0.5 ? 0xff7020 : 0xffd060, 2, 6, 0.35); }
+      for (let k = 0; k < 1; k++) { const a = Math.random() * 6.283, w = pod.localToWorld(V(Math.cos(a) * 2.6, 1 + Math.random() * 3, Math.sin(a) * 2.6)); H.burst(w.x, w.y, w.z, Math.random() < 0.5 ? 0xff7020 : 0xffd060, 2, 6, 0.35); }
       if (Math.random() < dt * 0.8) A.sfx('thunder', 0.15 + f * 0.15);
       // the burning sky: black space turns to fire, then to the white of the cloud tops
       scene.background.setRGB(L(0.01, 0.35, cl(f * 1.4)), L(0.01, 0.1, cl(f * 1.4)), L(0.04, 0.03, cl(f * 1.4)));
@@ -485,11 +494,12 @@ export function dropIntro(H, squad, done) {
     } else if (t < 29) { // through the clouds, out the bottom over the battlefield, retro-rockets fighting the fall onto the pad
       const f = (t - 22) / 7;
       once('h', () => { W.group.visible = true; space.visible = false; st.visible = false; scene.fog = cloudFog; scene.background = fogC.clone(); pod.userData.heat.material.opacity = 0; orange.intensity = 1; pod.rotation.x = 0; });
+      if (t > 26.6) once('brace', () => { if (MU && MU.brace) MU.brace(); });
       if (t > 23.6) once('h2', () => { cap('', 'Vance: Retros firing. Landing zone in sight. Brace, brace, brace!'); A.sfx('rotor', 0.9); A.sfx('boom', 0.5); shakeK = 1; });
       // the cloud bank: dense, then it tears open and the ground is right there
       const fo = fog0 || { near: 30, far: 220, color: cBg0 }, k1 = cl((t - 22) / 1.8), k2 = cl((t - 23.8) / 0.9), k3 = cl((t - 24.7) / 3);
       cloudFog.near = L(0.5, fo.near, k2); cloudFog.far = k2 < 1 ? L(L(14, 40, k1), 1200, k2 * k2) : L(1200, fo.far, k3); cloudFog.color.copy(fogC).lerp(fo.color, k2); scene.background.copy(fogC).lerp(cBg0, k2);
-      if (t < 24.2) for (let k = 0; k < 5; k++) { const c = new THREE.Mesh(cloudG, cloudM), a = Math.random() * 6.283, r = 5 + Math.random() * 40; c.position.set(padX + Math.cos(a) * r, y - 30 - Math.random() * 60, padZ + Math.sin(a) * r); c.scale.set(4 + Math.random() * 10, 2 + Math.random() * 5, 4 + Math.random() * 10); add(c); clouds.push(c); }
+      if (t < 24.2) for (let k = 0; k < 2 && clouds.length < 60; k++) { const c = new THREE.Mesh(cloudG, cloudM), a = Math.random() * 6.283, r = 5 + Math.random() * 40; c.position.set(padX + Math.cos(a) * r, y - 30 - Math.random() * 60, padZ + Math.sin(a) * r); c.scale.set(4 + Math.random() * 10, 2 + Math.random() * 5, 4 + Math.random() * 10); add(c); clouds.push(c); }
       for (let i = clouds.length - 1; i >= 0; i--) if (clouds[i].position.y > y + 30) { scene.remove(clouds[i]); clouds.splice(i, 1); }
       heat.style.opacity = Math.max(0, 0.3 - f).toFixed(2); streakO = t < 23 ? 0.3 * (23 - t) : 0;
       const burn = t > 23.6; pod.rotation.z = Math.sin(t * 20) * 0.012; fl.material.opacity = burn ? 0.85 : 0; fl.scale.set(1, 0.7 + (1 - f) * 1.4 + Math.random() * 0.3, 1);

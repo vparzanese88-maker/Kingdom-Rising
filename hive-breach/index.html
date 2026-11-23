@@ -265,7 +265,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 #info .gk{font:600 1em "Share Tech Mono",monospace;color:var(--gold);min-width:2.6em;white-space:nowrap;padding-top:.15em}
 #info .gi b{font-size:1.08em;color:#fff}#info .gi p{margin:.15em 0;color:#d8e6f0;line-height:1.3}#info .gi small{color:#9ec0d4;font-size:.85em}
 @media (max-width:800px){#info{overflow:auto!important}#info .gg{grid-template-columns:repeat(2,1fr);grid-auto-rows:auto}}
-#comm{position:fixed;right:18px;top:205px;z-index:21;width:150px;padding:6px;background:rgba(6,14,22,.85);border:1px solid rgba(95,216,255,.55);box-shadow:0 0 18px rgba(95,216,255,.25);pointer-events:none;animation:commIn .25s ease-out}#comm .cimg{position:relative;width:138px;height:138px;overflow:hidden;border:1px solid rgba(95,216,255,.35)}#comm img{width:100%;height:100%;display:block;filter:contrast(1.05) saturate(.9)}#comm .scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 4px);mix-blend-mode:multiply}#comm.talk .cimg{box-shadow:inset 0 0 0 2px rgba(96,255,144,.6)}#commN{font:700 12px/1.25 'Chakra Petch',sans-serif;letter-spacing:.08em;color:#5fd8ff;margin-top:5px;text-align:center}#comm.gen{border-color:rgba(160,190,255,.6)}#comm.gen #commN{color:#a8c4ff}
+#comm{position:fixed;right:18px;top:205px;z-index:21;width:150px;padding:6px;background:rgba(6,14,22,.85);border:1px solid rgba(95,216,255,.55);box-shadow:0 0 18px rgba(95,216,255,.25);pointer-events:none;animation:commIn .25s ease-out}#comm .cimg{position:relative;width:138px;height:138px;overflow:hidden;border:1px solid rgba(95,216,255,.35)}#comm img{width:100%;height:100%;display:block;filter:contrast(1.05) saturate(.9)}#comm .scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 4px);mix-blend-mode:multiply}#comm.talk .cimg{box-shadow:inset 0 0 0 2px rgba(96,255,144,.6)}#commSig{display:block;width:138px;height:22px;margin-top:4px;background:rgba(0,20,14,.6);border:1px solid rgba(96,255,144,.25)}#comm.gen #commSig{border-color:rgba(160,190,255,.3)}#commN{font:700 12px/1.25 'Chakra Petch',sans-serif;letter-spacing:.08em;color:#5fd8ff;margin-top:5px;text-align:center}#comm.gen{border-color:rgba(160,190,255,.6)}#comm.gen #commN{color:#a8c4ff}
 #qcard{position:fixed;right:178px;top:205px;z-index:13;width:170px;height:170px;border:1px solid rgba(255,90,60,.7);box-shadow:0 0 18px rgba(255,60,30,.3);pointer-events:none;animation:commIn .25s ease-out}#qcardL{position:absolute;left:0;right:0;bottom:-20px;text-align:center;font:700 11px 'Chakra Petch',sans-serif;letter-spacing:.12em;color:#ff7a50;background:rgba(6,14,22,.85);padding:2px 0}@keyframes commIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 #radio{position:absolute;left:10px;bottom:118px;width:min(430px,46vw);padding:7px 12px;background:linear-gradient(90deg,rgba(6,14,22,.82),rgba(6,14,22,.25));border-left:3px solid #5fd8ff;opacity:0;transform:translateX(-12px);transition:opacity .35s,transform .35s;pointer-events:none}#radio.on{opacity:1;transform:none}#radio.gen{border-left-color:#ffc940}#radioW{font:600 12px/1.2 'Share Tech Mono',monospace;letter-spacing:.14em;color:#5fd8ff}#radio.gen #radioW{color:#ffc940}#radioM{font-size:15px;line-height:1.35;color:#eef6fb;margin-top:3px;text-shadow:0 1px 2px #000}
 </style>
@@ -273,18 +273,18 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/assets.js": "./src/assets.js?v=1795467093",
-"./src/audio.js": "./src/audio.js?v=1795467093",
-"./src/data.js": "./src/data.js?v=1795467093",
-"./src/explore.js": "./src/explore.js?v=1795467093",
-"./src/icons.js": "./src/icons.js?v=1795467093",
-"./src/main.js": "./src/main.js?v=1795467093",
-"./src/models.js": "./src/models.js?v=1795467093",
-"./src/music.js": "./src/music.js?v=1795467093",
-"./src/net.js": "./src/net.js?v=1795467093",
-"./src/sim.js": "./src/sim.js?v=1795467093",
-"./src/voice.js": "./src/voice.js?v=1795467093",
-"./src/world.js": "./src/world.js?v=1795467093"
+"./src/assets.js": "./src/assets.js?v=1795467586",
+"./src/audio.js": "./src/audio.js?v=1795467586",
+"./src/data.js": "./src/data.js?v=1795467586",
+"./src/explore.js": "./src/explore.js?v=1795467586",
+"./src/icons.js": "./src/icons.js?v=1795467586",
+"./src/main.js": "./src/main.js?v=1795467586",
+"./src/models.js": "./src/models.js?v=1795467586",
+"./src/music.js": "./src/music.js?v=1795467586",
+"./src/net.js": "./src/net.js?v=1795467586",
+"./src/sim.js": "./src/sim.js?v=1795467586",
+"./src/voice.js": "./src/voice.js?v=1795467586",
+"./src/world.js": "./src/world.js?v=1795467586"
 }
 }
 </script>
@@ -295,7 +295,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 <div id="fade"></div>
 <div id="lbT"></div><div id="lbB"></div><div id="cap"><div id="capA"></div><div id="capB"></div></div>
 
-<div id="comm" hidden><div class="cimg"><img id="commImg" alt=""><i class="scan"></i></div><div id="commN"></div></div>
+<div id="comm" hidden><div class="cimg"><img id="commImg" alt=""><i class="scan"></i></div><canvas id="commSig" width="276" height="44"></canvas><div id="commN"></div></div>
 <div id="hud" hidden>
   <div id="hurt"></div><div id="lowhp"></div><div id="kc"></div><div id="obj" hidden><i></i><span id="objT"></span></div>
   <div id="scope" hidden></div>
@@ -351,6 +351,6 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795467093"></script>
+<script type="module" src="./src/main.js?v=1795467586"></script>
 </body>
 </html>

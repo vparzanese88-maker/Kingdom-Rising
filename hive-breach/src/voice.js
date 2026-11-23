@@ -60,6 +60,7 @@ export const VOICE = [
 export class Voice {
   constructor(audio) { this.a = audio; this.files = {}; this.buf = {}; fetch('./assets/voice/lines.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).then(j => { this.files = j || {}; }).catch(() => { });
     this.pre = setInterval(() => { if (!this.a.ctx || !Object.keys(this.files).length) return; clearInterval(this.pre); for (const k in this.files) this.load(k); }, 500); }   // every recording is loaded up front, so each line plays exactly on its cue
+  level() { if (!this.an || !(this.end > this.a.ctx.currentTime)) return 0; this.an.getFloatTimeDomainData(this.anBuf); let s = 0; for (const x of this.anBuf) s += x * x; return Math.sqrt(s / this.anBuf.length); }   // how loud the voice is right now (0 when nobody talks)
   has(text) { const v = this.find(text); return !!(v && this.files[v.k]); }
   find(text) { return VOICE.find(v => v.re.test(text)); }
   load(k) {   // one shared load per recording: a line asked for while it's still loading waits for it instead of being skipped
@@ -77,7 +78,7 @@ export class Voice {
     const t0 = now + 0.08, s = c.createBufferSource(); s.buffer = b;
     // everything goes through one fader (the Voice volume setting), well under the music and the battle
     const gen = v.who === 'General Hale';   // Hale talks from orbit: a thinner, more distant channel; Vance is close in your helmet
-    const out = c.createGain(); out.gain.value = (gen ? 0.85 : 0.7) * (this.vol ?? 0.6); out.connect(this.a.bus || c.destination);
+    const out = c.createGain(); out.gain.value = (gen ? 0.85 : 0.7) * (this.vol ?? 0.6); out.connect(this.a.bus || c.destination); if (!this.an || this.an.context !== c) { this.an = c.createAnalyser(); this.an.fftSize = 512; this.anBuf = new Float32Array(512); } out.connect(this.an);   /* the comm card's signal line listens here */
     // the helmet's tiny speaker: no bass, no air, a boxy hollow middle and a hard little resonance, driven a touch into crackle
     const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = gen ? 700 : 380; hp.Q.value = 1.1;
     const hp2 = c.createBiquadFilter(); hp2.type = 'highpass'; hp2.frequency.value = gen ? 600 : 300; hp2.Q.value = 0.7;

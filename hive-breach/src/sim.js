@@ -506,7 +506,7 @@ export class Sim {
     if (this.phase === 'wave') { const k = 1 + 0.3 * (this.players.size - 1), L = this.living(); this.cmdA = (this.cmdA ?? 120) - dt * k; this.cmdD = (this.cmdD ?? 150) - dt * k;
       if (L.length && this.cmdA <= 0) { this.cmdA = 120; const p = L[(this.cmdAi = (this.cmdAi || 0) + 1) % L.length]; this.airdrop(p, 'ammo'); }
       if (L.length && this.cmdD <= 0) { this.cmdD = 150; const p = L[(this.cmdDi = (this.cmdDi || 0) + 1) % L.length]; this.airdrop(p, 'dress'); }
-      this.cmdS = (this.cmdS ?? 100) - dt * k; if (L.length && this.cmdS <= 0) { this.cmdS = 170; const p = L[(this.cmdSi = (this.cmdSi || 0) + 1) % L.length]; this.airdrop(p, 'sp'); } }
+      this.cmdS = (this.cmdS ?? 40) - dt * k; if (L.length && this.cmdS <= 0) { this.cmdS = 75;   /* a special crate every 75 s (sooner with more marines) */ const p = L[(this.cmdSi = (this.cmdSi || 0) + 1) % L.length]; this.airdrop(p, 'sp'); } }
     const open = this.hiveOpen();
     for (const m of this.allies) {
       const A = ALLIES[m.type]; m.cd -= dt; m.tg = 0;

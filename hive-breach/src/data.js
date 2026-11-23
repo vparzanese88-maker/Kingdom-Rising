@@ -53,6 +53,7 @@ export const SPECIALS = {
   // aimed on the live map (aim: true); w = how often it turns up in crates
   missile: { name: 'Tactical Missile', aim: 1, w: 1, r: 12, desc: 'Click anywhere on the live map: a missile launches from the hub and strikes there.' },
   dropship: { name: 'Marine Dropship', aim: 1, w: 1, r: 6, desc: 'A dropship flies in and drops 6 marines on the track where you point.' },
+  gunship: { name: 'VTOL Gunship', w: 2, desc: 'A VTOL lands beside you and picks you up (and a teammate close by): man the door minigun while it strafes the swarm, then it sets you down.' },
   drone: { name: 'Drone Strike', w: 3, desc: 'Three gunship drones fly with you for 15 s and shoot nearby aliens.' },
   airstrike: { name: 'Bombing Run', aim: 1, w: 2, r: 20, desc: 'A jet carpet-bombs the alien track where you point.' },
   orbital: { name: 'Orbital Laser', aim: 1, w: 1, r: 6, desc: 'A beam from orbit burns the area for 6 s.' },

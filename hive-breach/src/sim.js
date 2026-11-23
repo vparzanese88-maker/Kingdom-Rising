@@ -29,7 +29,7 @@ export class Sim {
     this.W = W; this.path = W.path; this.emit = emit; this.players = new Map(); this.reset();
   }
   reset() { TECH.k = 1; this.hubSaid = {}; this.cmdA = 120; this.cmdD = 150; this.dropN = 0;
-    this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.items = []; this.pools = []; this.tm = []; this.drones = []; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = []; this.stormT = 0; this.stormI = 0; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0], step: 0, fund: 0 }; this.spawnHive(1);
+    this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.items = []; this.pools = []; this.tm = []; this.drones = []; this.rides = []; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = []; this.stormT = 0; this.stormI = 0; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0], step: 0, fund: 0 }; this.spawnHive(1);
     for (const p of this.players.values()) this.resetPlayer(p);
     this.scrap = []; this.scrapT = 0; this.salv = (this.W.salvage || []).map(w => w.amt);   // scrap left in each wreck
   }
@@ -140,6 +140,7 @@ export class Sim {
         this.emit({ k: 'tmiss', a: [hx, hy + 8, hz], b: [+x.toFixed(1), +y.toFixed(1), +z.toFixed(1)], l: MISSILE.launch, f: +fly.toFixed(2), n: p.name }); }
       else if (SPECIALS[sp].aim && r.x === undefined) return;
       else if (SPECIALS[sp].aim) this.callIn(sp, Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, +r.x)), Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, +r.z)), p);
+      else if (sp === 'gunship') { if (this.rides.some(q => q.owner === id)) return say('Your gunship is already on its way.'); this.callGunship(p); }
       else if (sp === 'drone') { for (let i = 0; i < 3; i++) this.drones.push({ id: this.nid++, x: p.x, z: p.z, y: p.y, t: 15, a: i * 2.09, cd: 0, tg: 0, owner: id, follow: id }); }
       else if (sp === 'hubrepair') this.hub = Math.min(this.hubMax, this.hub + 25);
       else if (sp === 'overdrive') { for (const t of this.turrets) if (t.owner === id) t.od = 15; }
@@ -180,7 +181,7 @@ export class Sim {
   aggro(a, k, id, time) { a.mode = 'hunt'; a.tk = k; a.tid = id; a.ht = time ? (ALIENS[a.type].hunt || {}).time || 8 : (ALIENS[a.type].hunt || {}).time || 8; this.emit({ k: 'aggro', x: a.x, z: a.z, to: k === 'p' ? id : '', t: a.type }); }
   inSandbags(x, z) { return this.turrets.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - x, t.z - z) < TURRETS.sandbag.range) || (this.W.bags || []).some(b => Math.hypot(b.x - x, b.z - z) < 3.6); }   // a built bunker, or any sandbag wall on the map
   hurtPlayer(p, d, by) {
-    if (p.dead) return; if (this.inSandbags(p.x, p.z)) d *= 0.5; for (const dm of this.domes) if (Math.hypot(p.x - dm.x, p.z - dm.z) < dm.r) return; for (const q of this.players.values()) if (q !== p && !q.dead && q.cls === 'heavy' && Math.hypot(q.x - p.x, q.z - p.z) < 12) { d *= 0.8; break; } p.hp -= d * (p.buf.iron > 0 ? 0.4 : 1) * (p.buf.nano > 0 ? 0.6 : 1); if (by) this.emit({ k: 'hitp', to: p.id, x: +by.x.toFixed(1), z: +by.z.toFixed(1) });
+    if (p.dead || p.ride) return;   /* nothing touches a marine riding the gunship */ if (this.inSandbags(p.x, p.z)) d *= 0.5; for (const dm of this.domes) if (Math.hypot(p.x - dm.x, p.z - dm.z) < dm.r) return; for (const q of this.players.values()) if (q !== p && !q.dead && q.cls === 'heavy' && Math.hypot(q.x - p.x, q.z - p.z) < 12) { d *= 0.8; break; } p.hp -= d * (p.buf.iron > 0 ? 0.4 : 1) * (p.buf.nano > 0 ? 0.6 : 1); if (by) this.emit({ k: 'hitp', to: p.id, x: +by.x.toFixed(1), z: +by.z.toFixed(1) });
     if (p.hp <= 0) { p.hp = 0; p.dead = true; p.rt = 7; this.emit({ k: 'toast', m: p.name + ' is down! Back in 7 seconds.' }); }
   }
   hurtTurret(t, d, by) { if (t.carry) d *= 2; t.hp -= d; if (by && this.time - (t.warned || -99) > 5) { t.warned = this.time; this.emit({ k: 'tatk', id: t.id, o: t.owner, kind: t.kind, x: t.x, z: t.z }); } if (t.hp <= 0) { this.turrets = this.turrets.filter(q => q !== t); this.emit({ k: 'boom', x: t.x, y: 1, z: t.z, r: 2.5 }); this.emit({ k: 'say', to: t.owner, m: `Your ${TURRETS[t.kind].name} was destroyed.` }); } }
@@ -418,6 +419,7 @@ export class Sim {
     if (this.spores.some(c => c.life <= 0)) this.spores = this.spores.filter(c => c.life > 0);
     for (const c of this.spores) { c.a += (Math.random() - 0.5) * dt * 0.8; c.x += Math.cos(c.a) * 2.2 * dt; c.z += Math.sin(c.a) * 2.2 * dt; if (Math.abs(c.x) > BOUNDS - 10) c.a = Math.PI - c.a; if (Math.abs(c.z) > BOUNDS - 10) c.a = -c.a; c.x = Math.max(-BOUNDS + 10, Math.min(BOUNDS - 10, c.x)); c.z = Math.max(-BOUNDS + 10, Math.min(BOUNDS - 10, c.z)); }
     for (const e of this.later) { e.t -= dt; if (e.t <= 0 && !e.done) { e.done = true; e.f(); } } if (this.later.some(e => e.done)) this.later = this.later.filter(e => !e.done);
+    this.updRides(dt);
     for (const d of this.drones) { d.t -= dt; d.a += dt * 0.9; d.cd -= dt; d.tg = 0; const fp = d.follow && this.players.get(d.follow); if (fp && !fp.dead) { d.x += (fp.x - d.x) * Math.min(1, dt * 2); d.z += (fp.z - d.z) * Math.min(1, dt * 2); d.y = fp.y; } const cx = d.x + Math.cos(d.a) * 8, cz = d.z + Math.sin(d.a) * 8; let tg = null, bd = 22; for (const a of this.aliens) { if (ALIENS[a.type].static) continue; const dd = Math.hypot(a.x - cx, a.z - cz); if (dd < bd) { bd = dd; tg = a; } } if (tg) { d.tg = tg.id; if (d.cd <= 0) { d.cd = 0.12; this.hurtAlien(tg, 9, d.owner, true); } } } if (this.drones.some(d => d.t <= 0)) this.drones = this.drones.filter(d => d.t > 0);
     for (const l of this.lasers) { l.t -= dt; for (const a of this.aliens) if (Math.hypot(a.x - l.x, a.z - l.z) < 6) this.hurtAlien(a, 340 * dt, l.owner, true); } if (this.lasers.some(l => l.t <= 0)) this.lasers = this.lasers.filter(l => l.t > 0);
     for (const m of this.medz) { m.t -= dt; for (const p of this.living()) if (Math.hypot(p.x - m.x, p.z - m.z) < m.r) p.hp = Math.min(p.mhp, p.hp + 25 * dt); for (const a of this.allies) if (Math.hypot(a.x - m.x, a.z - m.z) < m.r) a.hp = Math.min(a.mhp, a.hp + 25 * dt); } if (this.medz.some(m => m.t <= 0)) this.medz = this.medz.filter(m => m.t > 0);
@@ -472,6 +474,35 @@ export class Sim {
     if (this.allies.some(m => m.hp <= 0)) { for (const m of this.allies) if (m.hp <= 0) this.emit({ k: 'adie', x: m.x, y: m.y, z: m.z }); this.allies = this.allies.filter(m => m.hp > 0); }
   }
   hurtAlly(m, d) { m.hp -= d * ALLY_HURT * (this.inSandbags(m.x, m.z) ? 0.5 : 1); }
+  // the VTOL gunship special: it lands beside the marine, takes up to two aboard, flies a strafing run over the swarm with its door miniguns
+  // (manned by the riders; an empty door's gun fires by itself), lands where it picked them up, sets them down and leaves
+  callGunship(p) {
+    let x = p.x, z = p.z; for (let k = 0; k < 24; k++) { const a = k * 0.8, r = 9 + k * 0.6, tx = p.x + Math.cos(a) * r, tz = p.z + Math.sin(a) * r; if (Math.abs(tx) < BOUNDS - 8 && Math.abs(tz) < BOUNDS - 8 && this.W.T.chasm(tx, tz) > 0.99 && this.path.near(tx, tz).d > 4 && !this.W.T.hubAt(tx, tz)) { x = tx; z = tz; break; } }
+    const P = this.path, route = [[x, z]]; for (const f of [0.8, 0.62, 0.45, 0.3, 0.42, 0.6, 0.78]) { const q = P.at(P.len * f), sd = route.length % 2 ? 1 : -1; route.push([q.x - q.tz * 16 * sd, q.z + q.tx * 16 * sd]); } route.push([x, z]);
+    const gy = this.W.top(x, z); this.rides.push({ id: this.nid++, owner: p.id, x: x + 90, y: gy + 60, z: z + 40, gy, px: x, pz: z, ry: 0, t: 0, ph: 0, riders: [], route, cd: [0, 0] });
+    this.radio('cmd', `${p.name}, gunship inbound on your position. Get aboard and man that door gun!`, 1);
+  }
+  updRides(dt) {
+    const SP = [0, 6, 9, 37, 43, 45, 51];   // in, board, fly, land, drop, leave, gone
+    for (const r of this.rides) {
+      r.t += dt; let ph = 0; while (ph < 6 && r.t >= SP[ph + 1]) ph++; r.ph = ph; const L = (a, b, f) => a + (b - a) * f, sm = f => f * f * (3 - 2 * f);
+      if (ph === 0) { const f = sm(r.t / 6); r.x = L(r.px + 90, r.px, f); r.z = L(r.pz + 40, r.pz, f); r.y = L(r.gy + 60, r.gy + 0.6, f); r.ry = Math.atan2(-(r.px - r.x - 0.01), -(r.pz - r.z)); }
+      else if (ph === 1) { r.x = r.px; r.z = r.pz; r.y = r.gy + 0.6;   // aboard: the marine who called it, and whoever else stands close by
+        for (const q of this.living()) if (r.riders.length < 2 && !q.ride && (q.id === r.owner ? Math.hypot(q.x - r.x, q.z - r.z) < 30 : Math.hypot(q.x - r.x, q.z - r.z) < 8)) { q.ride = r.id; r.riders.push(q.id); this.emit({ k: 'board', to: q.id }); } }
+      else if (ph === 2 || ph === 3) { // the strafing run: along the route, 24 m up, banking into the turns
+        const segs = []; let tot = 0; for (let i = 1; i < r.route.length; i++) { const l = Math.hypot(r.route[i][0] - r.route[i - 1][0], r.route[i][1] - r.route[i - 1][1]); segs.push(l); tot += l; }
+        if (ph === 2) { let dd = sm((r.t - 9) / 28) * tot, i = 0; while (i < segs.length - 1 && dd > segs[i]) { dd -= segs[i]; i++; } const a = r.route[i], b = r.route[i + 1], f = segs[i] ? Math.min(1, dd / segs[i]) : 1, nx = L(a[0], b[0], f), nz = L(a[1], b[1], f);
+          const want = Math.atan2(-(nx - r.x), -(nz - r.z)); if (Math.hypot(nx - r.x, nz - r.z) > 0.01) { let dy = want - r.ry; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; r.ry += dy * Math.min(1, dt * 2.5); } r.x = nx; r.z = nz; const up = Math.min(1, (r.t - 9) / 3), dn = Math.min(1, (37 - r.t) / 3); r.y = Math.max(this.W.top(r.x, r.z), r.gy) + 0.6 + 24 * Math.min(up, dn); }
+        else { const f = sm((r.t - 37) / 6); r.x = L(r.x, r.px, Math.min(1, dt * 3)); r.z = L(r.z, r.pz, Math.min(1, dt * 3)); r.y = L(r.y, r.gy + 0.6, f); }
+        // door guns: an empty door fires by itself at the nearest alien below (a rider's gun is fired by that marine)
+        for (let s = 0; s < 2; s++) { if (r.riders[s] && this.players.get(r.riders[s]) && !this.players.get(r.riders[s]).dead) continue; r.cd[s] -= dt; if (r.cd[s] > 0) continue; const sx = r.x + Math.cos(r.ry) * (s ? 1.8 : -1.8), sz = r.z - Math.sin(r.ry) * (s ? 1.8 : -1.8); let tg = null, bd = 45; for (const a of this.aliens) { if (a.dead || ALIENS[a.type].static || (a.cave && !this.inCave(sx, sz))) continue; const d2 = Math.hypot(a.x - sx, a.z - sz); if (d2 < bd) { bd = d2; tg = a; } } if (tg) { r.cd[s] = 0.09; this.hurtAlien(tg, 14, r.owner, true); if (Math.random() < 0.35) this.emit({ k: 'tr', a: [+sx.toFixed(1), +(r.y + 1).toFixed(1), +sz.toFixed(1)], b: [+tg.x.toFixed(1), +(tg.y + 0.8).toFixed(1), +tg.z.toFixed(1)], c: 0xff7a30, s: 'minigun', p: 0.5, f: 'gunship' }); } }
+      }
+      else if (ph === 4) { r.x = r.px; r.z = r.pz; r.y = r.gy + 0.6; for (const id of r.riders) { const q = this.players.get(id); if (q && q.ride === r.id) { q.ride = 0; this.emit({ k: 'unboard', to: id, x: r.x + Math.cos(r.ry) * 3.2 * (r.riders.indexOf(id) ? 1 : -1), z: r.z - Math.sin(r.ry) * 3.2 * (r.riders.indexOf(id) ? 1 : -1) }); } } r.riders = r.riders.filter(id => { const q = this.players.get(id); return q && q.ride === r.id; }); }
+      else if (ph === 5) { const f = (r.t - 45) / 6; r.y = r.gy + 0.6 + f * f * 70; r.x -= Math.sin(r.ry) * dt * f * 30; r.z -= Math.cos(r.ry) * dt * f * 30; }
+      for (const id of r.riders) { const q = this.players.get(id); if (!q || q.dead) continue; const s = r.riders.indexOf(id); q.x = r.x + Math.cos(r.ry) * (s ? 1.6 : -1.6); q.z = r.z - Math.sin(r.ry) * (s ? 1.6 : -1.6); q.y = r.y + 0.9; }
+    }
+    if (this.rides.some(r => r.ph >= 6)) { for (const r of this.rides) if (r.ph >= 6) for (const id of r.riders) { const q = this.players.get(id); if (q) q.ride = 0; } this.rides = this.rides.filter(r => r.ph < 6); }
+  }
   // a parachute crate from the commander, a few metres from the marine it is meant for
   airdrop(p, kind) {
     const a = Math.random() * 6.28, x = Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, p.x + Math.cos(a) * 3.5)), z = Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, p.z + Math.sin(a) * 3.5));
@@ -584,9 +615,9 @@ export class Sim {
       w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), el: Math.floor(this.el || 0), n: this.players.size, wx: +(this.stormI || 0).toFixed(2), wa: +(this.windA || 0).toFixed(2),
       A: this.aliens.map(a => [a.id, a.type, r1(a.x), r1(a.y), r1(a.z), Math.round(a.hp), Math.round(a.mhp), +a.ry.toFixed(2), a.stun > 0 ? 1 : 0, a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0, a.rev > 0 || a.markT > 0 ? 1 : 0]),
       T: this.turrets.map(t => [t.id, t.kind, t.owner, r1(t.x), r1(t.z), +t.ry.toFixed(2), t.lvl, Math.round(t.hp), Math.round(t.mhp), t.tg, r1(t.y), r1(t.b || 0), t.bt || 0, t.fresh ? 1 : 0, t.ch || 0, t.carry || 0, t.next ? +(t.up || 0).toFixed(2) : 0, t.kind === 'rally' ? (t.b > 0 || t.carry ? 0 : this.allies.length >= MAX_ALLIES + 4 ? -1 : this.phase === 'wave' || this.phase === 'assault' ? Math.max(1, Math.ceil(t.rd ?? 20)) : -2) : 0]),
-      P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, Math.floor(p.scrap || 0), Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)])), p.ex ?? 0, (p.jet ? 1 : 0) | (p.boots ? 2 : 0)]),
+      P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, Math.floor(p.scrap || 0), Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)])), p.ex ?? 0, (p.jet ? 1 : 0) | (p.boots ? 2 : 0), p.ride || 0]),
       I: this.items.map(it => [it.id, it.kind, r1(it.x), r1(it.z)]), SC: this.scrap.map(s => [s.id, r1(s.x), r1(s.z)]),
-      M: this.ammo.map(c => [c.id, r1(c.x), r1(c.z), Math.ceil(c.life)]), Z: this.spores.map(c => [r1(c.x), r1(c.z), +(c.r * c.k).toFixed(1)]), K: this.pools.map(q => [r1(q.x), r1(q.y), r1(q.z), q.r, q.fire ? 1 : 0]), D: this.drones.map(d => [d.id, r1(d.x + Math.cos(d.a) * 8), r1(d.y + 7), r1(d.z + Math.sin(d.a) * 8), d.tg]), Q: this.medz.map(m => [m.id, r1(m.x), r1(m.y), r1(m.z), m.r, Math.ceil(m.t)]), S2: this.domes.map(d => [r1(d.x), r1(d.y), r1(d.z), d.r]),
+      M: this.ammo.map(c => [c.id, r1(c.x), r1(c.z), Math.ceil(c.life)]), Z: this.spores.map(c => [r1(c.x), r1(c.z), +(c.r * c.k).toFixed(1)]), K: this.pools.map(q => [r1(q.x), r1(q.y), r1(q.z), q.r, q.fire ? 1 : 0]), R: this.rides.map(r => [r.id, r1(r.x), r1(r.y), r1(r.z), +r.ry.toFixed(2), r.ph, r.riders]), D: this.drones.map(d => [d.id, r1(d.x + Math.cos(d.a) * 8), r1(d.y + 7), r1(d.z + Math.sin(d.a) * 8), d.tg]), Q: this.medz.map(m => [m.id, r1(m.x), r1(m.y), r1(m.z), m.r, Math.ceil(m.t)]), S2: this.domes.map(d => [r1(d.x), r1(d.y), r1(d.z), d.r]),
       O: this.pods.map(p => [p.id, r1(p.x), r1(p.z), Math.ceil(Math.max(0, p.life)), r1(Math.max(0, p.land)), p.kind === 'ammo' ? 1 : p.kind === 'dress' ? 2 : 0]),
       L: this.allies.map(m => [m.id, m.type, r1(m.x), r1(m.y), r1(m.z), Math.round(m.hp), m.mhp, +m.ry.toFixed(2), m.tg]), C: { lv: this.cmd.lv, sz: this.cmd.sz, un: this.cmd.un, t: Math.ceil(this.cmd.t) }, open: this.hiveOpen() ? 1 : 0,
     };

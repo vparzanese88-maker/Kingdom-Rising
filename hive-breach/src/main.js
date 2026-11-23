@@ -60,7 +60,7 @@ const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ==
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
 function state() {
-  if (G.sim) { const s = G.sim; return { w: s.wave, ph: s.phase, tm: s.timer, hub: s.hub, en: s.endless, n: s.players.size, left: s.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(s.lvlT || 0), wx: s.stormI || 0, wa: s.windA || 0, L: s.allies, C: s.cmd, open: s.hiveOpen(), el: Math.floor(s.el || 0), A: s.aliens, T: s.turrets, P: [...s.players.values()], O: s.pods, I: s.items, SC: s.scrap, M: s.ammo.map(c => ({ id: c.id, x: c.x, z: c.z, life: c.life })), Z: s.spores, K: s.pools, D: s.drones.map(d => ({ id: d.id, x: d.x + Math.cos(d.a) * 8, y: d.y + 7, z: d.z + Math.sin(d.a) * 8, tg: d.tg })), Q: s.medz, S2: s.domes }; }
+  if (G.sim) { const s = G.sim; return { w: s.wave, ph: s.phase, tm: s.timer, hub: s.hub, en: s.endless, n: s.players.size, left: s.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(s.lvlT || 0), wx: s.stormI || 0, wa: s.windA || 0, L: s.allies, C: s.cmd, open: s.hiveOpen(), el: Math.floor(s.el || 0), A: s.aliens, T: s.turrets, P: [...s.players.values()], O: s.pods, I: s.items, SC: s.scrap, M: s.ammo.map(c => ({ id: c.id, x: c.x, z: c.z, life: c.life })), Z: s.spores, K: s.pools, R: s.rides, D: s.drones.map(d => ({ id: d.id, x: d.x + Math.cos(d.a) * 8, y: d.y + 7, z: d.z + Math.sin(d.a) * 8, tg: d.tg })), Q: s.medz, S2: s.domes }; }
   return G.snap;
 }
 function decode(m) {
@@ -69,7 +69,7 @@ function decode(m) {
     L: m.L.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], tg: a[8] })),
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9], rv: a[10] })),
     T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], carry: t[15], up: t[16], rs: t[17] || 0, s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
-    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {}, gear: p[31] || 0 })),
+    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {}, gear: p[31] || 0, ride: p[32] || 0 })), R: (m.R || []).map(r => ({ id: r[0], x: r[1], y: r[2], z: r[3], ry: r[4], ph: r[5], riders: r[6] || [] })),
     O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4], kind: o[5] === 1 ? 'ammo' : o[5] === 2 ? 'dress' : '' })), el: m.el, I: (m.I || []).map(i => ({ id: i[0], kind: i[1], x: i[2], z: i[3] })), SC: (m.SC || []).map(c => ({ id: c[0], x: c[1], z: c[2] })),
     M: (m.M || []).map(c => ({ id: c[0], x: c[1], z: c[2], life: c[3] })), Z: (m.Z || []).map(c => ({ x: c[0], z: c[1], r: c[2] })), K: (m.K || []).map(q => ({ x: q[0], y: q[1], z: q[2], r: q[3], fire: q[4] })), D: (m.D || []).map(d => ({ id: d[0], x: d[1], y: d[2], z: d[3], tg: d[4] })), Q: (m.Q || []).map(q => ({ id: q[0], x: q[1], y: q[2], z: q[3], r: q[4], t: q[5] })), S2: (m.S2 || []).map(d => ({ x: d[0], y: d[1], z: d[2], r: d[3] })),
   };
@@ -168,6 +168,8 @@ function fx(e) {
     case 'roar': audio.sfx('roar'); toast(`The ${ALIENS[e.t].name} has emerged from the hive!`, 4); G.shake = 0.6; break;
     case 'hubhit': G.hubFlash = 0.5; boomFx(e.x, e.y + 1, e.z, 2, 1); if (G.time - lastHubMsg > 6) { lastHubMsg = G.time; toast('The hub is under attack!', 2.5); audio.sfx('alarm', 0.5); } break;
     case 'burrow': { const y = G.W.top(e.x, e.z); burst(e.x, y + 0.3, e.z, 0x5a3a20, 24, 5, 0.9, 1.6); burst(e.x, y + 0.3, e.z, 0x90ff30, 8, 3, 0.5); const d = dist(e.x, e.z); if (d < 60) audio.sfx('screech', vol(d) * 0.8); } break;
+    case 'board': if (e.to === G.myId) { audio.sfx('place', 0.8); } break;
+    case 'unboard': if (e.to === G.myId) { G.me.x = e.x; G.me.z = e.z; G.me.y = G.W.top(e.x, e.z); G.me.vy = 0; toast('Back on the ground. Give them hell, marine.', 2.5); } break;
     case 'gear': if (e.to === G.myId) { audio.sfx('upg', 0.8); banner(e.g === 'jet' ? 'JETPACK' : 'SHOCK BOOTS', e.g === 'jet' ? 'Yours for the mission: hold jump in the air to fly (uses endurance)' : 'Yours for the mission: jump again in mid-air (uses endurance)'); } break;
     case 'pod': burst(e.x, G.W.top(e.x, e.z) + 1, e.z, 0xffd040, 14, 5, 0.6); if (e.by === G.myId) { audio.sfx('pickup'); toast(e.kind === 'ammo' ? 'Commander\'s ammo crate: full ammo, items and welder power' : e.kind === 'dress' ? 'Commander\'s med crate: field dressings restocked' : 'Supply crate: ammo and welder power' + (e.sp ? `, and a special: ${SPECIALS[e.sp].name} (press ${keyName(KB.special)})` : ''), 4); G.me.reserve = Math.min(stats().reserve, G.me.reserve + stats().reserve * 0.5); } break;
     case 'drop2': toast(`✈ Supply drop! ${e.n} crates parachuting in: grab them within 60 seconds of landing (yellow on the minimap).`, 5); audio.sfx('wave', 0.6); break;
@@ -727,6 +729,19 @@ const revealed = a => a.rv !== undefined ? !!a.rv : (a.rev > 0 || a.markT > 0);
 function refillAmmo(f) { const me = G.me, main = CLASSES[G.cls].gun; for (const n of [0, 1]) { const g = n ? SIDEARM : main; if (me.slot === n) me.reserve = Math.min(g.reserve, me.reserve + g.reserve * f); else { const w = me.wpn[n] || (me.wpn[n] = { ammo: g.mag, reserve: 0 }); w.reserve = Math.min(g.reserve, w.reserve + g.reserve * f); } } }
 function vehCode() { const v = G.ex && G.ex.veh; return v ? (v.kind === 'rover' ? 1 : 2) : 0; }
 function exploreState(S) { return Object.assign({}, S, { A: [], T: [], O: [], I: [], L: [], M: [], Z: [], K: [], D: [], Q: [], S2: [], ph: 'explore', open: 0 }); }
+// the VTOL gunships, seen by everyone: the Meshy VTOL with a minigun hanging in each door
+const rideV = new Map();
+function updRides(S, dt) {
+  const seen = new Set();
+  for (const r of S.R || []) { seen.add(r.id); let v = rideV.get(r.id);
+    if (!v) { const mesh = vtolModel(); for (const sd of [-1, 1]) { const g = M.gunModel('gunner', CLASSES.gunner.color); g.scale.setScalar(2.2); g.position.set(sd * 2.3, 0.4, 0.4); g.rotation.y = -sd * Math.PI / 2; mesh.add(g); (mesh.userData.dg = mesh.userData.dg || []).push(g); } scene.add(mesh); v = { mesh, x: r.x, y: r.y, z: r.z, ry: r.ry, snd: 0 }; rideV.set(r.id, v); }
+    const k = Math.min(1, dt * 8); v.x += (r.x - v.x) * k; v.y += (r.y - v.y) * k; v.z += (r.z - v.z) * k; let dy = r.ry - v.ry; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; v.ry += dy * k;
+    v.mesh.position.set(v.x, v.y + 1.8, v.z); v.mesh.rotation.set(r.ph === 2 ? 0.08 : 0, v.ry, r.ph === 2 ? -dy * 0.6 : 0); for (const g of v.mesh.userData.dg || []) if (g.userData.spin) g.userData.spin.rotation.z += dt * (r.ph === 2 ? 40 : 2);
+    v.snd -= dt; if (v.snd <= 0) { v.snd = 0.9; const d = dist(v.x, v.z); if (d < 120) audio.sfx('rotor', vol(d) * 0.8); }
+    if ((r.ph === 0 || r.ph >= 3) && r.ph <= 4 && v.y - G.W.top(v.x, v.z) < 8 && Math.random() < 0.6) burst(v.x + (Math.random() - 0.5) * 8, G.W.top(v.x, v.z) + 0.3, v.z + (Math.random() - 0.5) * 8, 0xb09878, 2, 6, 0.9);
+  }
+  for (const [id, v] of rideV) if (!seen.has(id)) { scene.remove(v.mesh); rideV.delete(id); }
+}
 function updateFootless() { const gn = view2.gun; if (gn) gn.visible = false; if (view2.tool) view2.tool.visible = false; }
 // the campaign: Easy, then Medium, then Hard on each planet; after Hard, up to Station Olympus and on to the next planet
 // a new planet starts with the drop-pod film; the swarm waits until the squad is down, then the 5 s countdown runs
@@ -848,9 +863,28 @@ function lookTurret(S) {
   return best;
 }
 
+// riding the VTOL gunship: you sit in its door and work the door minigun (unlimited ammo, nothing can hurt you up there)
+function rideGun(dt, S, my, rd) {
+  const me = G.me, sd = rd.riders.indexOf(G.myId) ? 1 : -1, live = locked() && !G.shop;
+  if (!me.riding) { me.riding = rd.id; me.yaw = rd.ry - sd * Math.PI / 2; me.pitch = -0.3; me.dspin = 0; me.dcd = 0; banner('GUNSHIP', 'Left click works the door minigun · unlimited ammo · it sets you down when the run is over'); audio.sfx('rotor', 0.9); }
+  me.x = rd.x + Math.cos(rd.ry) * 1.6 * sd; me.z = rd.z - Math.sin(rd.ry) * 1.6 * sd; me.y = rd.y + 0.3; me.vy = 0; me.kh = 0; me.rel = 0; me.prone = me.kneel = false;
+  for (const k of ['gun', 'pistol', 'tool', 'thr', 'extra', 'dress', 'healer']) if (view2[k]) view2[k].visible = false; if (view2.hand) view2.hand.visible = false; $('weld').hidden = true;
+  if (!view2.door) { view2.door = M.gunModel('gunner', CLASSES.gunner.color); view2.door.scale.setScalar(0.85); view2.door.traverse(o => { o.castShadow = false; }); camera.add(view2.door); }
+  const dg = view2.door; dg.visible = true; const sh = (rd.ph === 2 ? 0.02 : 0.01) + (me.dspin || 0) * 0.012;
+  camera.position.set(me.x + (Math.random() - 0.5) * sh, me.y + 1.7 + (Math.random() - 0.5) * sh, me.z + (Math.random() - 0.5) * sh); camera.rotation.set(me.pitch, me.yaw, 0, 'YXZ');
+  const fire = live && mouseL && rd.ph >= 2 && rd.ph <= 3; me.dspin = fire ? Math.min(1, (me.dspin || 0) + dt * 2.5) : Math.max(0, (me.dspin || 0) - dt * 1.2);
+  if (dg.userData.spin) dg.userData.spin.rotation.z += dt * me.dspin * 45; dg.position.set(0.12, -0.3 + Math.random() * me.dspin * 0.006, -0.55 + (fire ? 0.012 : 0));
+  if (fire && me.dspin > 0.5) { me.dcd = (me.dcd || 0) - dt; let n = 0; while (me.dcd <= 0 && n < 4) { me.dcd += 0.055; n++;
+    const r = aimRay(0.012), wall = G.W.T.ray(r.o, r.d, 150), list = hitAliens(r.o, r.d, Math.min(150, wall)), mz = new THREE.Vector3(0, 0.02, -(dg.userData.len || 1) * 0.68); dg.localToWorld(mz); let end;
+    if (list.length) { const q = list[0], dd = +(28 * PLAYER_DMG * (q.head ? 1.5 : 1)).toFixed(1); req({ a: 'hit', id: q.v.id, d: dd }); q.v.pop = 0.08; end = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; bloodHit(end, q.v, q.head, r.d); G.hitT = 0.1; G.stats.hits++; }
+    else { const t = Math.min(150, wall); end = [r.o.x + r.d.x * t, r.o.y + r.d.y * t, r.o.z + r.d.z * t]; if (t < 150 && Math.random() < 0.5) burst(end[0], end[1] + 0.1, end[2], G.W.def.ground, 3, 3, 0.4, 1.4); }
+    G.stats.shots++; tracer(mz.toArray(), end, 0xff7a30, 0.05, 0.05); if (n === 1) { audio.gun('mini', 1, 1, 0); send({ k: 'tr', a: mz.toArray().map(v => +v.toFixed(1)), b: end.map(v => +v.toFixed(1)), c: 0xff7a30, s: 'mini', p: 1 }); } } G.shake = Math.max(G.shake || 0, 0.05); G.flash = 0.04; }
+  prompt(rd.ph === 1 ? 'Boarding the gunship...' : rd.ph >= 4 ? 'Touching down: get ready to jump out' : '<b>Left click</b> door minigun · unlimited ammo');
+}
 function updateMe(dt, S) {
   const me = G.me, my = mine(S); if (!my || G.cine) return;
   if (G.explore && G.ex && G.ex.veh) { G.ex.drive(dt); updateFootless(); return; }
+  { const rd = my.ride && (S.R || []).find(q => q.id === my.ride); if (rd && !my.dead) { rideGun(dt, S, my, rd); return; } if (me.riding) { me.riding = null; if (view2.door) view2.door.visible = false; } }
   if (my.sp !== me.sp) { me.sp = my.sp; const fh = S.T.filter(t => t.kind === 'fieldhosp' && !t.carry && !(t.b > 0)).sort((a, b) => b.id - a.id)[0]; me.x = fh ? fh.x + 2.2 : G.W.spawn.x; me.z = fh ? fh.z : G.W.spawn.z; me.y = G.W.top(me.x, me.z); me.vy = 0; me.yaw = Math.atan2(me.x, me.z); me.ammo = stats().mag; me.rel = 0; }
   if (my.hp < me.hp - 0.5 && !my.dead) { G.hurtT = 0.35; audio.sfx('hurt', 0.6); }
   if (my.hp > me.hp + 0.5 && my.hp < my.mhp && Math.random() < 0.2) audio.sfx('heal', 0.4);
@@ -1127,7 +1161,7 @@ function frame(now) {
     if (!paused && !G.explore) G.sim.update(dt);
     if (G.mode === 'host') { netT += dt; if (netT > 0.1) { netT = 0; G.net.send({ t: 'st', v: VER, map: G.map, df: G.diff || 0, ...G.sim.pack(), fx: G.out }); G.out = []; for (const q of [...G.sim.players.values()]) if (q.id !== G.myId && G.time - (q.seen || 0) > 10) G.sim.removePlayer(q.id); } }
   } else { poseT += dt; if (poseT > 0.066) { poseT = 0; G.net.send({ t: 'pose', p: [+G.me.x.toFixed(2), +G.me.y.toFixed(2), +G.me.z.toFixed(2), +((G.ex && G.ex.veh) ? G.ex.veh.yaw : G.me.yaw).toFixed(2), G.me.prone ? 2 : G.me.kneel ? 1 : 0, vehCode()] }); } }
-  updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); if (G.mmap && hits.Escape) closeMissileMap();
+  updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); updRides(S, dt); if (G.mmap && hits.Escape) closeMissileMap();
   if (G.W) { G.W.sun.position.set(camera.position.x + 40, 90, camera.position.z + 25); G.W.sun.target.position.set(camera.position.x, 0, camera.position.z); }
   if (S.ph === 'wave' || S.ph === 'assault') { G.artT = (G.artT ?? 8) - dt; if (G.artT <= 0) { G.artT = 5 + Math.random() * 9; audio.gun('artillery', 0.35 + Math.random() * 0.3, 1, 1); } }
   if (!paused) { updateGrenades(dt); updateMeteors(dt); updateFx(dt); updateWeather(dt, S); }

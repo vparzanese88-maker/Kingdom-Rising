@@ -456,7 +456,7 @@ export function dropIntro(H, squad, done) {
     // the pod's wall: a ring of small posts you can't walk through, open where the door was (straight ahead of your seat)
     pod.updateMatrixWorld(true); for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, rel = Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2)); if (Math.abs(rel) < 0.55) continue; const p = pod.localToWorld(V(Math.cos(a) * 1.95, 0, Math.sin(a) * 1.95)); W.colliders.push({ x: p.x, z: p.z, r: 0.42, h: 4.5, gy: padY }); }
     W.group.visible = true; scene.background = bg0; scene.fog = fog0; G.cineFog = false; heat.remove(); hud.remove(); document.body.classList.remove('pov'); A.rumble(0); if (MU && MU.endScore) MU.endScore();
-    cap('', 'Vance: Marines, move out! Get to that hive! I\'ll run things from the hub.');
+    setTimeout(() => cap('', 'Vance: Marines, move out! Get to that hive! I\'ll run things from the hub.'), 3500);   /* after the Mike P warning has been heard */
     const me = pod.localToWorld(V(Math.cos(myA) * 0.75, 0, Math.sin(myA) * 0.75)), door = pod.localToWorld(V(0, 0, -3.4));
     done({ marines: crew.filter(c => !c.cmd).length, x: me.x, z: me.z, yaw: G.me.yaw + doorYaw, ax: door.x, az: door.z, allyDelay: 2.2 });
   };
@@ -517,7 +517,7 @@ export function dropIntro(H, squad, done) {
       if (burn && y - padY < 40 && Math.random() < 0.7) H.burst(padX + (Math.random() - 0.5) * 16, padY + 0.3, padZ + (Math.random() - 0.5) * 16, 0xb09878, 2, 6, 1);
     } else { // impact, then the door blows off and the squad pours out
       const u = t - 29;
-      once('i', () => { fl.material.opacity = 0; A.sfx('boom', 0.45); H.boomFx(padX, padY + 0.5, padZ, 5, 1); shakeK = 2.8; red.intensity = 0; blue.intensity = 0; strobe.emissiveIntensity = 0; for (let k = 0; k < 30; k++) H.burst(padX + (Math.random() - 0.5) * 12, padY + 0.3, padZ + (Math.random() - 0.5) * 12, 0xb09878, 2, 5, 1.2); cap('', 'Vance: We\'re down! Door! Door!'); if (MU && MU.land) MU.land();   /* touchdown: guitars */ for (const c of clouds) scene.remove(c); clouds.length = 0; scene.fog = fog0; scene.background = bg0; G.cineFog = false; });
+      once('i', () => { cap('', 'Vance: Heads up, marines! Be aware of the gay alien named Mike P!'); fl.material.opacity = 0; A.sfx('boom', 0.45); H.boomFx(padX, padY + 0.5, padZ, 5, 1); shakeK = 2.8; red.intensity = 0; blue.intensity = 0; strobe.emissiveIntensity = 0; for (let k = 0; k < 30; k++) H.burst(padX + (Math.random() - 0.5) * 12, padY + 0.3, padZ + (Math.random() - 0.5) * 12, 0xb09878, 2, 5, 1.2); cap('', 'Vance: We\'re down! Door! Door!'); if (MU && MU.land) MU.land();   /* touchdown: guitars */ for (const c of clouds) scene.remove(c); clouds.length = 0; scene.fog = fog0; scene.background = bg0; G.cineFog = false; });
       if (u > 1.4) once('j', () => { A.sfx('boom', 0.5); A.sfx('place', 1); flyDoor = 1; hinge.attach(doorG); day.intensity = 8; heat.style.opacity = 0; for (let k = 0; k < 14; k++) { const w = pod.localToWorld(V(0, 1.4, -2.6)); H.burst(w.x, w.y, w.z, 0xd0c0a0, 3, 4, 1); } });
       if (flyDoor) { const k = Math.min(1, (u - 1.4) / 0.55); hinge.rotation.x = -1.48 * k * k + (k >= 1 ? Math.sin(Math.min(1, (u - 1.95) / 0.4) * Math.PI) * 0.06 : 0); }   // the door falls open outward and lands as a ramp
       rum = Math.max(0, 0.3 - u * 0.15); shake = u < 1 ? 0.5 : 0.02;

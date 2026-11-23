@@ -30,6 +30,7 @@ function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.asp
 let resizeT = 0; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 180); }); resize();
 const audio = new Audio(), music = new Music(audio), voice = new Voice(audio); window.hbMusic = music;
 // the comm card: while Hale or Vance talks, a small framed portrait of him shows at the side of the screen; a line about the queen also opens a card with her turning 360°
+voice.gk = () => (G.on && !G.cine && !G.station ? 0.6 : 1);
 voice.onLine = (v, dur) => { const c = $('comm'), gen = v.who === 'General Hale'; $('commImg').src = './assets/portraits/' + (gen ? 'hale' : 'vance') + '.webp'; $('commN').textContent = gen ? 'GEN. HALE · OLYMPUS' : 'CMDR. VANCE · GROUND'; c.className = gen ? 'gen talk' : 'talk'; c.hidden = false; clearTimeout(c._t); c._t = setTimeout(() => { c.hidden = true; G.qcardT = 0; $('qcard').hidden = true; }, (dur + 0.3) * 1000);   /* the cards close the moment he stops talking */
   sigLoop();
   if (/queen/i.test(v.text) && !G.cine) { G.qcardT = dur + 0.3; $('qcard').hidden = false; } else { G.qcardT = 0; $('qcard').hidden = true; } };

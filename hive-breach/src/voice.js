@@ -81,7 +81,7 @@ export class Voice {
     const t0 = now + 0.08, s = c.createBufferSource(); s.buffer = b;
     // everything goes through one fader (the Voice volume setting), well under the music and the battle
     const gen = v.who === 'General Hale';   // Hale talks from orbit: a thinner, more distant channel; Vance is close in your helmet
-    const out = c.createGain(); out.gain.value = (gen ? 0.85 : 0.7) * (this.vol ?? 0.6); out.connect(this.a.bus || c.destination); if (!this.an || this.an.context !== c) { this.an = c.createAnalyser(); this.an.fftSize = 512; this.anBuf = new Float32Array(512); } out.connect(this.an);   /* the comm card's signal line listens here */
+    const out = c.createGain(); out.gain.value = (gen ? 0.85 : 0.7) * (this.vol ?? 0.6) * (this.gk ? this.gk() : 1);   /* quieter in the fight than in the films */ out.connect(this.a.bus || c.destination); if (!this.an || this.an.context !== c) { this.an = c.createAnalyser(); this.an.fftSize = 512; this.anBuf = new Float32Array(512); } out.connect(this.an);   /* the comm card's signal line listens here */
     // the helmet's tiny speaker: no bass, no air, a boxy hollow middle and a hard little resonance, driven a touch into crackle
     const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = gen ? 700 : 380; hp.Q.value = 1.1;
     const hp2 = c.createBiquadFilter(); hp2.type = 'highpass'; hp2.frequency.value = gen ? 600 : 300; hp2.Q.value = 0.7;

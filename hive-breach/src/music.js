@@ -13,7 +13,8 @@ export class Music {
   // the music's level through the mission (at the default Music slider; the slider scales it): 40% on the title screen, rising steadily
   // through the station shot and the fall to 70% at landing, then easing back to 50% for the rest of the game
   level() { return this.on ? this.stageK() * (this.vol / 0.75) * (this.mul ?? 1) : 0; }
-  stageK() { const st = this.stage || 'title'; if (st === 'title') return 0.4; if (st === 'land') return 0.7; if (st === 'drop') return this.riseT ? 0.4 + 0.3 * Math.min(1, Math.max(0, (performance.now() - this.riseT) / 29500)) : 0.4; return 0.5; }   /* 40% until the pod ejects, then a slow climb through the descent to 70% at touchdown (about 29.5 s) */
+  stageK() { const st = this.stage || 'title'; if (st === 'title') return 0.4; if (st === 'land') return 0.7; if (st === 'game') return 0.3;   // in the fight: 30%
+    if (st === 'drop') return this.riseT ? 0.4 + 0.3 * Math.min(1, Math.max(0, (performance.now() - this.riseT) / 29500)) : 0.4; return 0.5; }   /* 40% until the pod ejects, then a slow climb through the descent to 70% at touchdown (about 29.5 s) */
   start() {
     const c = this.a.ctx; if (!c || this.master) return;
     this.master = c.createGain(); this.master.gain.value = this.level(); this.master.connect(this.a.bus || c.destination);

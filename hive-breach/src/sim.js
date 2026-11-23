@@ -92,7 +92,7 @@ export class Sim {
       p.gold -= c; p.ups[r.up] = lv + 1; const m = maxHp(p.cls, p.ups); p.hp += m - p.mhp; p.mhp = m; this.emit({ k: 'bought', to: id });
     } else if (r.a === 'hit') {
       const a = this.aliens.find(q => q.id === r.id); if (!a) return;
-      if (a.cave && !this.inCave(p.x, p.z)) { if (this.time - (a.far || -9) > 4) { a.far = this.time; say('Your shots can\'t reach into the cavern: get inside to hurt the queen and her guards.'); } return; }
+      /* the queen and her guards can be shot from outside the cavern too */
       if (p.cls === 'sniper') { a.mark = Math.max(a.mark || 0, 1.25); a.markT = 6; a.rev = 6; a.hidden = false; } if (p.cls === 'gunner' && !ALIENS[a.type].boss) { a.slowT = 0.5; a.slowF = Math.min(a.slowF ?? 1, 0.8); }
       this.hurtAlien(a, Math.min(+r.d || 0, 2400), id, r.ap);
     } else if (r.a === 'cmd') {
@@ -165,7 +165,7 @@ export class Sim {
   }
   splash(x, y, z, r, d, owner) {
     this.emit({ k: 'boom', x, y, z, r });
-    const outside = !this.inCave(x, z); for (const a of this.aliens) { if (a.cave && outside) continue; const dist = Math.hypot(a.x - x, a.y + ALIENS[a.type].h * 0.5 - y, a.z - z) - ALIENS[a.type].r; if (dist < r) this.hurtAlien(a, d * (1 - Math.max(0, dist) / r * 0.6), owner, true); }
+    const outside = !this.inCave(x, z); for (const a of this.aliens) { const dist = Math.hypot(a.x - x, a.y + ALIENS[a.type].h * 0.5 - y, a.z - z) - ALIENS[a.type].r; if (dist < r) this.hurtAlien(a, d * (1 - Math.max(0, dist) / r * 0.6), owner, true); }
   }
   killAlien(a, owner) {
     a.dead = true; const A = ALIENS[a.type];
@@ -371,15 +371,15 @@ export class Sim {
       t.oc = Math.max(0, (t.oc || 0) - dt); t.od = Math.max(0, (t.od || 0) - dt);
       const st = tStat(t); st.rate *= (t.oc > 0 ? 1.6 : 1) * (t.od > 0 ? 2 : 1); t.cd -= dt; t.tg = 0;
       if (t.kind === 'flamer' || t.kind === 'railgun') {
-        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !t.inCave) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z), sc = t.kind === 'railgun' ? a.hp : a.s; if (d < st.range && sc > bs) { bs = sc; tg = a; } }   // the sniper tower picks off the toughest alien in range
+        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z), sc = t.kind === 'railgun' ? a.hp : a.s; if (d < st.range && sc > bs) { bs = sc; tg = a; } }   // the sniper tower picks off the toughest alien in range
         if (!tg) continue; t.tg = tg.id; const want = Math.atan2(-(tg.x - t.x), -(tg.z - t.z)); let dr = want - t.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; t.ry += dr * Math.min(1, dt * 8);
         if (t.cd > 0) continue; t.cd = 1 / st.rate; const fx = -Math.sin(t.ry), fz = -Math.cos(t.ry);
-        if (t.kind === 'flamer') { for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !t.inCave) || (a.type === 'hivecore' && !open)) continue; const dx = a.x - t.x, dz = a.z - t.z, d = Math.hypot(dx, dz); if (d < st.range && (dx * fx + dz * fz) / (d || 1) > Math.cos(TURRETS.flamer.cone)) this.hurtAlien(a, st.dmg, t.owner, true); } }
+        if (t.kind === 'flamer') { for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const dx = a.x - t.x, dz = a.z - t.z, d = Math.hypot(dx, dz); if (d < st.range && (dx * fx + dz * fz) / (d || 1) > Math.cos(TURRETS.flamer.cone)) this.hurtAlien(a, st.dmg, t.owner, true); } }
         else { this.hurtAlien(tg, st.dmg, t.owner, true); this.emit({ k: 'rail', a: [t.x, t.y + 2.2, t.z], b: [+tg.x.toFixed(1), +(tg.y + ALIENS[tg.type].h * 0.6).toFixed(1), +tg.z.toFixed(1)] }); }   // one precise shot, no piercing
       } else if (t.kind === 'mines') {
         if (t.cd > 0) continue; for (const a of this.aliens) { if (a.dead || ALIENS[a.type].fly || ALIENS[a.type].static) continue; if (Math.hypot(a.x - t.x, a.z - t.z) < st.range) { this.splash(t.x, t.y + 0.4, t.z, TURRETS.mines.splash, st.dmg, t.owner); t.ch--; t.cd = 1.2; if (t.ch <= 0) { t.hp = 0; this.turrets = this.turrets.filter(q => q !== t); } break; } }
       } else if (t.kind === 'minigun' || t.kind === 'pulse' || t.kind === 'tesla' || t.kind === 'missile' || t.kind === 'autocannon' || t.kind === 'shotgunT') {
-        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !t.inCave) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < st.range && a.s > bs) { bs = a.s; tg = a; } }
+        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < st.range && a.s > bs) { bs = a.s; tg = a; } }
         if (!tg) continue; t.tg = tg.id; const want = Math.atan2(-(tg.x - t.x), -(tg.z - t.z)); let dr = want - t.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; t.ry += dr * Math.min(1, dt * 10);
         if (t.cd > 0) continue; t.cd = 1 / st.rate;
         if (t.kind === 'minigun' || t.kind === 'pulse') this.hurtAlien(tg, st.dmg, t.owner);
@@ -405,7 +405,7 @@ export class Sim {
         const h = st.heal * dt; for (const p of living) if (Math.hypot(p.x - t.x, p.z - t.z) < st.range && p.hp < p.mhp) p.hp = Math.min(p.mhp, p.hp + h);
         for (const m of this.allies) if (Math.hypot(m.x - t.x, m.z - t.z) < st.range) m.hp = Math.min(m.mhp, m.hp + h);
       } else if (t.kind === 'mortar') {
-        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !t.inCave) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d > 6 && d < st.range && a.s > bs) { bs = a.s; tg = a; } }
+        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d > 6 && d < st.range && a.s > bs) { bs = a.s; tg = a; } }
         if (!tg) continue; t.tg = tg.id; t.ry = Math.atan2(-(tg.x - t.x), -(tg.z - t.z)); if (t.cd > 0) continue; t.cd = 1 / st.rate;
         const d = Math.hypot(tg.x - t.x, tg.z - t.z), dur = 1 + d / 25, lead = tg.spd * dur * 0.7, n = this.path.at(tg.s + lead), px = n.x, pz = n.z;
         this.shells.push({ x: px, y: n.y, z: pz, t: dur, d: st.dmg, r: st.splash, owner: t.owner, pool: st.dmg * 0.5 });
@@ -423,11 +423,11 @@ export class Sim {
     if (this.phase === 'wave' || this.phase === 'assault') {
       // the hub's own defence guns on its corner towers: they shoot whatever comes close (burrowers, stragglers)
       const HG = this.W.hubGuns || []; this.hgCd = this.hgCd || HG.map(() => Math.random() * 0.2);
-      HG.forEach((g, i) => { this.hgCd[i] -= dt; if (this.hgCd[i] > 0) return; let tg = null, bd = 36; for (const a of this.aliens) { if (a.dead || ALIENS[a.type].static || a.cave) continue; const d = Math.hypot(a.x - g.x, a.z - g.z); if (d < bd) { bd = d; tg = a; } }
+      HG.forEach((g, i) => { this.hgCd[i] -= dt; if (this.hgCd[i] > 0) return; let tg = null, bd = 36; for (const a of this.aliens) { if (a.dead || ALIENS[a.type].static) continue; const d = Math.hypot(a.x - g.x, a.z - g.z); if (d < bd) { bd = d; tg = a; } }
         if (!tg) { this.hgCd[i] = 0.3; return; } this.hgCd[i] = 0.14; this.hurtAlien(tg, 9, null, true); if (Math.random() < 0.45) this.emit({ k: 'tr', a: [+g.x.toFixed(1), +g.y.toFixed(1), +g.z.toFixed(1)], b: [+tg.x.toFixed(1), +(tg.y + 0.6).toFixed(1), +tg.z.toFixed(1)], c: 0xffd070, s: 'smg', p: 0.6, f: 'hub' }); });
       // the hub's mortar battery: every so often a volley lands on the thickest knot of aliens out on the field
       this.hmT = (this.hmT ?? 12) - dt; if (this.hmT <= 0) { this.hmT = 10 + Math.random() * 8; const H = this.W.hubP; let best = null, bn = 2;
-        for (const a of this.aliens) { if (a.dead || ALIENS[a.type].static || a.cave) continue; const dh = Math.hypot(a.x - H.x, a.z - H.z); if (dh < 40 || dh > 280) continue; let n = 0; for (const b of this.aliens) if (!b.dead && Math.abs(b.x - a.x) < 9 && Math.abs(b.z - a.z) < 9) n++; if (n > bn) { bn = n; best = a; } }
+        for (const a of this.aliens) { if (a.dead || ALIENS[a.type].static) continue; const dh = Math.hypot(a.x - H.x, a.z - H.z); if (dh < 40 || dh > 280) continue; let n = 0; for (const b of this.aliens) if (!b.dead && Math.abs(b.x - a.x) < 9 && Math.abs(b.z - a.z) < 9) n++; if (n > bn) { bn = n; best = a; } }
         if (best) { this.radio('cmd', ['Mortars, fire for effect!', 'Hub battery: shot out!', 'Dropping mortars on that pack. Heads down!'][Math.random() * 3 | 0]); for (let i = 0; i < 4; i++) { const x = best.x + (Math.random() - 0.5) * 12, z = best.z + (Math.random() - 0.5) * 12, y = this.W.top(x, z), fl = 2.6 + i * 0.35;
           this.later.push({ t: i * 0.35, f: () => this.emit({ k: 'hubmort', a: [+H.x.toFixed(1), +(this.path.y(this.path.len) + 6).toFixed(1), +H.z.toFixed(1)], b: [+x.toFixed(1), +y.toFixed(1), +z.toFixed(1)], t: 2.6 }) });
           this.later.push({ t: fl + i * 0 + 0.0, f: () => this.splash(x, y + 0.6, z, 6.5, 150, null) }); } } }
@@ -475,8 +475,8 @@ export class Sim {
     for (const m of this.allies) {
       const A = ALLIES[m.type]; m.cd -= dt; m.tg = 0;
       if (A.heal) { for (const o of this.allies) if (o !== m && o.hp < o.mhp && Math.hypot(o.x - m.x, o.z - m.z) < 8) o.hp = Math.min(o.mhp, o.hp + A.heal * dt); for (const p of this.living()) if (p.hp < p.mhp && Math.hypot(p.x - m.x, p.z - m.z) < 8) p.hp = Math.min(p.mhp, p.hp + A.heal * 0.6 * dt); }
-      let tg = null, bd = A.range; for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !this.inCave(m.x, m.z)) || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < bd && Math.abs(a.y - m.y) < 9) { bd = d; tg = a; } }
-      if (A.rocket) { m.cd2 = (m.cd2 ?? 1) - dt; if (m.cd2 <= 0) { let rt = null, rb = A.rocket.range; for (const a of this.aliens) { if (a.dead || a.hidden || (a.cave && !this.inCave(m.x, m.z))) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < rb) { rb = d; rt = a; } } if (rt) { m.cd2 = A.rocket.cd; const dur = 0.3 + rb / 28; this.shells.push({ tg: rt.id, x: rt.x, y: rt.y, z: rt.z, t: dur, d: A.rocket.dmg * ALLY_DMG, r: A.rocket.r, owner: null }); this.emit({ k: 'msl', a: [m.x + Math.cos(m.ry) * 1.4, m.y + 3.1, m.z - Math.sin(m.ry) * 1.4], tg: rt.id, b: [rt.x, rt.y, rt.z], t: dur, rk: 1 }); } } }
+      let tg = null, bd = A.range; for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < bd && Math.abs(a.y - m.y) < 9) { bd = d; tg = a; } }
+      if (A.rocket) { m.cd2 = (m.cd2 ?? 1) - dt; if (m.cd2 <= 0) { let rt = null, rb = A.rocket.range; for (const a of this.aliens) { if (a.dead || a.hidden ) continue; const d = Math.hypot(a.x - m.x, a.z - m.z); if (d < rb) { rb = d; rt = a; } } if (rt) { m.cd2 = A.rocket.cd; const dur = 0.3 + rb / 28; this.shells.push({ tg: rt.id, x: rt.x, y: rt.y, z: rt.z, t: dur, d: A.rocket.dmg * ALLY_DMG, r: A.rocket.r, owner: null }); this.emit({ k: 'msl', a: [m.x + Math.cos(m.ry) * 1.4, m.y + 3.1, m.z - Math.sin(m.ry) * 1.4], tg: rt.id, b: [rt.x, rt.y, rt.z], t: dur, rk: 1 }); } } }
       if (tg) { m.tg = tg.id; m.ry = Math.atan2(-(tg.x - m.x), -(tg.z - m.z)); if (m.cd <= 0 && A.flame) { m.cd = 1 / A.rate; for (const a of this.aliens) if (!a.dead && Math.hypot(a.x - tg.x, a.z - tg.z) < 2.6 && (!a.cave || this.inCave(m.x, m.z))) this.hurtAlien(a, A.dmg * ALLY_DMG, null, true); continue; } if (m.cd <= 0) { m.cd = 1 / A.rate; if (A.splash) { const dur = 0.2 + bd / 30; this.shells.push({ tg: tg.id, x: tg.x, y: tg.y, z: tg.z, t: dur, d: A.dmg * TECH.k * ALLY_DMG, r: A.splash, owner: null }); this.emit({ k: 'msl', a: [m.x, m.y + 1.6, m.z], tg: tg.id, b: [tg.x, tg.y, tg.z], t: dur, rk: 1 }); } else this.hurtAlien(tg, A.dmg * TECH.k * ALLY_DMG, null); } continue; }
       if (m.s > 7) { m.s -= A.speed * dt; const q = P.at(m.s); m.x = q.x - q.tz * m.lat; m.z = q.z + q.tx * m.lat; m.y = q.y; m.ry = Math.atan2(q.tx, q.tz); }
       else { // the end of the track: push on through the cavern toward the queen until she is in range
@@ -507,7 +507,7 @@ export class Sim {
           const want = Math.atan2(-(nx - r.x), -(nz - r.z)); if (Math.hypot(nx - r.x, nz - r.z) > 0.01) { let dy = want - r.ry; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; r.ry += dy * Math.min(1, dt * 2.5); } r.x = nx; r.z = nz; const up = Math.min(1, (r.t - 9) / 3), dn = Math.min(1, (37 - r.t) / 3); r.y = Math.max(this.W.top(r.x, r.z), r.gy) + 0.6 + 24 * Math.min(up, dn); }
         else { const f = sm((r.t - 37) / 6); r.x = L(r.x, r.px, Math.min(1, dt * 3)); r.z = L(r.z, r.pz, Math.min(1, dt * 3)); r.y = L(r.y, r.gy + 0.6, f); }
         // door guns: an empty door fires by itself at the nearest alien below (a rider's gun is fired by that marine)
-        for (let s = 0; s < 2; s++) { if (r.riders[s] && this.players.get(r.riders[s]) && !this.players.get(r.riders[s]).dead) continue; r.cd[s] -= dt; if (r.cd[s] > 0) continue; const sx = r.x + Math.cos(r.ry) * (s ? 1.8 : -1.8), sz = r.z - Math.sin(r.ry) * (s ? 1.8 : -1.8); let tg = null, bd = 45; for (const a of this.aliens) { if (a.dead || ALIENS[a.type].static || (a.cave && !this.inCave(sx, sz))) continue; const d2 = Math.hypot(a.x - sx, a.z - sz); if (d2 < bd) { bd = d2; tg = a; } } if (tg) { r.cd[s] = 0.09; this.hurtAlien(tg, 14, r.owner, true); if (Math.random() < 0.35) this.emit({ k: 'tr', a: [+sx.toFixed(1), +(r.y + 1).toFixed(1), +sz.toFixed(1)], b: [+tg.x.toFixed(1), +(tg.y + 0.8).toFixed(1), +tg.z.toFixed(1)], c: 0xff7a30, s: 'minigun', p: 0.5, f: 'gunship' }); } }
+        for (let s = 0; s < 2; s++) { if (r.riders[s] && this.players.get(r.riders[s]) && !this.players.get(r.riders[s]).dead) continue; r.cd[s] -= dt; if (r.cd[s] > 0) continue; const sx = r.x + Math.cos(r.ry) * (s ? 1.8 : -1.8), sz = r.z - Math.sin(r.ry) * (s ? 1.8 : -1.8); let tg = null, bd = 45; for (const a of this.aliens) { if (a.dead || ALIENS[a.type].static || false) continue; const d2 = Math.hypot(a.x - sx, a.z - sz); if (d2 < bd) { bd = d2; tg = a; } } if (tg) { r.cd[s] = 0.09; this.hurtAlien(tg, 14, r.owner, true); if (Math.random() < 0.35) this.emit({ k: 'tr', a: [+sx.toFixed(1), +(r.y + 1).toFixed(1), +sz.toFixed(1)], b: [+tg.x.toFixed(1), +(tg.y + 0.8).toFixed(1), +tg.z.toFixed(1)], c: 0xff7a30, s: 'minigun', p: 0.5, f: 'gunship' }); } }
       }
       else if (ph === 4) { r.x = r.px; r.z = r.pz; r.y = r.gy + 0.6; for (const id of r.riders) { const q = this.players.get(id); if (q && q.ride === r.id) { q.ride = 0; this.emit({ k: 'unboard', to: id, x: r.x + Math.cos(r.ry) * 3.2 * (r.riders.indexOf(id) ? 1 : -1), z: r.z - Math.sin(r.ry) * 3.2 * (r.riders.indexOf(id) ? 1 : -1) }); } } r.riders = r.riders.filter(id => { const q = this.players.get(id); return q && q.ride === r.id; }); }
       else if (ph === 5) { const f = (r.t - 45) / 6; r.y = r.gy + 0.6 + f * f * 70; r.x -= Math.sin(r.ry) * dt * f * 30; r.z -= Math.cos(r.ry) * dt * f * 30; }

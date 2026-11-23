@@ -407,9 +407,9 @@ export function dropIntro(H, squad, done) {
   { const sm = M.AS.fitGLB('p_station', 'w', 230, true); if (sm) { const k1 = new THREE.DirectionalLight(0xbfd4ff, 1.6); k1.position.set(-200, 80, -150); st.add(k1); const k2 = new THREE.PointLight(0xffc080, 3, 120, 1); k2.position.set(0, -25, 0); st.add(k2); for (const c of [...st.children]) if (!(c.isMesh && c.geometry.type === 'SphereGeometry' && c.position.y < -10)) st.remove(c); sm.position.y = 4; st.add(sm); } }   // the Meshy station: Station Olympus
   // ---- inside Station Olympus: the drop hangar (VTOLs, missile racks, a weapons rack, drop pods with marines running to them, a big window onto space).
   // It sits low in the station's orbit so the window looks out over the planet's curve; it only shows during its own shots (no lights of its own, so no shader rebuilds).
-  const hg = add(new THREE.Group()); hg.position.set(padX + 400, SY - 330, padZ); hg.visible = false;
-  const hgL = []; for (const z of [-14, 12]) { const hl = add(new THREE.PointLight(0xe0ecff, 900, 70, 1.6)); hgL.push(hl); hl.position.set(hg.position.x, hg.position.y + 10.5, hg.position.z + z); }   /* the hangar's lights live in the scene, always on (the light count never changes), and only reach the hangar */
-  { const floorM = mat(0x3a4048, { m: 0.5, r: 0.55, e: 0x14181c }), wallM2 = mat(0x5a646e, { m: 0.4, r: 0.6, e: 0x1a2026 }), trimM = mat(0xffc020, { e: 0x604000 }), stripM = mat(0x80d8ff, { e: 0x60c0ff, ei: 2.5 }), glassM = new THREE.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.06, depthWrite: false });
+  const hg = add(new THREE.Group()); hg.position.set(padX - 400, SY - 330, padZ);   /* the window (+x) faces the planet's centre */ hg.visible = false;
+  const hgL = []; for (const z of [-14, 12]) { const hl = add(new THREE.PointLight(0xd8e4f0, 260, 70, 1.6)); hgL.push(hl); hl.position.set(hg.position.x, hg.position.y + 10.5, hg.position.z + z); }   /* the hangar's lights live in the scene, always on (the light count never changes), and only reach the hangar */
+  { const floorM = mat(0x3a4048, { m: 0.5, r: 0.55, e: 0x14181c }), wallM2 = mat(0x4e5862, { m: 0.5, r: 0.55, e: 0x10141a }), trimM = mat(0xffc020, { e: 0x604000 }), stripM = mat(0x80d8ff, { e: 0x60c0ff, ei: 2.5 }), glassM = new THREE.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.06, depthWrite: false });
     B(hg, 28, 0.4, 64, floorM, 0, -0.2, 0); B(hg, 28, 0.4, 64, wallM2, 0, 12.2, 0); B(hg, 0.4, 12, 64, wallM2, -14, 6, 0); B(hg, 28, 12, 0.4, wallM2, 0, 6, -32); B(hg, 28, 12, 0.4, wallM2, 0, 6, 32);
     // the window wall (+x): solid either side and below/above a big pane
     B(hg, 0.4, 12, 22, wallM2, 14, 6, -21); B(hg, 0.4, 12, 18, wallM2, 14, 6, 23); B(hg, 0.4, 2, 24, wallM2, 14, 1, 2); B(hg, 0.4, 1.6, 24, wallM2, 14, 11.2, 2); B(hg, 0.05, 8.4, 24, glassM, 14, 6.2, 2);
@@ -421,10 +421,10 @@ export function dropIntro(H, squad, done) {
     for (let r = 0; r < 3; r++) for (let k = 0; k < 6; k++) { const ms = C(hg, 0.32, 0.32, 3.2, mat(0xd8dde2, { m: 0.5 }), -12.4 + r * 0.9, 0.6 + r * 0.9, -28 + k * 2.2, null, 10); ms.rotation.x = Math.PI / 2; const tip = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.7, 10), mat(0xc02020)); tip.rotation.x = Math.PI / 2; tip.position.set(-12.4 + r * 0.9, 0.6 + r * 0.9, -28 + k * 2.2 + 1.95); hg.add(tip); }
     B(hg, 3.4, 0.2, 14, darkM, -12, 0.3, -22.5); B(hg, 3.4, 0.2, 14, darkM, -11.5, 1.2, -22.5);
     // the weapons rack on the wall: every class's gun
-    B(hg, 0.3, 4, 14, darkM, -13.7, 2.4, 14); Object.keys(CLASSES).forEach((k, i) => { const g = M.gunModel(k, CLASSES[k].color); g.scale.setScalar(1.6); g.position.set(-13.2, 3.2 - (i % 2) * 1.4, 9 + (i >> 1) * 4.2); g.rotation.y = -Math.PI / 2; hg.add(g); });
+    B(hg, 0.3, 4, 14, darkM, -13.7, 2.4, 14); Object.keys(CLASSES).forEach((k, i) => { const g = M.gunModel(k, CLASSES[k].color); g.scale.setScalar(2.2); g.position.set(-13.2, 3.4 - (i % 2) * 1.5, 10 + (i >> 1) * 3.4); g.rotation.y = -Math.PI / 2; hg.add(g); });
     // drop pods in a row by the window, hatches open, marines running to them
     hg.userData.pods = []; for (let i = 0; i < 4; i++) { const pm = dropPod(0xd09030); pm.position.set(8, 0, 6 + i * 6.5); pm.rotation.y = -Math.PI / 2; pm.scale.setScalar(0.9); hg.add(pm); hg.userData.pods.push(pm); }
-    hg.userData.run = []; for (let i = 0; i < 7; i++) { const cls = Object.keys(CLASSES)[i % 6], m = M.marine(CLASSES[cls].color, cls), pd = hg.userData.pods[i % 4].position; m.position.set(-2 + (i % 3) * 1.6, 0, -26 - i * 1.8); hg.add(m); hg.userData.run.push({ m, to: V(pd.x - 3, 0, pd.z), ph: i * 0.7, sp: 5.2 + (i % 3) * 0.5 }); } }
+    hg.userData.run = []; for (let i = 0; i < 7; i++) { const cls = Object.keys(CLASSES)[i % 6], m = M.marine(CLASSES[cls].color, cls), pd = hg.userData.pods[i % 4].position; m.position.set(-2 + (i % 3) * 1.6, 0, -14 - i * 1.6); hg.add(m); hg.userData.run.push({ m, to: V(pd.x - 3, 0, pd.z), ph: i * 0.7, sp: 5.2 + (i % 3) * 0.5 }); } }
   // ---- your pod (you only see its cabin from inside) and four more pods dropping beside you, in view of the windows
   const pod = add(dropPod(0xd09030)), cabin = podInterior(); pod.add(cabin); const { red, blue, strobe, doorG } = cabin.userData, fl = pod.userData.flame;
   const shell = pod.children.filter(o => o !== cabin && o !== fl && o !== pod.userData.heat); for (const o of shell) o.visible = false;
@@ -499,11 +499,11 @@ export function dropIntro(H, squad, done) {
       if (t > -0.6) once('o4', () => H.fade(true));
       if (t < -8) { // inside the hangar: roaming shots, marines sprinting to the pods
         hg.visible = true; const H0 = hg.position, P3 = (x, y, z) => V(H0.x + x, H0.y + y, H0.z + z), e = f => f * f * (3 - 2 * f); let cp, cl;
-        for (const r of hg.userData.run) { const m = r.m, d = V(r.to.x - m.position.x, 0, r.to.z - m.position.z), dl = d.length(); if (dl > 0.4) { const st2 = Math.min(dl, r.sp * dt); m.position.addScaledVector(d.normalize(), st2); m.rotation.y = Math.atan2(-d.x, -d.z); r.ph += dt * r.sp * 1.6; M.animMarine(m, r.ph, r.sp); } else { m.visible = false; } }   /* in through the hatch */
+        for (const r of hg.userData.run) { const m = r.m, d = V(r.to.x - m.position.x, 0, r.to.z - m.position.z), dl = d.length(); if (t < -15.5 + r.ph * 0.15) { M.animMarine(m, 0, 0); continue; } if (dl > 0.4) { const st2 = Math.min(dl, r.sp * dt); m.position.addScaledVector(d.normalize(), st2); m.rotation.y = Math.atan2(-d.x, -d.z); r.ph += dt * r.sp * 1.6; M.animMarine(m, r.ph, r.sp); } else { m.visible = false; } }   /* in through the hatch */
         if (t < -14.5) { const f = e((t + 18) / 3.5); cp = P3(2.5, 2.2 + f, L(-29, -12, f)); cl = P3(-6, 2.4, L(-24, -6, f)); }   /* down the bay past the VTOLs and the missile racks */
-        else if (t < -12) { const f = e((t + 14.5) / 2.5); cp = P3(-9, 2.6, L(7, 20, f)); cl = P3(-13.5, 2.6, L(9.5, 20.5, f)); }   /* along the weapons rack */
+        else if (t < -12) { const f = e((t + 14.5) / 2.5); cp = P3(-10.6, 2.8, L(8, 18.5, f)); cl = P3(-13.5, 2.7, L(10, 20, f)); }   /* along the weapons rack */
         else if (t < -10) { const f = e((t + 12) / 2); cp = P3(L(-4, -1, f), 3.2, L(-6, 0, f)); cl = P3(7, 2, L(8, 18, f)); }   /* marines sprinting for the pods */
-        else { const f = e((t + 10) / 2); cp = P3(L(4, 9, f), 4.5, L(-1, 1, f)); cl = P3(60, L(-6, -14, f), 2); }   /* out the window: the stars and the planet's curve */
+        else { const f = e((t + 10) / 2); cp = P3(L(9, 11.6, f), 7, L(-1, 1, f)); cl = P3(60, L(-30, -40, f), 2); }   /* out the window: the stars and the planet's curve */
         camera.position.copy(cp); camera.lookAt(cl); A.rumble(0.03); requestAnimationFrame(step); return;
       }
       hg.visible = false; const ts = -12 + (t + 8) * 1.5;   /* the old 12 s station flyby, now in 8 s */

@@ -93,8 +93,8 @@ export function makeTerrain(D, path, hubP, hiveP) {
   // walking height at (x, z) for something now at height y (so you can be on a bridge or under it, on a tunnel roof or inside)
   T.ground = (x, z, y = 1e9) => {
     const h = T.raw(x, z), n = path.near(x, z);
-    if (n.d < PATH_W / 2 + 0.6) {
-      const b = T.bridgeAt(n.s); if (b) { const deck = path.y(n.s); if (y >= deck - 1.3) return deck; }
+    if (n.d < PATH_W / 2 + 1.6) {
+      const b = n.d < PATH_W / 2 + 1.0 && T.bridgeAt(n.s); if (b) {   /* the whole width of the steel deck holds you, out to the rails */ const deck = path.y(n.s); if (y >= deck - 1.3) return deck; }
       const t = T.tunnelAt(n.s); if (t && n.d < PATH_W / 2 + 1.6 && y >= t.top - 1.6) return t.top;
     }
     const hb = T.hubAt(x, z); if (hb && hb.h !== undefined && y >= hb.h - (hb.wall ? 1.6 : 1.3)) return Math.max(h, hb.h);
@@ -217,13 +217,19 @@ export function buildWorld(scene, mapId, diff = 0) {
     const pa = path.at(t.s0), pb = path.at(t.s1), L = t.s1 - t.s0, mid = path.at((t.s0 + t.s1) / 2), ang = Math.atan2(pb.x - pa.x, pb.z - pa.z), th = t.top - t.bottom;
     const tn = new THREE.Group(); tn.position.set(mid.x, 0, mid.z); tn.rotation.y = ang; g.add(tn);
     const roof = new THREE.Mesh(new THREE.BoxGeometry(PATH_W + 3.4, th, L + 0.4), rockM); roof.position.y = t.bottom + th / 2; roof.castShadow = roof.receiveShadow = true; tn.add(roof);
-    const ceil = new THREE.Mesh(new THREE.BoxGeometry(PATH_W + 3.2, 0.3, L), conc); ceil.position.y = t.bottom + 0.1; tn.add(ceil);
-    for (let z = -L / 2 + 2; z < L / 2; z += 4) { const lt = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.3), lamp); lt.position.set(0, t.bottom - 0.1, z); tn.add(lt); }
+    if (M.AS.A.p_tunnel) { // one even concrete tube: Meshy tunnel sections laid end to end along the whole length, each at the track's own height, the rock roof resting on top
+      const n = Math.max(1, Math.round((L + 2.4) / 7)), seg = (L + 2.4) / n, sm = (t.s0 + t.s1) / 2;
+      const py0 = Math.min(path.y(t.s0), path.y(t.s1)), hh = Math.max(t.top - py0 + 0.6, PATH_W * 1.2);   // every section the same size: from the track up to the ridge top
+      for (let k = 0; k < n; k++) { const s = t.s0 - 1.2 + (k + 0.5) * seg, py = path.y(s), tl = M.AS.fitGLB('p_tunnel', 'h', hh, false); tl.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(tl), d0 = bb.max.z - bb.min.z || 1;
+        tl.scale.z = seg * 1.04 / d0; tl.position.set(0, py - 0.3, s - sm); tn.add(tl); }
+      roof.visible = false; }
+    if (!M.AS.A.p_tunnel) { const ceil = new THREE.Mesh(new THREE.BoxGeometry(PATH_W + 3.2, 0.3, L), conc); ceil.position.y = t.bottom + 0.1; tn.add(ceil); }
+    if (!M.AS.A.p_tunnel) for (let z = -L / 2 + 2; z < L / 2; z += 4) { const lt = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.3), lamp); lt.position.set(0, t.bottom - 0.1, z); tn.add(lt); }
     const L1 = new THREE.PointLight(0xffd090, 14, 14); L1.position.set(0, t.bottom - 0.8, 0); tn.add(L1);
     const portal = M.AS.A.p_tunnel;
     for (const e of [-1, 1]) {
       const z = e * (L / 2 + 0.2), py = path.y(e < 0 ? t.s0 : t.s1);
-      if (portal) { const pg = M.AS.fitGLB('p_tunnel', 'w', PATH_W * 2.1, false); pg.position.set(0, py - 0.3, z + e * 1.2); pg.rotation.y = e > 0 ? 0 : Math.PI; pg.scale.y = Math.max(0.6, (t.top - py + 1) / (PATH_W * 2.1 * 0.75)); tn.add(pg); continue; }   // the Meshy concrete portal
+      if (portal) continue;   // the tube's own end sections are the portals
       for (const sd of [-1, 1]) { const col2 = new THREE.Mesh(new THREE.BoxGeometry(1.0, t.top - py + 0.5, 0.9), conc); col2.position.set(sd * (PATH_W / 2 + 1.1), py + (t.top - py) / 2, z); col2.castShadow = true; tn.add(col2); }
       const lin = new THREE.Mesh(new THREE.BoxGeometry(PATH_W + 3.2, 0.9, 1.0), conc); lin.position.set(0, t.bottom + 0.3, z); tn.add(lin);
       const stripe = new THREE.Mesh(new THREE.BoxGeometry(PATH_W + 3.25, 0.25, 1.05), warn); stripe.position.set(0, t.bottom + 0.15, z); tn.add(stripe);
@@ -255,7 +261,7 @@ export function buildWorld(scene, mapId, diff = 0) {
     if (n.d < PATH_W + 4 && !out) continue; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < HUB_R + 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 44) continue;
     if (T.chasm(x, z) < 0.99 || T.ridge(x, z) > 3) continue;
     if (!out && R() < (D.dense ? 0.35 : 0.55)) continue; if (W.nestP.some(n => Math.hypot(n.x - x, n.z - z) < 6)) continue;
-    const kind = !out && R() < 0.3 ? (R() < 0.2 ? 'crate' : D.extra[(R() * D.extra.length) | 0]) : R() < 0.3 ? 'boulder' : D.prop, p = M.prop(kind, R); p.position.set(x, T.raw(x, z) - 0.1, z); p.rotation.y = R() * 6; g.add(p);
+    const kind = !out && R() < 0.3 ? (R() < 0.2 ? 'crate' : D.extra[(R() * D.extra.length) | 0]) : R() < 0.3 ? 'boulder' : D.prop, p = M.prop(kind, R); p.position.set(x, T.raw(x, z) - 0.1, z); p.rotation.y = R() * 6; g.add(p); settle(p, T, kind === 'boulder' || kind === 'rock' ? 0.4 : 0.15);
     if (!out) W.colliders.push({ x, z, r: { tower: 2.2, crate: 1.1, tree: 0.7, dome: 4, derrick: 1.8, dish: 1.5, spire: 1.2, shroom: 0.8, boulder: 1.8 }[kind] || 1.6, h: { tower: 7, crate: 1.4, tree: 9, dome: 5, derrick: 9, dish: 5, spire: 8, shroom: 5, boulder: 3, rock: 3, ice: 4 }[kind] || 3 });
   }
   const sky = { mars: [[0xd8c0a0, 26, -0.6, 0.35], [0xa09080, 9, 0.9, 0.5]], ice: [[0x6a8ad0, 60, 0.4, 0.3], [0xe0d0c0, 12, -0.9, 0.55]], jungle: [[0xb0a0e0, 45, -0.3, 0.32], [0xf0e0c0, 14, 1.1, 0.6], [0xc0f0d0, 7, 1.6, 0.45]] }[mapId];
@@ -302,6 +308,8 @@ function buildCompound(g, H, W) {
     const st = new THREE.Mesh(new THREE.BoxGeometry(RAMP_W, h, len), k % 2 ? wallM : dark); st.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r); st.rotation.y = -a; st.castShadow = st.receiveShadow = true; C.add(st); void f0; }
   // corner towers outside the wall
   for (const da of [0.9, 2.2, -0.9, -2.2]) { const a = H.ga + Math.PI + da, x = Math.cos(a) * (HUB_R + 3.2), z = Math.sin(a) * (HUB_R + 3.2), t = new THREE.Group(); t.position.set(x, 0, z); C.add(t);
+    (W.hubGuns = W.hubGuns || []).push({ x: H.x + x, y: H.y + WALL_H + 7.6, z: H.z + z });   // a defence gun on every corner tower: it shoots aliens that get close to the hub
+    { const hg = M.turret('minigun', 0x6a7480, 2); hg.position.set(0, WALL_H + 7, 0); hg.scale.setScalar(0.9); t.add(hg); }
     const ctw = GL('h_gatetower', 'h', WALL_H + 7); if (ctw) { ctw.rotation.y = -a + Math.PI / 2; t.add(ctw); W.colliders.push({ x: H.x + x, z: H.z + z, r: 2.6 }); continue; }
     const body = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.6, WALL_H + 5, 8), wallM); body.position.y = (WALL_H + 5) / 2; body.castShadow = true; t.add(body);
     const top = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.2, 1.2, 8), dark); top.position.y = WALL_H + 5.6; t.add(top); const l = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), lamp); l.position.y = WALL_H + 6.6; t.add(l);
@@ -377,11 +385,18 @@ function salvage(W, m, name, amt) {
   (W.salvage = W.salvage || []).push({ x: c.x, z: c.z, y: b.min.y, r: Math.max(1, Math.min(9, Math.max(sz.x, sz.z) / 2)), amt, name, box: [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z] });
 }
 const SALV = { satellite: ['crashed satellite', 60], wreck: ['wrecked ship', 160], capsule: ['supply capsule', 45], rover: ['wrecked rover', 45], debris: ['crashed ship', 55] };
+// sit a model on the ground: drop it so the lowest ground under its footprint touches its bottom (no wreck hangs in the air on a slope)
+const _sb = new THREE.Box3();
+function settle(m, T, sink = 0.15) {
+  m.updateMatrixWorld(true); _sb.setFromObject(m); if (_sb.isEmpty()) return; const hx = (_sb.max.x - _sb.min.x) * 0.38, hz = (_sb.max.z - _sb.min.z) * 0.38, cx = (_sb.min.x + _sb.max.x) / 2, cz = (_sb.min.z + _sb.max.z) / 2;
+  let lo = T.raw(cx, cz); for (const [dx, dz] of [[hx, 0], [-hx, 0], [0, hz], [0, -hz], [hx, hz], [-hx, -hz], [hx, -hz], [-hx, hz]]) lo = Math.min(lo, T.raw(cx + dx, cz + dz));
+  m.position.y += lo - _sb.min.y - sink;
+}
 function placePOIs(g, W, T, D, mapId, path) {
   const R = rng(mapId.length * 7919 + 11 + (W.diff || 0) * 1013), H = T.hub, hv = W.hiveP; W.lore = []; W.salvage = []; W.shelters = W.shelters || [];
   const ok = (x, z, clear) => Math.abs(x) < BOUNDS - 12 && Math.abs(z) < BOUNDS - 12 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 18 && Math.hypot(x - hv.x, z - hv.z) > 52 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 1.5 && !W.lore.some(l => Math.hypot(l.x - x, l.z - z) < 40);
   const spot = clear => { for (let k = 0; k < 400; k++) { const x = (R() * 2 - 1) * BOUNDS, z = (R() * 2 - 1) * BOUNDS; if (ok(x, z, clear)) return [x, z]; } return null; };
-  const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); { const sv = SALV[kind.replace(/\d+$/, '')]; if (sv) salvage(W, m, sv[0], sv[1]); } for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };
+  const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); settle(m, T); { const sv = SALV[kind.replace(/\d+$/, '')]; if (sv) salvage(W, m, sv[0], sv[1]); } for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };
   put('satellite', 18, M.satellite, [[0, 0, 2.2, 3]]); put('wreck', 22, M.wreck, [[-4, 0, 2.6, 4], [4.5, 2, 2.4, 3.5], [-10, 0, 2, 4]]); put('capsule', 16, M.capsule, [[0, 0, 2, 3]]); put('rover', 14, M.rover, [[0, 0, 1.8, 2.5]]);
   for (let i = 0; i < 16; i++) put('debris' + i, 10, M.debris, []);   // crashed ships all over the map, to cut scrap from
   for (let i = 0; i < 45; i++) put('boulder' + i, 7, R => M.prop('boulder', R), [[0, 0, 1.8, 2.5]]);   // more big Meshy boulders across the open ground
@@ -410,7 +425,7 @@ function placePOIs(g, W, T, D, mapId, path) {
 function battlefield(g, W, T, D, mapId, path) {
   const R = rng(mapId.length * 4447 + 5 + (W.diff || 0) * 1013), H = T.hub, hv = W.hiveP;
   const free = (x, z, clear) => Math.abs(x) < BOUNDS - 6 && Math.abs(z) < BOUNDS - 6 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 6 && Math.hypot(x - hv.x, z - hv.z) > 44 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 2;
-  const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); if ([M.tank, M.mech, M.deadTurret, M.burntCrate].includes(make)) { W.wrecks.push({ x, z, r: col ? col[0] : 2 }); salvage(W, m, make === M.tank ? 'wrecked tank' : make === M.mech ? 'wrecked mech' : make === M.deadTurret ? 'dead turret' : 'burnt crate', make === M.tank ? 75 : make === M.mech ? 60 : make === M.deadTurret ? 30 : 15); } };
+  const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); settle(m, T, make === M.corpse || make === M.carcass ? 0.05 : 0.15); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); if ([M.tank, M.mech, M.deadTurret, M.burntCrate].includes(make)) { W.wrecks.push({ x, z, r: col ? col[0] : 2 }); salvage(W, m, make === M.tank ? 'wrecked tank' : make === M.mech ? 'wrecked mech' : make === M.deadTurret ? 'dead turret' : 'burnt crate', make === M.tank ? 75 : make === M.mech ? 60 : make === M.deadTurret ? 30 : 15); } };
   // battle lines along the track: sandbags, tank traps, bodies and wrecks 12-40 m from it
   for (let s = 30; s < path.len - 40; s += 22) {
     const q = path.at(s);

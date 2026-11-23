@@ -289,7 +289,8 @@ export class Sim {
       if (a.stun > 0) { a.stun -= dt; continue; }
       const sp = a.spd * (a.slowT > 0 ? (a.slowF ?? 0.5) : 1) * (1 + 0.15 * (this.stormI || 0)); if (a.slowT > 0) a.slowT -= dt;
       if (a.mode === 'burrow') { // burrowers run straight across country for the hub, biting whatever they bump into on the way
-        const hb = this.W.hubP, dx = hb.x - a.x, dz = hb.z - a.z, d = Math.hypot(dx, dz) || 1;
+        const hb = this.W.hubP; let dx = hb.x - a.x, dz = hb.z - a.z; const d = Math.hypot(dx, dz) || 1;
+        { let pr = null, pd = 10; for (const p of living) { const e = Math.hypot(p.x - a.x, p.z - a.z); if (e < pd && Math.abs(p.y - a.y) < 4) { pd = e; pr = p; } } if (pr) { dx = (pr.x - a.x) / (pd || 1) * d; dz = (pr.z - a.z) / (pd || 1) * d; } }   // a marine close by: go for him instead of the hub
         let foe = null, fd = A.r + 1.4; for (const p of living) { const e = Math.hypot(p.x - a.x, p.z - a.z); if (e < fd && Math.abs(p.y - a.y) < 2.5) { fd = e; foe = p; } }
         if (!foe) for (const m of this.allies) if (Math.hypot(m.x - a.x, m.z - a.z) < A.r + 1.2) { foe = m; break; }
         if (!foe) for (const t of this.turrets) if (!t.carry && !TURRETS[t.kind].mine && Math.hypot(t.x - a.x, t.z - a.z) < A.r + 1.6) { foe = t; break; }
@@ -419,6 +420,18 @@ export class Sim {
     for (const c of this.spores) { c.a += (Math.random() - 0.5) * dt * 0.8; c.x += Math.cos(c.a) * 2.2 * dt; c.z += Math.sin(c.a) * 2.2 * dt; if (Math.abs(c.x) > BOUNDS - 10) c.a = Math.PI - c.a; if (Math.abs(c.z) > BOUNDS - 10) c.a = -c.a; c.x = Math.max(-BOUNDS + 10, Math.min(BOUNDS - 10, c.x)); c.z = Math.max(-BOUNDS + 10, Math.min(BOUNDS - 10, c.z)); }
     for (const e of this.later) { e.t -= dt; if (e.t <= 0 && !e.done) { e.done = true; e.f(); } } if (this.later.some(e => e.done)) this.later = this.later.filter(e => !e.done);
     this.updRides(dt);
+    if (this.phase === 'wave' || this.phase === 'assault') {
+      // the hub's own defence guns on its corner towers: they shoot whatever comes close (burrowers, stragglers)
+      const HG = this.W.hubGuns || []; this.hgCd = this.hgCd || HG.map(() => Math.random() * 0.2);
+      HG.forEach((g, i) => { this.hgCd[i] -= dt; if (this.hgCd[i] > 0) return; let tg = null, bd = 36; for (const a of this.aliens) { if (a.dead || ALIENS[a.type].static || a.cave) continue; const d = Math.hypot(a.x - g.x, a.z - g.z); if (d < bd) { bd = d; tg = a; } }
+        if (!tg) { this.hgCd[i] = 0.3; return; } this.hgCd[i] = 0.14; this.hurtAlien(tg, 9, null, true); if (Math.random() < 0.45) this.emit({ k: 'tr', a: [+g.x.toFixed(1), +g.y.toFixed(1), +g.z.toFixed(1)], b: [+tg.x.toFixed(1), +(tg.y + 0.6).toFixed(1), +tg.z.toFixed(1)], c: 0xffd070, s: 'smg', p: 0.6, f: 'hub' }); });
+      // the hub's mortar battery: every so often a volley lands on the thickest knot of aliens out on the field
+      this.hmT = (this.hmT ?? 12) - dt; if (this.hmT <= 0) { this.hmT = 10 + Math.random() * 8; const H = this.W.hubP; let best = null, bn = 2;
+        for (const a of this.aliens) { if (a.dead || ALIENS[a.type].static || a.cave) continue; const dh = Math.hypot(a.x - H.x, a.z - H.z); if (dh < 40 || dh > 280) continue; let n = 0; for (const b of this.aliens) if (!b.dead && Math.abs(b.x - a.x) < 9 && Math.abs(b.z - a.z) < 9) n++; if (n > bn) { bn = n; best = a; } }
+        if (best) { this.radio('cmd', ['Mortars, fire for effect!', 'Hub battery: shot out!', 'Dropping mortars on that pack. Heads down!'][Math.random() * 3 | 0]); for (let i = 0; i < 4; i++) { const x = best.x + (Math.random() - 0.5) * 12, z = best.z + (Math.random() - 0.5) * 12, y = this.W.top(x, z), fl = 2.6 + i * 0.35;
+          this.later.push({ t: i * 0.35, f: () => this.emit({ k: 'hubmort', a: [+H.x.toFixed(1), +(this.path.y(this.path.len) + 6).toFixed(1), +H.z.toFixed(1)], b: [+x.toFixed(1), +y.toFixed(1), +z.toFixed(1)], t: 2.6 }) });
+          this.later.push({ t: fl + i * 0 + 0.0, f: () => this.splash(x, y + 0.6, z, 6.5, 150, null) }); } } }
+    }
     for (const d of this.drones) { d.t -= dt; d.a += dt * 0.9; d.cd -= dt; d.tg = 0; const fp = d.follow && this.players.get(d.follow); if (fp && !fp.dead) { d.x += (fp.x - d.x) * Math.min(1, dt * 2); d.z += (fp.z - d.z) * Math.min(1, dt * 2); d.y = fp.y; } const cx = d.x + Math.cos(d.a) * 8, cz = d.z + Math.sin(d.a) * 8; let tg = null, bd = 22; for (const a of this.aliens) { if (ALIENS[a.type].static) continue; const dd = Math.hypot(a.x - cx, a.z - cz); if (dd < bd) { bd = dd; tg = a; } } if (tg) { d.tg = tg.id; if (d.cd <= 0) { d.cd = 0.12; this.hurtAlien(tg, 9, d.owner, true); } } } if (this.drones.some(d => d.t <= 0)) this.drones = this.drones.filter(d => d.t > 0);
     for (const l of this.lasers) { l.t -= dt; for (const a of this.aliens) if (Math.hypot(a.x - l.x, a.z - l.z) < 6) this.hurtAlien(a, 340 * dt, l.owner, true); } if (this.lasers.some(l => l.t <= 0)) this.lasers = this.lasers.filter(l => l.t > 0);
     for (const m of this.medz) { m.t -= dt; for (const p of this.living()) if (Math.hypot(p.x - m.x, p.z - m.z) < m.r) p.hp = Math.min(p.mhp, p.hp + 25 * dt); for (const a of this.allies) if (Math.hypot(a.x - m.x, a.z - m.z) < m.r) a.hp = Math.min(a.mhp, a.hp + 25 * dt); } if (this.medz.some(m => m.t <= 0)) this.medz = this.medz.filter(m => m.t > 0);

@@ -29,6 +29,8 @@ function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.asp
 // switching fullscreen fires a burst of resize events: rebuild the drawing buffers once it settles, not on every one (that froze the page and the sound)
 let resizeT = 0; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 180); }); resize();
 const audio = new Audio(), music = new Music(audio), voice = new Voice(audio); window.hbMusic = music;
+// one-time sound reset: a saved master volume of zero, music switched off, or a silent effects slider made the whole game silent for good
+try { if (!localStorage.getItem('hb-snd-reset1')) { localStorage.setItem('hb-snd-reset1', '1'); const st = JSON.parse(localStorage.getItem('hb-set') || '{}'); if (!(st.master > 0.05)) { st.master = 1; localStorage.setItem('hb-set', JSON.stringify(st)); } if (!music.on || !(music.vol > 0.05)) { music.on = true; music.vol = Math.max(music.vol || 0, 0.75); music.save(); } if (!(audio.vol > 0.05)) audio.setVol(0.5); } } catch (e) { }
 audio.onRestart = () => { toast('🔊 Sound engine restarted after a glitch (tell the developer if you see this often)', 4); music.reset(); setTimeout(() => { if (audio.ctx && audio.ctx.state === 'running') { music.start(); applyAudio(); } }, 200); };
 audio.expectSound = () => music.on && music.master && music.mode !== 'off' && music.vol > 0.02 && (music.mul ?? 1) > 0.02 && !document.hidden;
 addEventListener('pointerdown', () => { audio.unlock(); music.start(); const h = document.getElementById('soundHint'); if (h) h.hidden = true; });

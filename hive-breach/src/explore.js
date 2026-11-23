@@ -437,12 +437,16 @@ export function dropIntro(H, squad, done) {
   pod.traverse(o => { if (o.isMesh) o.frustumCulled = false; });   // the strapped-in marines are skinned: never let a wrong bounding box blink them out while the pod shakes
   // Build every shader and upload every texture the ride will need now, behind the opening fade: once for space, once for the battlefield below
   // (the world's lights switch on at the cloud layer, which otherwise rebuilds every shader mid-fall: that was the stutter)
-  if (H.renderer) { const R = H.renderer, cc = new THREE.Mesh(cloudG, cloudM), f0 = scene.fog; try {
-    for (const o of shell) o.visible = true; R.compile(scene, camera); cabin.visible = false; R.compile(scene, camera); cabin.visible = true;
+  if (H.renderer) { const R = H.renderer, cc = new THREE.Mesh(cloudG, cloudM), f0 = scene.fog, rt = new THREE.WebGLRenderTarget(8, 8);
+    // a hidden warm-up render: draw everything once into a tiny invisible image, nothing culled, so every mesh, texture and effect is on the graphics card before the ride
+    const warm = () => { const cull = []; scene.traverse(o => { if (o.isMesh || o.isPoints || o.isSprite || o.isLine) { cull.push([o, o.frustumCulled]); o.frustumCulled = false; } }); const camKids = camera.children.map(c => [c, c.visible]); for (const [c] of camKids) c.visible = true; const prev = R.getRenderTarget(); R.setRenderTarget(rt); R.render(scene, camera); R.setRenderTarget(prev); for (const [o, f] of cull) o.frustumCulled = f; for (const [c, v] of camKids) c.visible = v; };
+    try { H.boomFx(padX, padY - 400, padZ, 6); H.burst(padX, padY - 400, padZ, 0xb09878, 4, 2, 0.2); H.burst(padX, padY - 400, padZ, 0xffa040, 4, 2, 0.2); H.burst(padX, padY - 400, padZ, 0xff7020, 4, 2, 0.2); H.tracer([padX, padY - 400, padZ], [padX, padY - 399, padZ], 0xffc070, 0.02, 0.1); } catch (er) { }   // the dust, fire and blast effects the landing uses
+    try {
+    for (const o of shell) o.visible = true; R.compile(scene, camera); warm(); cabin.visible = false; R.compile(scene, camera); warm(); cabin.visible = true;
     W.group.visible = true; space.visible = false; st.visible = false; cc.position.copy(pod.position); scene.add(cc); scene.fog = cloudFog;
     const seen = new Set(); scene.traverse(o => { if (!o.material) return; for (const mm of [].concat(o.material)) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'alphaMap']) { const tx = mm[k]; if (tx && !seen.has(tx)) { seen.add(tx); R.initTexture(tx); } } });
-    R.compile(scene, camera);
-  } catch (err) { } scene.remove(cc); scene.fog = f0; W.group.visible = false; space.visible = true; st.visible = true; }
+    R.compile(scene, camera); warm();
+  } catch (err) { } rt.dispose(); scene.remove(cc); scene.fog = f0; W.group.visible = false; space.visible = true; st.visible = true; }
   const T0 = 12;   // seconds of the opening shot of the station before you're strapped in
   if (MU && MU.dropScore) MU.dropScore(T0);
   const t0 = performance.now(); let last = t0, said = {}, shakeK = 0, prevAlt = 0, spd = 0, flyDoor = 0, handed = false, podOut = false, crewParked = false; H.fade(false);
@@ -467,7 +471,7 @@ export function dropIntro(H, squad, done) {
     for (const w of wing) { const tt = t - w.dl, wy = yAt(Math.max(0, tt)), spread = 1 + cl((tt - 13) / 9) * 2.5; w.m.position.set(padX + w.o.x * spread, (tt < 22 ? wy : yAt(22) - (tt - 22) * 260), padZ + w.o.z * spread); w.m.rotation.z = Math.sin(t * 7 + w.dl * 5) * 0.03 * cl(tt - 13);
       w.m.userData.flame.material.opacity = tt > 7 && tt < 13 ? 0.6 : 0; w.m.userData.heat.material.opacity = tt > 13 && tt < 22 ? Math.min(0.9, (tt - 13) / 7) : 0; if (tt > 24) w.m.visible = false; }
     if (t < 0) { // the opening shot: Station Olympus in high orbit, the drop pods hanging in its bay, then down to yours
-      once('o1', () => { cap('STATION OLYMPUS', `High orbit over ${PN} · 7th Orbital Drop Wing`); for (const o of shell) o.visible = true; cabin.visible = false; hud.style.display = 'none'; document.body.classList.remove('pov'); });   /* letterboxed, like a film, until you're in your seat */
+      once('o1', () => { cap('STATION OLYMPUS', `High orbit over ${PN} · 7th Orbital Drop Wing`); for (const o of shell) o.visible = true; cabin.traverse(o => { if (!o.isLight && o !== cabin && o.isMesh && o.visible) { o.visible = false; (cabin.userData.hid = cabin.userData.hid || []).push(o); } }); hud.style.display = 'none';   /* hide the cabin's meshes but keep its lights on: a light count change rebuilds every shader */ document.body.classList.remove('pov'); });   /* letterboxed, like a film, until you're in your seat */
       if (t > -7) once('o2', () => cap('', `General Hale: Drop teams, this is Olympus. The swarm holds ${PN}. Go down there and take it back.`));
       if (t > -2.6) once('o3', () => cap('', 'Commander Vance: Strap in, marines. We drop in thirty.'));
       if (t > -0.6) once('o4', () => H.fade(true));
@@ -477,7 +481,7 @@ export function dropIntro(H, squad, done) {
       else { const f = (t + 2) / 2; cp = V(pp.x + L(34, 6, f), pp.y + L(-6, 2.4, f), pp.z + L(22, 4, f)); cl = V(pp.x, pp.y + 2.4, pp.z); }
       camera.position.copy(cp); camera.lookAt(cl); A.rumble(0.04); requestAnimationFrame(step); return;
     }
-    once('o5', () => { for (const o of shell) o.visible = false; cabin.visible = true; hud.style.display = ''; document.body.classList.add('pov'); H.fade(false); });
+    once('o5', () => { for (const o of shell) o.visible = false; for (const o of cabin.userData.hid || []) o.visible = true; cabin.userData.hid = null; hud.style.display = ''; document.body.classList.add('pov'); H.fade(false); });
     if (t < 7) { // docked: alarms, red strobes, the commander's countdown
       once('a', () => { cap('', `Station Olympus, drop bay 3 · destination ${PN}`); A.sfx('alarm', 0.5); });
       if (t > 2.2) once('b', () => cap('', 'Commander Vance: Listen up! Thirty seconds to drop. Hands off the straps until we\'re down.'));

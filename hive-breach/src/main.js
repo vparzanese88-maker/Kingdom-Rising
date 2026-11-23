@@ -1175,6 +1175,8 @@ function hud(dt, S) {
   setH('arrows', hunters.slice(0, 8).map(v => { const a = Math.atan2(v.x - G.me.x, v.z - G.me.z) - Math.atan2(-Math.sin(G.me.yaw), -Math.cos(G.me.yaw)); return `<i style="transform:translate(-50%,-50%) rotate(${(-a).toFixed(2)}rad) translateY(-90px)"></i>`; }).join(''));
   $('hit').classList.toggle('head', !!G.hitHead);
   $('hit').style.borderColor = G.hitWeak ? '#888' : ''; $('hit').classList.toggle('weak', !!G.hitWeak);
+  { const m = G.me, cr = $('cross'), want = (4 + Math.min(12, m.heat || 0) * 1.3 + (m.moving ? 5 : 0)) * (m.ads ? 0.55 : 1) * (m.braced ? 0.5 : 1) * (m.prone ? 0.5 : m.kneel ? 0.7 : 1);   // the reticle's ticks spread with weapon bloom
+    G.xsp = (G.xsp ?? want) + (want - (G.xsp ?? want)) * Math.min(1, dt * 14); cr.style.setProperty('--sp', G.xsp.toFixed(1)); cr.classList.toggle('hh', G.hitT > 0 && !!G.hitHead); cr.classList.toggle('hit', G.hitT > 0 && !G.hitHead && !G.hitWeak); }
   $('hit').style.opacity = G.hitT > 0 ? 1 : 0; G.hitT -= dt; G.hurtT = Math.max(0, (G.hurtT || 0) - dt); $('hurt').style.opacity = Math.min(0.8, G.hurtT * 2.5 + (my.hp / my.mhp < 0.3 ? 0.25 : 0));
   $('dead').hidden = !my.dead || S.ph === 'lose'; if (my.dead) setT("deadT", `Respawning in ${Math.ceil(my.rt)} s`);
   // the last seconds before a wave are counted out loud

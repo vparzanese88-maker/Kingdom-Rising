@@ -45,12 +45,17 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 .small{font-size:12px;color:var(--dim)}
 /* HUD */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:5}
-#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%)}
-#cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.85)}
-#cross:before{left:10px;top:0;width:2px;height:22px;clip-path:polygon(0 0,100% 0,100% 35%,0 35%,0 65%,100% 65%,100% 100%,0 100%)}
-#cross:after{top:10px;left:0;height:2px;width:22px;clip-path:polygon(0 0,35% 0,35% 100%,0 100%,0 0,65% 0,100% 0,100% 100%,65% 100%)}
+#cross{--sp:4;--c:#5fd8ff;position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;filter:drop-shadow(0 0 .6px #000) drop-shadow(0 0 1px rgba(0,8,16,.9)) drop-shadow(0 0 4px rgba(95,216,255,.55))}
+#cross i,#cross b{position:absolute;left:0;top:0;display:block;background:var(--c);transition:background .06s}
+#cross .dot{width:3px;height:3px;margin:-1.5px 0 0 -1.5px;border-radius:50%}
+#cross .n,#cross .s{width:2px;height:7px;margin-left:-1px;border-radius:1px}#cross .e,#cross .w{width:7px;height:2px;margin-top:-1px;border-radius:1px}
+#cross .n{transform:translateY(calc(var(--sp) * -1px - 7px))}#cross .s{transform:translateY(calc(var(--sp) * 1px))}
+#cross .e{transform:translateX(calc(var(--sp) * 1px))}#cross .w{transform:translateX(calc(var(--sp) * -1px - 7px))}
+#cross svg{position:absolute;left:-17px;top:-17px;width:34px;height:34px;overflow:visible;opacity:.45;transform:scale(calc(.95 + var(--sp) / 20));transition:opacity .1s}
+#cross circle{fill:none;stroke:var(--c);stroke-width:1.1;stroke-dasharray:6.5 2.5;stroke-dashoffset:7.75;vector-effect:non-scaling-stroke;transition:stroke .06s}
+#cross.hit{--c:#fff}#cross.hh{--c:#ff5a2a}#cross.hit svg,#cross.hh svg{opacity:.85}
 #hit{position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-50%) rotate(45deg);opacity:0;transition:opacity .05s}
-#hit:before,#hit:after{content:"";position:absolute;background:#ff5050}
+#hit:before,#hit:after{content:"";position:absolute;background:#fff;box-shadow:0 0 1px #000,0 0 4px rgba(255,255,255,.6)}
 #hit:before{left:14px;top:0;width:2px;height:30px;clip-path:polygon(0 0,100% 0,100% 30%,0 30%,0 70%,100% 70%,100% 100%,0 100%)}
 #hit:after{top:14px;left:0;height:2px;width:30px;clip-path:polygon(0 0,30% 0,30% 100%,0 100%,0 0,70% 0,100% 0,100% 100%,70% 100%)}
 #scope{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 36vh,#000 36.3vh);}
@@ -76,7 +81,7 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 #mmap{background:rgba(0,0,0,.6);z-index:9}#mmap .card{background:rgba(8,14,20,.96);border:1px solid var(--line);border-radius:8px;padding:14px 18px;text-align:center}
 #mmapCv{width:min(640px,80vh,90vw);height:min(640px,80vh,90vw);cursor:crosshair;border:1px solid var(--line);border-radius:6px}
 #mmap h2{margin:0 0 4px}
-#hit.head:before,#hit.head:after{background:#ff2020;box-shadow:0 0 6px #ff0}
+#hit.head:before,#hit.head:after{background:#ff5a2a;box-shadow:0 0 1px #000,0 0 6px #ff7a30}
 .pick .role{color:var(--c);font-weight:600;filter:brightness(1.3)}
 .pick p b{color:var(--gold)}
 #waveTxt{font-size:20px}
@@ -227,7 +232,6 @@ body.explore #slots,body.explore #boss,body.explore #hunt,body.explore #hubTxt,b
 #prompt{background:var(--glass);border:0;border-radius:0;box-shadow:inset 0 0 0 1px var(--hcd);font-size:13px;letter-spacing:.04em}
 #hunt{top:100px;font-size:14px;letter-spacing:.3em}
 #bannerA{font-family:Rajdhani,sans-serif;letter-spacing:.3em}#bannerB{letter-spacing:.25em;font-size:15px}
-#cross:before,#cross:after{background:rgba(160,235,255,.9)}
 @media (max-width:700px){#mini{width:104px;height:104px}#hud .slot{width:36px;height:36px}#hud .slot.w{width:34px;height:34px}#hud .slot .ic{width:20px;height:20px}#slots{bottom:80px}#bl{width:160px}}
 
 /* ---- readability pass: a clearer font and bigger text everywhere ---- */
@@ -264,18 +268,18 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/assets.js": "./src/assets.js?v=1795404181",
-"./src/audio.js": "./src/audio.js?v=1795404181",
-"./src/data.js": "./src/data.js?v=1795404181",
-"./src/explore.js": "./src/explore.js?v=1795404181",
-"./src/icons.js": "./src/icons.js?v=1795404181",
-"./src/main.js": "./src/main.js?v=1795404181",
-"./src/models.js": "./src/models.js?v=1795404181",
-"./src/music.js": "./src/music.js?v=1795404181",
-"./src/net.js": "./src/net.js?v=1795404181",
-"./src/sim.js": "./src/sim.js?v=1795404181",
-"./src/voice.js": "./src/voice.js?v=1795404181",
-"./src/world.js": "./src/world.js?v=1795404181"
+"./src/assets.js": "./src/assets.js?v=1795404680",
+"./src/audio.js": "./src/audio.js?v=1795404680",
+"./src/data.js": "./src/data.js?v=1795404680",
+"./src/explore.js": "./src/explore.js?v=1795404680",
+"./src/icons.js": "./src/icons.js?v=1795404680",
+"./src/main.js": "./src/main.js?v=1795404680",
+"./src/models.js": "./src/models.js?v=1795404680",
+"./src/music.js": "./src/music.js?v=1795404680",
+"./src/net.js": "./src/net.js?v=1795404680",
+"./src/sim.js": "./src/sim.js?v=1795404680",
+"./src/voice.js": "./src/voice.js?v=1795404680",
+"./src/world.js": "./src/world.js?v=1795404680"
 }
 }
 </script>
@@ -289,7 +293,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 <div id="hud" hidden>
   <div id="hurt"></div><div id="lowhp"></div><div id="kc"></div><div id="obj" hidden><i></i><span id="objT"></span></div>
   <div id="scope" hidden></div>
-  <div id="cross"></div><div id="hit"></div><div id="dirs"></div><div id="arrows"></div>
+  <div id="cross"><svg viewBox="-17 -17 34 34"><circle r="14" pathLength="72"/></svg><b class="n"></b><b class="s"></b><b class="e"></b><b class="w"></b><i class="dot"></i></div><div id="hit"></div><div id="dirs"></div><div id="arrows"></div>
   <div id="hunt" hidden><span id="huntT"></span></div>
   <div id="top" class="panel"><div id="waveTxt">BUILD</div><div class="bar"><i id="hubBar" style="width:100%"></i></div><div id="hubTxt">HUB 100%</div><div id="waveInfo"></div></div>
   <div id="boss" class="panel" hidden><div id="bossName"></div><div class="bar"><i id="bossBar"></i></div></div>
@@ -341,6 +345,6 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795404181"></script>
+<script type="module" src="./src/main.js?v=1795404680"></script>
 </body>
 </html>

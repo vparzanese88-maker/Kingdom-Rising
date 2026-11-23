@@ -397,7 +397,7 @@ export class Sim {
     // turrets
     for (const t of this.turrets) if (t.kind === 'uav' && !t.fresh && !t.carry) { const st = tStat(t), k = 1.2 + 0.1 * (t.lvl - 1); for (const a of this.aliens) if (Math.hypot(a.x - t.x, a.z - t.z) < st.range) { a.ballK = Math.max(a.ballT > 0 && a.ballK || 1, k); a.ballT = 0.4; a.rev = Math.max(a.rev || 0, 0.4); a.hidden = false; } }
     for (const t of this.turrets) if (t.life !== undefined) { t.life -= dt; if (t.life <= 0) t.hp = 0; } if (this.turrets.some(t => t.hp <= 0)) this.turrets = this.turrets.filter(t => t.hp > 0);
-    for (const t of this.turrets) if (t.carry) { const c = this.players.get(t.carry); if (!c || c.dead) { t.carry = 0; this.settle(t); continue; } t.x = c.x - Math.sin(c.yaw) * 1.7; t.z = c.z - Math.cos(c.yaw) * 1.7; t.y = (c.y || 0) + 0.3; t.ry = c.yaw; }
+    for (const t of this.turrets) if (t.carry) { const c = this.players.get(t.carry); if (!c || c.dead) { t.carry = 0; this.settle(t); continue; } t.x = c.x - Math.sin(c.yaw) * 2.0 + Math.cos(c.yaw) * 1.3; t.z = c.z - Math.cos(c.yaw) * 2.0 - Math.sin(c.yaw) * 1.3;   /* carried ahead and to the right, where the carrier sees it */ t.y = (c.y || 0) + 0.3; t.ry = c.yaw; }
     for (const t of this.turrets) {
       if (t.carry) { t.tg = 0; continue; }
       // building and upgrading take time; a new turret does nothing until it is finished, an upgrading one keeps its old level

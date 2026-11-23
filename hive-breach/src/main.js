@@ -675,7 +675,7 @@ function dropNew(kind, my) {
     requestAnimationFrame(fly); return; }
   req({ a: 'place', kind, ...frontOf(1.7) }); audio.sfx('place', 0.6); toast(`${T.name} in hand: left click puts it down · press the key again or switch weapons to put it away`, 2.5);
 }
-function dropCarried() { if (!G.me.carry) return; req({ a: 'drop', ...frontOf(1.9) }); G.me.carry = 0; G.me.holdFire = true; audio.sfx('place', 0.8); }
+function dropCarried() { if (!G.me.carry) return; const me = G.me; req({ a: 'drop', x: +(me.x - Math.sin(me.yaw) * 2.0 + Math.cos(me.yaw) * 1.3).toFixed(2), z: +(me.z - Math.cos(me.yaw) * 2.0 - Math.sin(me.yaw) * 1.3).toFixed(2), ry: +me.yaw.toFixed(2) });   /* set down right where it's held (ahead and to the right), not out in front */ G.me.carry = 0; G.me.holdFire = true; audio.sfx('place', 0.8); }
 function setSlot(n) {
   if (G.me.carry) { req({ a: 'stow' }); G.me.carry = 0; audio.sfx('pouch', 0.8); }
   const me = G.me; if (n === 4) return; if (n === me.slot) return; if (me.slot <= 1) me.wpn[me.slot] = { ammo: me.ammo, reserve: me.reserve };

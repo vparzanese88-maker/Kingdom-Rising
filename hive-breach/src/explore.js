@@ -408,7 +408,8 @@ export function dropIntro(H, squad, done) {
   // ---- inside Station Olympus: the drop hangar (VTOLs, missile racks, a weapons rack, drop pods with marines running to them, a big window onto space).
   // It sits low in the station's orbit so the window looks out over the planet's curve; it only shows during its own shots (no lights of its own, so no shader rebuilds).
   const hg = add(new THREE.Group()); hg.position.set(padX + 400, SY - 330, padZ); hg.visible = false;
-  { const floorM = mat(0x2c3238, { m: 0.6, r: 0.5 }), wallM2 = mat(0x4a525c, { m: 0.5, r: 0.5 }), trimM = mat(0xffc020, { e: 0x604000 }), stripM = mat(0x80d8ff, { e: 0x60c0ff, ei: 2.5 }), glassM = new THREE.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.06, depthWrite: false });
+  const hgL = []; for (const z of [-14, 12]) { const hl = add(new THREE.PointLight(0xe0ecff, 900, 70, 1.6)); hgL.push(hl); hl.position.set(hg.position.x, hg.position.y + 10.5, hg.position.z + z); }   /* the hangar's lights live in the scene, always on (the light count never changes), and only reach the hangar */
+  { const floorM = mat(0x3a4048, { m: 0.5, r: 0.55, e: 0x14181c }), wallM2 = mat(0x5a646e, { m: 0.4, r: 0.6, e: 0x1a2026 }), trimM = mat(0xffc020, { e: 0x604000 }), stripM = mat(0x80d8ff, { e: 0x60c0ff, ei: 2.5 }), glassM = new THREE.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.06, depthWrite: false });
     B(hg, 28, 0.4, 64, floorM, 0, -0.2, 0); B(hg, 28, 0.4, 64, wallM2, 0, 12.2, 0); B(hg, 0.4, 12, 64, wallM2, -14, 6, 0); B(hg, 28, 12, 0.4, wallM2, 0, 6, -32); B(hg, 28, 12, 0.4, wallM2, 0, 6, 32);
     // the window wall (+x): solid either side and below/above a big pane
     B(hg, 0.4, 12, 22, wallM2, 14, 6, -21); B(hg, 0.4, 12, 18, wallM2, 14, 6, 23); B(hg, 0.4, 2, 24, wallM2, 14, 1, 2); B(hg, 0.4, 1.6, 24, wallM2, 14, 11.2, 2); B(hg, 0.05, 8.4, 24, glassM, 14, 6.2, 2);
@@ -474,7 +475,7 @@ export function dropIntro(H, squad, done) {
   const once = (k, f) => { if (!said[k]) { said[k] = 1; f(); } };
   // the landing is over: keep the pod (walls, seats, the crew) as a real place on the pad, give you control at your seat, and walk the others out
   const handoff = () => {
-    for (const o of [space, st, ...wing.map(w => w.m)]) scene.remove(o); for (const s of streaks) pod.remove(s); for (const c of clouds) scene.remove(c);
+    for (const o of [space, st, hg, ...hgL, ...wing.map(w => w.m)]) scene.remove(o); for (const s of streaks) pod.remove(s); for (const c of clouds) scene.remove(c);
     pod.position.set(padX, padY - 0.3, padZ); pod.rotation.set(0, doorYaw, 0); W.group.attach(pod); W.group.attach(pad); for (const o of shell) o.visible = false;   /* the outer hull clips into the cabin: it only shows while you're outside */ fl.material.opacity = 0; pod.userData.heat.material.opacity = 0;
     if (meBody.parent) meBody.parent.remove(meBody); for (const m of mates) cabin.remove(m);
     red.intensity = 3; blue.intensity = 1.2; strobe.emissiveIntensity = 1.5;   // emergency lighting stays on in the landed pod

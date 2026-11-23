@@ -249,8 +249,8 @@ const FOLEY = {
 function sbuf(c, dur, fn) {
   const sr = c.sampleRate, n = Math.floor(sr * dur), b = c.createBuffer(1, n, sr), d = b.getChannelData(0), R = Math.random;
   const put = (i, v) => { if (i >= 0 && i < n) d[i] += v; };
-  const thump = (t0, amp, f, dec) => { const s0 = Math.floor(t0 * sr); let ph = 0, lp = 0; for (let i = 0; i < sr * dec * 6; i++) { const t = i / sr; ph += 6.283 * f * (1 + 0.9 * Math.exp(-t / 0.006)) / sr; lp += 0.06 * ((R() * 2 - 1) - lp); put(s0 + i, (Math.sin(ph) * 0.7 + lp * 1.6) * Math.exp(-t / dec) * Math.min(1, t / 0.0015) * amp); } };
-  const grain = (t0, amp, f, dec) => { const s0 = Math.floor(t0 * sr), p = R() * 6.283; for (let i = 0; i < sr * dec * 5; i++) { const t = i / sr; put(s0 + i, Math.sin(6.283 * f * t + p) * Math.exp(-t / dec) * amp); } };
+  const thump = (t0, amp, f, dec) => { const s0 = Math.floor(t0 * sr); let ph = 0, lp = 0, lp2 = 0; for (let i = 0; i < sr * dec * 6; i++) { const t = i / sr; ph += 6.283 * f / sr; lp += 0.08 * ((R() * 2 - 1) - lp); lp2 += 0.3 * (lp - lp2); put(s0 + i, (Math.sin(ph) * 0.35 + lp2 * 2.2) * Math.exp(-t / dec) * Math.min(1, t / 0.001) * amp); } };   /* a dull, flat impact: no pitch slide (that sounded like a bloop) */
+  const grain = (t0, amp, f, dec) => { const s0 = Math.floor(t0 * sr), st = { x1: 0, x2: 0, y1: 0, y2: 0 }; for (let i = 0; i < sr * dec * 5; i++) { const t = i / sr; put(s0 + i, band(st, R() * 2 - 1, f, 0.7, sr) * Math.exp(-t / dec) * amp * 2.4); } };   /* a speck of grit: a tiny burst of filtered noise (pure-tone pings sounded like water) */
   // count grains spread over dur, densest where shape(u) is high
   const crunch = (t0, dur, count, fLo, fHi, amp, dLo, dHi, shape = u => (1 - u) ** 1.3) => { for (let j = 0; j < count; j++) { const u = R(), a = shape(u); if (R() > a + 0.08) continue; grain(t0 + u * dur, amp * (0.3 + R() * 0.7) * (0.4 + a * 0.6), fLo + (fHi - fLo) * R() ** 1.4, (dLo + (dHi - dLo) * R()) / 1000); } };
   // band-passed noise with an envelope; gate > 0 chops it into random little segments (rustling leaves)

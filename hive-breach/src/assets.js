@@ -45,6 +45,27 @@ export function weapon(kind) {
   if (kind === 'gunner') g.userData.spin = splitSpin(inner, e[1]);
   return g;
 }
+// cut the magazine out of a Meshy gun so the reload can pull it, drop it and seat a fresh one: the low part of the mesh just ahead of the grip
+// (inside the grip for the pistol). Returns a group in the gun's own space at the magazine's centre, with its height in userData.h.
+export function splitMag(g, kind) {
+  if (!g || !g.userData.glb || g.userData.magCut !== undefined) return g && g.userData.mag; g.userData.magCut = null;
+  const inner = g.children[0], L = g.userData.len || 0.9; let mesh = null; inner.traverse(o => { if (o.isMesh && !mesh) mesh = o; }); if (!mesh) return null;
+  g.updateMatrixWorld(true); const geo = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone(), pos = geo.attributes.position;
+  const toG = new THREE.Matrix4().copy(g.matrixWorld).invert().multiply(mesh.matrixWorld), v = new THREE.Vector3(), Y = new Float32Array(pos.count), Z = new Float32Array(pos.count);
+  let y0 = Infinity, y1 = -Infinity; for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(toG); Y[i] = v.y; Z[i] = v.z; y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
+  const [za, zb] = kind === 'pistol' ? [-0.12 * L, 0.2 * L] : [-0.36 * L, -0.03 * L], yc = y0 + (y1 - y0) * (kind === 'pistol' ? 0.5 : 0.42), cut = [], keep = [];
+  for (let t = 0; t < pos.count; t += 3) { let ok = true; for (let q = 0; q < 3; q++) if (Y[t + q] > yc || Z[t + q] < za || Z[t + q] > zb) ok = false; (ok ? cut : keep).push(t); }
+  if (cut.length < 30 || cut.length > pos.count / 3 * 0.35) return null;   // nothing that looks like a magazine
+  const pick = list => { const g2 = new THREE.BufferGeometry(); for (const k in geo.attributes) { const at = geo.attributes[k], arr = new at.array.constructor(list.length * 3 * at.itemSize); list.forEach((t, j) => { for (let q = 0; q < 3; q++) for (let c = 0; c < at.itemSize; c++) arr[(j * 3 + q) * at.itemSize + c] = at.array[(t + q) * at.itemSize + c]; }); g2.setAttribute(k, new THREE.BufferAttribute(arr, at.itemSize, at.normalized)); } return g2; };
+  const mg = pick(cut); mesh.geometry = pick(keep);
+  // the cut piece, moved into the gun's own space and centred on a group, so it can be lifted out and carried like the simple guns' magazines
+  const P = new Float32Array(cut.length * 9), mp = mg.attributes.position; for (let i = 0; i < mp.count; i++) { v.fromBufferAttribute(mp, i).applyMatrix4(toG); P[i * 3] = v.x; P[i * 3 + 1] = v.y; P[i * 3 + 2] = v.z; }
+  mg.setAttribute('position', new THREE.BufferAttribute(P, 3)); mg.deleteAttribute('normal'); mg.computeVertexNormals(); mg.computeBoundingBox();
+  const c = mg.boundingBox.getCenter(new THREE.Vector3()), h = mg.boundingBox.max.y - mg.boundingBox.min.y; if (h < 0.07) { mesh.geometry = geo; return null; }   // too thin to be a magazine: leave the gun whole
+  mg.translate(-c.x, -c.y, -c.z);
+  const grp = new THREE.Group(); grp.position.copy(c); const m = new THREE.Mesh(mg, mesh.material); m.frustumCulled = false; grp.add(m); grp.userData.h = h; g.add(grp);
+  return g.userData.mag = g.userData.magCut = grp;
+}
 // the minigun's barrels: pull the front of the mesh out into its own piece that can spin about the barrel axis
 function splitSpin(inner) {
   let mesh = null; inner.traverse(o => { if (o.isMesh && !mesh) mesh = o; }); if (!mesh) return null;

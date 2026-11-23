@@ -1192,6 +1192,12 @@ function begin(mapId) {
 }
 function onMsg(m) {
   if (G.mode === 'host') {
+    if (G.lobby && !G.sim) { // still in the lobby: keep the squad list up to date
+      if (m.t === 'hello' && m.v === VER) { if (G.lobby.size < 4 || G.lobby.has(m.from)) G.lobby.set(m.from, { n: String(m.n || 'Marine').slice(0, 14), c: CLASSES[m.c] ? m.c : 'assault' }); else G.net.send({ t: 'full', to: m.from }); sendLobby(); }
+      else if (m.t === 'bye') { G.lobby.delete(m.from); sendLobby(); }
+      return;
+    }
+    if (!G.sim) return;
     if (m.t === 'hello') { if (m.v !== VER) return; G.sim.addPlayer(m.from, String(m.n || 'Marine').slice(0, 14), CLASSES[m.c] ? m.c : 'assault').seen = G.time; }
     else if (m.t === 'pose') { const p = G.sim.players.get(m.from); if (p) { p.seen = G.time; G.sim.pose(m.from, ...m.p); } else G.net.send({ t: 'who', to: m.from }); }
     else if (m.t === 'req' && m.r && m.r.a !== 'start') G.sim.request(m.from, m.r);
@@ -1200,22 +1206,33 @@ function onMsg(m) {
   } else if (G.mode === 'client') {
     if (m.t === 'st') {
       if (m.v !== VER) { if (!G.warned) { G.warned = 1; status('Your friend has a different version. Both of you reload the page.'); } return; }
-      if (!G.W || G.map !== m.map || (G.diff || 0) !== (m.df || 0) || !G.on) { const newPlanet = G.W && G.map !== m.map; G.diff = m.df || 0; begin(m.map); if (newPlanet) banner('NEW PLANET', G.W.def.name); if (!G.diff && m.ph === 'build') playDropIntro(); }
+      $('lobby').hidden = true; if (!G.W || G.map !== m.map || (G.diff || 0) !== (m.df || 0) || !G.on) { const newPlanet = G.W && G.map !== m.map; G.diff = m.df || 0; begin(m.map); if (newPlanet) banner('NEW PLANET', G.W.def.name); if (!G.diff && m.ph === 'build') playDropIntro(); }
       G.snap = decode(m); if (!mine(G.snap)) G.net.send({ t: 'hello', n: G.name, c: G.cls, v: VER });
       for (const e of m.fx || []) if (e.f !== G.myId) fx(e);
     } else if (m.t === 'who' && m.to === G.myId) G.net.send({ t: 'hello', n: G.name, c: G.cls, v: VER });
+    else if (m.t === 'lobby' && !G.on) { if (m.v !== VER) { status('Your friend has a different version. Both of you reload the page.'); return; } drawLobby(m.list || [], m.map, m.df || 0); if (m.go) $('lobbyStatus').textContent = 'Mission starting...'; }
+    else if (m.t === 'full' && m.to === G.myId) status('That squad is full (4 marines).');
   }
 }
-function status(s) { $('netStatus').textContent = s; const h = $('hudCode'); if (G.mode === 'host' && G.net && G.net.code) h.textContent = 'Online code: ' + G.net.code; }
+function status(s) { $('netStatus').textContent = s; if (!$('lobby').hidden) $('lobbyStatus').textContent = s; const h = $('hudCode'); if (G.mode === 'host' && G.net && G.net.code) h.textContent = 'Online code: ' + G.net.code; }
 function readTitle() { G.name = ($('name').value.trim() || 'Marine').slice(0, 14); store.set('hb-name', G.name); store.set('hb-cls', G.cls); store.set('hb-map', G.map); audio.unlock(); }
-function startLocal(mode) {
+function startLocal(mode, squad) {
   readTitle(); G.mode = mode; G.myId = mode === 'host' ? G.net.id : 'me'; G.sim = null; G.snap = null;
   begin(G.map); G.sim = new Sim(G.W, emit); G.sim.addPlayer(G.myId, G.name, G.cls).seen = 1e9;
+  for (const [id, p] of squad || []) if (id !== G.myId) G.sim.addPlayer(id, p.n, p.c).seen = G.time;   // everyone who waited in the lobby drops in together
   if ((G.diff || 0) === 0) playDropIntro();
 }
 $('btnSolo').onclick = () => { const u = unlocks(); if (u[G.map] === undefined || (G.diff || 0) > (u[G.map] ?? 0)) { $('netStatus').textContent = '🔒 That one is still locked in the campaign. Win the one before it, or host an online game: online you can play any planet and difficulty.'; return; } startLocal('solo'); };
-$('btnHost').onclick = () => { readTitle(); G.net = new Net(onMsg, status); G.mode = 'host'; if (!G.net.host()) return; startLocal('host'); status(G.net.loop ? 'Hosting (test). Code: ' + G.net.code : 'Starting online game...'); $('hudCode').textContent = 'Online code: ' + G.net.code; };
-$('btnJoin').onclick = () => { const code = $('code').value; if (!code.trim()) { status('Type the code your friend gave you.'); return; } readTitle(); G.net = new Net(onMsg, status); G.mode = 'client'; G.myId = G.net.id; G.sim = null; G.net.join(code, () => { G.net.send({ t: 'hello', n: G.name, c: G.cls, v: VER }); status('Connected. Waiting for the battle...'); }); };
+// the squad lobby: the host gets a code to give out, sees everyone who joins, and starts the mission when the squad is ready
+function showLobby(host) { $('title').hidden = true; $('lobby').hidden = false; $('btnStart').hidden = !host; $('lobbyCode').textContent = G.net.code || '·····';
+  $('lobbyHint').textContent = host ? 'Tell your friends this code: they open the game, type it next to Join and press Join.' : 'You\'re in. Waiting for the host to start the mission.'; $('lobbyWho').textContent = host ? 'You are hosting. Start when your squad is in.' : 'Joined ' + G.net.code; drawLobby(G.lobbyL || [[G.myId, G.name, G.cls]], G.map, G.diff || 0); }
+function drawLobby(list, map, df) { G.lobbyL = list; const rows = list.slice(0, 4).map(([id, n, c], i) => `<div class="lp"><span>${i === 0 ? '★ ' : ''}${esc(n)}${id === G.myId ? ' (you)' : ''}</span><small>${(CLASSES[c] || CLASSES.assault).name}</small></div>`);
+  while (rows.length < 4) rows.push('<div class="lp wait"><span>Waiting for a marine...</span></div>'); $('lobbyList').innerHTML = rows.join(''); $('lobbyN').textContent = Math.min(4, list.length) + '/4'; $('lobbyMap').textContent = `Mission: ${MAPS[map] ? MAPS[map].name : map} · ${DIFFS[df] ? DIFFS[df].name : ''}`; }
+function sendLobby() { const list = [...G.lobby].map(([id, p]) => [id, p.n, p.c]); drawLobby(list, G.map, G.diff || 0); G.net.send({ t: 'lobby', v: VER, list, map: G.map, df: G.diff || 0 }); }
+$('btnHost').onclick = () => { readTitle(); G.net = new Net(onMsg, status); G.mode = 'host'; if (!G.net.host()) return; G.myId = G.net.id; G.lobby = new Map([[G.myId, { n: G.name, c: G.cls }]]); G.lobbyL = null; showLobby(true); sendLobby(); };
+$('btnStart').onclick = () => { if (!G.lobby) return; const sq = [...G.lobby]; G.lobby = null; G.net.send({ t: 'lobby', v: VER, list: G.lobbyL, map: G.map, df: G.diff || 0, go: 1 }); $('lobby').hidden = true; startLocal('host', sq); $('hudCode').textContent = 'Online code: ' + G.net.code; };
+$('btnLeave').onclick = () => location.reload();
+$('btnJoin').onclick = () => { const code = $('code').value; if (!code.trim()) { status('Type the code your friend gave you.'); return; } readTitle(); G.net = new Net(onMsg, status); G.mode = 'client'; G.myId = G.net.id; G.sim = null; G.net.join(code, () => { G.net.send({ t: 'hello', n: G.name, c: G.cls, v: VER }); status('Connected. Waiting for the host to start...'); showLobby(false); }); };
 $('code').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnJoin').click(); });
 // ---------------------------------------------------------------- settings screen
 let setTab = 'video', rebinding = '';

@@ -15,6 +15,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:10;padding:16px}
 #title{background:linear-gradient(rgba(5,10,15,.55),rgba(5,10,15,.85));overflow:auto;align-items:flex-start}
 #title .card{max-width:980px;width:100%;margin:auto}
+#lobby{background:linear-gradient(rgba(5,10,15,.7),rgba(5,10,15,.92));overflow:auto;align-items:flex-start}#lobby .card{margin:auto}#lobby .card{max-width:620px;width:100%}
+.lcodeBox{text-align:center;margin:10px 0 14px;padding:14px;border:1px solid rgba(95,216,255,.4);background:rgba(10,24,34,.7)}
+.lcodeL{font:600 13px 'Chakra Petch',monospace;letter-spacing:.3em;color:#7fb8cc}.lcode{font:700 clamp(44px,9vw,72px) 'Chakra Petch',monospace;letter-spacing:.25em;color:#5fd8ff;text-shadow:0 0 18px rgba(95,216,255,.5)}
+#lobbyList .lp{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;margin:5px 0;background:rgba(20,34,46,.8);border-left:3px solid #60ff90;font:600 17px 'Chakra Petch',monospace}
+#lobbyList .lp.wait{border-left-color:#3a4a56;color:#5a6a76;font-weight:500}#lobbyList .lp small{color:#9fc4d4;font-size:14px}#lobbyN{color:#60ff90}
 h1{font-size:clamp(40px,8vw,76px);margin:0;letter-spacing:.12em;text-transform:uppercase;color:#fff;text-shadow:0 0 24px rgba(63,192,255,.6)}
 h1 span{color:var(--warn)}
 .sub{color:var(--dim);margin:2px 0 18px;font-size:17px}
@@ -259,18 +264,18 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/assets.js": "./src/assets.js?v=1795402126",
-"./src/audio.js": "./src/audio.js?v=1795402126",
-"./src/data.js": "./src/data.js?v=1795402126",
-"./src/explore.js": "./src/explore.js?v=1795402126",
-"./src/icons.js": "./src/icons.js?v=1795402126",
-"./src/main.js": "./src/main.js?v=1795402126",
-"./src/models.js": "./src/models.js?v=1795402126",
-"./src/music.js": "./src/music.js?v=1795402126",
-"./src/net.js": "./src/net.js?v=1795402126",
-"./src/sim.js": "./src/sim.js?v=1795402126",
-"./src/voice.js": "./src/voice.js?v=1795402126",
-"./src/world.js": "./src/world.js?v=1795402126"
+"./src/assets.js": "./src/assets.js?v=1795402729",
+"./src/audio.js": "./src/audio.js?v=1795402729",
+"./src/data.js": "./src/data.js?v=1795402729",
+"./src/explore.js": "./src/explore.js?v=1795402729",
+"./src/icons.js": "./src/icons.js?v=1795402729",
+"./src/main.js": "./src/main.js?v=1795402729",
+"./src/models.js": "./src/models.js?v=1795402729",
+"./src/music.js": "./src/music.js?v=1795402729",
+"./src/net.js": "./src/net.js?v=1795402729",
+"./src/sim.js": "./src/sim.js?v=1795402729",
+"./src/voice.js": "./src/voice.js?v=1795402729",
+"./src/world.js": "./src/world.js?v=1795402729"
 }
 }
 </script>
@@ -308,6 +313,16 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 <div id="settings" class="screen" hidden><div class="card"><h2>Settings</h2><div class="tabs"><button data-tab="video" class="on">Video</button><button data-tab="audio">Audio</button><button data-tab="controls">Controls</button></div><div id="setBody"></div><p><button class="btn" id="setClose">Done</button></p></div></div>
 <div id="end" class="screen" hidden><div class="card"><h2 id="endTitle"></h2><p id="endText"></p><div id="endStats"></div><p id="endKey"></p><button class="btn" id="btnFob" hidden>Continue: extraction to the forward base</button> <button class="btn" id="btnAgain">Try again</button> <button class="btn alt" id="btnEndQuit">Quit to title</button></div></div>
 
+<div id="lobby" class="screen" hidden><div class="card">
+  <h1>SQUAD <span>LOBBY</span></h1>
+  <p class="sub" id="lobbyWho"></p>
+  <div class="lcodeBox"><div class="lcodeL">GAME CODE</div><div id="lobbyCode" class="lcode">·····</div><div class="small" id="lobbyHint"></div></div>
+  <h2>Marines <span id="lobbyN">1/4</span></h2>
+  <div id="lobbyList"></div>
+  <p class="small" id="lobbyMap"></p>
+  <div class="go"><button class="btn" id="btnStart">Start mission</button><button class="btn alt" id="btnLeave">Leave</button></div>
+  <p id="lobbyStatus"></p>
+</div></div>
 <div id="title" class="screen"><div class="card">
   <h1>OWFR <span>Team Foxtrot</span></h1>
   <p class="sub tag">Off World First Response. Hold the line, build turrets, push into the hive and kill the Brood Queen.</p>
@@ -326,6 +341,6 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795402126"></script>
+<script type="module" src="./src/main.js?v=1795402729"></script>
 </body>
 </html>

@@ -498,7 +498,7 @@ function syncView(S, dt) {
     if (!v) { const mesh = M.turret(t.kind, colorOf(t.owner, S), t.lvl); mesh.position.set(t.x, t.y, t.z); if (TURRETS[t.kind].onPath) mesh.rotation.y = t.ry; else mesh.userData.head.rotation.y = t.ry; scene.add(mesh); v = { mesh, acc: 0, spin: 0, lvl: 0 }; view.turrets.set(t.id, v); }
     const u = v.mesh.userData; v.d = t;
     // turrets can be carried: the one you hold floats in front of you, others glide to where the host says
-    { const mine0 = t.carry && t.carry === G.myId, tx = mine0 ? G.me.x - Math.sin(G.me.yaw) * 2.0 + Math.cos(G.me.yaw) * 1.3 : t.x, tz = mine0 ? G.me.z - Math.cos(G.me.yaw) * 2.0 - Math.sin(G.me.yaw) * 1.3 : t.z,   /* carried ahead and to the right, so your own marine doesn't hide it */ ty = mine0 ? G.me.y + 0.3 : t.y, m = v.mesh.position; const vm = t.vh && vehV.get(t.vh), mp = vm && mountAt({ kind: vm.kind, x: vm.x, y: vm.y, z: vm.z, ry: vm.ry }, t.sl); if (mp) { m.set(mp.x, mp.y, mp.z); } else
+    { const mine0 = t.carry && t.carry === G.myId, tx = mine0 ? G.me.x - Math.sin(G.me.yaw) * 2.0 + Math.cos(G.me.yaw) * 1.3 : t.x, tz = mine0 ? G.me.z - Math.cos(G.me.yaw) * 2.0 - Math.sin(G.me.yaw) * 1.3 : t.z,   /* carried ahead and to the right, so your own marine doesn't hide it */ ty = mine0 ? G.me.y + 0.3 : t.y, m = v.mesh.position; const vm = t.vh && vehV.get(t.vh), dv = vm && G.me.dv && G.me.dv.id === t.vh ? G.me.dv : null, mp = vm && mountAt(dv ? { kind: vm.kind, x: dv.x, y: dv.y, z: dv.z, ry: dv.yaw } : { kind: vm.kind, x: vm.x, y: vm.y, z: vm.z, ry: vm.ry }, t.sl);   /* on your own vehicle: this frame's exact pose, so it never lags or jitters */ if (mp) { m.set(mp.x, mp.y, mp.z); } else
       if (mine0 || m.distanceToSquared(_tv.set(tx, ty, tz)) > 900) m.set(tx, ty, tz); else m.lerp(_tv.set(tx, ty, tz), Math.min(1, k * 1.5)); if (TURRETS[t.kind].onPath) v.mesh.rotation.y = t.carry ? (mine0 ? G.me.yaw : t.ry) : t.ry; v.mesh.rotation.z = t.carry ? Math.sin(G.time * 6) * 0.04 : 0; }
     if (!['barricade', 'resupply', 'stasis', 'mines', 'uav', 'claymore', 'medbay', 'rally', 'sandbag', 'nest', 'fieldhosp', 'teleporter'].includes(t.kind)) { let dr = t.ry - u.head.rotation.y; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; u.head.rotation.y += dr * Math.min(1, k * 1.5); }
     if (!v.hpb) { v.hpb = new THREE.Group(); const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x200000, depthTest: false })); bg.scale.set(2, 0.18, 1); const fg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x40e070, depthTest: false })); fg.center.set(0, 0.5); fg.position.x = -0.95; fg.scale.set(1.9, 0.12, 1); bg.renderOrder = 6; fg.renderOrder = 7; v.hpb.add(bg, fg); v.hpb.userData.fg = fg; scene.add(v.hpb); }
@@ -521,7 +521,7 @@ function syncView(S, dt) {
     if (false && building && !v.scaf) { v.scaf = scaffold(t.kind === 'barricade' ? 7 : 2.6, t.kind === 'barricade' ? 2.4 : 3.4); v.scaf.position.set(t.x, t.y, t.z); if (t.kind === 'barricade') v.scaf.rotation.y = t.ry; scene.add(v.scaf); }
     if (v.scaf) { v.scaf.visible = building; if (building) { const f = t.up > 0 ? t.up : 1 - t.b / (t.bt || 1), txt = t.up > 0 ? `WELDING Lv${t.lvl + 1} ${Math.round(t.up * 100)}%` : `BUILDING ${t.b.toFixed(1)}s`; v.scaf.position.copy(v.mesh.position); v.scaf.userData.bar.scale.x = Math.max(0.01, f); v.scaf.userData.bar.position.x = -(1 - f) * 0.9; if (v.scaf.userData.txt !== txt) setLabel(v.scaf.userData.label, txt); v.scaf.userData.txt = txt; v.scaf.userData.cage.rotation.y += dt * 0.6; v.scaf.userData.cage.children.forEach((c, i) => { if (c.userData.ring) c.position.y = ((G.time * 0.7 + i * 0.5) % 1) * v.scaf.userData.h; }); if (Math.random() < dt * 8) burst(t.x + (Math.random() - 0.5) * 1.5, t.y + Math.random() * 2.5, t.z + (Math.random() - 0.5) * 1.5, 0xffd060, 2, 2, 0.3); } }
     const sc0 = v.mesh.userData.glb ? 1 : [1, 1.28, 1.55][t.lvl - 1] || 1, grow = t.fresh && !t.carry && t.bt > 0 ? 0.15 + 0.85 * (1 - (t.b || 0) / t.bt) : 1; let mk = 1; if (v.morph > 0) { v.morph = Math.max(0, v.morph - dt / 1.3); const m = v.morph; mk = 1 + Math.sin((1 - m) * Math.PI * 4) * 0.18 * m - 0.25 * m * m; if (u.head) u.head.rotation.y += dt * 14 * m; if (v.up) { const e = Math.min(1, (1 - m) * 1.6); v.up.scale.setScalar(e); v.up.userData.head.scale.setScalar(e); } if (Math.random() < dt * 30 * m) burst(v.mesh.position.x + (Math.random() - 0.5) * 2, v.mesh.position.y + Math.random() * 3 * sc0, v.mesh.position.z + (Math.random() - 0.5) * 2, Math.random() < 0.5 ? 0x9fe8ff : 0xffd040, 3, 3, 0.5); }
-    v.mesh.scale.set(sc0 * mk, sc0 * grow * mk, sc0 * mk);
+    v.mesh.scale.set(sc0 * mk * (t.vh ? 0.55 : 1), sc0 * grow * mk * (t.vh ? 0.55 : 1), sc0 * mk * (t.vh ? 0.55 : 1));   /* smaller on a vehicle mount, like a real vehicle weapon */
     v.alert = Math.max(0, (v.alert || 0) - dt); if (v.alert > 0 && !v.mark) { v.mark = markSprite(); scene.add(v.mark); } if (v.mark) { v.mark.visible = v.alert > 0 && Math.sin(G.time * 12) > -0.3; v.mark.position.set(v.mesh.position.x, v.mesh.position.y + 4.2 * sc0, v.mesh.position.z); }
     if (t.hp < t.mhp * 0.35 && Math.random() < dt * 6) burst(t.x, 1.6, t.z, 0x303030, 1, 1, 1, 2);
     // the Rally Beacon says what it's doing: a countdown to its next dropship, or why it's waiting; a red flare goes up as each ship is called
@@ -790,7 +790,7 @@ function animReload(me, gn, my, dt) {
   if (f >= 0.22 && f < 0.5 && !(me.rs & 64) && u.mag) { me.rs |= 64; const m = u.mag.isGroup ? u.mag.clone() : new THREE.Mesh(u.mag.geometry, u.mag.material); m.scale.setScalar(u.mag.isGroup ? g.scale.x : 0.55); hd.updateMatrixWorld(); const w = new THREE.Vector3(0, -(magH / 2 + 0.03), -0.01); hd.localToWorld(w); camera.worldToLocal(w); m.position.copy(w); m.quaternion.copy(hd.quaternion); camera.add(m); view2.drops.push({ m, t: 0, vy: -0.5 }); }
   if (view2.arms && !view2.oneHand) hd.visible = false;   // a two-handed Meshy gun (the minigun): both hands stay on it; the reload is the gun tipping and jolting
 }
-function startReload(st, S) { const g = curGun(), me = G.me; voice.bark('marine_reload', 10); if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.22; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
+function startReload(st, S) { const g = curGun(), me = G.me; voice.bark('marine_reload', 10); if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.15; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
 function surface(me) {
   const T = G.W.T, W = G.W; if (W.fob) return T.hubAt(me.x, me.z) ? 'concrete' : W.def.weather === 'snow' ? 'snow' : W.def.weather === 'rain' ? 'grass' : 'sand';
   const raw = T.raw(me.x, me.z), n = W.path.near(me.x, me.z);
@@ -878,8 +878,15 @@ function updateBeam(dt, S) {
     // rocks, props and other solid things on the map (upright cylinders): the beam stops on them too
     for (const c of G.W.colliders || []) { const ox = o.x - c.x, oz = o.z - c.z; if (ox * ox + oz * oz > (max + c.r) ** 2) continue; const a2 = dv.x * dv.x + dv.z * dv.z; if (a2 < 1e-6) continue; const b2 = ox * dv.x + oz * dv.z, c2 = ox * ox + oz * oz - c.r * c.r, disc = b2 * b2 - a2 * c2; if (disc < 0) continue; const th = (-b2 - Math.sqrt(disc)) / a2; if (th <= 0 || th >= tt) continue; const hy = o.y + dv.y * th, gy = G.W.ground(c.x, c.z, hy + 5); if (hy > gy + (c.h || 3)) continue; tt = th; best = null; k = ''; }
     for (const p of S.P) { if (p.id === G.myId || p.dead) continue; const sp = new THREE.Sphere(new THREE.Vector3(p.x, p.y + 1, p.z), 0.6); if (ray.intersectSphere(sp, P)) { const d = P.distanceTo(o); if (d < tt) { tt = d; best = null; k = ''; } } }   /* a teammate: the beam stops on them, no welding done */
+    // close up you don't have to aim precisely: if the beam misses, anything weldable within a couple of metres and roughly in front of you is taken
+    let fbEnd = null; if (!best) { let bd = 2.6, bq = null, bk = ''; const pt = new THREE.Vector3(), tryBox = (bx, q, kk) => { if (!bx) return; const d = bx.distanceToPoint(o); if (d >= bd) return; bx.getCenter(pt); const dir = pt.clone().sub(o).normalize(); if (dir.dot(dv) < 0.25) return; bd = d; bq = q; bk = kk; };
+      for (const t of S.T) { if (t.carry || t.kind === 'claymore') continue; const v = view.turrets.get(t.id); if (v && v.wbox && Math.hypot(t.x - me.x, t.z - me.z) < 6) tryBox(v.wbox, t, 't'); }
+      (G.W.salvage || []).forEach((w, i) => { if (w.b3 && Math.hypot(w.x - me.x, w.z - me.z) < w.r + 4) tryBox(w.b3, { i, ...w }, 'w'); });
+      (G.W.nodes || []).forEach((w, i) => { if (w.b3 && Math.hypot(w.x - me.x, w.z - me.z) < w.r + 4) tryBox(w.b3, { i, ...w }, 'n'); });
+      if (S.BP && bpV.b3) tryBox(bpV.b3, { i: 0 }, 'v');
+      if (bq) { best = bq; k = bk; tt = Math.max(0.3, bd); const bx = bk === 't' ? view.turrets.get(bq.id).wbox : bk === 'v' ? bpV.b3 : (bk === 'w' ? G.W.salvage : G.W.nodes)[bq.i].b3; bx.clampPoint(o.clone().addScaledVector(dv, 1.2), pt); fbEnd = pt.toArray(); } }
     G.weldHit = tt < max;   /* touching something: only then the sparks, the light and the sizzle */
-    end = o.clone().addScaledVector(dv, Math.min(tt, max)).toArray(); }
+    end = fbEnd || o.clone().addScaledVector(dv, Math.min(tt, max)).toArray(); }
   const pw = 1;   /* the welder never runs out */
   if (rc === 'repair') {
     // the torch is a short laser: it ends at what it touches, or a few metres out
@@ -1175,7 +1182,7 @@ function updateMe(dt, S) {
     else { cue(1, 0.12, 'magout'); cue(16, 0.28, 'pouch'); if (f > 0.36 && !(me.rs & 32)) { me.rs |= 32; audio.sfx('magdrop', 0.55); } jolt(2, 0.55, g0.spin ? 'beltin' : 'magin', 1); jolt(4, 0.72, me.slot === 1 ? 'slide' : 'bolt', 0.8); }
     if (me.rel <= 0) { const take = Math.min(st.mag - me.ammo, me.reserve); me.ammo += take; me.reserve -= take; }
   }
-  if (me.shells) { me.shellT -= dt; if (me.shellT <= 0) { if (me.ammo < st.mag && me.reserve >= 1) { me.ammo++; me.reserve--; audio.sfx('shell', 0.9); me.shellT = me.shellP = 0.2 * reloadMul(S); me.jolt = 0.4; } else { me.shells = false; me.pumpAt = 0.05; } } }
+  if (me.shells) { me.shellT -= dt; if (me.shellT <= 0) { if (me.ammo < st.mag && me.reserve >= 1) { me.ammo++; me.reserve--; audio.sfx('shell', 0.9); me.shellT = me.shellP = 0.13 * reloadMul(S); me.jolt = 0.4; } else { me.shells = false; me.pumpAt = 0.05; } } }
   if (me.pumpAt > 0) { me.pumpAt -= dt; if (me.pumpAt <= 0) { audio.sfx(G.cls === 'sniper' ? 'bolt' : 'pump', 0.9); me.pumpAnim = 0.3; } }
   me.pumpAnim = Math.max(0, (me.pumpAnim || 0) - dt);
   if (me.slot <= 1 && me.reserve > st.reserve) me.reserve = st.reserve;

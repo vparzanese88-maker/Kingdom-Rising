@@ -230,7 +230,7 @@ export function fpArms(cls, gun, mode = 'two', fitTo) {
 // Each one is sized to match the simple model it replaces (same length and the same height off the ground), so hit boxes still fit.
 export const ALIEN_GLB = { crawler: 'a_crawler', spitter: 'a_spitter', brute: 'a_brute', ravager: 'a_ravager', queen: 'a_queen', royal: 'a_royal', broodqueen: 'a_broodqueen', flyer: 'a_flyer' };
 export const ALIEN_FILES = Object.values(ALIEN_GLB);
-export const SCENE_FILES = ['p_station', 'p_pod2', 'p_seat', 'p_seat2', 'h_reactor', 'h_wall', 'r_synth', 'r_mech', 'v_dropship', 's_scrap', 'l_sandbags', 'v_vtol', 'v_rover', 'v_quad', 'v_flatbed', 'p_bridge', 'p_tunnel', 'l_watchtower', 'l_hivemound', 'h_gatetower', 'h_barracks', 'h_comms', 'h_floodlight', 'r_tank'];
+export const SCENE_FILES = ['p_station', 'p_pod2', 'p_seat', 'p_seat2', 'h_reactor', 'h_wall', 'r_synth', 'r_mech', 'v_dropship', 's_scrap', 'l_sandbags', 'l_bags2', 'v_vtol', 'v_rover', 'v_quad', 'v_flatbed', 'p_bridge', 'p_tunnel', 'l_watchtower', 'l_hivemound', 'h_gatetower', 'h_barracks', 'h_comms', 'h_floodlight', 'r_tank'];
 const BIG = new Set(['brute', 'ravager', 'queen', 'broodqueen']);
 const ACLIP = { run: /run/i, walk: /walk/i, pounce: /pounce|skill/i, roar: /roar/i, idle: /idle/i, die: /death|dead/i }, HEAVY = new Set(['brute', 'ravager', 'queen']);
 export function alienGLB(type, ref) {
@@ -297,7 +297,9 @@ export function mechGLB() {
 // ---- vehicles: flying Meshy craft, turned to face +z (the way the game points them at their target)
 export function craftGLB(name, len, ry = 0) { if (!A[name]) return null; const o = fit(name, 'w', len, true), g = new THREE.Group(); o.rotation.y = ry; g.add(o); g.userData = { rotors: [] }; return g; }
 // ---- the map's sandbag walls: a round Meshy sandbag bunker lying on the ground
-export function bagsGLB() { if (!A.l_sandbags) return null; const src = A.l_sandbags.scene.clone(true), o = new THREE.Group(), w = new THREE.Group(); w.add(src); src.rotation.x = -Math.PI / 2; o.add(w); w.updateMatrixWorld(true); let b = new THREE.Box3().setFromObject(w); const s = b.getSize(new THREE.Vector3()), k = 5 / Math.max(s.x, s.z); w.scale.setScalar(k); w.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(w); const c = b.getCenter(new THREE.Vector3()); w.position.set(-c.x, -b.min.y - 0.1, -c.z); return o; }
+export function bagsGLB() {   // a ring of plump stitched sandbags (Meshy), about waist high so you can shoot over it
+  if (A.l_bags2) { const src = A.l_bags2.scene.clone(true), o = new THREE.Group(), w = new THREE.Group(); w.add(src); o.add(w); w.updateMatrixWorld(true); let b = new THREE.Box3().setFromObject(w); const s = b.getSize(new THREE.Vector3()), k = 5.2 / Math.max(s.x, s.z); w.scale.set(k, Math.min(k, 1.25 / (s.y || 1)), k); w.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(w); const c = b.getCenter(new THREE.Vector3()); w.position.set(-c.x, -b.min.y - 0.05, -c.z); return o; }
+  if (!A.l_sandbags) return null; const src = A.l_sandbags.scene.clone(true), o = new THREE.Group(), w = new THREE.Group(); w.add(src); src.rotation.x = -Math.PI / 2; o.add(w); w.updateMatrixWorld(true); let b = new THREE.Box3().setFromObject(w); const s = b.getSize(new THREE.Vector3()), k = 5 / Math.max(s.x, s.z); w.scale.setScalar(k); w.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(w); const c = b.getCenter(new THREE.Vector3()); w.position.set(-c.x, -b.min.y - 0.1, -c.z); return o; }
 // ---- a scrap pile
 export function scrapGLB() { return A.s_scrap ? fit('s_scrap', 'w', 1.5, true) : null; }
 // ---- bake a posed, skinned model into plain still meshes (bodies on the battlefield: they merge into the map like any rock, no bones to update)

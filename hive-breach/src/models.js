@@ -256,7 +256,7 @@ export function turret(kind, color, lvl) {
     g.add(head); C(head, 0.9, 1.0, 0.2, base, 0, 0.1, 0); C(head, 0.07, 0.07, 5, metal, 0, 2.6, 0); const fl = B(head, 1.4, 0.8, 0.04, color, 0.72, 4.6, 0); void fl;
     S(head, 0.18, 0xff4020, 0, 5.2, 0, 1, 1, 1, { e: 0xff3010, ei: 3 }); const ring = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.0, 32), mat(0xffc020, { e: 0x805000, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; head.add(ring); parts.muzzle = new THREE.Vector3(0, 5, 0);
   } else if (kind === 'sandbag') { // a horseshoe of sandbags, two rows high
-    g.add(head); const bag = mat(0x9a8a62, { r: 1, flat: false }); for (let r = 0; r < 2; r++) for (let i = 0; i < 9; i++) { const a = -2.2 + i / 8 * 4.4 + r * 0.24, b = S(head, 0.42, bag, Math.sin(a) * 2.4, 0.25 + r * 0.42, -Math.cos(a) * 2.4, 1.5, 0.6, 0.9); b.rotation.y = -a; }
+    g.add(head); const ring = AS.bagsGLB(); if (ring) head.add(ring); else { const bag = mat(0x9a8a62, { r: 1, flat: false }); for (let r = 0; r < 2; r++) for (let i = 0; i < 9; i++) { const a = -2.2 + i / 8 * 4.4 + r * 0.24, b = S(head, 0.42, bag, Math.sin(a) * 2.4, 0.25 + r * 0.42, -Math.cos(a) * 2.4, 1.5, 0.6, 0.9); b.rotation.y = -a; } }
     parts.muzzle = new THREE.Vector3(0, 0.6, 0);
   } else if (kind === 'nest') { // a climbable sniper tower: four legs, a ladder and a sandbagged platform
     g.add(head); for (const [x, z] of [[-1.3, -1.3], [1.3, -1.3], [-1.3, 1.3], [1.3, 1.3]]) { const l = B(head, 0.18, 5.4, 0.18, metal, x, 2.7, z); void l; } B(head, 3.2, 0.2, 3.2, base, 0, 5.3, 0);

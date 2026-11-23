@@ -14,7 +14,7 @@ export const CLASSES = {
   },
   engineer: {
     name: 'Engineer', color: 0xe0b22e, hp: 120, speed: 8.4, role: 'Builder, repairer, resupply',
-    gun: { name: 'Breacher Auto Shotgun', semi: 1, dmg: 13, pellets: 8, rate: 3.2, mag: 8, reserve: 64, reload: 2.4, spread: 0.045, kind: 'hit', sound: 'shotgun', recoil: 0.05, near: 10, far: 32, max: 42 },
+    gun: { name: 'Breacher Auto Shotgun', semi: 1, dmg: 13, pellets: 8, rate: 4.8, mag: 8, reserve: 64, reload: 2.4, spread: 0.045, kind: 'hit', sound: 'shotgun', recoil: 0.05, near: 10, far: 32, max: 42 },
     throw: { kind: 'frag', name: 'Frag grenade', n: 2 },
     team: 'Builder: a plasma welder that works 3x faster with a bigger power cell.',
     sentry: 'shotgunT', defense: 'resupply', third: 'teleporter',
@@ -87,7 +87,7 @@ export const TURRETS = {
   ammopack: { name: 'Ammo pack', cost: 0, hp: 1, throwExtra: 1, key: 'third', desc: 'Throw it to a marine: it refills their ammo.' },
   medkitT: { name: 'Med kit', cost: 0, hp: 1, throwExtra: 1, key: 'third', desc: 'Throw it to a marine: it heals them to full.' },
   autocannon: { name: 'Twin Autocannon', cost: 100, hp: 300, range: 24, rate: 2.2, dmg: 38, key: 'sentry', desc: 'Heavy armour-piercing rounds from two barrels.' },
-  shotgunT: { name: 'Shotgun Tower', cost: 110, hp: 320, range: 13, rate: 1.3, dmg: 16, pellets: 6, key: 'sentry', desc: 'Blasts everything close with buckshot.' },
+  shotgunT: { name: 'Shotgun Tower', cost: 110, hp: 320, range: 13, rate: 2.4, dmg: 16, pellets: 6, key: 'sentry', desc: 'Blasts everything close with buckshot.' },
   rally: { name: 'Rally Beacon', cost: 80, hp: 320, key: 'defense', desc: 'Calls in an extra dropship of troops here every 45 s (faster and bigger when upgraded).' },
   sandbag: { name: 'Sandbag Bunker', cost: 60, hp: 900, range: 3.5, key: 'defense', desc: 'Cover: anyone inside takes half damage. A Gunner braced on it barely misses.' },
   nest: { name: 'Sniper Nest', cost: 90, hp: 500, key: 'defense', desc: 'A tower to climb (E at its foot) for height and a long view.' },

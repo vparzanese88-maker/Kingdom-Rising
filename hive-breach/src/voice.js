@@ -97,7 +97,7 @@ export class Voice {
     // the static bed under the voice
     const st = c.createBufferSource(); st.buffer = this.noise(); st.loop = true; const sb = c.createBiquadFilter(); sb.type = 'bandpass'; sb.frequency.value = 1800; sb.Q.value = 0.7; const sg = c.createGain(); sg.gain.setValueAtTime(0, t0); sg.gain.linearRampToValueAtTime(0, t0 + 0.03); sg.gain.setValueAtTime(0, t0 + b.duration);   /* no static hiss under the voice */ sg.gain.linearRampToValueAtTime(0, t0 + b.duration + 0.1); st.connect(sb); sb.connect(sg); sg.connect(out); st.start(t0); st.stop(t0 + b.duration + 0.15);
     this.click(now + 0.02, 0.05, 0.35, out); this.click(t0 + b.duration + 0.04, 0.07, 0.28, out);   // squelch on, and off
-    s.start(t0); this.end = t0 + b.duration + 0.1; if (this.q && this.q.length) { clearTimeout(this.qT); this.qT = setTimeout(() => this.next(), (b.duration + 0.4) * 1000); } if (this.onTalk) this.onTalk(b.duration + 0.25); if (this.onLine) this.onLine(v, b.duration + 0.25); return b.duration;
+    s.start(t0); this.who = v.who; this.end = t0 + b.duration + 0.1; if (this.q && this.q.length) { clearTimeout(this.qT); this.qT = setTimeout(() => this.next(), (b.duration + 0.4) * 1000); } if (this.onTalk) this.onTalk(b.duration + 0.25); if (this.onLine) this.onLine(v, b.duration + 0.25); return b.duration;
   }
 
 

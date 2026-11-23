@@ -489,6 +489,12 @@ export function dropIntro(H, squad, done) {
   };
   const step = () => {
     const now = performance.now(), tr = (now - t0) / 1000 * (G.filmRate || 1) - T0, u = tr - DOCK, t = tr < 7 ? tr : tr < 7 + DOCK ? 6.999 : u < 7 + 15 * ORB ? 7 + (u - 7) / ORB : u - 15 * (ORB - 1),   /* docked for the full countdown; then the fall through orbit and the burn (ride 7-22 s) run ORB times slower; clouds and landing at normal speed */   /* the pod waits docked for the full countdown, then the ride runs on its own clock */ dt = Math.min(0.1, (now - last) / 1000) * (G.filmRate || 1); last = now; ring.rotation.z += dt * 0.03;
+    // Vance talks with his body while he speaks in the pod: his head nods and turns with his voice, he leans in a little and gestures with his right arm
+    { const c = crew.find(q => q.cmd), vo = G.voice; if (c && !c.out && c.m.userData.glb) { const u = c.m.userData; if (!u.tb) { u.tb = {}; for (const n of ['Head', 'neck', 'Spine02', 'RightArm', 'RightForeArm']) { const b = c.m.getObjectByName(n); if (b) u.tb[n] = { b, r: b.rotation.clone() }; } }
+        const talk = vo && vo.who === 'Commander Vance' ? Math.min(1, vo.level() * 10) : 0; u.lv = (u.lv || 0) + (talk - (u.lv || 0)) * Math.min(1, dt * 8); const lv = u.lv, tt2 = now / 1000, B = u.tb;
+        const set = (n, x, y, z) => { const e = B[n]; if (e) e.b.rotation.set(e.r.x + x, e.r.y + y, e.r.z + z); };
+        set('Head', Math.sin(tt2 * 7.5) * 0.09 * lv + 0.04 * lv, Math.sin(tt2 * 2.2) * 0.16 * lv, Math.sin(tt2 * 3.1) * 0.04 * lv); set('neck', 0.03 * lv, Math.sin(tt2 * 2.2) * 0.06 * lv, 0); set('Spine02', 0.06 * lv, Math.sin(tt2 * 1.4) * 0.05 * lv, 0);
+        set('RightArm', -0.25 * lv * (0.6 + 0.4 * Math.sin(tt2 * 2.7)), 0, -0.3 * lv * (0.5 + 0.5 * Math.sin(tt2 * 2.7))); set('RightForeArm', -0.45 * lv * (0.6 + 0.4 * Math.sin(tt2 * 3.3 + 1)), 0, 0); } }
     let shake = 0, rum = 0.06, ror = 0, streakO = 0, temp = 21; const y = handed ? padY - 0.3 : yAt(t);   /* once landed, the pod sits on the pad with its floor at ground level */ pod.position.set(padX, y, padZ);
     // the other pods fall the same way, a beat behind, and peel away in the clouds
     for (const w of wing) { const tt = t - w.dl, wy = yAt(Math.max(0, tt)), spread = 1 + cl((tt - 13) / 9) * 2.5; w.m.position.set(padX + w.o.x * spread, (tt < 22 ? wy : yAt(22) - (tt - 22) * 260), padZ + w.o.z * spread); w.m.rotation.z = Math.sin(t * 7 + w.dl * 5) * 0.03 * cl(tt - 13);

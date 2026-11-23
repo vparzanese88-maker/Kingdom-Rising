@@ -65,6 +65,7 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 #clsName{font-size:12px;letter-spacing:.15em;color:var(--dim);text-transform:uppercase}
 #status{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
 #stamBox{height:4px!important;margin-top:4px;background:rgba(255,255,255,.1)}#stamBar{display:block;height:100%;background:#ffd040;transition:width .1s}#stamBar.tired{background:#ff6040}
+#hubwarn{position:fixed;left:50%;top:14%;transform:translateX(-50%);z-index:14;padding:8px 22px;font:700 clamp(20px,3vw,30px) 'Chakra Petch',monospace;letter-spacing:.12em;color:#fff;background:rgba(150,10,10,.78);border:2px solid #ff5040;box-shadow:0 0 24px rgba(255,40,30,.6);text-align:center;pointer-events:none;animation:hubw .6s steps(2,start) infinite}#hubwarn small{display:block;font-size:.5em;letter-spacing:.08em;color:#ffd0c8}@keyframes hubw{50%{opacity:.35}}
 #restock{position:fixed;left:18px;top:24%;z-index:12;min-width:230px;padding:8px 12px;font:600 14px 'Chakra Petch',monospace;color:#bfeaff;background:rgba(8,16,24,.72);border:1px solid rgba(95,216,255,.35);pointer-events:none}
 #restock h4{margin:0 0 5px;font-size:13px;letter-spacing:.12em;color:#60ff90}#restock div{display:flex;justify-content:space-between;gap:10px;margin:2px 0}#restock .full{color:#60ff90}#restock .chg{color:#ffd060}
 #restock .bar{height:3px;background:rgba(255,255,255,.12);margin:1px 0 4px}#restock .bar i{display:block;height:100%;background:#ffd060}
@@ -268,18 +269,18 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/assets.js": "./src/assets.js?v=1795410555",
-"./src/audio.js": "./src/audio.js?v=1795410555",
-"./src/data.js": "./src/data.js?v=1795410555",
-"./src/explore.js": "./src/explore.js?v=1795410555",
-"./src/icons.js": "./src/icons.js?v=1795410555",
-"./src/main.js": "./src/main.js?v=1795410555",
-"./src/models.js": "./src/models.js?v=1795410555",
-"./src/music.js": "./src/music.js?v=1795410555",
-"./src/net.js": "./src/net.js?v=1795410555",
-"./src/sim.js": "./src/sim.js?v=1795410555",
-"./src/voice.js": "./src/voice.js?v=1795410555",
-"./src/world.js": "./src/world.js?v=1795410555"
+"./src/assets.js": "./src/assets.js?v=1795410944",
+"./src/audio.js": "./src/audio.js?v=1795410944",
+"./src/data.js": "./src/data.js?v=1795410944",
+"./src/explore.js": "./src/explore.js?v=1795410944",
+"./src/icons.js": "./src/icons.js?v=1795410944",
+"./src/main.js": "./src/main.js?v=1795410944",
+"./src/models.js": "./src/models.js?v=1795410944",
+"./src/music.js": "./src/music.js?v=1795410944",
+"./src/net.js": "./src/net.js?v=1795410944",
+"./src/sim.js": "./src/sim.js?v=1795410944",
+"./src/voice.js": "./src/voice.js?v=1795410944",
+"./src/world.js": "./src/world.js?v=1795410944"
 }
 }
 </script>
@@ -303,7 +304,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
   <div id="banner" hidden><div id="bannerA"></div><div id="bannerB"></div></div>
   <div id="prompt" hidden></div>
   <div id="dead" hidden>YOU ARE DOWN<div id="deadT" style="font-size:16px;color:#fff"></div></div>
-  <div id="restock" class="panel" hidden></div><div id="bl" class="panel"><div id="clsName"></div><div id="hpBox"><span id="hpTxt"></span><div class="bar"><i id="hpBar"></i></div></div><div id="stamBox" class="bar" title="Endurance"><i id="stamBar"></i></div><div id="status"></div></div>
+  <div id="restock" class="panel" hidden></div><div id="hubwarn" hidden>⚠ HUB UNDER ATTACK ⚠<small id="hubwarnS"></small></div><div id="bl" class="panel"><div id="clsName"></div><div id="hpBox"><span id="hpTxt"></span><div class="bar"><i id="hpBar"></i></div></div><div id="stamBox" class="bar" title="Endurance"><i id="stamBar"></i></div><div id="status"></div></div>
   <div id="br" class="panel"><div><span id="ammo"></span> <span id="reserve"></span></div><div id="rounds"><i id="roundsBar"></i></div><div id="gunName"></div><div id="ammoWarn" hidden></div></div>
   <div id="kit" class="panel" hidden></div><div id="info" class="panel" hidden></div>
   <div id="lore" class="panel" hidden><div id="loreT"></div><div id="loreX"></div></div>
@@ -345,6 +346,6 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795410555"></script>
+<script type="module" src="./src/main.js?v=1795410944"></script>
 </body>
 </html>

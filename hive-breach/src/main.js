@@ -63,7 +63,7 @@ const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ==
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
 function state() {
-  if (G.sim) { const s = G.sim; return { w: s.wave, ph: s.phase, tm: s.timer, hub: s.hub, en: s.endless, n: s.players.size, left: s.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(s.lvlT || 0), wx: s.stormI || 0, wa: s.windA || 0, L: s.allies, C: s.cmd, open: s.hiveOpen(), el: Math.floor(s.el || 0), A: s.aliens, T: s.turrets, P: [...s.players.values()], O: s.pods, I: s.items, SC: s.scrap, M: s.ammo.map(c => ({ id: c.id, x: c.x, z: c.z, life: c.life })), Z: s.spores, K: s.pools, NS: s.nodeS, V: s.vehs, PT: Math.floor(s.parts || 0), R: s.rides, D: s.drones.map(d => ({ id: d.id, x: d.x + Math.cos(d.a) * 8, y: d.y + 7, z: d.z + Math.sin(d.a) * 8, tg: d.tg })), Q: s.medz, S2: s.domes }; }
+  if (G.sim) { const s = G.sim; return { w: s.wave, ph: s.phase, tm: s.timer, hub: s.hub, en: s.endless, n: s.players.size, left: s.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(s.lvlT || 0), wx: s.stormI || 0, wa: s.windA || 0, L: s.allies, C: s.cmd, open: s.hiveOpen(), el: Math.floor(s.el || 0), A: s.aliens, T: s.turrets, P: [...s.players.values()], O: s.pods, I: s.items, SC: s.scrap, M: s.ammo.map(c => ({ id: c.id, x: c.x, z: c.z, life: c.life })), Z: s.spores, K: s.pools, SV: Object.fromEntries((s.salv || []).map((v, i) => [i, v]).filter(([i, v]) => v < (G.W.salvage[i] || {}).amt).map(([i, v]) => [i, Math.round(Math.max(0, v) / G.W.salvage[i].amt * 100)])), NS: s.nodeS, V: s.vehs, PT: Math.floor(s.parts || 0), R: s.rides, D: s.drones.map(d => ({ id: d.id, x: d.x + Math.cos(d.a) * 8, y: d.y + 7, z: d.z + Math.sin(d.a) * 8, tg: d.tg })), Q: s.medz, S2: s.domes }; }
   return G.snap;
 }
 function decode(m) {
@@ -72,7 +72,7 @@ function decode(m) {
     L: m.L.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], tg: a[8] })),
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9], rv: a[10] })),
     T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], carry: t[15], up: t[16], rs: t[17] || 0, s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
-    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {}, gear: p[31] || 0, ride: p[32] || 0, drive: p[33] || 0 })), NS: (m.NS || []).map(n => ({ built: n[0], prog: n[1], hp: n[2] })), V: (m.V || []).map(v => ({ id: v[0], kind: v[1], x: v[2], y: v[3], z: v[4], ry: v[5], hp: v[6], mhp: v[7], driver: v[8] })), PT: m.PT || 0, R: (m.R || []).map(r => ({ id: r[0], x: r[1], y: r[2], z: r[3], ry: r[4], ph: r[5], riders: r[6] || [] })),
+    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {}, gear: p[31] || 0, ride: p[32] || 0, drive: p[33] || 0 })), SV: m.SV || {}, NS: (m.NS || []).map(n => ({ built: n[0], prog: n[1], hp: n[2] })), V: (m.V || []).map(v => ({ id: v[0], kind: v[1], x: v[2], y: v[3], z: v[4], ry: v[5], hp: v[6], mhp: v[7], driver: v[8] })), PT: m.PT || 0, R: (m.R || []).map(r => ({ id: r[0], x: r[1], y: r[2], z: r[3], ry: r[4], ph: r[5], riders: r[6] || [] })),
     O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4], kind: o[5] === 1 ? 'ammo' : o[5] === 2 ? 'dress' : '' })), el: m.el, I: (m.I || []).map(i => ({ id: i[0], kind: i[1], x: i[2], z: i[3] })), SC: (m.SC || []).map(c => ({ id: c[0], x: c[1], z: c[2] })),
     M: (m.M || []).map(c => ({ id: c[0], x: c[1], z: c[2], life: c[3] })), Z: (m.Z || []).map(c => ({ x: c[0], z: c[1], r: c[2] })), K: (m.K || []).map(q => ({ x: q[0], y: q[1], z: q[2], r: q[3], fire: q[4] })), D: (m.D || []).map(d => ({ id: d[0], x: d[1], y: d[2], z: d[3], tg: d[4] })), Q: (m.Q || []).map(q => ({ id: q[0], x: q[1], y: q[2], z: q[3], r: q[4], t: q[5] })), S2: (m.S2 || []).map(d => ({ x: d[0], y: d[1], z: d[2], r: d[3] })),
   };
@@ -178,7 +178,7 @@ function fx(e) {
     case 'wave': if (e.first) { banner('THE SWARM IS COMING', 'They will not stop: hold the hub, break the hive'); audio.sfx('alarm'); } else { banner(`THREAT LEVEL ${e.w}`, e.boss ? `WARNING: ${ALIENS[e.boss].name.toUpperCase()} INBOUND` : 'More aliens are coming'); audio.sfx(e.boss ? 'alarm' : 'wave'); } break;
     case 'clear': banner(`WAVE ${e.w} CLEARED`, `+${e.b} gold · resupply`); audio.sfx('win'); break;
     case 'roar': audio.sfx('roar'); toast(`The ${ALIENS[e.t].name} has emerged from the hive!`, 4); G.shake = 0.6; break;
-    case 'hubhit': G.hubFlash = 0.5; boomFx(e.x, e.y + 1, e.z, 2, 1); if (G.time - lastHubMsg > 6) { lastHubMsg = G.time; toast('The hub is under attack!', 2.5); audio.sfx('alarm', 0.5); } break;
+    case 'hubhit': G.hubAtk = 5; G.hubFlash = 0.5; boomFx(e.x, e.y + 1, e.z, 2, 1); if (G.time - lastHubMsg > 6) { lastHubMsg = G.time; toast('The hub is under attack!', 2.5); audio.sfx('alarm', 0.5); } break;
     case 'burrow': { const y = G.W.top(e.x, e.z); burst(e.x, y + 0.3, e.z, 0x5a3a20, 24, 5, 0.9, 1.6); burst(e.x, y + 0.3, e.z, 0x90ff30, 8, 3, 0.5); const d = dist(e.x, e.z); if (d < 60) audio.sfx('screech', vol(d) * 0.8); } break;
     case 'board': if (e.to === G.myId) { audio.sfx('place', 0.8); } break;
     case 'unboard': if (e.to === G.myId) { G.me.x = e.x; G.me.z = e.z; G.me.y = G.W.top(e.x, e.z); G.me.vy = 0; toast('Back on the ground. Give them hell, marine.', 2.5); } break;
@@ -977,6 +977,14 @@ function updNodes(S) {
   let n = 0; const me = G.me; if (!G.cine && !G.explore) for (const [i, nd] of W.nodes.entries()) { const ns = (S.NS || [])[i] || {}; if (ns.built) continue; const d = Math.hypot(nd.x - me.x, nd.z - me.z); if (d > 140 || d < 14) continue; let s = nodeMk[n]; if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: nodeTex, depthTest: false, transparent: true, fog: false })); s.renderOrder = 5; scene.add(s); nodeMk.push(s); } s.visible = true; s.position.set(nd.x, nd.y + 10.5, nd.z); const sc = 1.3 + d * 0.035; s.scale.set(sc * 2, sc, 1); n++; }
   for (let k = n; k < nodeMk.length; k++) nodeMk[k].visible = false;
 }
+// wrecks shrink as their scrap is cut out, and once stripped clean they sink into the ground in a cloud of dust and are gone
+function updSalvMesh(S, dt) {
+  const W = G.W; if (!W || !W.salvMesh) return;
+  for (const [k, pct] of Object.entries(S.SV || {})) { const i = +k, m = W.salvMesh[i], w = W.salvage[i]; if (!m) continue; const u = m.userData; u.s0 ??= m.scale.clone(); u.y0 ??= m.position.y; const f = pct / 100;
+    if (pct > 0) { const k2 = 0.4 + 0.6 * f; m.scale.set(u.s0.x * (0.75 + 0.25 * k2), u.s0.y * k2, u.s0.z * (0.75 + 0.25 * k2)); }
+    else if (m.visible) { if (!u.gone) { u.gone = 1; (G.stripped = G.stripped || new Set()).add(i); for (let j = 0; j < 4; j++) burst(w.x + (Math.random() - 0.5) * w.r, w.y + 0.5, w.z + (Math.random() - 0.5) * w.r, G.W.def.ground, 12, 4, 1.2, 2); smoke(w.x, w.y + 1, w.z, 8, w.r * 0.5); W.colliders = W.colliders.filter(c => Math.hypot(c.x - w.x, c.z - w.z) > w.r * 0.9); }   /* nothing left to bump into */
+      m.position.y -= dt * 1.2; m.scale.y = Math.max(0.05, m.scale.y - dt * 0.4); if (m.position.y < u.y0 - 4) m.visible = false; } }
+}
 function updSalvMarks() {
   const W = G.W, me = G.me; if (!W || !W.salvage || G.cine || G.explore) { for (const s of salvMk) s.visible = false; return; }
   if (!salvTex) { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); g.translate(32, 32); g.rotate(Math.PI / 4); g.strokeStyle = '#ffcc40'; g.lineWidth = 4; g.shadowColor = '#000'; g.shadowBlur = 4; g.strokeRect(-17, -17, 34, 34); g.rotate(-Math.PI / 4); g.fillStyle = '#ffd860'; g.font = 'bold 26px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⚙', 0, 1); salvTex = new THREE.CanvasTexture(cv); }
@@ -1222,6 +1230,10 @@ function hud(dt, S) {
   setH('slots', wpn.map(([n, ic, c, sl], i) => `<div class="slot w ${G.me.slot === sl ? 'on' : ''} ${(sl === 3 && !my.items) || (sl === 5 && !my.dr) || (sl === 2 && (my.pw ?? 1) <= 0) ? 'poor' : ''}"><b>${i + 1}</b>${ic}<i>${c}</i></div>`).join('') + `<div class="gap"></div><div class="kits" title="turret kits">${'▮'.repeat(my.kits ?? 2)}${'▯'.repeat(Math.max(0, 2 - (my.kits ?? 2)))}<small>KITS</small></div>` + bslot('sentry', C.sentry) + bslot('defense', C.defense) + bslot('third', C.third) + `<div class="slot ${sp ? 'ready sp' : 'poor'}"><b>${keyName(KB.special)}</b>${sp ? icon(sp) : icon('empty')}</div>`);
   setT('slotName', G.me.place ? TURRETS[G.me.place].name : sp && G.time - (G.spT ?? -9) < 3 ? SPECIALS[sp].name : (wpn.find(w => w[3] === G.me.slot) || wpn[0])[0]); if (sp !== G.lastSp) { G.lastSp = sp; G.spT = G.time; }
   $('roundsBar').style.width = (G.me.slot <= 1 ? Math.min(100, G.me.ammo / st.mag * 100) : 0) + '%';
+  { // a big flashing warning while aliens are hitting the hub (or massing right outside its walls)
+    const H = G.W && G.W.hubP, near = H && !G.explore ? S.A.filter(a => !a.dead && !ALIENS[a.type].static && Math.hypot(a.x - H.x, a.z - H.z) < 38).length : 0; G.hubAtk = Math.max(0, (G.hubAtk || 0) - dt);
+    const on = !G.cine && !G.explore && S.ph !== 'win' && S.ph !== 'lose' && (G.hubAtk > 0 || near >= 3); $('hubwarn').hidden = !on; if (on) setT('hubwarnS', `Hub ${Math.round(S.hub)}% · ${near} alien${near === 1 ? '' : 's'} at the walls · get back and defend it!`);
+    if (on && !G.hubWarned) { G.hubWarned = 1; audio.sfx('alarm', 0.5); } else if (!on) G.hubWarned = 0; }
   { // in the hub: show everything restocking, with what's full and what's still coming in
     const rs = $('restock'), inHub = !G.explore && !my.drive && G.W && G.W.T.hubAt(G.me.x, G.me.z);
     if (!inHub) rs.hidden = true; else { const st = stats(), C0 = CLASSES[G.cls], rows = [['Ammo', Math.floor(G.me.reserve), st.reserve], ['Turret kits', my.kits ?? 2, 2], [C0.throw.name + 's', my.items ?? 0, C0.throw.n], ['Field dressings', my.dr ?? 2, 2]]; if (my.hp < my.mhp) rows.unshift(['Health', Math.round(my.hp), my.mhp]);
@@ -1306,7 +1318,7 @@ function frame(now) {
     if (!paused && !G.explore) G.sim.update(dt);
     if (G.mode === 'host') { netT += dt; if (netT > 0.1) { netT = 0; G.net.send({ t: 'st', v: VER, map: G.map, df: G.diff || 0, ...G.sim.pack(), fx: G.out }); G.out = []; for (const q of [...G.sim.players.values()]) if (q.id !== G.myId && G.time - (q.seen || 0) > 10) G.sim.removePlayer(q.id); } }
   } else { poseT += dt; if (poseT > 0.066) { poseT = 0; G.net.send({ t: 'pose', p: [+G.me.x.toFixed(2), +G.me.y.toFixed(2), +G.me.z.toFixed(2), +((G.ex && G.ex.veh) ? G.ex.veh.yaw : G.me.yaw).toFixed(2), G.me.prone ? 2 : G.me.kneel ? 1 : 0, vehCode()] }); } }
-  updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); updRides(S, dt); updVehs(S, dt); updSalvMarks(); updNodes(S); if (G.mmap && hits.Escape) closeMissileMap();
+  updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); updRides(S, dt); updVehs(S, dt); updSalvMarks(); updNodes(S); updSalvMesh(S, dt); if (G.mmap && hits.Escape) closeMissileMap();
   if (G.W) { G.W.sun.position.set(camera.position.x + 40, 90, camera.position.z + 25); G.W.sun.target.position.set(camera.position.x, 0, camera.position.z); }
   if (S.ph === 'wave' || S.ph === 'assault') { G.artT = (G.artT ?? 8) - dt; if (G.artT <= 0) { G.artT = 5 + Math.random() * 9; audio.gun('artillery', 0.35 + Math.random() * 0.3, 1, 1); } }
   if (!paused) { updateGrenades(dt); updateMeteors(dt); updateFx(dt); updateWeather(dt, S); }

@@ -293,7 +293,7 @@ export function buildWorld(scene, mapId, diff = 0) {
   const MR = 420, mc = document.createElement('canvas'); mc.width = mc.height = MR; const mg = mc.getContext('2d'), im = mg.createImageData(MR, MR);
   for (let j = 0; j < MR; j++) for (let i = 0; i < MR; i++) { const hb0 = T.hubAt(-BOUNDS + (i + 0.5) / MR * BOUNDS * 2, -BOUNDS + (j + 0.5) / MR * BOUNDS * 2); const x = -BOUNDS + (i + 0.5) / MR * BOUNDS * 2, z = -BOUNDS + (j + 0.5) / MR * BOUNDS * 2, h = T.raw(x, z, true), o = (j * MR + i) * 4, v = h < -1 ? 15 : Math.max(20, Math.min(110, 40 + h * 7)); im.data[o] = h < -1 ? (mapId === 'mars' ? 120 : 20) : v * 0.8; im.data[o + 1] = h < -1 ? 30 : v; im.data[o + 2] = h < -1 ? (mapId === 'mars' ? 10 : 90) : v * 1.1; im.data[o + 3] = 200; if (hb0 && hb0.wall) { im.data[o] = im.data[o + 1] = im.data[o + 2] = 210; } }
   mg.putImageData(im, 0, 0); W.miniBg = mc;
-  mergeStatic(g, new Set([ground, liq, W.dome, W.hive, W.hub, W.healRing, W.hiveShield, W.caveLight, hemi, sun, sun.target, ...(W.nodeG || [])]));
+  mergeStatic(g, new Set([ground, liq, W.dome, W.hive, W.hub, W.healRing, W.hiveShield, W.caveLight, hemi, sun, sun.target, ...(W.nodeG || []), ...(W.salvMesh || [])]));
   return W;
 }
 
@@ -321,8 +321,6 @@ function buildCompound(g, H, W) {
     const st = new THREE.Mesh(new THREE.BoxGeometry(RAMP_W, h, len), k % 2 ? wallM : dark); st.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r); st.rotation.y = -a; st.castShadow = st.receiveShadow = true; C.add(st); void f0; }
   // corner towers outside the wall
   for (const da of [0.9, 2.2, -0.9, -2.2]) { const a = H.ga + Math.PI + da, x = Math.cos(a) * (HUB_R + 3.2), z = Math.sin(a) * (HUB_R + 3.2), t = new THREE.Group(); t.position.set(x, 0, z); C.add(t);
-    (W.hubGuns = W.hubGuns || []).push({ x: H.x + x, y: H.y + WALL_H + 7.6, z: H.z + z });   // a defence gun on every corner tower: it shoots aliens that get close to the hub
-    { const hg = M.turret('minigun', 0x6a7480, 2); hg.position.set(0, WALL_H + 7, 0); hg.scale.setScalar(0.9); t.add(hg); }
     const ctw = GL('h_gatetower', 'h', WALL_H + 7); if (ctw) { ctw.rotation.y = -a + Math.PI / 2; t.add(ctw); W.colliders.push({ x: H.x + x, z: H.z + z, r: 2.6 }); continue; }
     const body = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.6, WALL_H + 5, 8), wallM); body.position.y = (WALL_H + 5) / 2; body.castShadow = true; t.add(body);
     const top = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.2, 1.2, 8), dark); top.position.y = WALL_H + 5.6; t.add(top); const l = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), lamp); l.position.y = WALL_H + 6.6; t.add(l);
@@ -395,6 +393,7 @@ function hiveCave(g, W, T, D, path) {
 // a wreck the welder can cut scrap out of: remember where it is, how big it really is (for the welding beam) and how much scrap it holds
 function salvage(W, m, name, amt) {
   m.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(m); if (b.isEmpty()) return; const c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3());
+  (W.salvMesh = W.salvMesh || []).push(m);   // kept as its own object (not merged into the map) so it can shrink as it's cut up and vanish once stripped
   (W.salvage = W.salvage || []).push({ x: c.x, z: c.z, y: b.min.y, r: Math.max(1, Math.min(9, Math.max(sz.x, sz.z) / 2)), amt, name, box: [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z] });
 }
 const SALV = { satellite: ['crashed satellite', 60], wreck: ['wrecked ship', 160], capsule: ['supply capsule', 45], rover: ['wrecked rover', 45], debris: ['crashed ship', 55] };
@@ -406,7 +405,7 @@ function settle(m, T, sink = 0.15) {
   m.position.y += lo - _sb.min.y - sink;
 }
 function placePOIs(g, W, T, D, mapId, path) {
-  const R = rng(mapId.length * 7919 + 11 + (W.diff || 0) * 1013), H = T.hub, hv = W.hiveP; W.lore = []; W.salvage = []; W.shelters = W.shelters || [];
+  const R = rng(mapId.length * 7919 + 11 + (W.diff || 0) * 1013), H = T.hub, hv = W.hiveP; W.lore = []; W.salvage = []; W.salvMesh = []; W.shelters = W.shelters || [];
   const ok = (x, z, clear) => Math.abs(x) < BOUNDS - 12 && Math.abs(z) < BOUNDS - 12 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 18 && Math.hypot(x - hv.x, z - hv.z) > 52 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 1.5 && !W.lore.some(l => Math.hypot(l.x - x, l.z - z) < 40);
   const spot = clear => { for (let k = 0; k < 400; k++) { const x = (R() * 2 - 1) * BOUNDS, z = (R() * 2 - 1) * BOUNDS; if (ok(x, z, clear)) return [x, z]; } return null; };
   const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); settle(m, T); { const sv = SALV[kind.replace(/\d+$/, '')]; if (sv) salvage(W, m, sv[0], sv[1]); } for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };

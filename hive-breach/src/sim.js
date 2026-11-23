@@ -276,7 +276,7 @@ export class Sim {
       for (const sc of this.scrap) if (!sc.got && Math.abs(sc.x - p.x) < 2.6 && Math.abs(sc.z - p.z) < 2.6 && Math.hypot(sc.x - p.x, sc.z - p.z) < 2.6) { sc.got = true; p.scrap = (p.scrap || 0) + sc.n; this.emit({ k: 'scrap', to: p.id, n: sc.n }); }
       if (inHub && (p.scrap || 0) >= 1) { const n = Math.floor(p.scrap); p.scrap -= n; this.parts += n; this.emit({ k: 'handin', to: p.id, n, total: Math.floor(this.parts) }); }   // scrap handed in to the commander
       if (this.phase === 'wave' && !p.drive) for (const [i, l] of (this.W.lurks || []).entries()) { if ((this.lurkT[i] || 0) > this.time || Math.abs(l.x - p.x) > 9 || Math.abs(l.z - p.z) > 9 || Math.hypot(l.x - p.x, l.z - p.z) > 8) continue; this.lurkT[i] = this.time + 120; this.ambush(l, p, 2 + (Math.random() * 2 | 0)); }   // aliens lying in wait, startled by a marine walking past
-      if (this.phase === 'wave' && !p.drive) for (const [i, w] of (this.W.salvage || []).entries()) { if (this.amb[i] || Math.abs(w.x - p.x) > 9 || Math.abs(w.z - p.z) > 9 || Math.hypot(w.x - p.x, w.z - p.z) > w.r + 5) continue; this.amb[i] = 1; if (Math.random() < 0.4) this.ambush(w, p, 2 + (Math.random() * 3 | 0)); }   // walking past a wreck can wake what's nesting in it
+      if (this.phase === 'wave' && !p.drive) for (const [i, w] of (this.W.salvage || []).entries()) { if ((this.amb[i] || 0) > this.time || (this.salv && this.salv[i] <= 0) || Math.abs(w.x - p.x) > 9 || Math.abs(w.z - p.z) > 9 || Math.hypot(w.x - p.x, w.z - p.z) > w.r + 5) continue; this.amb[i] = this.time + 90; if (Math.random() < 0.4) this.ambush(w, p, 2 + (Math.random() * 3 | 0)); }   // walking past a wreck can wake what's nesting in it
       if (inHub && (p.dr ?? DRESS) < DRESS) { p.drT = (p.drT || 0) + dt; if (p.drT > 4) { p.drT = 0; p.dr = (p.dr ?? DRESS) + 1; } }
       if (inHub && (p.kits ?? KITS) < KITS) { p.kitT = (p.kitT || 0) + dt; if (p.kitT > 3) { p.kitT = 0; p.kits = (p.kits ?? KITS) + 1; this.emit({ k: 'kit', to: p.id, n: p.kits }); } }
       { const X = CLASSES[p.cls].extra; if (X && inHub && (p.ex ?? X.n) < X.n) { p.exT = (p.exT || 0) + dt; if (p.exT > 2.5) { p.exT = 0; p.ex = (p.ex ?? X.n) + 1; } } }
@@ -374,7 +374,7 @@ export class Sim {
       }
       if (a.mode === 'hunt') {
         const H = A.hunt || { leash: 30, time: 8, cd: 3 }, tg = a.tk === 'p' ? this.players.get(a.tid) : this.turrets.find(t => t.id === a.tid); a.ht -= dt;
-        if (!tg || tg.dead || a.ht <= 0 || Math.hypot(a.x - hx, a.z - hz) > H.leash) { a.mode = 'return'; a.cc = H.cd; }
+        if (!tg || tg.dead || (!a.amb && (a.ht <= 0 || Math.hypot(a.x - hx, a.z - hz) > H.leash))) { a.mode = 'return'; a.cc = H.cd; a.amb = 0; }   /* an ambusher hunts the marine who disturbed it until one of them is dead */
         else {
           const dx = tg.x - a.x, dz = tg.z - a.z, d = Math.hypot(dx, dz) || 1, reach = A.r + (a.tk === 't' ? 1.9 : 1.4); this.face(a, dx, dz);
           if (A.fly) a.y += (tg.y + (d < 4 ? 1.6 : 3) - a.y) * Math.min(1, dt * 3);
@@ -588,7 +588,7 @@ export class Sim {
   wreckVeh(v) { for (const t of this.turrets) if (t.veh === v.id) { t.veh = 0; this.settle(t); this.hurtTurret(t, t.mhp * 0.4); } this.emit({ k: 'boom', x: v.x, y: v.y + 1, z: v.z, r: 5 }); const q = v.driver && this.players.get(v.driver); if (q) { q.drive = 0; this.emit({ k: 'exitveh', to: q.id, x: v.x + 3, z: v.z }); } this.radio('cmd', 'We lost a vehicle! Bring me scrap and I\'ll build another.', 1); this.vehs = this.vehs.filter(o => o !== v); }
   // aliens nesting in a wreck burst out at a marine
   ambush(w, p, n) {
-    const P = this.path; this.emit({ k: 'ambush', x: w.x, z: w.z }); for (let i = 0; i < n; i++) { const a = this.spawn(Math.random() < 0.7 ? 'crawler' : 'mite', 0), ang = Math.random() * 6.283; a.x = w.x + Math.cos(ang) * (w.r * 0.6); a.z = w.z + Math.sin(ang) * (w.r * 0.6); a.y = this.W.ground(a.x, a.z, 99); a.s = P.near(a.x, a.z).s; a.lat = 0; this.aggro(a, 'p', p.id, true); a.stun = i * 0.2; }
+    const P = this.path; this.emit({ k: 'ambush', x: w.x, z: w.z }); for (let i = 0; i < n; i++) { const a = this.spawn(Math.random() < 0.7 ? 'crawler' : 'mite', 0), ang = Math.random() * 6.283; a.x = w.x + Math.cos(ang) * (w.r * 0.6); a.z = w.z + Math.sin(ang) * (w.r * 0.6); a.y = this.W.ground(a.x, a.z, 99); a.s = P.near(a.x, a.z).s; a.lat = 0; this.aggro(a, 'p', p.id, true); a.amb = 1; a.stun = i * 0.2; }
   }
   // a parachute crate from the commander, a few metres from the marine it is meant for
   airdrop(p, kind) {

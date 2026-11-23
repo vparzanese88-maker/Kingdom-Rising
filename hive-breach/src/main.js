@@ -1093,6 +1093,9 @@ function updVehs(S, dt) {
     const mine0 = me.dv && me.dv.id === sv.id, tx = mine0 ? me.dv.x : sv.x, ty = mine0 ? me.dv.y : sv.y, tz = mine0 ? me.dv.z : sv.z, tr = mine0 ? me.dv.yaw : sv.ry, k = mine0 ? 1 : Math.min(1, dt * 8);
     v.x += (tx - v.x) * k; v.y += (ty - v.y) * k; v.z += (tz - v.z) * k; let dy = tr - v.ry; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; v.ry += dy * k;
     v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.order = 'YXZ'; v.mesh.rotation.y = v.ry; if (sv.kind === 'vtol' && mine0 && me.dv.tilt) { v.mesh.rotation.x = me.dv.tilt[0]; v.mesh.rotation.z = me.dv.tilt[1]; }
+    // the rider: whoever drives the quad sits on it, astride the seat, in their class colours
+    if (sv.kind === 'quad') { const dp = sv.driver && (S.P || []).find(q => q.id === sv.driver); if (dp && (!v.rider || v.riderCls !== dp.cls)) { if (v.rider) v.mesh.remove(v.rider); const r = M.marine(CLASSES[dp.cls].color, dp.cls); if (r.userData.glb) { M.AS.setPose(r, 'sit', 0); r.userData.mixer.update(0.01); r.userData.sit = 1; if (r.userData.gun) r.userData.gun.visible = false; } r.traverse(o => { o.frustumCulled = false; }); r.position.set(0, 0.72, 0.15); v.mesh.add(r); v.rider = r; v.riderCls = dp.cls; }
+      if (v.rider) v.rider.visible = !!dp; }
     const u = v.mesh.userData; if (u.tur && mine0) u.tur.rotation.y = me.yaw - v.ry; if (sv.kind === 'vtol') for (const r of u.rotors || []) r.rotation.y += dt * 30; }
   for (const [id, v] of vehV) if (!seen.has(id)) { scene.remove(v.mesh); vehV.delete(id); }
   updMountMarks(S);

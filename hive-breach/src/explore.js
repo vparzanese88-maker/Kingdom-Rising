@@ -424,7 +424,7 @@ export function dropIntro(H, squad, done) {
     B(hg, 0.3, 4, 14, darkM, -13.7, 2.4, 14); Object.keys(CLASSES).forEach((k, i) => { const g = M.gunModel(k, CLASSES[k].color); g.scale.setScalar(2.2); g.position.set(-13.2, 3.4 - (i % 2) * 1.5, 10 + (i >> 1) * 3.4); g.rotation.y = -Math.PI / 2; hg.add(g); });
     // drop pods in a row by the window, hatches open, marines running to them
     hg.userData.pods = []; for (let i = 0; i < 4; i++) { const pm = dropPod(0xd09030); pm.position.set(8, 0, 6 + i * 6.5); pm.rotation.y = -Math.PI / 2; pm.scale.setScalar(0.9); hg.add(pm); hg.userData.pods.push(pm); }
-    hg.userData.run = []; for (let i = 0; i < 7; i++) { const cls = Object.keys(CLASSES)[i % 6], m = M.marine(CLASSES[cls].color, cls), pd = hg.userData.pods[i % 4].position; m.position.set(-2 + (i % 3) * 1.6, 0, -14 - i * 1.6); hg.add(m); hg.userData.run.push({ m, to: V(pd.x - 3, 0, pd.z), ph: i * 0.7, sp: 5.2 + (i % 3) * 0.5 }); } }
+    hg.userData.run = []; for (let i = 0; i < 7; i++) { const cls = Object.keys(CLASSES)[i % 6], m = M.marine(CLASSES[cls].color, cls), pd = hg.userData.pods[i % 4].position; m.traverse(o => { o.frustumCulled = false; }); m.position.set(-2 + (i % 3) * 1.6, 0, -14 - i * 1.6); hg.add(m); hg.userData.run.push({ m, to: V(pd.x - 3, 0, pd.z), ph: i * 0.7, sp: 5.2 + (i % 3) * 0.5 }); } }
   // ---- your pod (you only see its cabin from inside) and four more pods dropping beside you, in view of the windows
   const pod = add(dropPod(0xd09030)), cabin = podInterior(); pod.add(cabin); const { red, blue, strobe, doorG } = cabin.userData, fl = pod.userData.flame;
   const shell = pod.children.filter(o => o !== cabin && o !== fl && o !== pod.userData.heat); for (const o of shell) o.visible = false;

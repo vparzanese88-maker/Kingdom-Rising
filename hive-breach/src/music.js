@@ -3,8 +3,9 @@
 //   calm   - "Inevitable": the build-up before the swarm, quiet stretches, the forward base
 //   battle - "Orchestral Battle Theme": the swarm is coming
 //   boss   - "Epic Boss Battle": the Brood Queen's lair and boss aliens
+//   rock   - "Achilles": electric guitars that rip in the moment the drop pod hits the ground, played through once
 // Each track plays through an <audio> element routed into the game's master bus, so it shares the limiter with the effects.
-const TRACK = { title: 'war', drop: 'war', calm: 'calm', battle: 'battle', boss: 'boss', off: null };
+const TRACK = { title: 'war', drop: 'war', calm: 'calm', battle: 'battle', boss: 'boss', rock: 'rock', off: null };
 const BASE = './assets/music/';
 export class Music {
   constructor(audio) { this.a = audio; this.mode = 'title'; this.on = true; this.vol = 0.75; this.el = {}; try { const v = JSON.parse(localStorage.getItem('hb-music2') || 'null'); if (v) { this.on = v.on; this.vol = v.vol; } } catch (e) { } }
@@ -37,7 +38,12 @@ export class Music {
   fade(k = 1) { if (this.master) this.master.gain.setTargetAtTime(this.level() * k, this.a.ctx.currentTime, 0.2); }
   // the drop: the war theme from the top, a little under the roar of the ride
   dropScore() { if (!this.master) this.start(); if (!this.master) return; this.lock = true; this.mode = 'drop'; const tr = this.track('war'); try { tr.au.currentTime = 0; } catch (e) { } this.play('war', 1.5); this.fade(0.8); }
-  endScore() { if (!this.lock) return; this.lock = false; this.mode = 'calm'; this.want = null; this.fade(1); this.play('calm', 4); }
+  endScore() { if (!this.lock) return; if (this.rocking) return; this.lock = false; this.mode = 'calm'; this.want = null; this.fade(1); this.play('calm', 4); }
+  // touchdown: the guitars hit at full volume and play the track through once, then the game's own moods take over again
+  land() {
+    if (!this.master) return; const tr = this.track('rock'); tr.au.loop = false; try { tr.au.currentTime = 0; } catch (e) { } this.lock = true; this.rocking = true; this.mode = 'rock'; this.play('rock', 0.25); this.fade(1);
+    tr.au.onended = () => { this.rocking = false; this.lock = false; this.mode = 'calm'; this.want = null; this.play('calm', 3); };
+  }
   // after the sound engine restarts, everything tied to the old one is dropped; start() builds it again
-  reset() { for (const v of Object.values(this.el)) { try { v.au.pause(); } catch (e) { } } this.el = {}; this.master = null; this.lock = false; if (this.mode === 'drop') this.mode = 'calm'; }
+  reset() { for (const v of Object.values(this.el)) { try { v.au.pause(); } catch (e) { } } this.el = {}; this.master = null; this.lock = false; this.rocking = false; if (this.mode === 'drop') this.mode = 'calm'; }
 }

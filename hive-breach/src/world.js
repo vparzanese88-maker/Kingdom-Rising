@@ -145,7 +145,9 @@ export function buildWorld(scene, mapId, diff = 0) {
   const T = W.T = makeTerrain(D, path, W.hubP, W.hiveP); W.ground = T.ground; W.top = T.top;
   scene.add(W.group); const g = W.group;
   scene.background = new THREE.Color(D.sky); scene.fog = new THREE.Fog(D.fog, D.fogD[0], D.fogD[1]);
-  const hemi = new THREE.HemisphereLight(mapId === 'jungle' ? 0x506a80 : D.sky, D.amb, D.hemiI || 1.1); W.hemi = hemi; g.add(hemi);
+  // light with contrast: a cool sky above and warm ground bounce below, so tops and undersides read apart, and a faint cool rim light from opposite the sun to separate shapes
+  const hemi = new THREE.HemisphereLight(new THREE.Color(mapId === 'jungle' ? 0x506a80 : D.sky).lerp(new THREE.Color(0xa8c4f0), 0.45), new THREE.Color(D.amb).multiplyScalar(0.8), D.hemiI || 1.1); W.hemi = hemi; g.add(hemi);
+  { const rim = new THREE.DirectionalLight(0x9fc0ff, (D.sunI || 2.2) * 0.28); rim.position.set(-40, 30, -25); g.add(rim); W.rim = rim; }
   const sun = new THREE.DirectionalLight(D.sun, D.sunI || 2.2); W.sun = sun; sun.position.set(40, 70, 25); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 10, far: 260 }); g.add(sun, sun.target);
 
@@ -394,7 +396,7 @@ function battlefield(g, W, T, D, mapId, path) {
     const q = path.at(s);
     for (const sd of [-1, 1]) {
       if (R() < 0.35) continue; const off = 14 + R() * 26, x = q.x - q.tz * sd * off, z = q.z + q.tx * sd * off; if (!free(x, z, 12)) continue; const k = R();
-      if (k < 0.3) { const m = M.sandbags(R); m.position.set(x, T.raw(x, z), z); m.rotation.y = Math.atan2(q.tx, q.tz) + (sd > 0 ? Math.PI / 2 : -Math.PI / 2); g.add(m); W.colliders.push({ x, z, r: 2.5, h: 1.1 }); }
+      if (k < 0.3) { const m = M.sandbags(R); m.position.set(x, T.raw(x, z), z); m.rotation.y = Math.atan2(q.tx, q.tz) + (sd > 0 ? Math.PI / 2 : -Math.PI / 2); g.add(m); W.colliders.push({ x, z, r: 2.5, h: 1.1 }); (W.bags = W.bags || []).push({ x, z }); }   // the map's own sandbag walls: cover anyone can use
       else if (k < 0.45) put(M.tankTrap, x, z, [1, 1.8]);
       else if (k < 0.62) put(M.corpse, x, z);
       else if (k < 0.8) put(M.carcass, x, z);

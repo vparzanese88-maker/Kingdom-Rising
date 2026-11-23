@@ -28,7 +28,7 @@ export const CLASSES = {
   },
   gunner: {
     name: 'Gunner', color: 0x6a8a3a, hp: 190, speed: 6.8, role: 'Suppression and ammo carrier',
-    gun: { name: 'M-56 Hand Minigun', dmg: 6.5, rate: 27, mag: 360, reserve: 540, reload: 3.6, spread: 0.032, kind: 'hit', sound: 'mini', recoil: 0.0022, tracers: 1, near: 15, far: 50, max: 70, spin: 0.5 },
+    gun: { name: 'M-56 Heavy Minigun', dmg: 7.5, rate: 27, mag: 360, reserve: 540, reload: 3.6, spread: 0.022, kind: 'hit', sound: 'mini', recoil: 0.0022, tracers: 1, near: 25, far: 70, max: 80, spin: 0.5 },
     throw: { kind: 'frag', name: 'Frag grenade', n: 2 }, extra: { kind: 'ammo', name: 'Ammo pack', n: 3 },
     team: 'Supplier: throws ammo packs; bullets slow aliens; braced on sandbags he barely misses.',
     sentry: 'minigun', defense: 'sandbag', third: 'ammopack',
@@ -179,7 +179,7 @@ export const bossScale = n => 1 + 0.6 * (squad(n) - 1);
 
 export const MAPS = {
   mars: {
-    name: 'Red Sands Outpost', sub: 'Mars, mining colony 7 · meteor showers', ground: 0xa4502e, ground2: 0x7d3a22, path: 0x5a3a2c, sky: 0xd99a6a, fog: 0xc88458, fogD: [96, 412], sun: 0xffe0c0, amb: 0x804030,
+    name: 'Red Sands Outpost', sub: 'Mars, mining colony 7 · meteor showers', ground: 0xa4502e, ground2: 0x7d3a22, path: 0x5a3a2c, sky: 0xe2aa7a, fog: 0xd2966a, fogD: [150, 520], sun: 0xfff0dc, amb: 0xa87458, sunI: 3.1, hemiI: 1.7,
     prop: 'rock', extra: ['dome', 'derrick'], hazard: 'meteor', weather: 'dust', liquid: 0xff5a10, rock: 0x5a2a1a,
     craters: [{ x: -130, z: 60, r: 22, d: 7 }, { x: 120, z: -110, r: 26, d: 8 }, { x: -40, z: -120, r: 14, d: 4 }, { x: 40, z: 110, r: 16, d: 5 }], mesas: [{ x: -150, z: -40, r: 16, h: 14 }, { x: 160, z: 20, r: 14, h: 12 }, { x: -60, z: 140, r: 18, h: 13 }],
     hills: [{ pts: [[-170, -90], [-150, 60]], w: 34, h: 12 }, { pts: [[60, 170], [170, 60]], w: 34, h: 11 }],

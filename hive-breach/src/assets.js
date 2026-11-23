@@ -9,7 +9,7 @@ export const A = {};
 const CLS = ['assault', 'engineer', 'heavy', 'gunner', 'sniper', 'medic'];
 // weapon: file, length in metres (muzzle to stock)
 export const WEAP = {
-  assault: ['w_rifle', 0.95], engineer: ['w_shotgun', 1.0], heavy: ['w_rocket', 1.2], gunner: ['w_minigun', 1.05], sniper: ['w_sniper', 1.35], medic: ['w_carbine', 0.8],
+  assault: ['w_rifle', 0.95], engineer: ['w_shotgun', 1.0], heavy: ['w_rocket', 1.2], gunner: ['w_minigun', 1.3], sniper: ['w_sniper', 1.35], medic: ['w_carbine', 0.8],
   pistol: ['w_pistol', 0.32], torch: ['w_plasma', 0.6], welder: ['w_welder', 0.55], frag: ['w_frag', 0.15],
 };
 export const TURRET_GLB = { pulse: 2.1, shotgunT: 2.0, missile: 2.1, minigun: 2.1, railgun: 3.6, mortar: 2.0 };   // kinds with Meshy models, and their height at level 1
@@ -40,7 +40,7 @@ export function weapon(kind) {
   inner.rotation.y = -Math.PI / 2; inner.updateMatrixWorld(true);
   let b = new THREE.Box3().setFromObject(inner); const s = e[1] / (b.max.z - b.min.z); inner.scale.setScalar(s); inner.updateMatrixWorld(true);
   b = new THREE.Box3().setFromObject(inner); const c = b.getCenter(new THREE.Vector3());
-  inner.position.set(-c.x, -c.y, -(b.max.z) + e[1] * 0.32);
+  inner.position.set(-c.x, -c.y, -(b.max.z) + e[1] * (kind === 'gunner' ? 0.1 : 0.32));   /* the minigun is held by its rear grip */
   g.userData.len = e[1]; g.userData.glb = true;
   if (kind === 'gunner') g.userData.spin = splitSpin(inner, e[1]);
   return g;
@@ -180,7 +180,7 @@ export function fpArms(cls, gun, mode = 'two') {
   if (u.gun) { g.remove(u.gun); u.gun = null; }
   setPose(g, 'walk', 0); const a = u.act.walk; a.time = a.getClip().duration * 0.15; a.timeScale = 0; u.mixer.update(0);
   // keep only the sleeves and gloves: every triangle whose skin mostly follows an arm bone; the chest, head and legs are cut away
-  const keepB = mode === 'hand' ? ['LeftForeArm', 'LeftHand'] : ['RightArm', 'RightForeArm', 'RightHand'];   // the left arm lives on the reload hand
+  const keepB = mode === 'hand' ? ['LeftForeArm', 'LeftHand'] : mode === 'two' ? ['RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand'] : ['RightArm', 'RightForeArm', 'RightHand'];
   u.root.traverse(o => {
     if (!o.isSkinnedMesh) return; const bones = o.skeleton.bones, ok = new Set(bones.map((b, i) => keepB.includes(b.name) ? i : -1).filter(i => i >= 0));
     const src = o.geometry, si = src.attributes.skinIndex, sw = src.attributes.skinWeight, dom = i => { let best = 0, bw = -1; for (let c = 0; c < 4; c++) { const w = sw.getComponent(i, c); if (w > bw) { bw = w; best = si.getComponent(i, c); } } return best; };
@@ -220,7 +220,7 @@ export function alienGLB(type, ref) {
   const sb = src.userData.box, ss = sb.getSize(new THREE.Vector3()), rs = ref.getSize(new THREE.Vector3());
   const s = Math.max(rs.x, rs.z) / Math.max(ss.x, ss.z, 0.001) * (type === 'flyer' ? 1.1 : 1); holder.scale.setScalar(s); holder.position.y = (type === 'flyer' ? ref.min.y : 0) - sb.min.y * s;
   // own copies of the materials, lit a little from within by their own texture (they read as black silhouettes in the warm light otherwise), so each alien can flash when hit
-  const mats = []; root.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xffffff); o.material.emissiveMap = o.material.map; o.material.emissiveIntensity = 0.3; mats.push(o.material); } });
+  const mats = []; root.traverse(o => { if (o.isMesh && o.material) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xffffff); o.material.emissiveMap = o.material.map; o.material.emissiveIntensity = 0.5; mats.push(o.material); } });
   const u = { type, body, glb: true, legs: [], arms: [], wings: [], sacs: [], root, mats };
   if (src.animations.length) {
     u.mixer = new THREE.AnimationMixer(root); u.act = {};
@@ -232,6 +232,8 @@ export function alienGLB(type, ref) {
   // check the size once posed (skinned models can measure wrongly before) and correct it: same length as the simple model, feet on the ground
   g.updateMatrixWorld(true); const b2 = new THREE.Box3().setFromObject(g), s2 = b2.getSize(new THREE.Vector3()), want = Math.max(rs.x, rs.z) * (type === 'flyer' ? 1.1 : 1), have = Math.max(s2.x, s2.z), k = type === 'flyer' ? want / have : Math.min(want / have, rs.y * 1.15 / s2.y);   // fit inside the simple model: no longer and no taller
   if (have > 0.01 && Math.abs(k - 1) > 0.05) { holder.scale.multiplyScalar(k); g.updateMatrixWorld(true); const b3 = new THREE.Box3().setFromObject(g); holder.position.y += (type === 'flyer' ? ref.min.y : 0) - b3.min.y; }
+  // its real body for hit tests: length along its facing, width, height and centre, measured from the posed model (the game shoots at this, not at the old simple shape)
+  { g.updateMatrixWorld(true); const hb = new THREE.Box3().setFromObject(g), s = hb.getSize(new THREE.Vector3()), c = hb.getCenter(new THREE.Vector3()); u.hb = { len: s.z, wid: s.x, hgt: s.y, cy: c.y, cz: c.z }; }
   g.userData = u; return g;
 }
 // the wraith's wings: cut the far-left and far-right of the mesh into two pieces that hinge at the body

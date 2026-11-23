@@ -21,7 +21,7 @@ import { Explore, buildFOB, cinematic, victoryScene, stationScene, dropIntro, vt
 
 const $ = id => document.getElementById(id);
 const canvas = $('game'), renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(1.5, devicePixelRatio)); renderer.shadowMap.enabled = true; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(1.5, devicePixelRatio)); renderer.shadowMap.enabled = true; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.3; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(75, 1, 0.05, 1500); scene.add(camera);
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 // switching fullscreen fires a burst of resize events: rebuild the drawing buffers once it settles, not on every one (that froze the page and the sound)
@@ -372,16 +372,16 @@ const scrapV = new Map(); let scrapK = null;
 function scrapMesh() {
   if (!scrapK) { const add = { blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
     scrapK = { plate: new THREE.BoxGeometry(1.2, 0.12, 0.75), pipe: new THREE.CylinderGeometry(0.11, 0.11, 1.4, 8), gear: new THREE.CylinderGeometry(0.42, 0.42, 0.14, 8), ring: new THREE.RingGeometry(1.0, 1.35, 28), shaft: new THREE.CylinderGeometry(0.07, 0.25, 4, 8, 1, true),
-      metal: M.mat(0xb8bcc2, { m: 0.85, r: 0.25 }), rust: M.mat(0xa05a30, { m: 0.4, r: 0.7 }), ringM: new THREE.MeshBasicMaterial({ color: 0xff9020, opacity: 0.75, side: THREE.DoubleSide, ...add }), shaftM: new THREE.MeshBasicMaterial({ color: 0xffa040, opacity: 0.35, side: THREE.DoubleSide, ...add }) }; }
+      metal: M.mat(0xd8dce2, { m: 0.5, r: 0.25, e: 0x704010, ei: 0.9 }), rust: M.mat(0xc06a30, { m: 0.3, r: 0.6, e: 0x803010, ei: 0.9 }), glow: new THREE.MeshBasicMaterial({ color: 0xffa030, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }), disc: new THREE.CircleGeometry(1.1, 24), ringM: new THREE.MeshBasicMaterial({ color: 0xff9020, opacity: 0.75, side: THREE.DoubleSide, ...add }), shaftM: new THREE.MeshBasicMaterial({ color: 0xffa040, opacity: 0.35, side: THREE.DoubleSide, ...add }) }; }
   const K = scrapK, g = new THREE.Group(), m = (geo, mat, x, y, z, rx, ry, rz) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); g.add(o); return o; };
   // a bundle of salvage floating a little off the ground, turning slowly, like a pickup in an arena shooter
   m(K.plate, K.metal, 0, -0.18, 0, 0.1, 0.3, 0.15); m(K.plate, K.rust, 0.15, 0, 0.05, -0.25, 1.4, 0.2); m(K.pipe, K.metal, -0.2, 0, 0.1, 0.2, 0, 1.3); m(K.gear, K.rust, 0.15, 0.2, -0.15, 0.6, 0, 0.3);
-  const piv = new THREE.Group(); for (const c of [...g.children]) piv.add(c); piv.scale.setScalar(0.85); g.add(piv); g.userData = { piv }; return g;
+  const piv = new THREE.Group(); for (const c of [...g.children]) piv.add(c); piv.scale.setScalar(1.05); g.add(piv); const gl = new THREE.Mesh(K.disc, K.glow); gl.rotation.x = -Math.PI / 2; gl.position.y = 0.08; g.add(gl); g.userData = { piv, gl }; return g;   /* lit from within, a soft glow on the ground under it */
 }
 function syncScrap(S) {
   const L = G.explore || G.cine ? [] : S.SC || [], seen = new Set(), me = G.me;
   for (const c of L) { seen.add(c.id); let v = scrapV.get(c.id); if (!v) { v = scrapMesh(); v.position.set(c.x, G.W.top(c.x, c.z), c.z); v.rotation.y = c.id; scene.add(v); scrapV.set(c.id, v); }
-    const d = me ? Math.hypot(c.x - me.x, c.z - me.z) : 0; v.visible = d < 75; if (v.visible) { const pv = v.userData.piv; pv.position.y = 0.7 + Math.sin(G.time * 2.4 + c.id) * 0.14; pv.rotation.y = G.time * 1.7 + c.id; } }
+    const d = me ? Math.hypot(c.x - me.x, c.z - me.z) : 0; v.visible = d < 75; if (v.visible) { const pv = v.userData.piv; pv.position.y = 0.7 + Math.sin(G.time * 2.4 + c.id) * 0.14; pv.rotation.y = G.time * 1.7 + c.id; const s = 0.85 + Math.sin(G.time * 3 + c.id) * 0.15; v.userData.gl.scale.set(s, s, 1); } }
   for (const [id, v] of scrapV) if (!seen.has(id)) { scene.remove(v); scrapV.delete(id); }
 }
 function syncView(S, dt) {
@@ -393,7 +393,7 @@ function syncView(S, dt) {
     if (v.hp !== undefined && a.hp < v.hp - 0.5) v.pop = 0.1; v.x += (a.x - v.x) * k; v.y += (a.y - v.y) * k; v.z += (a.z - v.z) * k; v.hp = a.hp; v.mhp = a.mhp; v.id = a.id; v.hunt = huntOf(a);
     v.mesh.position.set(v.x, v.y, v.z); let dr = a.ry - v.mesh.rotation.y; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; v.mesh.rotation.y += dr * Math.min(1, k * 1.5);
     v.t += dt * (a.stun ? 0 : 1) * (v.hunt ? 1.5 : 1); M.animAlien(v.mesh, v.t);
-    v.pop = Math.max(0, (v.pop || 0) - dt); if (v.mesh.userData.mats) { const fl = v.pop > 0 ? 1.6 : 0.3; for (const mt of v.mesh.userData.mats) mt.emissiveIntensity = fl; }   /* hit: a white flash */ v.mesh.scale.setScalar((a.type === 'ravager' ? 1.7 : 1) * (1 + v.pop * 1.4));
+    v.pop = Math.max(0, (v.pop || 0) - dt); if (v.mesh.userData.mats) { const fl = v.pop > 0 ? 1.6 : 0.5; for (const mt of v.mesh.userData.mats) mt.emissiveIntensity = fl; }   /* hit: a white flash */ v.mesh.scale.setScalar((a.type === 'ravager' ? 1.7 : 1) * (1 + v.pop * 1.4));
     v.lunge = Math.max(0, (v.lunge || 0) - dt); if (v.mesh.userData.body) { v.mesh.userData.body.position.z = -Math.sin(v.lunge / 0.25 * Math.PI) * 0.6; v.mesh.userData.body.rotation.x = v.pop * 2; }
     const mineHunt = v.hunt === G.myId, mateHunt = v.hunt && v.hunt !== 't' && !mineHunt; if ((mineHunt || mateHunt) && !v.mark) { v.mark = markSprite(); v.mark.material = v.mark.material.clone(); scene.add(v.mark); } if (v.mark) { v.mark.visible = mineHunt || mateHunt; v.mark.material.color.setHex(mineHunt ? 0xffffff : 0xffa040); v.mark.position.set(v.x, v.y + BAR_Y[ALIENS[a.type].base || a.type] + 0.9 + Math.sin(G.time * 10) * 0.1, v.z); }
     const A = ALIENS[a.type], sc = a.type === 'broodqueen' ? 6 : a.type === 'royal' ? 1.8 : a.type === 'hivecore' ? 6 : a.type === 'guardian' ? 2.5 : A.boss ? (a.type === 'queen' ? 4 : 2.5) : 1.2, f = Math.max(0, a.hp / a.mhp);
@@ -428,7 +428,7 @@ function syncView(S, dt) {
     const building = t.b > 0 || t.up > 0;
     if (false && building && !v.scaf) { v.scaf = scaffold(t.kind === 'barricade' ? 7 : 2.6, t.kind === 'barricade' ? 2.4 : 3.4); v.scaf.position.set(t.x, t.y, t.z); if (t.kind === 'barricade') v.scaf.rotation.y = t.ry; scene.add(v.scaf); }
     if (v.scaf) { v.scaf.visible = building; if (building) { const f = t.up > 0 ? t.up : 1 - t.b / (t.bt || 1), txt = t.up > 0 ? `WELDING Lv${t.lvl + 1} ${Math.round(t.up * 100)}%` : `BUILDING ${t.b.toFixed(1)}s`; v.scaf.position.copy(v.mesh.position); v.scaf.userData.bar.scale.x = Math.max(0.01, f); v.scaf.userData.bar.position.x = -(1 - f) * 0.9; if (v.scaf.userData.txt !== txt) setLabel(v.scaf.userData.label, txt); v.scaf.userData.txt = txt; v.scaf.userData.cage.rotation.y += dt * 0.6; v.scaf.userData.cage.children.forEach((c, i) => { if (c.userData.ring) c.position.y = ((G.time * 0.7 + i * 0.5) % 1) * v.scaf.userData.h; }); if (Math.random() < dt * 8) burst(t.x + (Math.random() - 0.5) * 1.5, t.y + Math.random() * 2.5, t.z + (Math.random() - 0.5) * 1.5, 0xffd060, 2, 2, 0.3); } }
-    const sc0 = v.mesh.userData.glb ? 1 : [1, 1.28, 1.55][t.lvl - 1] || 1, grow = t.fresh && !t.carry ? 0.15 + 0.85 * (1 - t.b / (t.bt || 1)) : 1; let mk = 1; if (v.morph > 0) { v.morph = Math.max(0, v.morph - dt / 1.3); const m = v.morph; mk = 1 + Math.sin((1 - m) * Math.PI * 4) * 0.18 * m - 0.25 * m * m; if (u.head) u.head.rotation.y += dt * 14 * m; if (v.up) { const e = Math.min(1, (1 - m) * 1.6); v.up.scale.setScalar(e); v.up.userData.head.scale.setScalar(e); } if (Math.random() < dt * 30 * m) burst(v.mesh.position.x + (Math.random() - 0.5) * 2, v.mesh.position.y + Math.random() * 3 * sc0, v.mesh.position.z + (Math.random() - 0.5) * 2, Math.random() < 0.5 ? 0x9fe8ff : 0xffd040, 3, 3, 0.5); }
+    const sc0 = v.mesh.userData.glb ? 1 : [1, 1.28, 1.55][t.lvl - 1] || 1, grow = t.fresh && !t.carry && t.bt > 0 ? 0.15 + 0.85 * (1 - (t.b || 0) / t.bt) : 1; let mk = 1; if (v.morph > 0) { v.morph = Math.max(0, v.morph - dt / 1.3); const m = v.morph; mk = 1 + Math.sin((1 - m) * Math.PI * 4) * 0.18 * m - 0.25 * m * m; if (u.head) u.head.rotation.y += dt * 14 * m; if (v.up) { const e = Math.min(1, (1 - m) * 1.6); v.up.scale.setScalar(e); v.up.userData.head.scale.setScalar(e); } if (Math.random() < dt * 30 * m) burst(v.mesh.position.x + (Math.random() - 0.5) * 2, v.mesh.position.y + Math.random() * 3 * sc0, v.mesh.position.z + (Math.random() - 0.5) * 2, Math.random() < 0.5 ? 0x9fe8ff : 0xffd040, 3, 3, 0.5); }
     v.mesh.scale.set(sc0 * mk, sc0 * grow * mk, sc0 * mk);
     v.alert = Math.max(0, (v.alert || 0) - dt); if (v.alert > 0 && !v.mark) { v.mark = markSprite(); scene.add(v.mark); } if (v.mark) { v.mark.visible = v.alert > 0 && Math.sin(G.time * 12) > -0.3; v.mark.position.set(v.mesh.position.x, v.mesh.position.y + 4.2 * sc0, v.mesh.position.z); }
     if (t.hp < t.mhp * 0.35 && Math.random() < dt * 6) burst(t.x, 1.6, t.z, 0x303030, 1, 1, 1, 2);
@@ -499,18 +499,18 @@ function stats() {
 function dmgMul() { const S = state(); return S && !G.explore ? techMul(S.w) : 1; }
 function newMe() {
   const s = G.W.spawn; G.me = { x: s.x, y: 0, z: s.z, vy: 0, yaw: Math.atan2(s.x, s.z), pitch: -0.1, spin: 0, scope: false, slot: 0, wpn: [null, { ammo: SIDEARM.mag, reserve: SIDEARM.reserve }], ammo: CLASSES[G.cls].gun.mag, reserve: CLASSES[G.cls].gun.reserve, rel: 0, cd: 0, place: null, gcd: 0, kick: 0, sp: -1, hp: 0, bob: 0, grounded: true, rockets: [] };
-  if (view2.gun) camera.remove(view2.gun); view2.gun = M.gunModel(G.cls, CLASSES[G.cls].color); view2.gun.scale.setScalar(0.55); view2.gun.traverse(o => { o.castShadow = false; }); camera.add(view2.gun);
+  if (view2.gun) camera.remove(view2.gun); view2.gun = M.gunModel(G.cls, CLASSES[G.cls].color); view2.gun.scale.setScalar(0.74); view2.gun.traverse(o => { o.castShadow = false; }); camera.add(view2.gun);
   view2.flash = new THREE.PointLight(0xffc060, 0, 8); view2.flash.position.set(0.05, 0.05, -1.3); view2.gun.add(view2.flash);
   view2.fsp = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); view2.fsp.position.set(0.05, 0.03, -1.45); view2.gun.add(view2.fsp);
   if (view2.gun.userData.glb) { const z = -(view2.gun.userData.len * 0.68 + 0.04); view2.fsp.position.set(0, 0.02, z); view2.flash.position.set(0, 0.04, z + 0.05); }   // a Meshy gun: flash right at its muzzle
   for (const k of ['pistol', 'tool', 'healer', 'thr']) { if (view2[k]) camera.remove(view2[k]); view2[k] = null; }
-  const mk = (kind, x) => { const m = M.gunModel(kind, CLASSES[G.cls].color); m.scale.setScalar(0.55); m.position.set(x, -0.22, -0.45); m.visible = false; m.traverse(o => { o.castShadow = false; }); camera.add(m); return m; };
+  const mk = (kind, x) => { const m = M.gunModel(kind, CLASSES[G.cls].color); m.scale.setScalar(0.7); m.position.set(x, -0.22, -0.45); m.visible = false; m.traverse(o => { o.castShadow = false; }); camera.add(m); return m; };
   view2.pistol = mk('pistol', 0.2); view2.tool = mk(G.cls === 'engineer' ? 'torch' : 'welder', 0.18);   /* the Engineer's plasma welder, everyone else's welding laser */ view2.thr = M.throwModel(CLASSES[G.cls].throw.kind); view2.thr.position.set(0.22, -0.24, -0.5); view2.thr.visible = false; camera.add(view2.thr); if (view2.extra) camera.remove(view2.extra); view2.extra = null; if (CLASSES[G.cls].extra) { view2.extra = M.throwModel(CLASSES[G.cls].extra.kind); view2.extra.position.set(0.22, -0.24, -0.5); view2.extra.visible = false; camera.add(view2.extra); }
   if (view2.dress) camera.remove(view2.dress); view2.dress = new THREE.Group(); M.C(view2.dress, 0.05, 0.05, 0.07, 0xeeeae0, 0, 0, 0); M.C(view2.dress, 0.02, 0.02, 0.072, 0xb0aca0, 0, 0, 0); M.B(view2.dress, 0.06, 0.004, 0.09, 0xeeeae0, 0.03, -0.03, -0.04); M.B(view2.dress, 0.03, 0.03, 0.002, 0xd03030, 0, 0, 0.036); view2.dress.rotation.set(0.3, 0.4, 1.4); view2.dress.position.set(0.16, -0.2, -0.38); view2.dress.visible = false; camera.add(view2.dress);
   // your own marine's arms on each gun (the Meshy model); the old block glove and hand only when those aren't loaded
   view2.arms = M.AS.fpArms(G.cls, view2.gun, 'two'); if (view2.arms) view2.gun.add(view2.arms); else { const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); view2.gun.add(glove); }
   for (const k of ['pistol', 'tool']) { const a = view2[k] && M.AS.fpArms(G.cls, view2[k], 'one'); if (a) view2[k].add(a); }
-  if (view2.hand) camera.remove(view2.hand); view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); camera.add(view2.hand); if (view2.arms) { const la = M.AS.fpArms(G.cls, null, 'hand'); if (la) { for (const c of view2.hand.children) c.visible = false; view2.hand.add(la); } }   /* the old glove is swapped for your marine's own left arm; magazines it carries still show */ for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
+  if (view2.hand) camera.remove(view2.hand); view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); camera.add(view2.hand); if (view2.arms) view2.hand.visible = false;   /* the old glove is swapped for your marine's own left arm; magazines it carries still show */ for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
 }
 const ray = { o: new THREE.Vector3(), d: new THREE.Vector3() };
 function aimRay(spread = 0) {
@@ -524,6 +524,11 @@ function sphereHit(o, d, cx, cy, cz, r) { const ox = cx - o.x, oy = cy - o.y, oz
 function hitAliens(o, d, maxD) {
   const out = [];
   for (const v of (G.explore && G.ex ? G.ex.wild : view.aliens.values())) {
+    const mhb = v.mesh && v.mesh.userData.hb; if (mhb) { const hb = mhb; // a Meshy alien: a chain of spheres along its body, and its head at the front
+      const sc = v.mesh.scale.x, ry = v.mesh.rotation.y, ax = Math.sin(ry), az = Math.cos(ry), cx = v.x + ax * hb.cz * sc, cy = v.y + hb.cy * sc, cz = v.z + az * hb.cz * sc, rad = Math.max(0.35, Math.min(hb.wid, hb.hgt) * 0.42) * sc;
+      let bt = -1; for (const k of [-0.36, -0.12, 0.12, 0.36]) { const t = sphereHit(o, d, cx + ax * k * hb.len * sc, cy, cz + az * k * hb.len * sc, rad); if (t >= 0 && (bt < 0 || t < bt)) bt = t; }
+      const ht = sphereHit(o, d, cx - ax * 0.44 * hb.len * sc, cy + hb.hgt * 0.12 * sc, cz - az * 0.44 * hb.len * sc, rad * 0.7);
+      const okB = bt >= 0 && bt < maxD, okH = ht >= 0 && ht < maxD; if (okB || okH) out.push(okH && (!okB || ht <= bt + 0.5) ? { v, t: ht, head: true } : { v, t: bt, head: false }); continue; }
     const A = ALIENS[v.type], big = v.type === 'ravager' ? 1.7 : 1, body = sphereHit(o, d, v.x, v.y + (A.fly ? 0 : A.h * 0.6 * big), v.z, A.r * 1.15);
     const hd = HEAD[ALIENS[v.type].base || v.type]; let head = -1; if (hd) { const ry = v.mesh.rotation.y; head = sphereHit(o, d, v.x - Math.sin(ry) * hd[0] * big, v.y + hd[1] * big, v.z - Math.cos(ry) * hd[0] * big, hd[2] * big * 1.1); }
     const hb = body >= 0 && body < maxD, hh = head >= 0 && head < maxD; if (!hb && !hh) continue;
@@ -560,12 +565,12 @@ function shoot(st) {
     const m = new THREE.Group(); M.C(m, 0.1, 0.1, 0.7, 0xdddddd, 0, 0, 0).rotation.x = Math.PI / 2; M.S(m, 0.14, 0xffa040, 0, 0, 0.4, 1, 1, 1, { e: 0xff6000 }); m.position.set(...mz); scene.add(m); rk.mesh = m; me.rockets.push(rk);
     return;
   }
-  const mx = g.max, spr = (me.scope ? g.scoped : g.spread) * (me.ads ? 0.45 : 1) * (me.braced ? 0.2 : 1) * (myb.fortify > 0 ? 0.4 : 1) * (me.moving ? 1.6 : 1) * (me.prone ? 0.2 : me.kneel ? 0.4 : 1) * (1 + Math.min(1.5, me.heat * 0.09)) * (me.y > G.W.ground(me.x, me.z, me.y + 0.5) + 0.2 ? 2 : 1);
+  const mx = g.max, spr = (me.scope ? g.scoped : g.spread) * (me.ads ? 0.45 : 1) * (me.braced ? 0.2 : 1) * (myb.fortify > 0 ? 0.4 : 1) * (me.moving ? 1.6 : 1) * (me.prone ? 0.2 : me.kneel ? 0.4 : 1) * (g.pellets ? 1 : 0.4 + Math.min(g.spin ? 1.0 : 1.6, me.heat * 0.15)) * (me.y > G.W.ground(me.x, me.z, me.y + 0.5) + 0.2 ? 2 : 1);
   const col = G.cls === 'engineer' ? 0xffc070 : G.cls === 'sniper' ? 0x80f0ff : 0xffe080, oc = me.oc && G.cls === 'sniper'; me.oc = false; let hitAny = false, head = false, weak = false;
   for (let k = 0; k < (g.pellets || 1); k++) {
     const r = aimRay(spr), wall = G.W.T.ray(r.o, r.d, mx), list = hitAliens(r.o, r.d, Math.min(mx, wall)), n = g.pierce ? (oc ? 99 : g.pierce) : 1; let end;
     if (list.length) {
-      for (const q of list.slice(0, n)) { const fall = q.t <= g.near ? 1 : Math.max(0.3, 1 - 0.7 * (q.t - g.near) / (g.far - g.near)), hm = q.head ? (G.cls === 'sniper' ? 2.5 : 2) : 1, dd = +(st.dmg * fall * hm * (oc ? 4 : 1)).toFixed(1);
+      for (const q of list.slice(0, n)) { const fall = q.t <= g.near ? 1 : Math.max(0.6, 1 - 0.4 * (q.t - g.near) / (g.far - g.near)), hm = q.head ? (G.cls === 'sniper' ? 2.5 : 2) : 1, dd = +(st.dmg * PLAYER_DMG * fall * hm * (oc ? 4 : 1)).toFixed(1);   /* marines hit hard: turrets matter, but so do you */
         if (q.v.wild) G.ex.hurt(q.v, dd); else req({ a: 'hit', id: q.v.id, d: dd }); q.v.pop = Math.max(q.v.pop || 0, 0.08);
         if (me.airN > 0 && k === 0) { const hp0 = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; if (G.explore && G.ex) G.ex.splash(...hp0, 3, 45); else req({ a: 'boom', x: hp0[0], y: hp0[1], z: hp0[2], r: 3, d: 45 }); } const hp = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; bloodHit(hp, q.v, q.head); if (q.head) head = true; if (fall < 0.6) weak = true; hitAny = true; }
       const q0 = list[Math.min(list.length, n) - 1]; end = [r.o.x + r.d.x * q0.t, r.o.y + r.d.y * q0.t, r.o.z + r.d.z * q0.t];
@@ -577,6 +582,7 @@ function shoot(st) {
   G.stats.shots++; if (hitAny) G.stats.hits++;
   if (hitAny) { G.hitT = 0.12; G.hitWeak = weak && !head; G.hitHead = head; audio.sfx(head ? 'headshot' : 'hit', head ? 0.9 : 0.5); }
 }
+const PLAYER_DMG = 1.5;   // every marine's own gun
 function aimPoint(max) { const r = aimRay(0), t = Math.min(max, G.W.T.ray(r.o, r.d, max)); return [r.o.x + r.d.x * t, r.o.z + r.d.z * t]; }
 // slot 4: a frag or sticky charge is thrown here; health kits, ammo packs and claymores are placed by the host
 function throwItem(my) {
@@ -663,6 +669,7 @@ function animReload(me, gn, my, dt) {
   if (held) { const m = heldMesh(g, held === 3 ? 'rocket' : held === 4 ? 'shell' : 'mag'); m.visible = true; m.position.set(0, held === 3 ? -0.09 : -(m.userData.h / 2 + 0.03), held === 3 ? 0 : -0.01); m.rotation.set(0, held === 3 ? 0 : 0, 0); }
   // let go of the empty magazine once: it tumbles out of sight
   if (f >= 0.22 && f < 0.5 && !(me.rs & 64) && u.mag) { me.rs |= 64; const m = new THREE.Mesh(u.mag.geometry, u.mag.material); m.scale.setScalar(0.55); hd.updateMatrixWorld(); const w = new THREE.Vector3(0, -(magH / 2 + 0.03), -0.01); hd.localToWorld(w); camera.worldToLocal(w); m.position.copy(w); m.quaternion.copy(hd.quaternion); camera.add(m); view2.drops.push({ m, t: 0, vy: -0.5 }); }
+  if (view2.arms) hd.visible = false;   // both of your marine's hands stay on the gun; the reload is the gun tipping and jolting
 }
 function startReload(st, S) { const g = curGun(), me = G.me; if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.42; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
 function surface(me) {
@@ -682,9 +689,10 @@ function updateFootless() { const gn = view2.gun; if (gn) gn.visible = false; if
 // a new planet starts with the drop-pod film; the swarm waits until the squad is down, then the 5 s countdown runs
 function playDropIntro() {
   G.cine = true; document.body.classList.add('cine'); for (const c of camera.children) c.visible = false; if (G.sim) G.sim.timer = 9999;
-  const S0 = state(), squad = (S0 && S0.P.length ? S0.P : [{ cls: G.cls }]).map(p => ({ cls: p.cls, color: CLASSES[p.cls].color }));
+  const S0 = state(), squad = (S0 && S0.P.length ? S0.P : [{ id: G.myId, cls: G.cls }]).map(p => ({ id: p.id, cls: p.cls, color: CLASSES[p.cls].color }));
   dropIntro(H, squad, r => {
     G.cine = false; document.body.classList.remove('cine'); canvas.requestPointerLock();
+    G.barrage = { t: 32, next: 1.2, inc: [] };   // the fleet shells the hive while you land
     if (r.x !== undefined) { const my0 = mine(state()); if (my0) G.me.sp = my0.sp; G.me.x = r.x; G.me.z = r.z; G.me.y = G.W.top(r.x, r.z); G.me.vy = 0; G.me.yaw = r.yaw; G.me.pitch = 0; }
     // the marine from the pod becomes a real reinforcement as he steps out of the door
     if (G.sim) { G.sim.timer = 5; const P = G.W.path, sim = G.sim; setTimeout(() => { for (let i = 0; i < (r.marines || 0); i++) { const x = r.ax ?? P.at(P.len - 40).x, z = r.az ?? P.at(P.len - 40).z, s = P.near(x, z).s, q = P.at(s), A = ALLIES.trooper; sim.allies.push({ id: sim.nid++, type: 'trooper', s, lat: 0, x, y: G.W.top(x, z), z, hp: A.hp, mhp: A.hp, ry: Math.atan2(q.tx, q.tz), cd: 0, tg: 0 }); } }, (r.allyDelay || 0) * 1000); }
@@ -704,7 +712,7 @@ function startFob() {
   // hide the battle's live pieces; the scene brings its own queen and marines
   for (const c of camera.children) c.visible = false; if (view2.laser) view2.laser.visible = false;
   for (const m of [view.aliens, view.players, view.allies]) for (const v of m.values()) { (v.mesh || v).visible = false; if (v.bar) v.bar.visible = false; }
-  const S0 = state(), squad = (S0 && S0.P.length ? S0.P : [{ cls: G.cls }]).map(p => ({ cls: p.cls, color: CLASSES[p.cls].color }));
+  const S0 = state(), squad = (S0 && S0.P.length ? S0.P : [{ id: G.myId, cls: G.cls }]).map(p => ({ id: p.id, cls: p.cls, color: CLASSES[p.cls].color }));
   const swap = () => { clearWorld(); G.W = buildFOB(scene, G.map); G.explore = true; makeWeather(); applyQuality(); return G.W; };
   victoryScene(H, squad, swap, () => {
     G.cine = false; G.ex = new Explore(H); G.ex.setup(G.W);
@@ -826,7 +834,7 @@ function updateMe(dt, S) {
   camera.position.set(me.x + (Math.random() - 0.5) * sh, (my.dead ? 3.5 : 1.7 - me.kh * 0.75) + me.y + Math.sin(me.bob) * 0.05 + (Math.random() - 0.5) * sh, me.z);
   camera.rotation.set(me.pitch, me.yaw, 0, 'YXZ');
   // carrying a turret: the camera swings back over the shoulder so you can see where it's going
-  me.braced = G.cls === 'gunner' && S.T.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - me.x, t.z - me.z) < TURRETS.sandbag.range);
+  me.braced = G.cls === 'gunner' && (S.T.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - me.x, t.z - me.z) < TURRETS.sandbag.range) || (G.W.bags || []).some(b => Math.hypot(b.x - me.x, b.z - me.z) < 3.6));
   { // sniper nests are platforms you can stand on; E at the foot climbs up, E on top climbs down
     const T0 = G.W.T; T0.plats = T0.plats.filter(p => !p.nest || S.T.some(t => t.id === p.nest && !t.carry)); for (const t of S.T) if (t.kind === 'nest' && !t.carry && !(t.b > 0) && !T0.plats.some(p => p.nest === t.id)) T0.plats.push({ x: t.x, z: t.z, hw: 1.55, y: t.y + 5.4, nest: t.id });
     const nb = S.T.find(t => t.kind === 'nest' && !t.carry && !(t.b > 0) && Math.hypot(t.x - me.x, t.z - me.z) < 3);
@@ -943,6 +951,14 @@ function feel(dt, S, my) {
     ob.style.left = ((x + 1) * 50) + '%'; ob.style.top = ((1 - y) * 50) + '%'; setT('objT', `${home ? 'DEFEND THE HUB' : 'HIVE'} · ${Math.round(d)} m`); ob.classList.toggle('red', home); } }
   // aliens close by click and chitter now and then, so you hear them before you see them
   G.chitT = (G.chitT || 0) - dt; if (G.chitT <= 0) { G.chitT = 1.2 + Math.random() * 2.5; let best = null, bd = 26; for (const v of view.aliens.values()) { const d = Math.hypot(v.x - G.me.x, v.z - G.me.z); if (d < bd) { bd = d; best = v; } } if (best) audio.sfx(Math.random() < 0.25 ? 'screech' : 'chitter', vol(bd) * 0.45); }
+  // the landing barrage: for half a minute the fleet's guns pound the hive mountain; shells whistle in from the sky and burst round the cave mouth
+  { const B = G.barrage; if (B && B.fb) for (let i = B.fb.length - 1; i >= 0; i--) { const q = B.fb[i]; q.t += dt; const k = q.t / 0.9; q.m.scale.setScalar(4 + k * 16); q.m.position.y += dt * 6; q.m.material.opacity = Math.max(0, 1 - k); q.m.material.color.setHSL(0.07 - k * 0.05, 1, 0.55 - k * 0.3); if (k >= 1) { scene.remove(q.m); q.m.geometry.dispose(); q.m.material.dispose(); B.fb.splice(i, 1); } } }
+  const B = G.barrage; if (B && B.t > 0 && G.W && !G.cine) { B.t -= dt; B.next -= dt; const tg = G.W.cave || G.W.hiveP;
+    if (B.next <= 0 && tg) { B.next = 0.35 + Math.random() * 0.75; const a = Math.random() * 6.283, d = 6 + Math.random() * 38, x = tg.x + Math.cos(a) * d, z = tg.z + Math.sin(a) * d, y = G.W.top(x, z), from = [x + 30 + Math.random() * 30, y + 140, z - 20 + Math.random() * 40];
+      B.inc.push({ x, y, z, from, t: 0, T: 0.8 + Math.random() * 0.4 }); if (Math.random() < 0.5) audio.sfx('whistle', vol(dist(x, z)) * 0.9 + 0.12); }
+    for (let i = B.inc.length - 1; i >= 0; i--) { const s = B.inc[i]; s.t += dt; const f = Math.min(1, s.t / s.T), p = [s.from[0] + (s.x - s.from[0]) * f, s.from[1] + (s.y - s.from[1]) * f, s.from[2] + (s.z - s.from[2]) * f];
+      tracer([p[0] - (s.x - s.from[0]) * 0.04, p[1] - (s.y - s.from[1]) * 0.04, p[2] - (s.z - s.from[2]) * 0.04], p, 0xffc070, 0.03, 0.12);
+      if (f >= 1) { B.inc.splice(i, 1); boomFx(s.x, s.y + 0.5, s.z, 5 + Math.random() * 3); { const fb = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); fb.position.set(s.x, s.y + 3, s.z); scene.add(fb); B.fb = B.fb || []; B.fb.push({ m: fb, t: 0 }); }   /* a fireball big and bright enough to see through the haze from the pad */ flashAt([s.x, s.y + 3, s.z], 8); splat(s.x, s.z, 2.5); const dd = dist(s.x, s.z); audio.gun('boom', Math.max(0.15, vol(dd) * 1.2), 1.3, Math.min(0.85, dd / 160)); G.shake = Math.max(G.shake || 0, Math.max(0, 0.5 - dd / 260)); } } }
   // ambience: wind over the battlefield (stronger in storms)
   const amb = G.cine || G.station ? 0 : 0.6 + 0.6 * ((S && S.wx) || 0); if (Math.abs(amb - (G.ambL ?? -1)) > 0.04) { G.ambL = amb; audio.ambient(amb); }
 }

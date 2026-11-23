@@ -59,7 +59,7 @@ export class Sim {
       const sc = scrapCost(r.kind); if ((p.scrap || 0) < sc) return say(`Need ${sc} scrap for a ${T.name}. Run over the scrap piles around the wrecks.`);
       if (this.turrets.filter(t => t.owner === id).length >= MAX_TURRETS) return say(`You can have ${MAX_TURRETS} at once. Sell one (Y) first.`);
       const err = this.dropError(r.x, r.z); if (err) return say(err);
-      p.kits = (p.kits ?? KITS) - 1; p.scrap -= sc; const t = { id: this.nid++, kind: r.kind, owner: id, x: r.x, z: r.z, ry: r.ry || 0, lvl: 1, hp: T.hp, mhp: T.hp, cd: 0, tg: 0, spent: T.cost, ch: T.charges || T.uses || 0, y: this.W.top(r.x, r.z), b: BUILD[r.kind], bt: BUILD[r.kind], fresh: true };
+      p.kits = (p.kits ?? KITS) - 1; p.scrap -= sc; const t = { id: this.nid++, kind: r.kind, owner: id, x: r.x, z: r.z, ry: r.ry || 0, lvl: 1, hp: T.hp, mhp: T.hp, cd: 0, tg: 0, spent: T.cost, ch: T.charges || T.uses || 0, y: this.W.top(r.x, r.z), b: BUILD[r.kind] || 0, bt: BUILD[r.kind] || 0, fresh: true };   /* kinds without a build time (the sandbag bunker) go up at once */
       if (T.ball && r.thrown) { this.settle(t); } else { this.stow(p); t.carry = id; this.settle(t); }
       this.turrets.push(t); this.emit({ k: 'placed', x: t.x, z: t.z, by: id });
     } else if (r.a === 'upg') {
@@ -174,7 +174,7 @@ export class Sim {
   }
   closest(list, a, r, dy = 99) { let best = null, bd = r; for (const q of list) { if (q.dead) continue; const d = Math.hypot(q.x - a.x, q.z - a.z); if (d < bd && Math.abs((q.y || 0) - a.y) < dy + 3) { bd = d; best = q; } } return best; }
   aggro(a, k, id, time) { a.mode = 'hunt'; a.tk = k; a.tid = id; a.ht = time ? (ALIENS[a.type].hunt || {}).time || 8 : (ALIENS[a.type].hunt || {}).time || 8; this.emit({ k: 'aggro', x: a.x, z: a.z, to: k === 'p' ? id : '', t: a.type }); }
-  inSandbags(x, z) { return this.turrets.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - x, t.z - z) < TURRETS.sandbag.range); }
+  inSandbags(x, z) { return this.turrets.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - x, t.z - z) < TURRETS.sandbag.range) || (this.W.bags || []).some(b => Math.hypot(b.x - x, b.z - z) < 3.6); }   // a built bunker, or any sandbag wall on the map
   hurtPlayer(p, d, by) {
     if (p.dead) return; if (this.inSandbags(p.x, p.z)) d *= 0.5; for (const dm of this.domes) if (Math.hypot(p.x - dm.x, p.z - dm.z) < dm.r) return; for (const q of this.players.values()) if (q !== p && !q.dead && q.cls === 'heavy' && Math.hypot(q.x - p.x, q.z - p.z) < 12) { d *= 0.8; break; } p.hp -= d * (p.buf.iron > 0 ? 0.4 : 1) * (p.buf.nano > 0 ? 0.6 : 1); if (by) this.emit({ k: 'hitp', to: p.id, x: +by.x.toFixed(1), z: +by.z.toFixed(1) });
     if (p.hp <= 0) { p.hp = 0; p.dead = true; p.rt = 7; this.emit({ k: 'toast', m: p.name + ' is down! Back in 7 seconds.' }); }

@@ -359,7 +359,7 @@ function podInterior() { // a dim cabin: six seats, big windows on both sides, a
   const rim = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.05, 6, 24), trim); rim.rotation.x = Math.PI / 2; rim.position.y = 3.92; g.add(rim);
   const sky = new THREE.Mesh(new THREE.CircleGeometry(0.7, 24), glass); sky.rotation.x = Math.PI / 2; sky.position.y = 3.96; g.add(sky);
   const seatM = M.AS.fitGLB('p_seat', 'h', 1.25, false);
-  for (const i of [4, 10, 14]) { const a = i / 16 * 6.283; if (seatM) { const sm = M.AS.fitGLB('p_seat', 'h', 1.25, false); sm.position.set(Math.cos(a) * 1.5, 0.35, Math.sin(a) * 1.5); sm.lookAt(0, 0.35, 0); g.add(sm); continue; } B(g, 0.6, 0.12, 0.5, seat, Math.cos(a) * 1.35, 1.0, Math.sin(a) * 1.35).rotation.y = -a; B(g, 0.6, 0.9, 0.12, seat, Math.cos(a) * 1.62, 1.5, Math.sin(a) * 1.62).rotation.y = -a + Math.PI / 2; }
+  for (const i of [2, 4, 6, 10, 14]) { const a = i / 16 * 6.283; if (seatM) { const sm = M.AS.fitGLB('p_seat', 'h', 1.25, false); sm.position.set(Math.cos(a) * 1.5, 0.35, Math.sin(a) * 1.5); sm.lookAt(0, 0.35, 0); g.add(sm); continue; } B(g, 0.6, 0.12, 0.5, seat, Math.cos(a) * 1.35, 1.0, Math.sin(a) * 1.35).rotation.y = -a; B(g, 0.6, 0.9, 0.12, seat, Math.cos(a) * 1.62, 1.5, Math.sin(a) * 1.62).rotation.y = -a + Math.PI / 2; }
   const L = new THREE.PointLight(0xff3020, 6, 6); L.position.set(0, 3.5, 0); g.add(L); const L2 = new THREE.PointLight(0x80c0ff, 2, 5); L2.position.set(0, 1.5, 0); g.add(L2);
   g.userData = { doorG, strobe, red: L, blue: L2 };
   return g;
@@ -400,14 +400,19 @@ export function dropIntro(H, squad, done) {
   // ---- your pod (you only see its cabin from inside) and four more pods dropping beside you, in view of the windows
   const pod = add(dropPod(0xd09030)), cabin = podInterior(); pod.add(cabin); const { red, blue, strobe, doorG } = cabin.userData, fl = pod.userData.flame;
   const shell = pod.children.filter(o => o !== cabin && o !== fl && o !== pod.userData.heat); for (const o of shell) o.visible = false;
+  const hinge = new THREE.Group(); hinge.position.set(0, 0.3, -1.82); cabin.add(hinge);   // the door's bottom hinge
   const orange = new THREE.PointLight(0xff7020, 0, 7); orange.position.set(0, 2.4, 0); cabin.add(orange); const day = new THREE.PointLight(0xfff0d0, 0, 10); day.position.set(0, 1.8, -1.6); cabin.add(day);
   // sit a posed marine down: move it so its hips rest on the cushion of the seat at angle a (cushion top is 1.06 up, 1.35 out)
   const seatOn = (m, a) => { cabin.updateMatrixWorld(true); const hp = m.userData.root.getObjectByName('Hips'); if (!hp) return; const w = cabin.worldToLocal(hp.getWorldPosition(new THREE.Vector3())); m.position.x += Math.cos(a) * 1.3 - w.x; m.position.z += Math.sin(a) * 1.3 - w.z; m.position.y += (M.AS.A.p_seat ? 1.02 : 1.2) - w.y; };
   const crew = [], seatsA = [10, 14].map(i => i / 16 * 6.283);   /* across from you by the door, windows clear */   /* beside you and by the door, so the windows stay clear */
-  [{ cls: 'assault', color: 0xd8d8d8, cmd: 1 }, { cls: 'gunner', color: 0x5a7a4a }].forEach((r, i) => { const m = M.marine(r.color, r.cls), a = seatsA[i]; m.scale.setScalar(0.88); m.position.set(Math.cos(a) * 1.3, -0.05, Math.sin(a) * 1.25); m.lookAt(0, -0.05, 0); m.rotateY(Math.PI); m.userData.legL.rotation.x = m.userData.legR.rotation.x = -1.45; cabin.add(m); if (m.userData.glb) { M.kneel(m, 2); seatOn(m, a); } crew.push({ m, a, cmd: r.cmd }); });   /* lookAt points the back at the middle, so turn them round to face in */
+  // the squad: up to 4 marines share this pod, each in their own seat (every player's game seats everyone the same way, by id)
+  const order = (squad && squad.length ? squad : [{ id: G.myId, cls: G.cls }]).slice().sort((p, q) => String(p.id).localeCompare(String(q.id))).slice(0, 4), PS = [4, 2, 6, 14].map(i => i / 16 * 6.283);
+  const myK = Math.max(0, order.findIndex(p => p.id === G.myId)), myA = PS[myK], mates = [];
+  order.forEach((p, k) => { if (k === myK) return; const m = M.marine(0, p.cls); if (!m.userData.glb) return; const a = PS[k]; m.scale.setScalar(0.88); m.position.set(Math.cos(a) * 0.95, 0.25, Math.sin(a) * 0.95); m.lookAt(0, 0.25, 0); m.rotateY(Math.PI); cabin.add(m); M.kneel(m, 2); seatOn(m, a); mates.push(m); });
+  [{ cls: 'assault', color: 0xd8d8d8, cmd: 1 }, ...(order.length < 4 ? [{ cls: 'gunner', color: 0x5a7a4a }] : [])].forEach((r, i) => { const m = M.marine(r.color, r.cls), a = seatsA[i]; m.scale.setScalar(0.88); m.position.set(Math.cos(a) * 1.3, -0.05, Math.sin(a) * 1.25); m.lookAt(0, -0.05, 0); m.rotateY(Math.PI); m.userData.legL.rotation.x = m.userData.legR.rotation.x = -1.45; cabin.add(m); if (m.userData.glb) { M.kneel(m, 2); seatOn(m, a); } crew.push({ m, a, cmd: r.cmd }); });   /* lookAt points the back at the middle, so turn them round to face in */
   // you: strapped into your own seat, in your class's armour (head hidden, since you're looking out of it)
   const eyeL = V(0, 1.62, 1.22);   // your eyes, in the pod's space (moved to your seated body's head below)
-  const meBody = M.marine(0, G.cls || 'assault'); if (meBody.userData.glb) { const a = Math.PI / 2; meBody.scale.setScalar(0.88); meBody.position.set(Math.cos(a) * 0.95, 0.25, Math.sin(a) * 0.95); meBody.lookAt(0, 0.25, 0); meBody.rotateY(Math.PI); M.kneel(meBody, 2); const hd = meBody.userData.root.getObjectByName('Head'); if (hd) hd.scale.setScalar(0.001); cabin.add(meBody); seatOn(meBody, a); cabin.updateMatrixWorld(true); const hb = meBody.userData.root.getObjectByName('Head'); if (hb) { eyeL.copy(cabin.worldToLocal(hb.getWorldPosition(new THREE.Vector3()))); eyeL.y += 0.08; eyeL.z -= 0.06; } }
+  const meBody = M.marine(0, G.cls || 'assault'); if (meBody.userData.glb) { const a = myA; meBody.scale.setScalar(0.88); meBody.position.set(Math.cos(a) * 0.95, 0.25, Math.sin(a) * 0.95); meBody.lookAt(0, 0.25, 0); meBody.rotateY(Math.PI); M.kneel(meBody, 2); const hd = meBody.userData.root.getObjectByName('Head'); if (hd) hd.scale.setScalar(0.001); cabin.add(meBody); seatOn(meBody, a); cabin.updateMatrixWorld(true); const hb = meBody.userData.root.getObjectByName('Head'); if (hb) { eyeL.copy(cabin.worldToLocal(hb.getWorldPosition(new THREE.Vector3()))); eyeL.y += 0.08; eyeL.x -= Math.cos(myA) * 0.06; eyeL.z -= Math.sin(myA) * 0.06; } }
   for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2, b = B(st, 1.2, 14, 1.2, darkM, 0, -19, 0), o = rot(Math.cos(a) * 2.7, Math.sin(a) * 2.7); b.position.set(o.x, -19, o.z); }   /* clamps on the diagonals, clear of the windows */
   const wing = [[-13, -4, 0.35], [14, 3, 0.6], [-15, 9, 0.9], [12, -10, 1.2]].map(([x, z, dl], i) => { const m = add(dropPod([0x30a0d0, 0xd04030, 0x80c040, 0xc0c0c0][i])); const o = rot(x, z); m.rotation.y = doorYaw + i; return { m, o, dl, sx: Math.sign(x) }; });
   for (const w of wing) for (const o of [-1, 1]) { const b = B(st, 1.2, 14, 1.2, darkM, 0, -19, 0); b.position.set(w.o.x + o * 2.4, -19, w.o.z); }
@@ -417,22 +422,22 @@ export function dropIntro(H, squad, done) {
   const cloudM = new THREE.MeshLambertMaterial({ color: 0xe8ecf2, transparent: true, opacity: 0.6, depthWrite: false }), cloudG = new THREE.IcosahedronGeometry(1, 1), clouds = [];
   const fogC = new THREE.Color(0xdde3ea), cloudFog = new THREE.Fog(fogC.clone(), 0.5, 16);
   const yAt = t => t < 7 ? SY + 2 : t < 13 ? SY + 2 - ((t - 7) / 6) ** 2 * 160 - (t - 7) / 6 * 10 : t < 22 ? L(SY - 168, 900, (t - 13) / 9) : t < 29 ? padY + 0.6 + (900 - padY - 0.6) * (1 - (t - 22) / 7) ** 2.6 : padY + 0.6;
-  pod.rotation.y = doorYaw; pod.position.set(padX, SY + 2, padZ); G.me.yaw = 0; G.me.pitch = -0.05;   /* your look is relative to the pod: 0 faces the door */
+  pod.rotation.y = doorYaw; pod.position.set(padX, SY + 2, padZ); G.me.yaw = Math.atan2(Math.cos(myA), Math.sin(myA)); G.me.pitch = -0.05;   /* your look is relative to the pod: 0 faces the door */
   const T0 = 12;   // seconds of the opening shot of the station before you're strapped in
   if (MU && MU.dropScore) MU.dropScore(T0);
-  const t0 = performance.now(); let last = t0, said = {}, shakeK = 0, prevAlt = 0, spd = 0, flyDoor = 0, handed = false; H.fade(false);
+  const t0 = performance.now(); let last = t0, said = {}, shakeK = 0, prevAlt = 0, spd = 0, flyDoor = 0, handed = false, podOut = false, crewParked = false; H.fade(false);
   const once = (k, f) => { if (!said[k]) { said[k] = 1; f(); } };
   // the landing is over: keep the pod (walls, seats, the crew) as a real place on the pad, give you control at your seat, and walk the others out
   const handoff = () => {
     for (const o of [space, st, ...wing.map(w => w.m)]) scene.remove(o); for (const s of streaks) pod.remove(s); for (const c of clouds) scene.remove(c);
-    pod.position.set(padX, padY - 0.3, padZ); pod.rotation.set(0, doorYaw, 0); W.group.attach(pod); W.group.attach(pad); for (const o of shell) o.visible = true; fl.material.opacity = 0; pod.userData.heat.material.opacity = 0;
-    if (meBody.parent) meBody.parent.remove(meBody);
+    pod.position.set(padX, padY - 0.3, padZ); pod.rotation.set(0, doorYaw, 0); W.group.attach(pod); W.group.attach(pad); for (const o of shell) o.visible = false;   /* the outer hull clips into the cabin: it only shows while you're outside */ fl.material.opacity = 0; pod.userData.heat.material.opacity = 0;
+    if (meBody.parent) meBody.parent.remove(meBody); for (const m of mates) cabin.remove(m);
     red.intensity = 3; blue.intensity = 1.2; strobe.emissiveIntensity = 1.5;   // emergency lighting stays on in the landed pod
     // the pod's wall: a ring of small posts you can't walk through, open where the door was (straight ahead of your seat)
     pod.updateMatrixWorld(true); for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, rel = Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2)); if (Math.abs(rel) < 0.55) continue; const p = pod.localToWorld(V(Math.cos(a) * 1.95, 0, Math.sin(a) * 1.95)); W.colliders.push({ x: p.x, z: p.z, r: 0.42, h: 4.5, gy: padY }); }
     W.group.visible = true; scene.background = bg0; scene.fog = fog0; G.cineFog = false; heat.remove(); hud.remove(); document.body.classList.remove('pov'); A.rumble(0); if (MU && MU.endScore) MU.endScore();
     cap('', 'Vance: Marines, move out! Get to that hive! I\'ll run things from the hub.');
-    const me = pod.localToWorld(V(0, 0, 0.6)), door = pod.localToWorld(V(0, 0, -3.4));
+    const me = pod.localToWorld(V(Math.cos(myA) * 0.75, 0, Math.sin(myA) * 0.75)), door = pod.localToWorld(V(0, 0, -3.4));
     done({ marines: crew.filter(c => !c.cmd).length, x: me.x, z: me.z, yaw: G.me.yaw + doorYaw, ax: door.x, az: door.z, allyDelay: 2.2 });
   };
   const step = () => {
@@ -491,9 +496,9 @@ export function dropIntro(H, squad, done) {
       if (burn && y - padY < 40 && Math.random() < 0.7) H.burst(padX + (Math.random() - 0.5) * 16, padY + 0.3, padZ + (Math.random() - 0.5) * 16, 0xb09878, 2, 6, 1);
     } else { // impact, then the door blows off and the squad pours out
       const u = t - 29;
-      once('i', () => { fl.material.opacity = 0; A.sfx('boom', 0.45); H.boomFx(padX, padY + 0.5, padZ, 5, 1); shakeK = 2.8; red.intensity = 0; blue.intensity = 0; strobe.emissiveIntensity = 0; for (let k = 0; k < 30; k++) H.burst(padX + (Math.random() - 0.5) * 12, padY + 0.3, padZ + (Math.random() - 0.5) * 12, 0xb09878, 2, 5, 1.2); cap('', 'Vance: We\'re down! Door! Door!'); for (const c of clouds) scene.remove(c); clouds.length = 0; scene.fog = fog0; scene.background = bg0; G.cineFog = false; });
-      if (u > 1.4) once('j', () => { A.sfx('boom', 0.5); flyDoor = 1; day.intensity = 8; heat.style.opacity = 0; for (let k = 0; k < 14; k++) { const w = pod.localToWorld(V(0, 1.4, -2.6)); H.burst(w.x, w.y, w.z, 0xd0c0a0, 3, 4, 1); } });
-      if (flyDoor) { const k = u - 1.4; doorG.position.set(0, Math.max(-0.3, k * 2.5 - k * k * 5), -k * 9); doorG.rotation.x = -k * 2.2; if (k > 1.4) doorG.visible = false; }
+      once('i', () => { fl.material.opacity = 0; A.sfx('boom', 0.45); H.boomFx(padX, padY + 0.5, padZ, 5, 1); shakeK = 2.8; red.intensity = 0; blue.intensity = 0; strobe.emissiveIntensity = 0; for (let k = 0; k < 30; k++) H.burst(padX + (Math.random() - 0.5) * 12, padY + 0.3, padZ + (Math.random() - 0.5) * 12, 0xb09878, 2, 5, 1.2); cap('', 'Vance: We\'re down! Door! Door!'); if (MU && MU.land) MU.land();   /* touchdown: guitars */ for (const c of clouds) scene.remove(c); clouds.length = 0; scene.fog = fog0; scene.background = bg0; G.cineFog = false; });
+      if (u > 1.4) once('j', () => { A.sfx('boom', 0.5); A.sfx('place', 1); flyDoor = 1; hinge.attach(doorG); day.intensity = 8; heat.style.opacity = 0; for (let k = 0; k < 14; k++) { const w = pod.localToWorld(V(0, 1.4, -2.6)); H.burst(w.x, w.y, w.z, 0xd0c0a0, 3, 4, 1); } });
+      if (flyDoor) { const k = Math.min(1, (u - 1.4) / 0.55); hinge.rotation.x = -1.48 * k * k + (k >= 1 ? Math.sin(Math.min(1, (u - 1.95) / 0.4) * Math.PI) * 0.06 : 0); }   // the door falls open outward and lands as a ramp
       rum = Math.max(0, 0.3 - u * 0.15); shake = u < 1 ? 0.5 : 0.02;
       crew.forEach((c, i) => { const k = u - 2.2 - (c.cmd ? 2.6 : i * 0.6); const m = c.m; if (k < 0) return;
         if (!c.out) { m.userData.legL.rotation.x = m.userData.legR.rotation.x = 0; m.userData.sit = 0; m.position.y = 0.3; const f = Math.min(1, k / 0.8), sx = Math.cos(c.a) * 1.25, sz = Math.sin(c.a) * 1.25; m.position.x = L(sx, 0, f); m.position.z = L(sz, -1.7, f); m.rotation.y = Math.atan2(-(0 - sx), -(-1.7 - sz)); M.animMarine(m, k * 10, 5); if (f >= 1) { c.out = true; const w = pod.localToWorld(V(0, 0, -2.4)); cabin.remove(m); m.scale.setScalar(1); add(m); m.position.set(w.x, padY, w.z); c.k0 = k; if (!c.cmd) { scene.remove(m); c.gone = true; } } }
@@ -502,7 +507,7 @@ export function dropIntro(H, squad, done) {
       // the door's gone: you're in control from here, standing in the pod; walk out yourself
       if (u > 1.7 && !handed) { handed = true; handoff(); }
     }
-    if (handed) { if (t - 29 > 16) { for (const c of crew) if (c.cmd && c.m.parent) W.group.attach(c.m); return; } requestAnimationFrame(step); return; }   // after the hand-off this loop only walks the commander to the hub
+    if (handed) { if (G.W !== W) return; const din = Math.hypot(G.me.x - padX, G.me.z - padZ), out = din > 3.3; if (out !== podOut) { podOut = out; for (const o of shell) o.visible = out; } if (t - 29 > 16 && !crewParked) { crewParked = true; for (const c of crew) if (c.cmd && c.m.parent) W.group.attach(c.m); } requestAnimationFrame(step); return; }   // after the hand-off: walk the commander in, and swap the pod's hull on and off as you leave or step back inside   // after the hand-off this loop only walks the commander to the hub
     streakM.opacity = streakO; if (streakO > 0) for (const s of streaks) { s.position.y += dt * 45; if (s.position.y > 9) s.position.y -= 15; }
     // helmet readout
     const alt = y < 900 ? (y - padY) * 8 : 7200 + (y - 900) * 75; spd = L(spd, Math.abs(prevAlt - alt) / Math.max(dt, 0.001), 0.1); prevAlt = alt;

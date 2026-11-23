@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Record: Mike P Warning</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b1218;--panel:#121c25;--line:#24384a;--txt:#d8eef8;--dim:#7d98a8;--acc:#5fd8ff;--rec:#ff4040;--ok:#60ff90}
+body{margin:0;background:var(--bg);color:var(--txt);font:500 17px 'Chakra Petch',system-ui,sans-serif}
+main{max-width:640px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:22px;letter-spacing:.08em;margin:0 0 6px}p{color:var(--dim);line-height:1.45;margin:6px 0 16px}
+.card{background:var(--panel);border:1px solid var(--line);padding:18px;margin:14px 0}
+.who{font-size:12px;letter-spacing:.16em;color:var(--acc);text-transform:uppercase}.txt{font-size:24px;line-height:1.3;margin-top:6px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+button{font:700 16px 'Chakra Petch',sans-serif;background:#16242f;color:var(--txt);border:1px solid var(--line);padding:11px 18px;cursor:pointer}
+button:hover{border-color:var(--acc)}button.rec{background:#3a1010;border-color:var(--rec)}button.go{background:#103a24;border-color:var(--ok)}button:disabled{opacity:.4;cursor:default}
+.meter{height:8px;background:#1a2a36;flex:1;min-width:120px}.meter i{display:block;height:100%;width:0;background:var(--ok)}
+#st{color:var(--dim);font-size:15px;margin-top:10px}
+</style></head>
+<body><main>
+<h1>OWFR · ONE LINE TO RECORD</h1>
+<p>Shout it like the pod just slammed into the ground. The game adds the radio crackle and the voice change itself.</p>
+<div class="card"><div class="who">Commander Vance · as the pod hits the ground</div><div class="txt">"Heads up, marines! Be aware of the gay alien named Mike P!"</div></div>
+<div class="row"><button id="mic">1. Allow microphone</button><div class="meter"><i id="lvl"></i></div></div>
+<div class="row"><button id="rec" disabled>● Record</button><button id="play" disabled>▶ Play it back</button><button id="dl" class="go" disabled>⬇ Download</button></div>
+<div id="st">Press "Allow microphone" first.</div>
+</main>
+<script>
+const $ = id => document.getElementById(id); let stream, mr, chunks = [], blob = null;
+const ext = t => /ogg/.test(t) ? 'ogg' : /mp4|aac|m4a/.test(t) ? 'm4a' : 'webm';
+$('mic').onclick = async () => {
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } }); } catch (e) { $('st').textContent = 'No microphone access: allow it in your browser and try again.'; return; }
+  $('mic').textContent = 'Microphone ready'; $('mic').disabled = true; $('rec').disabled = false; $('st').textContent = 'Press Record, say the line, press Stop.';
+  const ac = new AudioContext(), an = ac.createAnalyser(); an.fftSize = 512; ac.createMediaStreamSource(stream).connect(an); const d = new Uint8Array(512);
+  (function m() { an.getByteTimeDomainData(d); let pk = 0; for (const x of d) pk = Math.max(pk, Math.abs(x - 128)); $('lvl').style.width = Math.min(100, pk / 1.28) + '%'; requestAnimationFrame(m); })();
+};
+$('rec').onclick = () => {
+  if (mr && mr.state === 'recording') { mr.stop(); return; }
+  chunks = []; mr = new MediaRecorder(stream); mr.ondataavailable = e => e.data.size && chunks.push(e.data);
+  mr.onstop = () => { blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' }); $('rec').textContent = '● Record again'; $('rec').classList.remove('rec'); $('play').disabled = $('dl').disabled = false; $('st').textContent = 'Got it. Play it back, record again if you like, then Download and send me the file.'; };
+  mr.start(); $('rec').textContent = '■ Stop'; $('rec').classList.add('rec'); $('st').textContent = 'Recording... say the line, then press Stop.';
+};
+$('play').onclick = () => blob && new Audio(URL.createObjectURL(blob)).play();
+$('dl').onclick = () => { if (!blob) return; const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'vance_mikep.' + ext(blob.type); a.click(); };
+</script></body></html>

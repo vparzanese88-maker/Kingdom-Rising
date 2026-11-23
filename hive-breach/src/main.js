@@ -545,12 +545,13 @@ function newMe() {
   if (view2.dress) camera.remove(view2.dress); view2.dress = new THREE.Group(); M.C(view2.dress, 0.05, 0.05, 0.07, 0xeeeae0, 0, 0, 0); M.C(view2.dress, 0.02, 0.02, 0.072, 0xb0aca0, 0, 0, 0); M.B(view2.dress, 0.06, 0.004, 0.09, 0xeeeae0, 0.03, -0.03, -0.04); M.B(view2.dress, 0.03, 0.03, 0.002, 0xd03030, 0, 0, 0.036); view2.dress.rotation.set(0.3, 0.4, 1.4); view2.dress.position.set(0.16, -0.2, -0.38); view2.dress.visible = false; camera.add(view2.dress);
   // your own marine's arms on each gun (the Meshy model); the old block glove and hand only when those aren't loaded
   // rifles: the magazine is cut out of the Meshy gun so the left hand can really swap it; the rocket and shotgun are fed by hand too
-  const magCut = { assault: 1, medic: 1, sniper: 1 }[G.cls] && M.AS.splitMag(view2.gun, G.cls); M.AS.splitMag(view2.pistol, 'pistol');
-  view2.oneHand = !!(magCut || (view2.gun.userData.glb && (G.cls === 'heavy' || G.cls === 'engineer')));
+  const NEW_RELOAD = /[?&]reload2/.test(location.search);   /* the hand-and-magazine reload is still being finished: on only with ?reload2 */
+  const magCut = NEW_RELOAD && { assault: 1, medic: 1, sniper: 1 }[G.cls] && M.AS.splitMag(view2.gun, G.cls); if (NEW_RELOAD) M.AS.splitMag(view2.pistol, 'pistol');
+  view2.oneHand = !!(NEW_RELOAD && (magCut || (view2.gun.userData.glb && (G.cls === 'heavy' || G.cls === 'engineer'))));
   view2.arms = M.AS.fpArms(G.cls, view2.gun, view2.oneHand ? 'one' : 'two'); if (!view2.arms) view2.oneHand = false; if (view2.arms) view2.gun.add(view2.arms); else { const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); view2.gun.add(glove); }
   for (const k of ['pistol', 'tool']) { const a = view2[k] && M.AS.fpArms(G.cls, view2[k], 'one'); if (a) view2[k].add(a); }
   if (view2.thr) { for (const c of view2.thr.children) c.scale.multiplyScalar(1.8); const a = M.AS.fpArms(G.cls, view2.thr, 'one', [new THREE.Vector3(0.07, -0.3, 0.32), new THREE.Vector3(0.01, -0.07, 0.05)]); if (a) view2.thr.add(a); }   // your glove round the grenade
-  if (view2.hand) camera.remove(view2.hand); { const lh = view2.arms && M.AS.fpArms(G.cls, null, 'hand'); if (lh) { view2.hand = new THREE.Group(); view2.hand.add(lh); view2.hand.scale.setScalar(0.48); view2.hand.userData.glb = true; } else { view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); } } camera.add(view2.hand); if (view2.arms && !view2.oneHand) view2.hand.visible = false;   /* your marine's own left forearm and glove; it does the reload */   /* the old glove is swapped for your marine's own left arm; magazines it carries still show */ for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
+  if (view2.hand) camera.remove(view2.hand); { const lh = view2.oneHand && M.AS.fpArms(G.cls, null, 'hand'); if (lh) { view2.hand = new THREE.Group(); view2.hand.add(lh); view2.hand.scale.setScalar(0.48); view2.hand.userData.glb = true; } else { view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); } } camera.add(view2.hand); if (view2.arms && !view2.oneHand) view2.hand.visible = false;   /* your marine's own left forearm and glove; it does the reload */   /* the old glove is swapped for your marine's own left arm; magazines it carries still show */ for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
 }
 const ray = { o: new THREE.Vector3(), d: new THREE.Vector3() };
 function aimRay(spread = 0) {
@@ -711,7 +712,7 @@ function animReload(me, gn, my, dt) {
   if (held) { const m = heldMesh(g, held === 3 ? 'rocket' : held === 4 ? 'shell' : 'mag'); m.visible = true; m.position.set(0, held === 3 ? -0.09 : -(m.userData.h / 2 + 0.03), held === 3 ? 0 : -0.01); m.rotation.set(0, held === 3 ? 0 : 0, 0); }
   // let go of the empty magazine once: it tumbles out of sight
   if (f >= 0.22 && f < 0.5 && !(me.rs & 64) && u.mag) { me.rs |= 64; const m = u.mag.isGroup ? u.mag.clone() : new THREE.Mesh(u.mag.geometry, u.mag.material); m.scale.setScalar(u.mag.isGroup ? g.scale.x : 0.55); hd.updateMatrixWorld(); const w = new THREE.Vector3(0, -(magH / 2 + 0.03), -0.01); hd.localToWorld(w); camera.worldToLocal(w); m.position.copy(w); m.quaternion.copy(hd.quaternion); camera.add(m); view2.drops.push({ m, t: 0, vy: -0.5 }); }
-  if (view2.arms && !view2.oneHand && !pistol) hd.visible = false;   // a two-handed Meshy gun (the minigun): both hands stay on it; the reload is the gun tipping and jolting
+  if (view2.arms && !view2.oneHand) hd.visible = false;   // a two-handed Meshy gun (the minigun): both hands stay on it; the reload is the gun tipping and jolting
 }
 function startReload(st, S) { const g = curGun(), me = G.me; if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.42; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
 function surface(me) {

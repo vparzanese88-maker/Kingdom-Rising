@@ -11,8 +11,11 @@ export const KITS = 2;   // turret kits a marine can carry; more are picked up i
 export const pwMax = cls => cls === 'engineer' ? 160 : 100;
 export const DRESS = 2;
 // scrap: piles everywhere, picked up just by running over them; welded upgrades cost scrap
-export const SCRAP_COST = [0, 15, 30], SCRAP_PILES = 150;   // field dressings: a little health back out in the field
+export const SCRAP_COST = [0, 15, 30], SCRAP_PILES = 0;   /* no loose scrap: it is cut out of wrecks with the welder */   // field dressings: a little health back out in the field
 export const BUILD = { teleporter: 3, pulse: 4,  ammocache: 2,  resupply: 5, uav: 1,  minigun: 4, tesla: 5, missile: 6, barricade: 3, repair: 4, stasis: 3, flamer: 4, railgun: 6, mines: 2, beacon: 3, mortar: 5, medbay: 4 };
+// the commander's upgrade list: [threat level it arrives by, what it is]; kills pay for each one early
+const CMD_PLAN = [[3, 'rate'], [4, 'gunner'], [5, 'pulsesynth'], [6, 'size'], [7, 'medic'], [8, 'rocketeer'], [9, 'flamesynth'], [10, 'rate'], [11, 'mech'], [12, 'size'], [13, 'rate'], [15, 'size'], [16, 'rate'], [18, 'rate']];
+const cmdCost = i => 90 + i * 45;   // war funds (alien bounties) for the next step
 export function pickSpecial() { const e = Object.entries(SPECIALS), tot = e.reduce((a, [, v]) => a + v.w, 0); let r = Math.random() * tot; for (const [k, v] of e) { r -= v.w; if (r <= 0) return k; } return 'stim'; }
 export const LEVEL_T = 60, DROP_FALL = 9, DROP_LIFE = 60;
 export const START_GOLD = 350, FIRST_COUNT = 5, NEXT_COUNT = 25;
@@ -26,9 +29,9 @@ export class Sim {
     this.W = W; this.path = W.path; this.emit = emit; this.players = new Map(); this.reset();
   }
   reset() { TECH.k = 1; this.hubSaid = {}; this.cmdA = 120; this.cmdD = 150; this.dropN = 0;
-    this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.items = []; this.pools = []; this.tm = []; this.drones = []; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = []; this.stormT = 0; this.stormI = 0; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0] }; this.spawnHive(1);
+    this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.items = []; this.pools = []; this.tm = []; this.drones = []; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = []; this.stormT = 0; this.stormI = 0; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0], step: 0, fund: 0 }; this.spawnHive(1);
     for (const p of this.players.values()) this.resetPlayer(p);
-    this.scrap = []; this.scrapT = 0; for (let i = 0; i < SCRAP_PILES; i++) this.spawnScrap();   // after the id counter is set
+    this.scrap = []; this.scrapT = 0; this.salv = (this.W.salvage || []).map(w => w.amt);   // scrap left in each wreck
   }
   resetPlayer(p) { p.ex = CLASSES[p.cls] && CLASSES[p.cls].extra ? CLASSES[p.cls].extra.n : 0; p.scrap = 25; p.dr = DRESS; p.kits = KITS; p.pw = pwMax(p.cls); p.special = ''; p.acd = [0, 0, 0, 0]; p.items = CLASSES[p.cls] ? CLASSES[p.cls].throw.n : 2; p.buf = {}; p.cl = 0; p.adrT = 0; p.stimT = 0; p.rv = p.rv || 0; p.gold = START_GOLD; p.ups = { dmg: 0, rate: 0, mag: 0, spd: 0, hp: 0, arm: 0 }; p.mhp = p.hp = maxHp(p.cls, p.ups); p.dead = false; p.rt = 0; p.kills = 0; p.sp = (p.sp || 0) + 1; }
   addPlayer(id, name, cls) {
@@ -56,7 +59,7 @@ export class Sim {
     if (r.a === 'place') {
       const T = TURRETS[r.kind], C = CLASSES[p.cls]; if (!T || T.throwExtra || ![C.sentry, C.defense, C.third].includes(r.kind)) return;
       if ((p.kits ?? KITS) < 1) return say('No turret kits left: pick up more in the hub (you carry 2).');
-      const sc = scrapCost(r.kind); if ((p.scrap || 0) < sc) return say(`Need ${sc} scrap for a ${T.name}. Run over the scrap piles around the wrecks.`);
+      const sc = scrapCost(r.kind); if ((p.scrap || 0) < sc) return say(`Need ${sc} scrap for a ${T.name}. Weld wrecks (tanks, satellites, crashed ships, debris) to cut scrap out of them.`);
       if (this.turrets.filter(t => t.owner === id).length >= MAX_TURRETS) return say(`You can have ${MAX_TURRETS} at once. Sell one (Y) first.`);
       const err = this.dropError(r.x, r.z); if (err) return say(err);
       p.kits = (p.kits ?? KITS) - 1; p.scrap -= sc; const t = { id: this.nid++, kind: r.kind, owner: id, x: r.x, z: r.z, ry: r.ry || 0, lvl: 1, hp: T.hp, mhp: T.hp, cd: 0, tg: 0, spent: T.cost, ch: T.charges || T.uses || 0, y: this.W.top(r.x, r.z), b: BUILD[r.kind] || 0, bt: BUILD[r.kind] || 0, fresh: true };   /* kinds without a build time (the sandbag bunker) go up at once */
@@ -106,21 +109,29 @@ export class Sim {
     } else if (r.a === 'repair') {
       // the welding torch: a short laser that repairs turrets, welds on free upgrades, and burns aliens; it always draws power while lit
       const eng = p.cls === 'engineer', dt = Math.min(0.5, +r.dt || 0), pm = pwMax(p.cls), reach = eng ? 8 : 6;
-      if ((p.pw ?? pm) <= 0) { if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say('Welder out of power: recharge in the hub, at a Forward Resupply or Ammo Cache, or grab a supply drop.'); } return; }
-      p.pw = Math.max(0, (p.pw ?? pm) - 2 * dt);
-      if (r.k === 'a') { const a = this.aliens.find(q => q.id === r.id); if (a && !a.dead && Math.hypot(a.x - p.x, a.z - p.z) < reach + ALIENS[a.type].r) { p.pw = Math.max(0, p.pw - 6 * dt); this.hurtAlien(a, (eng ? 95 : 60) * dt, id, true); this.emit({ k: 'beam', c: 0xff8040, a: [p.x, p.y + 1.3, p.z], b: [a.x, a.y + ALIENS[a.type].h * 0.6, a.z], f: id, torch: 1 }); } return; }
+      p.pw = pm;   // the welder never runs dry
+      const hp = Array.isArray(r.hp) && r.hp.length === 3 && r.hp.every(Number.isFinite) && Math.hypot(r.hp[0] - p.x, r.hp[2] - p.z) < reach + 4 ? r.hp.map(v => +v.toFixed(2)) : null;   // where the beam lands (the crosshair)
+      if (r.k === 'w') { // cutting scrap out of a wreck
+        const i = r.id | 0, w = (this.W.salvage || [])[i]; if (!w || Math.hypot(w.x - p.x, w.z - p.z) > reach + w.r + 1.5) return;
+        if ((this.salv[i] || 0) <= 0) { if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say(`Nothing left to cut from this ${w.name}. Find another wreck.`); } return; }
+        const got = Math.min(this.salv[i], (eng ? 9 : 5) * dt); this.salv[i] -= got; p.scrap = (p.scrap || 0) + got; p.salvF = (p.salvF || 0) + got;
+        if (p.salvF >= 1 || this.salv[i] <= 0) { this.emit({ k: 'salvage', to: p.id, n: Math.floor(p.salvF), w: i, left: Math.ceil(this.salv[i]) }); p.salvF -= Math.floor(p.salvF); }
+        if (this.salv[i] <= 0) this.emit({ k: 'stripped', w: i });
+        this.emit({ k: 'beam', c: eng ? 0x60c0ff : 0xffc060, a: [p.x, p.y + 1.3, p.z], b: hp || [w.x, (w.y || 0) + 1, w.z], f: id, torch: 1 }); return;
+      }
+      if (r.k === 'a') { const a = this.aliens.find(q => q.id === r.id); if (a && !a.dead && Math.hypot(a.x - p.x, a.z - p.z) < reach + ALIENS[a.type].r) { this.hurtAlien(a, (eng ? 95 : 60) * dt, id, true); this.emit({ k: 'beam', c: 0xff8040, a: [p.x, p.y + 1.3, p.z], b: [a.x, a.y + ALIENS[a.type].h * 0.6, a.z], f: id, torch: 1 }); } return; }
       const t = this.turrets.find(q => q.id === r.id);
       if (t && Math.hypot(t.x - p.x, t.z - p.z) < reach + 1.5) {
-        if (t.hp < t.mhp) { t.hp = Math.min(t.mhp, t.hp + (eng ? 81 : 27) * dt); p.pw = Math.max(0, p.pw - 2 * dt); }
+        if (t.hp < t.mhp) { t.hp = Math.min(t.mhp, t.hp + (eng ? 81 : 27) * dt); }
         else if (t.lvl < 3 && !t.fresh && !t.carry) {
           // scrap burns as the weld goes on: no up-front cost, the weld just stops when you run out
           let dp = dt / (4 + 2 * t.lvl) * (eng ? 3 : 1); const cost = SCRAP_COST[t.lvl] || 30, need = cost * dp;
-          if ((p.scrap || 0) < need) { if ((p.scrap || 0) <= 0.001) { p.scrap = 0; if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say('Out of scrap: the weld stops. Run over the scrap piles lying around the map.'); } return; } dp *= p.scrap / need; p.scrap = 0; } else p.scrap -= need;
+          if ((p.scrap || 0) < need) { if ((p.scrap || 0) <= 0.001) { p.scrap = 0; if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say('Out of scrap: the weld stops. Weld wrecks lying around the map (tanks, satellites, crashed ships, debris) to cut more.'); } return; } dp *= p.scrap / need; p.scrap = 0; } else p.scrap -= need;
           if (!t.next) { t.next = t.lvl + 1; t.up = 0; this.emit({ k: 'upgstart', id: t.id, by: id, x: t.x, z: t.z }); }
-          t.up = (t.up || 0) + dp; p.pw = Math.max(0, p.pw - 10 * dt);
+          t.up = (t.up || 0) + dp;
           if (t.up >= 1) { t.lvl = t.next; t.next = 0; t.up = 0; const k = TURRETS[t.kind].hp * (1 + 0.4 * (t.lvl - 1)); t.hp += k - t.mhp; t.mhp = k; this.emit({ k: 'upg', id: t.id, lvl: t.lvl, x: t.x, z: t.z }); }
         }
-        this.emit({ k: 'beam', c: eng ? 0x60c0ff : 0xffc060, a: [p.x, p.y + 1.3, p.z], b: [t.x, t.y + 1.2, t.z], f: id, torch: 1 });
+        this.emit({ k: 'beam', c: eng ? 0x60c0ff : 0xffc060, a: [p.x, p.y + 1.3, p.z], b: hp || [t.x, t.y + 1.2, t.z], f: id, torch: 1 });
       }
     } else if (r.a === 'ability') {
       if (!CLASSES[p.cls].abilities) return; const n = Math.max(0, Math.min(3, r.n | 0)), A = CLASSES[p.cls].abilities[n]; if (p.acd[n] > 0) return; p.acd[n] = A.cd; this.ability(p, A.id, r); this.emit({ k: 'ability', id: A.id, by: id, x: p.x, y: p.y, z: p.z, n: p.name, name: A.name });
@@ -147,6 +158,7 @@ export class Sim {
       this.hurtPlayer(p, 15);
     } else if (r.a === 'boom') {
       this.splash(+r.x, +r.y, +r.z, Math.min(+r.r || 0, 7), Math.min(+r.d || 0, 600), id);
+      if (r.gren && !p.dead) { const d = Math.hypot(p.x - r.x, (p.y || 0) + 1 - r.y, p.z - r.z), R = Math.min(+r.r || 0, 7); if (d < R) { this.hurtPlayer(p, Math.round(80 * (1 - d / R) + 10), { x: +r.x, z: +r.z }); this.emit({ k: 'say', to: id, m: 'Your own grenade got you. Throw it further.' }); } }   // a frag hurts the marine who threw it too
       if (r.fire && p.buf.napalm > 0) { p.buf.napalm = 0; this.pools.push({ x: +r.x, y: +r.y, z: +r.z, r: 7, t: 6, dps: 70, owner: id, fire: 1 }); }
     }
   }
@@ -167,7 +179,7 @@ export class Sim {
     a.dead = true; const A = ALIENS[a.type];
     if (A.burst) { this.emit({ k: 'boom', x: a.x, y: a.y + 1, z: a.z, r: 4.5 }); for (const p of this.living()) if (Math.hypot(p.x - a.x, p.z - a.z) < 4.5) this.hurtPlayer(p, A.burst, a); for (const t of this.turrets) if (Math.hypot(t.x - a.x, t.z - a.z) < 4.5) this.hurtTurret(t, A.burst); this.pools.push({ x: a.x, y: a.y, z: a.z, r: 3.5, t: 0.01, dps: 0 }); }   /* Bloaters burst in a spray of acid */
     this.emit({ k: 'die', id: a.id, x: a.x, y: a.y, z: a.z, t: a.type });
-    const p = this.players.get(owner); if (p) p.kills++;
+    const p = this.players.get(owner); if (p) { p.kills++; this.fund(A.bounty || 5); }   // every marine kill pays into the commander's war chest
     for (const q of this.players.values()) q.gold += Math.round(A.bounty * (q.id === owner ? 1 : 0.4));
     if (A.boss || a.type === 'broodqueen') this.emit({ k: 'toast', m: `${A.name} destroyed${p ? ' by ' + p.name : ''}!`, big: 1 });
     if (a.type === 'broodqueen') { this.phase = 'win'; this.emit({ k: 'win', w: this.wave, el: Math.floor(this.el || 0) }); }
@@ -229,10 +241,10 @@ export class Sim {
       if (this.stormI > 0.5 && !this.sheltered(p, inHub)) { p.hp -= 2 * (this.stormI - 0.5) * 2 * dt; p.cold = 1; if (p.hp <= 0) this.hurtPlayer(p, 1); } else p.cold = 0;
       p.toxic = Math.max(0, (p.toxic || 0) - dt); for (const c of this.spores) if (Math.hypot(p.x - c.x, p.z - c.z) < c.r * c.k) { p.hp -= 4 * c.k * dt; p.toxic = 0.3; if (p.hp <= 0) this.hurtPlayer(p, 1); }
       for (const c of this.ammo) if (Math.hypot(p.x - c.x, p.z - c.z) < 2.6 && (c.cd[p.id] || 0) < this.time) { c.cd[p.id] = this.time + 1; this.emit({ k: 'ammo', to: p.id }); }
-      for (const pod of this.pods) if (!pod.got && pod.kind && pod.land <= 0 && Math.hypot(pod.x - p.x, pod.z - p.z) < 2.4) { pod.got = true; if (pod.kind === 'ammo') { this.emit({ k: 'ammo', to: p.id, big: 1 }); p.pw = pwMax(p.cls); p.items = CLASSES[p.cls].throw.n; } else { p.dr = DRESS; p.hp = Math.min(p.mhp, p.hp + 30); this.emit({ k: 'dresskit', to: p.id }); } this.emit({ k: 'pod', by: p.id, g: 0, x: pod.x, z: pod.z, sp: '', kind: pod.kind }); }
-      for (const pod of this.pods) if (!pod.got && !pod.kind && pod.land <= 0 && Math.hypot(pod.x - p.x, pod.z - p.z) < 2.4) { pod.got = true; const g = 90 + this.wave * 15; for (const q of this.players.values()) q.gold += q === p ? g : Math.round(g * 0.4); if (pod.sp) { if (p.special) this.emit({ k: 'say', to: p.id, m: `${SPECIALS[pod.sp].name} replaced your ${SPECIALS[p.special].name}.` }); p.special = pod.sp; } this.emit({ k: 'pod', by: p.id, g, x: pod.x, z: pod.z, sp: pod.sp || '' }); this.emit({ k: 'ammo', to: p.id, big: 1 }); p.pw = pwMax(p.cls); }
+      for (const pod of this.pods) if (!pod.got && pod.kind && pod.kind !== 'sp' && pod.land <= 0 && Math.hypot(pod.x - p.x, pod.z - p.z) < 2.4) { pod.got = true; if (pod.kind === 'ammo') { this.emit({ k: 'ammo', to: p.id, big: 1 }); p.pw = pwMax(p.cls); p.items = CLASSES[p.cls].throw.n; } else { p.dr = DRESS; p.hp = Math.min(p.mhp, p.hp + 30); this.emit({ k: 'dresskit', to: p.id }); } this.emit({ k: 'pod', by: p.id, g: 0, x: pod.x, z: pod.z, sp: '', kind: pod.kind }); }
+      for (const pod of this.pods) if (!pod.got && (!pod.kind || pod.kind === 'sp') && pod.land <= 0 && Math.hypot(pod.x - p.x, pod.z - p.z) < 2.4) { pod.got = true; const g = 90 + this.wave * 15; for (const q of this.players.values()) q.gold += q === p ? g : Math.round(g * 0.4); if (pod.sp) { if (p.special) this.emit({ k: 'say', to: p.id, m: `${SPECIALS[pod.sp].name} replaced your ${SPECIALS[p.special].name}.` }); p.special = pod.sp; } this.emit({ k: 'pod', by: p.id, g, x: pod.x, z: pod.z, sp: pod.sp || '' }); this.emit({ k: 'ammo', to: p.id, big: 1 }); p.pw = pwMax(p.cls); }
     }
-    if (this.scrap.some(s => s.got)) this.scrap = this.scrap.filter(s => !s.got); this.scrapT += dt; if (this.scrapT > 4 && this.scrap.length < SCRAP_PILES) { this.scrapT = 0; this.spawnScrap(); }
+    if (this.scrap.some(s => s.got)) this.scrap = this.scrap.filter(s => !s.got); 
     for (const q of this.pods) { q.land -= dt; q.life -= dt; if (q.life <= 0 && !q.got) { q.got = true; this.emit({ k: 'podgone', x: q.x, z: q.z }); } }
     if (this.pods.some(q => q.got)) this.pods = this.pods.filter(q => !q.got);
     for (const it of this.items) { it.life -= dt; it.age = (it.age || 0) + dt; } if (this.items.some(it => it.got || it.life <= 0)) this.items = this.items.filter(it => !it.got && it.life > 0);
@@ -244,7 +256,7 @@ export class Sim {
       // the stream keeps flowing, but never more than about 110 aliens on the field at once (the rest wait their turn)
       const alive = this.aliens.length; if (alive < 110) this.qt += dt; while (this.q.length && this.q[0].t <= this.qt && this.aliens.length < 110) this.spawn(this.q.shift().type);
       this.lvlT -= dt; if (this.lvlT <= 0) this.startWave(); this.el = (this.el || 0) + dt;
-      this.podT += dt; if (this.podT >= 60) { this.podT = 0; this.dropPods(2); }
+         /* no random drops: every crate comes from the commander */
       this.hazards(dt);
     }
 
@@ -433,7 +445,8 @@ export class Sim {
     // the commander's airdrops: ammo on a marine every 2 minutes, field dressings every 2.5 (sooner with more marines)
     if (this.phase === 'wave') { const k = 1 + 0.3 * (this.players.size - 1), L = this.living(); this.cmdA = (this.cmdA ?? 120) - dt * k; this.cmdD = (this.cmdD ?? 150) - dt * k;
       if (L.length && this.cmdA <= 0) { this.cmdA = 120; const p = L[(this.cmdAi = (this.cmdAi || 0) + 1) % L.length]; this.airdrop(p, 'ammo'); }
-      if (L.length && this.cmdD <= 0) { this.cmdD = 150; const p = L[(this.cmdDi = (this.cmdDi || 0) + 1) % L.length]; this.airdrop(p, 'dress'); } }
+      if (L.length && this.cmdD <= 0) { this.cmdD = 150; const p = L[(this.cmdDi = (this.cmdDi || 0) + 1) % L.length]; this.airdrop(p, 'dress'); }
+      this.cmdS = (this.cmdS ?? 100) - dt * k; if (L.length && this.cmdS <= 0) { this.cmdS = 170; const p = L[(this.cmdSi = (this.cmdSi || 0) + 1) % L.length]; this.airdrop(p, 'sp'); } }
     const open = this.hiveOpen();
     for (const m of this.allies) {
       const A = ALLIES[m.type]; m.cd -= dt; m.tg = 0;
@@ -452,18 +465,28 @@ export class Sim {
   // a parachute crate from the commander, a few metres from the marine it is meant for
   airdrop(p, kind) {
     const a = Math.random() * 6.28, x = Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, p.x + Math.cos(a) * 3.5)), z = Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, p.z + Math.sin(a) * 3.5));
-    this.pods.push({ id: this.nid++, x, z, land: 6, life: 6 + 75, sp: '', kind });
+    const sp = kind === 'sp' ? pickSpecial() : ''; this.pods.push({ id: this.nid++, x, z, land: 6, life: 6 + 75, sp, kind });
+    if (kind === 'sp') { const an = /^[AEIOU]/i.test(SPECIALS[sp].name) ? 'an' : 'a'; return this.radio('cmd', [`${p.name}, Olympus authorised ${an} ${SPECIALS[sp].name} for you. Crate's coming down on your position.`, `Special delivery on ${p.name}: ${SPECIALS[sp].name}. Go get it.`, `${p.name}, I've got ${an} ${SPECIALS[sp].name} dropping beside you. Use it well.`][Math.random() * 3 | 0], 1); }
     this.radio('cmd', kind === 'ammo' ? [`${p.name}, ammo crate inbound on your position. Grab it.`, `Resupply dropping on ${p.name}. Keep those guns fed.`, `Olympus cleared an ammo drop: it's coming down next to ${p.name}.`][Math.random() * 3 | 0] : [`Med supplies inbound on ${p.name}: fresh field dressings.`, `${p.name}, dressings coming down beside you. Patch up and keep moving.`][Math.random() * 2 | 0], 1);
   }
   // radio chatter between the commander on the ground and General Hale on Station Olympus in orbit
   radio(who, m, force) { if (!force && this.time - (this.radioT || -99) < 7) return; this.radioT = this.time; this.emit({ k: 'radio', w: who, m }); }
   // the CPU commander: as the threat level rises it speeds up drops, grows the squads and brings in new kinds of veteran
-  commander(quiet) {
-    const C = this.cmd, w = this.wave, plan = { 3: 'rate', 4: 'gunner', 5: 'pulsesynth', 6: 'size', 7: 'medic', 8: 'rocketeer', 9: 'flamesynth', 10: 'rate', 11: 'mech', 12: 'size', 13: 'rate', 15: 'size', 16: 'rate', 18: 'rate' }[w]; if (!plan) return; let msg = '';
+  // the CPU commander: speeds up drops, grows the squads and brings in new kinds of veteran. Each step comes at its threat level at the latest,
+  // or sooner when the marines' kills have paid for it (every kill sends war funds to the commander: the more you kill, the faster the upgrades)
+  commander(quiet) { const C = this.cmd; while (C.step < CMD_PLAN.length && CMD_PLAN[C.step][0] <= this.wave) this.cmdStep(quiet, false); }
+  fund(n) {
+    const C = this.cmd; if (!C || this.phase !== 'wave') return; C.fund = (C.fund || 0) + n;
+    if (C.step < CMD_PLAN.length && C.fund >= cmdCost(C.step)) { C.fund -= cmdCost(C.step); this.cmdStep(false, true); }
+  }
+  cmdStep(quiet, paid) {
+    const C = this.cmd, plan = CMD_PLAN[C.step][1]; C.step++; let msg = '';
     if (plan === 'rate' && C.lv < DROP_EVERY.length - 1) { C.lv++; msg = `reinforcements now every ${DROP_EVERY[C.lv]} s`; }
     else if (plan === 'size' && C.sz < SQUAD.length - 1) { C.sz++; msg = `${SQUAD[C.sz]} veterans per drop`; }
     else if (ALLIES[plan] && !C.un.includes(plan)) { C.un.push(plan); msg = `${ALLIES[plan].name}s join the reinforcements`; }
-    if (msg && quiet) return; if (msg) { this.radio('gen', ['Olympus here. I\'m releasing more of my people to you, Commander.', 'Station Olympus authorises more troops for the push.', 'You\'ll get what you need down there, Commander. Hale out.'][Math.random() * 3 | 0], 1); this.later.push({ t: 4, f: () => this.radio('cmd', `Copy, Olympus. Marines: ${msg}.`, 1) }); }
+    if (!msg || quiet) return;
+    if (paid) { this.radio('cmd', [`Your kills just bought us more, marines: ${msg}.`, `Olympus is impressed with the body count. ${msg[0].toUpperCase() + msg.slice(1)}.`, `Keep killing, it's paying off: ${msg}.`][Math.random() * 3 | 0], 1); return; }
+    this.radio('gen', ['Olympus here. I\'m releasing more of my people to you, Commander.', 'Station Olympus authorises more troops for the push.', 'You\'ll get what you need down there, Commander. Hale out.'][Math.random() * 3 | 0], 1); this.later.push({ t: 4, f: () => this.radio('cmd', `Copy, Olympus. Marines: ${msg}.`, 1) });
   }
   ability(p, id, r) {
     const near = (rad, f) => { for (const q of this.players.values()) if (!q.dead && Math.hypot(q.x - p.x, q.z - p.z) < rad) f(q); }, fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);

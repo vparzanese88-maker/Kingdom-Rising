@@ -154,13 +154,14 @@ const PROP = {
   crate: [['l_crates'], 'w', 2.8], burntCrate: [['l_crates'], 'w', 2.6], terminal: [['l_terminal'], 'h', 1.7], spireHive: [['l_hive_spire'], 'h', 13],
   rock: [['l_rock_mars1', 'l_rock_mars2'], 'w', 5], ice: [['l_rock_ice2'], 'h', 4.5], spire: [['l_rock_ice2'], 'h', 9], tree: [['l_tree_jungle'], 'h', 8.5], shroom: [['l_plant_jungle1'], 'h', 5],
   boulder: [null, 'w', 4.5],
+  dome: [['l_dome'], 'w', 9], derrick: [['l_derrick'], 'h', 11], dish: [['l_dish'], 'h', 6.5], tankTrap: [['l_tanktrap'], 'w', 2.6], flag: [['l_flag'], 'h', 4.2], sniperNest: [['l_snipernest'], 'w', 5.6], eggs: [['l_eggs'], 'w', 3.2],
 };
 export const PROP_FILES = [...new Set(Object.values(PROP).flatMap(p => p[0] || []).concat(['l_rock_ice1', 'l_rock_jungle1']))];
 export function propGLB(kind, rnd = Math.random) {
   const p = PROP[kind]; if (!p) return null; let list = p[0];
   if (kind === 'boulder') list = [{ mars: 'l_rock_mars1', ice: 'l_rock_ice1', jungle: 'l_rock_jungle1' }[mapId] || 'l_rock_mars1'];
   const ok = list.filter(n => A[n]); if (!ok.length) return null;
-  const n = ok[(rnd() * ok.length) | 0], o = fit(n, p[1], p[2] * (0.75 + rnd() * 0.5), false); o.children[0].position.y -= 0.15; if (/rock|plant|tree|crate/.test(n)) o.traverse(q => { q.castShadow = false; }); return o;
+  const n = ok[(rnd() * ok.length) | 0], o = fit(n, p[1], p[2] * (0.75 + rnd() * 0.5), false); o.children[0].position.y -= 0.15; if (/rock|plant|tree|crate|tanktrap|flag|eggs/.test(n)) o.traverse(q => { q.castShadow = false; }); return o;
 }
 
 // ---- what the marine holds on slot 4: the frag, a med kit or an ammo pack
@@ -208,9 +209,9 @@ export function fpArms(cls, gun, mode = 'two') {
 // Each one is sized to match the simple model it replaces (same length and the same height off the ground), so hit boxes still fit.
 export const ALIEN_GLB = { crawler: 'a_crawler', spitter: 'a_spitter', brute: 'a_brute', ravager: 'a_ravager', queen: 'a_queen', royal: 'a_royal', broodqueen: 'a_broodqueen', flyer: 'a_flyer' };
 export const ALIEN_FILES = Object.values(ALIEN_GLB);
-export const SCENE_FILES = ['p_station', 'p_droppod', 'p_seat', 'h_reactor', 'h_wall', 'r_synth', 'r_mech', 'v_dropship', 's_scrap', 'l_sandbags', 'v_vtol', 'v_rover'];
+export const SCENE_FILES = ['p_station', 'p_droppod', 'p_seat', 'h_reactor', 'h_wall', 'r_synth', 'r_mech', 'v_dropship', 's_scrap', 'l_sandbags', 'v_vtol', 'v_rover', 'p_bridge', 'p_tunnel', 'l_watchtower', 'l_hivemound', 'h_gatetower', 'h_barracks', 'h_comms', 'h_floodlight'];
 const BIG = new Set(['brute', 'ravager', 'queen', 'broodqueen']);
-const ACLIP = { run: /run/i, walk: /walk/i, pounce: /pounce/i, roar: /roar/i, idle: /idle/i, die: /death/i }, HEAVY = new Set(['brute', 'ravager', 'queen']);
+const ACLIP = { run: /run/i, walk: /walk/i, pounce: /pounce|skill/i, roar: /roar/i, idle: /idle/i, die: /death|dead/i }, HEAVY = new Set(['brute', 'ravager', 'queen']);
 export function alienGLB(type, ref) {
   const n = ALIEN_GLB[type], src = n && A[n]; if (!src) return null;
   const g = new THREE.Group(), body = new THREE.Group(), holder = new THREE.Group(), root = SU.clone(src.scene); g.add(body); body.add(holder); holder.add(root); holder.rotation.y = Math.PI; fixBounds(root);
@@ -278,3 +279,24 @@ export function craftGLB(name, len, ry = 0) { if (!A[name]) return null; const o
 export function bagsGLB() { if (!A.l_sandbags) return null; const src = A.l_sandbags.scene.clone(true), o = new THREE.Group(), w = new THREE.Group(); w.add(src); src.rotation.x = -Math.PI / 2; o.add(w); w.updateMatrixWorld(true); let b = new THREE.Box3().setFromObject(w); const s = b.getSize(new THREE.Vector3()), k = 5 / Math.max(s.x, s.z); w.scale.setScalar(k); w.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(w); const c = b.getCenter(new THREE.Vector3()); w.position.set(-c.x, -b.min.y - 0.1, -c.z); return o; }
 // ---- a scrap pile
 export function scrapGLB() { return A.s_scrap ? fit('s_scrap', 'w', 1.5, true) : null; }
+// ---- bake a posed, skinned model into plain still meshes (bodies on the battlefield: they merge into the map like any rock, no bones to update)
+export function bake(g) {
+  g.updateMatrixWorld(true); const out = new THREE.Group(), v = new THREE.Vector3();
+  g.traverse(o => {
+    if (!o.isMesh || !o.visible || !o.geometry.attributes.position) return; let vis = true; for (let p = o; p; p = p.parent) if (!p.visible) vis = false; if (!vis) return;
+    const src = o.geometry, pos = src.attributes.position, n = pos.count, P = new Float32Array(n * 3), geo = new THREE.BufferGeometry();
+    for (let i = 0; i < n; i++) { if (o.isSkinnedMesh) o.getVertexPosition(i, v); else v.fromBufferAttribute(pos, i); v.applyMatrix4(o.matrixWorld); P[i * 3] = v.x; P[i * 3 + 1] = v.y; P[i * 3 + 2] = v.z; }
+    geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
+    const uv = src.attributes.uv; if (uv) { const U = new Float32Array(n * 2); for (let i = 0; i < n; i++) { U[i * 2] = uv.getX(i); U[i * 2 + 1] = uv.getY(i); } geo.setAttribute('uv', new THREE.BufferAttribute(U, 2)); }
+    if (src.index) geo.setIndex(src.index.clone()); geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, o.material); m.castShadow = false; m.receiveShadow = true; out.add(m);
+  });
+  const b = new THREE.Box3().setFromObject(out), c = b.getCenter(new THREE.Vector3()); for (const m of out.children) m.geometry.translate(-c.x, -b.min.y, -c.z); return out;
+}
+
+// ---- stretch a model to an exact footprint: w across (x), l along (z), height scaled with the width; the long side of the model runs along z
+export function stretchGLB(name, w, l, hk = 1) {
+  if (!A[name]) return null; const inner = A[name].scene.clone(true), turn = new THREE.Group(), o = new THREE.Group(); turn.add(inner); o.add(turn); turn.updateMatrixWorld(true);
+  let b = new THREE.Box3().setFromObject(turn); let s = b.getSize(new THREE.Vector3()); if (s.x > s.z) { turn.rotation.y = Math.PI / 2; turn.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(turn); s = b.getSize(new THREE.Vector3()); }
+  const kx = w / (s.x || 1), kz = l / (s.z || 1), c = b.getCenter(new THREE.Vector3()); turn.position.set(-c.x, -b.max.y, -c.z); o.scale.set(kx, kx * hk, kz); return o;   // top at y = 0 (a deck surface)
+}

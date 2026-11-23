@@ -200,8 +200,10 @@ export function buildWorld(scene, mapId, diff = 0) {
     const pa = path.at(b.s0), pb = path.at(b.s1), L = b.s1 - b.s0, mid = path.at((b.s0 + b.s1) / 2), ang = Math.atan2(pb.x - pa.x, pb.z - pa.z), pitch = Math.atan2(pb.y - pa.y, L);
     const br = new THREE.Group(); br.position.set(mid.x, mid.y, mid.z); br.rotation.y = ang; g.add(br);
     const deck = new THREE.Group(); deck.rotation.x = -pitch; br.add(deck);
+    const nT = Math.max(1, Math.round(L / 9)), tile0 = M.AS.stretchGLB('p_bridge', PATH_W + 1.4, L / nT + 0.05, 0.6);
+    if (tile0) { for (let k = 0; k < nT; k++) { const tl = k ? M.AS.stretchGLB('p_bridge', PATH_W + 1.4, L / nT + 0.05, 0.6) : tile0; tl.position.set(0, 0.06, -L / 2 + (k + 0.5) * L / nT); deck.add(tl); } }   // the Meshy steel truss bridge, one section per 9 m
     const dk = new THREE.Mesh(new THREE.BoxGeometry(PATH_W + 0.8, 0.5, L), steel); dk.position.y = -0.2; dk.castShadow = dk.receiveShadow = true; deck.add(dk);
-    for (const sd of [-1, 1]) {
+    if (!tile0) for (const sd of [-1, 1]) {
       const rail = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, L), dark); rail.position.set(sd * (PATH_W / 2 + 0.3), 1.0, 0); deck.add(rail);
       const beam = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, L), dark); beam.position.set(sd * (PATH_W / 2 + 0.2), -0.9, 0); deck.add(beam);
       for (let z = -L / 2; z <= L / 2 + 0.01; z += 2.5) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.0, 0.12), dark); post.position.set(sd * (PATH_W / 2 + 0.3), 0.5, z); deck.add(post); }
@@ -218,8 +220,10 @@ export function buildWorld(scene, mapId, diff = 0) {
     const ceil = new THREE.Mesh(new THREE.BoxGeometry(PATH_W + 3.2, 0.3, L), conc); ceil.position.y = t.bottom + 0.1; tn.add(ceil);
     for (let z = -L / 2 + 2; z < L / 2; z += 4) { const lt = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.3), lamp); lt.position.set(0, t.bottom - 0.1, z); tn.add(lt); }
     const L1 = new THREE.PointLight(0xffd090, 14, 14); L1.position.set(0, t.bottom - 0.8, 0); tn.add(L1);
+    const portal = M.AS.A.p_tunnel;
     for (const e of [-1, 1]) {
       const z = e * (L / 2 + 0.2), py = path.y(e < 0 ? t.s0 : t.s1);
+      if (portal) { const pg = M.AS.fitGLB('p_tunnel', 'w', PATH_W * 2.1, false); pg.position.set(0, py - 0.3, z + e * 1.2); pg.rotation.y = e > 0 ? 0 : Math.PI; pg.scale.y = Math.max(0.6, (t.top - py + 1) / (PATH_W * 2.1 * 0.75)); tn.add(pg); continue; }   // the Meshy concrete portal
       for (const sd of [-1, 1]) { const col2 = new THREE.Mesh(new THREE.BoxGeometry(1.0, t.top - py + 0.5, 0.9), conc); col2.position.set(sd * (PATH_W / 2 + 1.1), py + (t.top - py) / 2, z); col2.castShadow = true; tn.add(col2); }
       const lin = new THREE.Mesh(new THREE.BoxGeometry(PATH_W + 3.2, 0.9, 1.0), conc); lin.position.set(0, t.bottom + 0.3, z); tn.add(lin);
       const stripe = new THREE.Mesh(new THREE.BoxGeometry(PATH_W + 3.25, 0.25, 1.05), warn); stripe.position.set(0, t.bottom + 0.15, z); tn.add(stripe);
@@ -269,6 +273,7 @@ export function buildWorld(scene, mapId, diff = 0) {
 
 // The hub compound: ring wall with a walkway and battlements, a gate where the track comes in, ramps up to the walkway,
 // corner towers, the reactor in the middle, ammo crates, a landing pad and barracks.
+const GL = (n, mode, size) => M.AS.fitGLB(n, mode, size, false);
 function buildCompound(g, H, W) {
   const C = new THREE.Group(); C.position.set(H.x, H.y, H.z); g.add(C);
   const wallM = M.mat(0x6a737c, { m: 0.3, r: 0.7 }), dark = M.mat(0x343b42, { m: 0.4 }), stripe = M.mat(0xffc020, { e: 0x604000 }), lamp = M.mat(0x80e0ff, { e: 0x40a0ff, ei: 2 }), red = M.mat(0xff3020, { e: 0xff1000, ei: 2 });
@@ -283,29 +288,31 @@ function buildCompound(g, H, W) {
     if (i % 4 === 0) { const st = new THREE.Mesh(new THREE.BoxGeometry(WALL_T * 2 + 0.05, 0.3, len), stripe); st.position.set(Math.cos(a) * HUB_R, 1.0, Math.sin(a) * HUB_R); st.rotation.y = -a; C.add(st); }
   }
   // the gate: tall pillars, a lit beam overhead, warning lights
-  for (const sd of [-1, 1]) { const a = H.ga + sd * (H.gh + 0.02), p = new THREE.Mesh(new THREE.BoxGeometry(2.8, WALL_H + 3.5, 2.8), dark); p.position.set(Math.cos(a) * HUB_R, (WALL_H + 3.5) / 2, Math.sin(a) * HUB_R); p.rotation.y = -a; p.castShadow = true; C.add(p); const b = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 6), red); b.position.set(Math.cos(a) * HUB_R, WALL_H + 3.9, Math.sin(a) * HUB_R); C.add(b); }
+  for (const sd of [-1, 1]) { const a = H.ga + sd * (H.gh + 0.02), gt = GL('h_gatetower', 'h', WALL_H + 5.5); if (gt) { gt.position.set(Math.cos(a) * HUB_R, 0, Math.sin(a) * HUB_R); gt.rotation.y = -a + Math.PI / 2; C.add(gt); continue; } const p = new THREE.Mesh(new THREE.BoxGeometry(2.8, WALL_H + 3.5, 2.8), dark); p.position.set(Math.cos(a) * HUB_R, (WALL_H + 3.5) / 2, Math.sin(a) * HUB_R); p.rotation.y = -a; p.castShadow = true; C.add(p); const b = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 6), red); b.position.set(Math.cos(a) * HUB_R, WALL_H + 3.9, Math.sin(a) * HUB_R); C.add(b); }
   { const a = H.ga, beam = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 2 * HUB_R * Math.sin(H.gh) + 2.8), dark); beam.position.set(Math.cos(a) * HUB_R, WALL_H + 3.0, Math.sin(a) * HUB_R); beam.rotation.y = -a; C.add(beam); const lt = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.25, 2 * HUB_R * Math.sin(H.gh)), stripe); lt.position.set(Math.cos(a) * HUB_R, WALL_H + 2.45, Math.sin(a) * HUB_R); lt.rotation.y = -a; C.add(lt); }
   // ramps up to the walkway, as steps
   for (const rp of H.ramps) for (let k = 0; k < 12; k++) { const f0 = k / 12, a = rp.a0 + (rp.a1 - rp.a0) * (k + 0.5) / 12, h = WALL_H * (k + 1) / 12, r = HUB_R - WALL_T - RAMP_W / 2, len = r * (rp.a1 - rp.a0) / 12 + 0.05;
     const st = new THREE.Mesh(new THREE.BoxGeometry(RAMP_W, h, len), k % 2 ? wallM : dark); st.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r); st.rotation.y = -a; st.castShadow = st.receiveShadow = true; C.add(st); void f0; }
   // corner towers outside the wall
   for (const da of [0.9, 2.2, -0.9, -2.2]) { const a = H.ga + Math.PI + da, x = Math.cos(a) * (HUB_R + 3.2), z = Math.sin(a) * (HUB_R + 3.2), t = new THREE.Group(); t.position.set(x, 0, z); C.add(t);
+    const ctw = GL('h_gatetower', 'h', WALL_H + 7); if (ctw) { ctw.rotation.y = -a + Math.PI / 2; t.add(ctw); W.colliders.push({ x: H.x + x, z: H.z + z, r: 2.6 }); continue; }
     const body = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.6, WALL_H + 5, 8), wallM); body.position.y = (WALL_H + 5) / 2; body.castShadow = true; t.add(body);
     const top = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.2, 1.2, 8), dark); top.position.y = WALL_H + 5.6; t.add(top); const l = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), lamp); l.position.y = WALL_H + 6.6; t.add(l);
     W.colliders.push({ x: H.x + x, z: H.z + z, r: 2.6 }); }
   // inside: ammo crates by the spawn, a landing pad, barracks
   const back = H.ga + Math.PI, ax = Math.cos(back) * 9, az = Math.sin(back) * 9;
-  for (let i = 0; i < 6; i++) { const cr = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 0.9), M.mat(0x4a5a3a, { r: 0.8 })); cr.position.set(ax + (i % 3 - 1) * 1.3 - Math.sin(back) * 3, 0.45 + (i >= 3 ? 0.9 : 0), az + (i % 3 - 1) * 1.3 * 0 + Math.cos(back) * 3); cr.castShadow = true; C.add(cr); const st2 = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.15, 0.92), stripe); st2.position.copy(cr.position); C.add(st2); }
+  { const cg = M.AS.propGLB('crate', () => 0.5); if (cg) { cg.position.set(ax - Math.sin(back) * 3, 0, az + Math.cos(back) * 3); C.add(cg); } }
+  if (!M.AS.A.l_crates) for (let i = 0; i < 6; i++) { const cr = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 0.9), M.mat(0x4a5a3a, { r: 0.8 })); cr.position.set(ax + (i % 3 - 1) * 1.3 - Math.sin(back) * 3, 0.45 + (i >= 3 ? 0.9 : 0), az + (i % 3 - 1) * 1.3 * 0 + Math.cos(back) * 3); cr.castShadow = true; C.add(cr); const st2 = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.15, 0.92), stripe); st2.position.copy(cr.position); C.add(st2); }
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.2, 24), dark); pad.position.set(Math.cos(back + 1.3) * 15, 0.1, Math.sin(back + 1.3) * 15); C.add(pad);
   const ring = new THREE.Mesh(new THREE.RingGeometry(4, 4.4, 32), M.mat(0xffc020, { e: 0x806000, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.set(pad.position.x, 0.22, pad.position.z); C.add(ring);
-  for (const da of [-1.4, 1.6]) { const a = back + da, x = Math.cos(a) * 15.5, z = Math.sin(a) * 15.5, b = new THREE.Mesh(new THREE.BoxGeometry(7, 3.4, 4.5), wallM); b.position.set(x, 1.7, z); b.rotation.y = -a; b.castShadow = true; C.add(b); const roof = new THREE.Mesh(new THREE.BoxGeometry(7.3, 0.4, 4.8), dark); roof.position.set(x, 3.6, z); roof.rotation.y = -a; C.add(roof); W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.4 }); }
+  for (const da of [-1.4, 1.6]) { const a = back + da, x = Math.cos(a) * 15.5, z = Math.sin(a) * 15.5, bk = GL('h_barracks', 'w', 7.4); if (bk) { bk.position.set(x, 0, z); bk.rotation.y = -a + Math.PI / 2; C.add(bk); W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.2 }); continue; } const b = new THREE.Mesh(new THREE.BoxGeometry(7, 3.4, 4.5), wallM); b.position.set(x, 1.7, z); b.rotation.y = -a; b.castShadow = true; C.add(b); const roof = new THREE.Mesh(new THREE.BoxGeometry(7.3, 0.4, 4.8), dark); roof.position.set(x, 3.6, z); roof.rotation.y = -a; C.add(roof); W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.4 }); }
   // the comms building: recruitment console out front
-  { const a = back - 0.55, x = Math.cos(a) * 17.5, z = Math.sin(a) * 17.5, b = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 5), wallM); b.position.set(x, 2, z); b.rotation.y = -a; b.castShadow = true; C.add(b);
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 9, 6), dark); mast.position.set(x, 8, z); C.add(mast); const dsh = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 6, 0, 6.29, 0, 1), M.mat(0xd8dde2, { ds: true })); dsh.position.set(x + 1.5, 4.8, z); dsh.rotation.x = 2.1; C.add(dsh);
+  { const a = back - 0.55, x = Math.cos(a) * 17.5, z = Math.sin(a) * 17.5, hc = GL('h_comms', 'w', 7); if (hc) { hc.position.set(x, 0, z); hc.rotation.y = -a + Math.PI / 2; C.add(hc); } else { const b = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 5), wallM); b.position.set(x, 2, z); b.rotation.y = -a; b.castShadow = true; C.add(b); }
+    if (!hc) { const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 9, 6), dark); mast.position.set(x, 8, z); C.add(mast); const dsh = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 6, 0, 6.29, 0, 1), M.mat(0xd8dde2, { ds: true })); dsh.position.set(x + 1.5, 4.8, z); dsh.rotation.x = 2.1; C.add(dsh); }
     const cx = Math.cos(a) * 13.8, cz = Math.sin(a) * 13.8, con = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 0.7), dark); con.position.set(cx, 0.6, cz); con.rotation.y = -a + Math.PI / 2; C.add(con); const scr = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.05), M.mat(0x40c0ff, { e: 0x2080c0, ei: 2 })); scr.position.set(cx, 1.45, cz); scr.rotation.y = -a + Math.PI / 2; C.add(scr);
     W.comms = { x: H.x + cx, z: H.z + cz }; W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.2 }); }
   // floodlights on the walls
-  for (let i = 0; i < 2; i++) { const a = H.ga + Math.PI / 2 + i * Math.PI; const L = new THREE.PointLight(0xc0e0ff, 30, 50); L.position.set(Math.cos(a) * (HUB_R - 2), WALL_H + 4, Math.sin(a) * (HUB_R - 2)); C.add(L); }
+  for (let i = 0; i < 2; i++) { const a = H.ga + Math.PI / 2 + i * Math.PI; const L = new THREE.PointLight(0xc0e0ff, 30, 50); L.position.set(Math.cos(a) * (HUB_R - 2), WALL_H + 4, Math.sin(a) * (HUB_R - 2)); C.add(L); const fl = GL('h_floodlight', 'h', 7); if (fl) { fl.position.set(Math.cos(a) * (HUB_R - 1.2), WALL_H, Math.sin(a) * (HUB_R - 1.2)); fl.rotation.y = -a - Math.PI / 2; C.add(fl); } }
 }
 
 // Logs the marines can find, one per point of interest on each map
@@ -350,24 +357,30 @@ function hiveCave(g, W, T, D, path) {
   for (let i = 0; i < 26; i++) { const a = R() * 6.28, d = 4 + R() * (RAD - 6), st = new THREE.Mesh(new THREE.ConeGeometry(0.7 + R() * 1, 3 + R() * 5, 6), rockM); st.position.set(Math.cos(a) * d, cy + 25 - (d / RAD) ** 2 * 12 - 2, Math.sin(a) * d); st.rotation.x = Math.PI; C.add(st); }
   // inside: a slime floor, egg clusters and a sick purple glow
   const goo = new THREE.Mesh(new THREE.CircleGeometry(RAD - 1, 48), M.mat(0x3a1a40, { e: 0x200828, r: 0.3 })); goo.rotation.x = -Math.PI / 2; goo.position.y = cy + 0.06; C.add(goo);
-  const eggM = M.mat(0xc0a060, { e: 0x604010, ei: 0.8, op: 0.9, flat: false }); for (let i = 0; i < 46; i++) { const a = R() * 6.28, d = 10 + R() * (RAD - 12); if (Math.abs(((a - open + 9.42) % 6.283) - 3.14) < 0.7) continue; const e = new THREE.Mesh(new THREE.SphereGeometry(0.5 + R() * 0.35, 10, 8), eggM); e.scale.y = 1.4; const x = Math.cos(a) * d, z = Math.sin(a) * d; e.position.set(x, T.raw(cx + x, cz + z) + 0.55, z); C.add(e); }
+  const eggM = M.mat(0xc0a060, { e: 0x604010, ei: 0.8, op: 0.9, flat: false }); const eggG = M.AS.A.l_eggs; for (let i = 0; i < (eggG ? 16 : 46); i++) { const a = R() * 6.28, d = 10 + R() * (RAD - 12); if (Math.abs(((a - open + 9.42) % 6.283) - 3.14) < 0.7) continue; if (eggG) { const x = Math.cos(a) * d, z = Math.sin(a) * d, eg = M.AS.propGLB('eggs', R); eg.position.set(x, T.raw(cx + x, cz + z), z); eg.rotation.y = R() * 6; C.add(eg); continue; } const e = new THREE.Mesh(new THREE.SphereGeometry(0.5 + R() * 0.35, 10, 8), eggM); e.scale.y = 1.4; const x = Math.cos(a) * d, z = Math.sin(a) * d; e.position.set(x, T.raw(cx + x, cz + z) + 0.55, z); C.add(e); }
   const L = new THREE.PointLight(0xb040ff, 55, 70); L.position.set(-fx * 14, cy + 9, -fz * 14); C.add(L); W.caveLight = L;
   const q = { x: cx - fx * 20, z: cz - fz * 20 };
   W.caveRoof = { x: cx, z: cz, y: cy + 21, r: RAD + 2 }; W.cave = { x: cx, z: cz, r: RAD, q, y: cy }; (W.shelters = W.shelters || []).push({ x: cx, z: cz, r: RAD - 2 });
   // the hive mound behind the queen
   if (W.hive) { W.hive.position.set(q.x - fx * 7, cy, q.z - fz * 7); W.hive.scale.set(0.9, 0.7, 0.9); }
 }
+// a wreck the welder can cut scrap out of: remember where it is, how big it really is (for the welding beam) and how much scrap it holds
+function salvage(W, m, name, amt) {
+  m.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(m); if (b.isEmpty()) return; const c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3());
+  (W.salvage = W.salvage || []).push({ x: c.x, z: c.z, y: b.min.y, r: Math.max(1, Math.min(9, Math.max(sz.x, sz.z) / 2)), amt, name, box: [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z] });
+}
+const SALV = { satellite: ['crashed satellite', 60], wreck: ['wrecked ship', 160], capsule: ['supply capsule', 45], rover: ['wrecked rover', 45], debris: ['crashed ship', 55] };
 function placePOIs(g, W, T, D, mapId, path) {
-  const R = rng(mapId.length * 7919 + 11 + (W.diff || 0) * 1013), H = T.hub, hv = W.hiveP; W.lore = []; W.shelters = W.shelters || [];
+  const R = rng(mapId.length * 7919 + 11 + (W.diff || 0) * 1013), H = T.hub, hv = W.hiveP; W.lore = []; W.salvage = []; W.shelters = W.shelters || [];
   const ok = (x, z, clear) => Math.abs(x) < BOUNDS - 12 && Math.abs(z) < BOUNDS - 12 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 18 && Math.hypot(x - hv.x, z - hv.z) > 52 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 1.5 && !W.lore.some(l => Math.hypot(l.x - x, l.z - z) < 40);
   const spot = clear => { for (let k = 0; k < 400; k++) { const x = (R() * 2 - 1) * BOUNDS, z = (R() * 2 - 1) * BOUNDS; if (ok(x, z, clear)) return [x, z]; } return null; };
-  const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };
+  const put = (kind, clear, make, colliders) => { const p = spot(clear); if (!p) return; const [x, z] = p, y = T.raw(x, z), m = make(R); m.position.set(x, y - 0.2, z); m.rotation.y = R() * 6; g.add(m); { const sv = SALV[kind.replace(/\d+$/, '')]; if (sv) salvage(W, m, sv[0], sv[1]); } for (const c of colliders) W.colliders.push({ x: x + c[0], z: z + c[1], r: c[2], h: c[3], gy: y }); const lo = LORE[mapId][kind]; if (lo) { const t = M.terminal(); const a = R() * 6; t.position.set(x + Math.cos(a) * 4, T.raw(x + Math.cos(a) * 4, z + Math.sin(a) * 4), z + Math.sin(a) * 4); t.rotation.y = -a + Math.PI / 2; g.add(t); W.lore.push({ x: t.position.x, z: t.position.z, kind, title: lo[0], text: lo[1] }); } else W.lore.push({ x, z, kind, silent: 1 }); };
   put('satellite', 18, M.satellite, [[0, 0, 2.2, 3]]); put('wreck', 22, M.wreck, [[-4, 0, 2.6, 4], [4.5, 2, 2.4, 3.5], [-10, 0, 2, 4]]); put('capsule', 16, M.capsule, [[0, 0, 2, 3]]); put('rover', 14, M.rover, [[0, 0, 1.8, 2.5]]);
-  for (let i = 0; i < 7; i++) put('debris' + i, 10, M.debris, []);
+  for (let i = 0; i < 16; i++) put('debris' + i, 10, M.debris, []);   // crashed ships all over the map, to cut scrap from
   for (let i = 0; i < 45; i++) put('boulder' + i, 7, R => M.prop('boulder', R), [[0, 0, 1.8, 2.5]]);   // more big Meshy boulders across the open ground
   // downed dropships: their cargo holds still have ammunition to salvage (E)
   W.loot = []; { const wr = W.lore.find(l => l.kind === 'wreck'); if (wr) W.loot.push({ x: wr.x, z: wr.z, name: 'Wrecked dropship' }); }
-  for (let i = 0; i < 6; i++) { const p = spot(14); if (!p) continue; const [x, z] = p, y = T.raw(x, z), ry = R() * 6, m = M.dropship(); m.position.set(x, y + 0.5, z); m.rotation.set((R() - 0.5) * 0.3, ry, (R() > 0.5 ? 1 : -1) * (0.25 + R() * 0.2)); m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.multiplyScalar(0.55); } }); g.add(m);
+  for (let i = 0; i < 6; i++) { const p = spot(14); if (!p) continue; const [x, z] = p, y = T.raw(x, z), ry = R() * 6, m = M.dropship(); m.position.set(x, y + 0.5, z); m.rotation.set((R() - 0.5) * 0.3, ry, (R() > 0.5 ? 1 : -1) * (0.25 + R() * 0.2)); m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.multiplyScalar(0.55); } }); g.add(m); salvage(W, m, 'downed dropship', 90);
     const cx = x + Math.cos(ry) * 4, cz = z - Math.sin(ry) * 4, c = M.ammoCrate(); c.position.set(cx, T.raw(cx, cz), cz); c.rotation.y = R() * 6; g.add(c);
     W.colliders.push({ x, z, r: 3.2, h: 3, gy: y }); W.loot.push({ x: cx, z: cz, name: 'Downed dropship' }); W.lore.push({ x, z, kind: 'dropship' + i, silent: 1 }); }
   // the cave: a ring of great rocks with a rock roof, open on one side, a log terminal inside
@@ -390,7 +403,7 @@ function placePOIs(g, W, T, D, mapId, path) {
 function battlefield(g, W, T, D, mapId, path) {
   const R = rng(mapId.length * 4447 + 5 + (W.diff || 0) * 1013), H = T.hub, hv = W.hiveP;
   const free = (x, z, clear) => Math.abs(x) < BOUNDS - 6 && Math.abs(z) < BOUNDS - 6 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 6 && Math.hypot(x - hv.x, z - hv.z) > 44 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 2;
-  const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); if ([M.tank, M.mech, M.deadTurret, M.burntCrate].includes(make)) W.wrecks.push({ x, z, r: col ? col[0] : 2 }); };
+  const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); if ([M.tank, M.mech, M.deadTurret, M.burntCrate].includes(make)) { W.wrecks.push({ x, z, r: col ? col[0] : 2 }); salvage(W, m, make === M.tank ? 'wrecked tank' : make === M.mech ? 'wrecked mech' : make === M.deadTurret ? 'dead turret' : 'burnt crate', make === M.tank ? 75 : make === M.mech ? 60 : make === M.deadTurret ? 30 : 15); } };
   // battle lines along the track: sandbags, tank traps, bodies and wrecks 12-40 m from it
   for (let s = 30; s < path.len - 40; s += 22) {
     const q = path.at(s);

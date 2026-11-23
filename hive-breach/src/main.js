@@ -16,6 +16,7 @@ import { Sim, upgradeCost, tStat } from './sim.js';
 import { Net, VER } from './net.js';
 import { Audio } from './audio.js';
 import { Music } from './music.js';
+import { Voice } from './voice.js';
 import { icon } from './icons.js';
 import { Explore, buildFOB, cinematic, victoryScene, stationScene, dropIntro, vtol as vtolModel, rover as roverModel } from './explore.js';
 
@@ -26,7 +27,7 @@ const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(75, 1, 0.0
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 // switching fullscreen fires a burst of resize events: rebuild the drawing buffers once it settles, not on every one (that froze the page and the sound)
 let resizeT = 0; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 180); }); resize();
-const audio = new Audio(), music = new Music(audio); window.hbMusic = music;
+const audio = new Audio(), music = new Music(audio), voice = new Voice(audio); window.hbMusic = music;
 audio.onRestart = () => { toast('🔊 Sound engine restarted after a glitch (tell the developer if you see this often)', 4); music.reset(); setTimeout(() => { if (audio.ctx && audio.ctx.state === 'running') { music.start(); applyAudio(); } }, 200); };
 audio.expectSound = () => music.on && music.master && music.mode !== 'off' && music.vol > 0.02 && (music.mul ?? 1) > 0.02 && !document.hidden;
 addEventListener('pointerdown', () => { audio.unlock(); music.start(); const h = document.getElementById('soundHint'); if (h) h.hidden = true; });
@@ -54,7 +55,7 @@ const SET = { quality: 'medium', fov: 75, fps: false, invert: false, zoomSens: 1
 function saveSettings() { try { localStorage.setItem('hb-set', JSON.stringify(SET)); localStorage.setItem('hb-keys5', JSON.stringify(KB)); } catch (e) { } }
 function applyQuality() { const q = SET.quality; renderer.setPixelRatio(Math.min(q === 'low' ? 0.75 : q === 'high' ? 1.75 : 1.25, devicePixelRatio)); resize(); if (G.W) G.W.sun.castShadow = q !== 'low'; G.maxParts = q === 'low' ? 120 : q === 'high' ? 320 : 220; }
 const G = { pings: [], on: false, mode: 'solo', myId: 'me', name: 'Marine', cls: 'assault', map: 'mars', W: null, sim: null, net: null, snap: null, out: [], time: 0, shop: false, me: null };
-window.G = G; G.M = M; G.veh = { vtol: vtolModel, rover: roverModel }; G.renderer = renderer; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
+window.G = G; G.M = M; G.veh = { vtol: vtolModel, rover: roverModel }; G.bloodTest = (...a) => bloodHit(...a); G.renderer = renderer; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } };
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
@@ -190,7 +191,9 @@ function fx(e) {
     case 'radio': radioSay(e.w, e.m); break;
     case 'dresskit': break;
     case 'tshot': { const v = view.turrets.get(e.id), tv = view.aliens.get(e.tg); if (v && tv) { const m = v.mesh.position, sc = v.mesh.scale.x, a = [m.x, m.y + 1.3 * sc, m.z], b = [tv.x, tv.y + ALIENS[tv.type].h * 0.6, tv.z]; tracer(a, b, e.w === 'sg' ? 0xffc070 : 0xffe080, e.w === 'sg' ? 0.03 : 0.08, 0.06); if (e.w === 'sg') for (let i = 0; i < 4; i++) tracer(a, [b[0] + (Math.random() - 0.5) * 2, b[1] + (Math.random() - 0.5), b[2] + (Math.random() - 0.5) * 2], 0xffc070, 0.02, 0.04); flashAt(a, 1); const dd = dist(m.x, m.z); audio.gun(e.w === 'sg' ? 'shotgun' : 'rifle', vol(dd) * 0.7, 1.2, Math.min(1, dd / 45)); } break; }
-    case 'scrap': if (e.to === G.myId) { audio.sfx('tink', 0.9); G.scrapFlash = 0.5; } break;
+    case 'scrap': if (e.to === G.myId) { audio.sfx('pickup', 0.6); G.scrapFlash = 0.5; } break;
+    case 'salvage': if (e.to === G.myId) { G.scrapFlash = 0.5; if (e.n > 0) { G.salvN = (G.salvN || 0) + e.n; G.salvT = 1.2; } if (e.left <= 0) toast('Wreck stripped clean', 1.5); } break;
+    case 'stripped': (G.stripped = G.stripped || new Set()).add(e.w); break;
     case 'ammo': if (e.to === G.myId) { refillAmmo(1); audio.sfx('pickup'); toast('Ammo: fully stocked.', 2); } break;
     case 'resup': if (e.to === G.myId) { refillAmmo(e.f); if (!G.resupT || G.time - G.resupT > 6) { G.resupT = G.time; toast('Forward Resupply: restocking slowly…', 2); } } break;
     case 'pickup': if (e.to === G.myId) { audio.sfx('heal'); toast('Health kit: +60 health', 2); } break;
@@ -233,16 +236,46 @@ function updateCorpses(dt) {
   for (const c of corpses) { c.t += dt; const u = c.m.userData; if (u.glb && u.act && u.act.die) { if (!c.go) { c.go = 1; const d = u.act.die; d.reset().play(); if (u.cur && u.act[u.cur] && u.act[u.cur] !== d) u.act[u.cur].crossFadeTo(d, 0.12, false); u.cur = 'die'; } u.mixer.update(dt); if (u.mats) for (const mt of u.mats) mt.emissiveIntensity = Math.max(0.2, 1.5 - c.t * 3); if (c.t > 6) c.m.position.y -= dt * 0.7; if (c.t > 8) { scene.remove(c.m); c.dead = true; } continue; }   // the body lies there a few seconds, then sinks   // a Meshy alien plays its death clip, then sinks into the ground
     const f = Math.min(1, c.t / 0.35); c.m.rotation.z = c.side * f * 1.5; c.m.userData.legs.forEach(l => l.rotation.x = Math.sin(c.t * 30) * 0.4 * (1 - f)); if (c.t > 2) c.m.position.y -= dt * 0.8; if (c.t > 3.5) { scene.remove(c.m); c.dead = true; } }
   if (corpses.some(c => c.dead)) corpses.splice(0, corpses.length, ...corpses.filter(c => !c.dead));
-  for (const s of splats) { s.t -= dt; s.m.material.opacity = Math.min(0.75, s.t / 4); if (s.t <= 0) { scene.remove(s.m); s.m.geometry.dispose(); s.m.material.dispose(); s.dead = true; } }
+  updBlood(dt);
+  for (const s of splats) { s.t -= dt; s.m.material.opacity = Math.min(0.9, s.t / 4); if (s.t <= 0) { scene.remove(s.m); s.m.geometry.dispose(); s.m.material.dispose(); s.dead = true; } }
   if (splats.some(s => s.dead)) splats.splice(0, splats.length, ...splats.filter(s => !s.dead));
 }
 const marks = []; function impactMark(x, y, z) { if (marks.length > 70) { const o = marks.shift(); scene.remove(o); } const m = new THREE.Mesh(new THREE.CircleGeometry(0.18 + Math.random() * 0.12, 6), new THREE.MeshBasicMaterial({ color: 0x1a1612, transparent: true, opacity: 0.7, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.set(x, G.W.ground(x, z, y + 0.3) + 0.05, z); scene.add(m); marks.push(m); }
 // alien blood when your bullets land: a spray of bright acid-green droplets and darker gore, bigger on a head shot, and now and then a splash on the ground under it
-function bloodHit(hp, v, head) {
-  burst(hp[0], hp[1], hp[2], 0x7aff30, head ? 16 : 8, head ? 5 : 3.5, 0.5, head ? 1.8 : 1.3); burst(hp[0], hp[1], hp[2], 0x2c5a10, head ? 8 : 4, 2.5, 0.7, 1.1);
-  if (v && Math.random() < (head ? 0.7 : 0.3)) splat(v.x + (Math.random() - 0.5) * 1.2, v.z + (Math.random() - 0.5) * 1.2, head ? 0.9 : 0.55);
+// Alien blood: wet acid-green droplets that blow out the far side of the wound (a few spit back at you), arc down and splash where they land,
+// a puff of blood mist at the wound, and splatter decals (an irregular pool with flung droplets and streaks) left on the ground
+const bloodTex = (() => { const out = []; for (let v = 0; v < 4; v++) { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d'); g.fillStyle = '#fff';
+  const blob = (x, y, r) => { g.beginPath(); for (let a = 0; a <= 6.3; a += 0.3) { const rr = r * (0.75 + Math.random() * 0.45); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.fill(); };
+  for (let i = 0; i < 7; i++) blob(64 + (Math.random() - 0.5) * 30, 64 + (Math.random() - 0.5) * 30, 10 + Math.random() * 16);
+  for (let i = 0; i < 26; i++) { const a = Math.random() * 6.283, d = 30 + Math.random() * 30, r = 1 + Math.random() * 4; g.beginPath(); g.arc(64 + Math.cos(a) * d, 64 + Math.sin(a) * d, r, 0, 6.283); g.fill(); }
+  g.strokeStyle = '#fff'; g.lineCap = 'round'; for (let i = 0; i < 6; i++) { const a = Math.random() * 6.283, d = 40 + Math.random() * 20; g.lineWidth = 2 + Math.random() * 4; g.beginPath(); g.moveTo(64 + Math.cos(a) * 18, 64 + Math.sin(a) * 18); g.lineTo(64 + Math.cos(a) * d, 64 + Math.sin(a) * d); g.stroke(); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; out.push(t); } return out; })();
+const mistTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv); })();
+const dropGeo = new THREE.SphereGeometry(1, 6, 4), dropM = [new THREE.MeshStandardMaterial({ color: 0x9cff36, emissive: 0x2e7008, roughness: 0.12, metalness: 0.15 }), new THREE.MeshStandardMaterial({ color: 0x3e8a12, emissive: 0x0e2a04, roughness: 0.2, metalness: 0.1 })];
+const drops = [], mists = [], _bv = new THREE.Vector3();
+function bloodHit(hp, v, head, dir) {
+  const d = dir || { x: 0, y: 0, z: 0 }, n = head ? 26 : 13, gy = G.W ? G.W.ground(hp[0], hp[2], hp[1]) : 0;
+  for (let i = 0; i < n; i++) {
+    let p = drops.find(q => !q.alive); if (!p) { if (drops.length > 260) break; p = { mesh: new THREE.Mesh(dropGeo, dropM[0]) }; p.mesh.castShadow = false; scene.add(p.mesh); drops.push(p); }
+    const back = i < 3, sp = back ? 1.5 + Math.random() * 2 : 3 + Math.random() * (head ? 7 : 5), k = back ? -1 : 1;
+    p.alive = true; p.mesh.visible = true; p.mesh.material = dropM[Math.random() < 0.7 ? 0 : 1]; p.mesh.position.set(hp[0], hp[1], hp[2]); p.gy = gy;
+    p.vx = d.x * sp * k + (Math.random() - 0.5) * 3; p.vy = d.y * sp * k + Math.random() * 2.5 + 0.5; p.vz = d.z * sp * k + (Math.random() - 0.5) * 3; p.s = (head ? 0.05 : 0.035) + Math.random() * 0.05; p.life = 1.4;
+  }
+  let m = mists.find(q => !q.alive); if (!m && mists.length < 24) { m = { sp: new THREE.Sprite(new THREE.SpriteMaterial({ map: mistTex, color: 0x6ad020, transparent: true, depthWrite: false })) }; scene.add(m.sp); mists.push(m); }
+  if (m) { m.alive = true; m.t = 0; m.T = head ? 0.42 : 0.3; m.r = head ? 2.4 : 1.4; m.sp.visible = true; m.sp.position.set(hp[0] + d.x * 0.3, hp[1], hp[2] + d.z * 0.3); }
+  if (v && Math.random() < (head ? 0.8 : 0.35)) splat(v.x + d.x * (1 + Math.random()) + (Math.random() - 0.5), v.z + d.z * (1 + Math.random()) + (Math.random() - 0.5), head ? 1.1 : 0.7);
 }
-function splat(x, z, r) { if (splats.length > 70) { const o = splats.shift(); scene.remove(o.m); } const m = new THREE.Mesh(new THREE.CircleGeometry(r * (0.7 + Math.random() * 0.6), 9), new THREE.MeshBasicMaterial({ color: 0x4ac020, transparent: true, opacity: 0.75, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6; m.position.set(x, G.W.top(x, z) + 0.12, z); scene.add(m); splats.push({ m, t: 12 }); }
+function updBlood(dt) {
+  for (const p of drops) if (p.alive) { p.life -= dt; p.vy -= 15 * dt; const o = p.mesh.position; o.x += p.vx * dt; o.y += p.vy * dt; o.z += p.vz * dt;
+    if (o.y < p.gy + 0.04 || p.life <= 0) { p.alive = false; p.mesh.visible = false; if (p.life > 0 && Math.random() < 0.18) splat(o.x, o.z, 0.18 + Math.random() * 0.2, true); continue; }
+    const v = Math.hypot(p.vx, p.vy, p.vz); p.mesh.scale.set(p.s, p.s, p.s * (1 + v * 0.35)); _bv.set(o.x + p.vx, o.y + p.vy, o.z + p.vz); p.mesh.lookAt(_bv); }
+  for (const m of mists) if (m.alive) { m.t += dt; const f = m.t / m.T; if (f >= 1) { m.alive = false; m.sp.visible = false; continue; } m.sp.scale.setScalar(m.r * (0.35 + f * 0.9)); m.sp.material.opacity = 0.85 * (1 - f) * (1 - f); m.sp.position.y += dt * 0.3; }
+}
+function splat(x, z, r, small) {
+  if (!G.W) return; if (splats.length > 90) { const o = splats.shift(); scene.remove(o.m); o.m.material.dispose(); }
+  const s = r * 2.4 * (0.75 + Math.random() * 0.5), m = new THREE.Mesh(new THREE.PlaneGeometry(s, s), new THREE.MeshStandardMaterial({ map: bloodTex[(Math.random() * 4) | 0], color: Math.random() < 0.6 ? 0x6ad020 : 0x3a7a12, transparent: true, opacity: 0.9, depthWrite: false, roughness: 0.15, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -4 }));
+  m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6.283; m.position.set(x, G.W.ground(x, z, G.W.top(x, z) + 0.5) + 0.06, z); m.renderOrder = 1; scene.add(m); splats.push({ m, t: small ? 14 : 30 });
+}
 // class abilities, seen by everyone
 function abilityFx(e) {
   const y = e.y || 0;
@@ -311,7 +344,7 @@ function updateGrenades(dt) {
     if (!p.gr) continue; const g = p.gr; g.t -= dt; g.vy -= 20 * dt; g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt;
     const gy = G.W.ground(g.x, g.z, g.y + 0.3) + 0.14; if (g.y < gy) { g.y = gy; g.vy = Math.abs(g.vy) * 0.35; g.vx *= 0.6; g.vz *= 0.6; }
     p.a = p.b = [g.x, g.y, g.z]; p.t = 0;
-    if (g.t <= 0) { p.dead = true; scene.remove(p.mesh); if (g.own && G.explore && G.ex) G.ex.splash(g.x, g.y, g.z, 5.5, 140); else if (g.own) req({ a: 'boom', x: g.x, y: g.y, z: g.z, r: 5.5, d: 140 * dmgMul() }); else if (G.mode === 'client') { } }
+    if (g.t <= 0) { p.dead = true; scene.remove(p.mesh); if (g.own && G.explore && G.ex) G.ex.splash(g.x, g.y, g.z, 5.5, 140); else if (g.own) req({ a: 'boom', x: g.x, y: g.y, z: g.z, r: 5.5, d: 140 * dmgMul(), gren: 1 }); else if (G.mode === 'client') { } }
   }
 }
 
@@ -573,7 +606,7 @@ function shoot(st) {
     if (list.length) {
       for (const q of list.slice(0, n)) { const fall = q.t <= g.near ? 1 : Math.max(0.6, 1 - 0.4 * (q.t - g.near) / (g.far - g.near)), hm = q.head ? (G.cls === 'sniper' ? 2.5 : 2) : 1, dd = +(st.dmg * PLAYER_DMG * fall * hm * (oc ? 4 : 1)).toFixed(1);   /* marines hit hard: turrets matter, but so do you */
         if (q.v.wild) G.ex.hurt(q.v, dd); else req({ a: 'hit', id: q.v.id, d: dd }); q.v.pop = Math.max(q.v.pop || 0, 0.08);
-        if (me.airN > 0 && k === 0) { const hp0 = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; if (G.explore && G.ex) G.ex.splash(...hp0, 3, 45); else req({ a: 'boom', x: hp0[0], y: hp0[1], z: hp0[2], r: 3, d: 45 }); } const hp = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; bloodHit(hp, q.v, q.head); if (q.head) head = true; if (fall < 0.6) weak = true; hitAny = true; }
+        if (me.airN > 0 && k === 0) { const hp0 = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; if (G.explore && G.ex) G.ex.splash(...hp0, 3, 45); else req({ a: 'boom', x: hp0[0], y: hp0[1], z: hp0[2], r: 3, d: 45 }); } const hp = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; bloodHit(hp, q.v, q.head, r.d); if (q.head) head = true; if (fall < 0.6) weak = true; hitAny = true; }
       const q0 = list[Math.min(list.length, n) - 1]; end = [r.o.x + r.d.x * q0.t, r.o.y + r.d.y * q0.t, r.o.z + r.d.z * q0.t];
     } else { const t = Math.min(mx, wall); end = [r.o.x + r.d.x * t, r.o.y + r.d.y * t, r.o.z + r.d.z * t]; if (t < mx) { burst(end[0], end[1] + 0.1, end[2], G.W.def.ground, 3, 2, 0.35, 1.3); if (k < 2) impactMark(end[0], end[1], end[2]); } }
     if (g.tracers || (G.cls === 'sniper' || g.pellets ? k < 3 : me.shotN % 3 === 0)) tracer(G.cls === 'sniper' && me.scope ? [r.o.x + r.d.x * 0.5, r.o.y - 0.15, r.o.z + r.d.z * 0.5] : mz, end, oc ? 0xffffff : g.tracers ? 0xff7a30 : col, G.cls === 'sniper' ? 0.2 : g.tracers ? 0.07 : 0.05, (G.cls === 'sniper' ? (oc ? 0.2 : 0.09) : g.pellets ? 0.02 : 0.035) * power);
@@ -723,32 +756,40 @@ function startFob() {
 }
 const H = { scene, camera, renderer, audio, keys, hits, KB, G, M, toast: (m, t) => toast(m, t), prompt: h => prompt(h), banner: (a, b) => banner(a, b), burst: (...a) => burst(...a), boomFx: (...a) => boomFx(...a), tracer: (...a) => tracer(...a), flashAt: (...a) => flashAt(...a),
   mouseL: () => mouseL && locked(), shake: v => { G.shake = Math.max(G.shake || 0, v); }, hurtFlash: () => { G.hurtT = 0.35; audio.sfx('hurt', 0.6); }, keyName: c => keyName(c), fade: on => { $('fade').style.opacity = on ? 1 : 0; },
-  caption: (a, b) => { const c = $('cap'); clearTimeout(c._t); if (a) $('capA').textContent = a; else if (!c.classList.contains('on')) $('capA').textContent = ''; $('capB').textContent = b || ''; c.classList.add('on'); c._t = setTimeout(() => c.classList.remove('on'), 5200); } };
+  caption: (a, b) => { if (b) voice.say(b); const c = $('cap'); clearTimeout(c._t); if (a) $('capA').textContent = a; else if (!c.classList.contains('on')) $('capA').textContent = ''; $('capB').textContent = b || ''; c.classList.add('on'); c._t = setTimeout(() => c.classList.remove('on'), 5200); } };
 function reloadMul(S) { return S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? 0.75 : 1; }
 // medic heal beam and engineer plasma torch: find what is in the crosshair and tell the host ten times a second
 function updateBeam(dt, S) {
   const me = G.me, laser = view2.laser; if (laser) laser.visible = false; $('weld').hidden = true;
   if (!me.beam) { me.beamAcc = 0; return; } const rc = me.slot === 4 ? 'heal' : 'repair', fx = -Math.sin(me.yaw) * Math.cos(me.pitch), fy = Math.sin(me.pitch), fz = -Math.cos(me.yaw) * Math.cos(me.pitch), ey = me.y + 1.7;
-  let best = null, bs = 0.95, k = ''; const reach = G.cls === 'engineer' ? 8 : 6;
+  let best = null, bs = 0.95, k = '', end = null; const reach = G.cls === 'engineer' ? 8 : 6;
   const look = (q, kk, range, h = 1.1) => { const dx = q.x - me.x, dy = (q.y || 0) + h - ey, dz = q.z - me.z, d = Math.hypot(dx, dy, dz); if (d > range || d < 0.5) return; const c = (dx * fx + dy * fy + dz * fz) / d; if (c > bs) { bs = c; best = q; k = kk; } };
   if (rc === 'heal') { for (const p of S.P) if (p.id !== G.myId && !p.dead) look(p, 'p', 16); for (const m of S.L || []) look(m, 'a', 16); }
-  else { for (const t of S.T) if (!t.carry && t.kind !== 'claymore') look(t, 't', reach + 1.5); if (!best) { bs = 0.93; for (const a of S.A) if (!a.dead) look(a, 'x', reach + ALIENS[a.type].r, ALIENS[a.type].h * 0.6); } }
-  const my = mine(S) || {}, pw = my.pw ?? 100, pmax = G.cls === 'engineer' ? 160 : 100;
+  else { // the welding laser goes straight out through the crosshair and works on the first thing it touches: any part of a turret, a wreck, an alien, or the ground
+    const o = camera.getWorldPosition(new THREE.Vector3()), dv = camera.getWorldDirection(new THREE.Vector3()), ray = new THREE.Ray(o, dv), P = new THREE.Vector3(), max = reach + 1.5; let tt = max;
+    const hitBox = (bx, q, kk) => { if (ray.intersectBox(bx, P)) { const d = P.distanceTo(o); if (d < tt) { tt = d; best = q; k = kk; } } };
+    for (const t of S.T) { if (t.carry || t.kind === 'claymore') continue; const v = view.turrets.get(t.id); if (!v || Math.hypot(t.x - me.x, t.z - me.z) > max + 4) continue; const nw = performance.now(); if (!v.wbox || nw - v.wboxT > 400) { v.wbox = new THREE.Box3().setFromObject(v.mesh).expandByScalar(0.2); v.wboxT = nw; } hitBox(v.wbox, t, 't'); }
+    for (const a of S.A) { if (a.dead) continue; const A = ALIENS[a.type]; if (Math.hypot(a.x - me.x, a.z - me.z) > max + A.r + 2) continue; const sp = new THREE.Sphere(new THREE.Vector3(a.x, (a.y || 0) + A.h * 0.6, a.z), Math.max(0.6, A.r)); if (ray.intersectSphere(sp, P)) { const d = P.distanceTo(o); if (d < tt) { tt = d; best = a; k = 'x'; } } }
+    (G.W.salvage || []).forEach((w, i) => { if (Math.hypot(w.x - me.x, w.z - me.z) > max + w.r + 2) return; w.b3 = w.b3 || new THREE.Box3(new THREE.Vector3(w.box[0], w.box[1], w.box[2]), new THREE.Vector3(w.box[3], w.box[4], w.box[5])); hitBox(w.b3, { i, ...w }, 'w'); });
+    const gt = G.W.T.ray ? G.W.T.ray(o, dv, tt) : Infinity; if (gt < tt) { tt = gt; best = null; k = ''; }
+    end = o.clone().addScaledVector(dv, Math.min(tt, max)).toArray(); }
+  const pw = 1;   /* the welder never runs out */
   if (rc === 'repair') {
     // the torch is a short laser: it ends at what it touches, or a few metres out
-    const m = muzzleTool(), end = best ? [best.x, (best.y || 0) + (k === 'x' ? ALIENS[best.type].h * 0.6 : 1.1), best.z] : [ey * 0 + me.x + fx * reach * 0.7, ey + fy * reach * 0.7, me.z + fz * reach * 0.7];
+    const m = muzzleTool();
     if (pw > 0) { if (!laser) { view2.laser = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); view2.laser.add(new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 1, 8, 1, true), new THREE.MeshBasicMaterial({ color: k === 'x' ? 0xff6020 : 0x3090ff, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false }))); scene.add(view2.laser); }
       const L = view2.laser, a = new THREE.Vector3(...m), b = new THREE.Vector3(...end), len = a.distanceTo(b); L.position.copy(a).lerp(b, 0.5); L.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); L.scale.set(0.022 + Math.random() * 0.01, len, 0.022 + Math.random() * 0.01); L.children[0].material.color.setHex(k === 'x' ? 0xff6020 : 0x3090ff); L.material.color.setHex(k === 'x' ? 0xffc090 : 0xbff0ff); L.visible = true;
       if (Math.random() < 0.7) burst(end[0], end[1], end[2], k === 'x' ? 0xff8040 : 0x9fe0ff, 2, 2.2, 0.25); if (Math.random() < dt * 8) audio.sfx('torch', 0.35); }
     // the build bar: repair, or an upgrade climbing to completion
     if (best && k === 't') { const T = TURRETS[best.kind], up = best.hp < best.mhp ? null : best.lvl >= 3 ? 'max' : (best.up || 0); $('weld').hidden = false;
       setT('weldT', up === null ? `REPAIRING ${T.name.toUpperCase()}` : up === 'max' ? `${T.name.toUpperCase()} · MAX LEVEL` : `UPGRADING TO LV ${best.lvl + 1}`); $('weldBar').style.width = (up === null ? best.hp / best.mhp : up === 'max' ? 1 : up) * 100 + '%'; $('weld').classList.toggle('rep', up === null); }
+    else if (best && k === 'w') { const left = G.stripped && G.stripped.has(best.i) ? 0 : 1; $('weld').hidden = false; setT('weldT', left ? `CUTTING SCRAP · ${best.name.toUpperCase()}` : `${best.name.toUpperCase()} · STRIPPED`); $('weldBar').style.width = (left ? 100 : 0) + '%'; $('weld').classList.add('rep'); }
     else if (best && k === 'x') { $('weld').hidden = false; setT('weldT', `BURNING ${ALIENS[best.type].name.toUpperCase()}`); $('weldBar').style.width = Math.max(0, best.hp / best.mhp) * 100 + '%'; $('weld').classList.add('rep'); }
-    if (pw <= 0) prompt('<span class="bad">Welder out of power</span> · recharge in the hub, at a Forward Resupply or Ammo Cache, or grab a supply drop'); else if (!best) prompt(`Welding laser · repairs and upgrades turrets, burns aliens up close · power ${Math.round(pw / pmax * 100)}%`);
+    if (G.salvT > 0) prompt(`+${G.salvN} scrap`); else if (!best) prompt('Welding laser · cut scrap from wrecks, weld turrets to repair and upgrade them, burn aliens up close');
   }
   me.beamAcc = (me.beamAcc || 0) + dt; if (me.beamAcc < 0.1) return; const d0 = me.beamAcc; me.beamAcc = 0;
   if (rc === 'heal') { req({ a: 'heal', id: best ? best.id : '', k: best ? k : '', dt: +d0.toFixed(2) }); prompt(best ? `Healing ${best.name ? esc(best.name) : ALLIES[best.type].name} · ${Math.ceil(best.hp)}/${best.mhp}` : 'Heal beam: aim at a teammate (healing yourself slowly)'); if (Math.random() < 0.5) burst(...muzzleTool(), 0x60ff90, 2, 1.5, 0.2); }
-  else if (pw > 0) req({ a: 'repair', id: best ? best.id : '', k: k === 'x' ? 'a' : 't', dt: +d0.toFixed(2) });
+  else req({ a: 'repair', id: best ? (k === 'w' ? best.i : best.id) : '', k: k === 'x' ? 'a' : k === 'w' ? 'w' : 't', dt: +d0.toFixed(2), hp: end ? end.map(v => +v.toFixed(2)) : undefined });
 }
 // any marine can patch up a damaged turret, wall or mine by holding the repair key close to it
 function handRepair(dt, S) {
@@ -924,7 +965,7 @@ let toastT = 0, bannerT = 0, promptSet = false;
 // radio chatter: the commander on the ground and General Hale on Station Olympus, shown one message at a time
 const radioQ = []; let radioBusy = 0;
 function radioSay(w, m) { radioQ.push({ w, m }); if (radioQ.length > 4) radioQ.shift(); if (!radioBusy) radioNext(); }
-function radioNext() { const r = radioQ.shift(), el = $('radio'); if (!r) { radioBusy = 0; el.classList.remove('on'); return; } radioBusy = 1; el.className = 'on ' + r.w; $('radioW').textContent = r.w === 'gen' ? '🛰 GEN. HALE · STATION OLYMPUS' : '📡 COMMANDER VANCE · GROUND'; $('radioM').textContent = r.m; audio.sfx('tick', 0.5); setTimeout(() => audio.sfx('tick', 0.35), 120); setTimeout(radioNext, Math.max(4500, r.m.length * 70)); }
+function radioNext() { const r = radioQ.shift(), el = $('radio'); if (!r) { radioBusy = 0; el.classList.remove('on'); return; } radioBusy = 1; el.className = 'on ' + r.w; $('radioW').textContent = r.w === 'gen' ? '🛰 GEN. HALE · STATION OLYMPUS' : '📡 COMMANDER VANCE · GROUND'; $('radioM').textContent = r.m; voice.say(r.m); audio.sfx('tick', 0.5); setTimeout(() => audio.sfx('tick', 0.35), 120); setTimeout(radioNext, Math.max(4500, r.m.length * 70)); }
 function toast(m, t = 3) { const d = document.createElement('div'); d.textContent = m; $('toasts').prepend(d); setTimeout(() => d.remove(), t * 1000); while ($('toasts').children.length > 3) $('toasts').lastChild.remove(); }
 function banner(a, b) { $('bannerA').textContent = a; $('bannerB').textContent = b; $('banner').hidden = false; bannerT = 2.4; }
 function prompt(html) { promptSet = true; const p = $('prompt'); if (p._h !== html) { p.innerHTML = html; p._h = html; } p.hidden = false; }
@@ -977,7 +1018,7 @@ function showPing(e) {
 function updPings(dt) { for (let i = pings.length - 1; i >= 0; i--) { const p = pings[i]; p.t -= dt; p.dia.rotation.y += dt * 3; p.dia.position.y = 2 + Math.sin(G.time * 4) * 0.2; if (p.t < 1) p.g.traverse(o => { if (o.material) o.material.opacity = Math.max(0, p.t) * 0.8; }); if (p.t <= 0) { scene.remove(p.g); pings.splice(i, 1); } } }
 function hud(dt, S) {
   const my = mine(S); if (!my) return; feel(dt, S, my); updPings(dt); const st = stats(), C = CLASSES[G.cls];
-  const hpv = G.explore && G.ex ? G.ex.hp * my.mhp / 100 : my.hp; setT('gold', Math.floor(my.gold)); setT('scrapN', String(Math.floor(my.scrap || 0))); G.scrapFlash = Math.max(0, (G.scrapFlash || 0) - dt); $('scrapBox').classList.toggle('fl', G.scrapFlash > 0); setT('hpTxt', `${Math.ceil(hpv)} / ${my.mhp}`); $('hpBar').style.width = (hpv / my.mhp * 100) + '%';
+  const hpv = G.explore && G.ex ? G.ex.hp * my.mhp / 100 : my.hp; setT('gold', Math.floor(my.gold)); setT('scrapN', String(Math.floor(my.scrap || 0))); G.scrapFlash = Math.max(0, (G.scrapFlash || 0) - dt); if (G.salvT > 0) { G.salvT -= dt; if (G.salvT <= 0) G.salvN = 0; } $('scrapBox').classList.toggle('fl', G.scrapFlash > 0); setT('hpTxt', `${Math.ceil(hpv)} / ${my.mhp}`); $('hpBar').style.width = (hpv / my.mhp * 100) + '%';
   const slotNames = [C.gun.name, SIDEARM.name, 'Welding torch' + (G.cls === 'engineer' ? ' (3x)' : ''), C.throw.name + ' (left click throws)', 'Heal beam']; setT('ammo', G.me.slot === 3 ? String(my.items ?? 0) : G.me.slot === 5 ? String(my.dr ?? 0) : G.me.slot === 2 ? Math.round((my.pw ?? 100) / (G.cls === 'engineer' ? 160 : 100) * 100) + '%' : G.me.slot >= 2 ? '∞' : G.me.rel > 0 ? '--' : String(G.me.ammo)); setT('reserve', G.me.slot === 3 ? '/ ' + C.throw.n : G.me.slot === 5 ? '/ 2' : G.me.slot === 2 ? 'PWR' : G.me.slot >= 2 ? '' : '/ ' + Math.floor(G.me.reserve)); setT("gunName", `SLOT ${[1, 2, 3, 4, 6, 5][G.me.slot]}`); const low = G.me.reserve < st.mag && G.me.ammo < st.mag * 0.5; $('ammoWarn').hidden = !(low || G.me.resup); setT('ammoWarn', G.me.resup ? 'RESUPPLYING' : G.me.reserve < 1 && G.me.ammo === 0 ? 'OUT OF AMMO: BACK TO THE HUB' : 'LOW AMMO'); setT('clsName', C.name);
   const mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('waveTxt', S.ph === 'build' ? `GET READY ${Math.max(0, Math.ceil(S.tm))}` : `⏱ ${mmss(S.el || 0)}`); $('hubBar').style.width = S.hub + '%'; setT('hubTxt', `HUB ${Math.ceil(S.hub)}%`);
   let info = S.ph === 'build' ? 'Stand by: the swarm is coming' : `${S.left} aliens on the field`; if (G.W.cave && Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z) < 40) info = 'The Brood Queen\'s lair: kill her to win';
@@ -989,6 +1030,10 @@ function hud(dt, S) {
   setH('slots', wpn.map(([n, ic, c, sl], i) => `<div class="slot w ${G.me.slot === sl ? 'on' : ''} ${(sl === 3 && !my.items) || (sl === 5 && !my.dr) || (sl === 2 && (my.pw ?? 1) <= 0) ? 'poor' : ''}"><b>${i + 1}</b>${ic}<i>${c}</i></div>`).join('') + `<div class="gap"></div><div class="kits" title="turret kits">${'▮'.repeat(my.kits ?? 2)}${'▯'.repeat(Math.max(0, 2 - (my.kits ?? 2)))}<small>KITS</small></div>` + bslot('sentry', C.sentry) + bslot('defense', C.defense) + bslot('third', C.third) + `<div class="slot ${sp ? 'ready sp' : 'poor'}"><b>${keyName(KB.special)}</b>${sp ? icon(sp) : icon('empty')}</div>`);
   setT('slotName', G.me.place ? TURRETS[G.me.place].name : sp && G.time - (G.spT ?? -9) < 3 ? SPECIALS[sp].name : (wpn.find(w => w[3] === G.me.slot) || wpn[0])[0]); if (sp !== G.lastSp) { G.lastSp = sp; G.spT = G.time; }
   $('roundsBar').style.width = (G.me.slot <= 1 ? Math.min(100, G.me.ammo / st.mag * 100) : 0) + '%';
+  { // in the hub: show everything restocking, with what's full and what's still coming in
+    const rs = $('restock'), inHub = !G.explore && G.W && G.W.T.hubAt(G.me.x, G.me.z);
+    if (!inHub) rs.hidden = true; else { const st = stats(), C0 = CLASSES[G.cls], rows = [['Ammo', Math.floor(G.me.reserve), st.reserve], ['Turret kits', my.kits ?? 2, 2], [C0.throw.name + 's', my.items ?? 0, C0.throw.n], ['Field dressings', my.dr ?? 2, 2]]; if (my.hp < my.mhp) rows.unshift(['Health', Math.round(my.hp), my.mhp]);
+      const busy = rows.some(r => r[1] < r[2]); rs.hidden = false; rs.innerHTML = `<h4>${busy ? 'HUB · RESTOCKING' : 'HUB · ALL STOCKED'}</h4>` + rows.map(([n, v, mx]) => `<div><span>${n}</span><span class="${v >= mx ? 'full' : 'chg'}">${v >= mx ? 'FULL' : v + ' / ' + mx}</span></div>` + (v < mx ? `<div class="bar"><i style="width:${Math.round(v / mx * 100)}%"></i></div>` : '')).join(''); } }
   setH('status', [my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get under cover, or crouch behind something on the windward side</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', G.me.braced ? '<span class="g">▤ Braced on sandbags</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
   // a boss bar while a big one is alive
   const nearQ = G.W.cave && Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z) < 34, boss = S.A.find(a => ALIENS[a.type].boss) || (nearQ ? S.A.find(a => a.type === 'broodqueen') : null); $('boss').hidden = !boss; if (boss) { setT('bossName', ALIENS[boss.type].name); $('bossBar').style.width = (boss.hp / boss.mhp * 100) + '%'; }
@@ -1090,7 +1135,7 @@ function begin(mapId) {
   setT('mapName', G.W.def.name);
   toast(music.on ? 'Music on (N turns it off) · M opens the live map' : 'Music is off: press N to turn it on', 4);
   toast(`${MAPS[mapId].name}: hold the hub. Aliens follow the glowing track from the Brood Queen's cave.`, 6);
-  banner('YOUR MISSION', 'The alien bastards know we\'re coming. Get inside the hive and kill the queen! We will extract you as soon as your mission is complete.'); bannerT = 6;
+  voice.say('alien bastards know'); banner('YOUR MISSION', 'The alien bastards know we\'re coming. Get inside the hive and kill the queen! We will extract you as soon as your mission is complete.'); bannerT = 6;
 }
 function onMsg(m) {
   if (G.mode === 'host') {

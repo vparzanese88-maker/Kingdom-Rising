@@ -305,6 +305,7 @@ export function turret(kind, color, lvl) {
 
 // ---------------------------------------------------------------- the hive and the hub
 export function hive() {
+  { const mg = AS.fitGLB('l_hivemound', 'w', 16, false); if (mg) { const g = new THREE.Group(); mg.scale.y = 0.8; g.add(mg); const L = new THREE.PointLight(0xa040ff, 40, 30); L.position.y = 4; g.add(L); return g; } }   // the Meshy hive mound
   const g = new THREE.Group(), sk = 0x3a2048, gl = mat(0xa040ff, { e: 0x8020ff, ei: 1.5 });
   S(g, 5, sk, 0, 0, 0, 1.2, 0.8, 1.2); S(g, 3, sk, 2, 3, 1, 1, 1.2, 1); S(g, 2.5, sk, -2.5, 2.5, -1.5);
   for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; K(g, 0.8, 4 + (i % 3), 0x281430, Math.cos(a) * 4.5, 1.5, Math.sin(a) * 4.5).rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4); }
@@ -426,14 +427,27 @@ export function drone() { // a gunship drone: armoured body, four ducted rotors,
   g.scale.setScalar(1.3); return g; }
 export function medCrate(r) { const g = new THREE.Group(); B(g, 1.3, 0.9, 1.0, 0xe8e8f0, 0, 0.45, 0); const red = mat(0xff3030, { e: 0xa01010 }); B(g, 1.32, 0.18, 0.3, red, 0, 0.92, 0); B(g, 0.3, 0.18, 1.02, red, 0, 0.92, 0); const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.3, r, 48), new THREE.MeshBasicMaterial({ color: 0x60ff90, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.15; g.add(ring); return g; }
 // ---------------------------------------------------------------- the old battlefield
+// Bodies on the battlefield: the real Meshy marines and aliens frozen at the end of their death animations, baked into still meshes (once per kind, then copied)
+const _bodies = {};
+function deathPose(key, make) {
+  if (_bodies[key] !== undefined) return _bodies[key]; let out = null;
+  try { const g = make(); if (g && g.userData.glb && g.userData.act && g.userData.act.die) { const u = g.userData; u.mixer.stopAllAction(); const d = u.act.die; d.reset().play(); d.time = d.getClip().duration; u.mixer.update(0); if (u.gun) u.gun.visible = false; out = AS.bake(g); if (key[0] === 'a') out.traverse(o => { if (o.isMesh && o.material.emissive) { o.material = o.material.clone(); o.material.emissiveIntensity = 0.12; o.material.color.multiplyScalar(0.7); } }); } } catch (e) { out = null; }
+  if (out) _bodies[key] = out; return out;   /* not cached while the models are still loading */
+}
+const _goo = {};
+function pool(color, r) { const k = color + '|' + r, m = new THREE.Mesh(_goo[k] || (_goo[k] = new THREE.CircleGeometry(r, 12)), mat(color, { op: 0.65 })); m.rotation.x = -Math.PI / 2; m.position.y = 0.04; m.scale.set(1, 0.7 + Math.random() * 0.6, 1); return m; }
 export function corpse(rnd) { // a fallen marine
+  const cls = ['assault', 'engineer', 'heavy', 'gunner', 'sniper', 'medic'][(rnd() * 6) | 0], body = deathPose('m_' + cls, () => AS.marineGLB(cls));
+  if (body) { const g = new THREE.Group(), b = body.clone(); b.rotation.y = rnd() * 6; g.add(b); const gun = AS.weapon(cls); if (gun) { gun.rotation.set(0, rnd() * 6, Math.PI / 2); gun.position.set((rnd() - 0.5) * 1.6, 0.08, (rnd() - 0.5) * 1.6); g.add(gun); } g.add(pool(0x3a0a08, 0.9)); return g; }
   const g = new THREE.Group(), armor = mat(0x4a5560), cloth = mat([0x3a4a5a, 0x5a4a3a, 0x4a5a3a][(rnd() * 3) | 0]), b = new THREE.Group(); b.rotation.y = rnd() * 6; g.add(b);
   B(b, 0.62, 0.3, 0.9, cloth, 0, 0.18, 0); B(b, 0.5, 0.22, 0.4, armor, 0, 0.36, -0.1); S(b, 0.24, armor, 0, 0.22, -0.65, 1, 0.9, 1);
   const legs = rnd() * 0.6; B(b, 0.22, 0.2, 0.9, cloth, -0.15, 0.12, 0.85).rotation.y = legs; B(b, 0.22, 0.2, 0.9, cloth, 0.18, 0.12, 0.85).rotation.y = -legs * 0.5;
   B(b, 0.18, 0.16, 0.6, armor, -0.5, 0.12, -0.1).rotation.y = 1.2; B(b, 0.08, 0.12, 0.7, 0x2a2e34, 0.7, 0.08, 0.2).rotation.y = rnd() * 3;
   const blood = new THREE.Mesh(new THREE.CircleGeometry(0.9, 10), mat(0x3a0a08, { op: 0.6 })); blood.rotation.x = -Math.PI / 2; blood.position.y = 0.03; g.add(blood); return g;
 }
-export function carcass(rnd) { // a dead alien, long since dried out
+export function carcass(rnd) { // a dead alien
+  if (AS.mapId === 'mars') { const r = rnd(), type = r < 0.45 ? 'crawler' : r < 0.75 ? 'spitter' : r < 0.93 ? 'brute' : 'ravager', body = deathPose('a_' + type, () => alien(type));
+    if (body) { const g = new THREE.Group(), b = body.clone(); b.rotation.y = rnd() * 6; g.add(b); g.add(pool(0x2a5a10, type === 'brute' || type === 'ravager' ? 2 : 1.2)); return g; } }
   const g = new THREE.Group(), sk = mat(rnd() < 0.5 ? 0x3a2a40 : 0x4a3030), b = new THREE.Group(); b.rotation.set(0, rnd() * 6, Math.PI * 0.9); b.position.y = 0.5; g.add(b);
   const big = 0.8 + rnd() * 1.6; S(b, 0.6 * big, sk, 0, 0, 0, 1, 0.6, 1.5); S(b, 0.35 * big, sk, 0, 0, -0.9 * big);
   for (let i = 0; i < 6; i++) { const l = B(b, 0.08 * big, 0.8 * big, 0.08 * big, 0x1a1420, (i % 2 ? 1 : -1) * 0.5 * big, -0.3 * big, (i / 2 - 1) * 0.4 * big); l.rotation.z = (i % 2 ? 1 : -1) * (0.6 + rnd()); }
@@ -450,10 +464,10 @@ export function mech(rnd) { { const mg = AS.propGLB('mech', rnd); if (mg) return
   B(r, 2.2, 1.8, 1.8, m, 0, 2.2, 0); B(r, 1.4, 0.6, 0.4, 0x80c0e0, 0, 2.5, -0.9, { op: 0.7 }); for (const sd of [-1, 1]) { B(r, 0.6, 2.2, 0.7, dark, sd * 0.8, 0.6, 0); B(r, 0.9, 0.4, 1.3, dark, sd * 0.8, -0.5, -0.2); C(r, 0.25, 0.25, 1.6, 0x2a2a2a, sd * 1.5, 2.3, -0.8).rotation.x = Math.PI / 2; } return g;
 }
 export function sandbags(rnd) { { const mg = AS.bagsGLB(); if (mg) return mg; } const g = new THREE.Group(), m = mat(0x8a7a5a, { r: 1 }), n = 6 + (rnd() * 6 | 0), arc = 0.8 + rnd(); for (let row = 0; row < 3; row++) for (let i = 0; i < n - row; i++) { const a = (i + row * 0.5) / n * arc - arc / 2; const sb = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.5, 2, 6), m); sb.rotation.z = Math.PI / 2; sb.rotation.y = -a; sb.position.set(Math.sin(a) * 4, 0.22 + row * 0.38, -Math.cos(a) * 4 + 4); sb.castShadow = true; g.add(sb); } return g; }
-export function tankTrap() { const g = new THREE.Group(), m = mat(0x3a3a3a, { m: 0.6 }); for (const [x, y, z] of [[0.8, 0, 0], [0, 0.8, 0], [0, 0, 0.8]]) { const b = B(g, 0.22, 2.2, 0.22, m, 0, 0.9, 0); b.rotation.set(x, y, z); } return g; }
+export function tankTrap(rnd) { { const mg = AS.propGLB('tankTrap', rnd); if (mg) return mg; } const g = new THREE.Group(), m = mat(0x3a3a3a, { m: 0.6 }); for (const [x, y, z] of [[0.8, 0, 0], [0, 0.8, 0], [0, 0, 0.8]]) { const b = B(g, 0.22, 2.2, 0.22, m, 0, 0.9, 0); b.rotation.set(x, y, z); } return g; }
 export function deadTurret(rnd) { { const mg = AS.propGLB('deadTurret', rnd); if (mg) return mg; } const g = new THREE.Group(), m = mat(0x3e464e), burnt = mat(0x22201e); C(g, 0.9, 1.1, 0.4, m, 0, 0.2, 0); C(g, 0.35, 0.45, 0.9, burnt, 0, 0.8, 0); const h = B(g, 0.8, 0.55, 0.9, burnt, 0.6, 0.35, 0.8); h.rotation.set(0.4, rnd() * 3, 1.0); C(g, 0.05, 0.05, 1.1, 0x222222, 1.2, 0.1, 1.4).rotation.set(1.4, 0, 0.3); return g; }
 export function burntCrate(rnd) { { const mg = AS.propGLB('burntCrate', rnd); if (mg) return mg; } const g = new THREE.Group(); for (let i = 0; i < 1 + (rnd() * 3 | 0); i++) { const c = B(g, 1.2, 1.0, 1.0, rnd() < 0.5 ? 0x2a2622 : 0x4a5a3a, (rnd() - 0.5) * 2.5, 0.5, (rnd() - 0.5) * 2.5); c.rotation.set(0, rnd() * 3, rnd() < 0.3 ? 1.2 : 0); } return g; }
-export function flag(rnd) { const g = new THREE.Group(); const p = C(g, 0.05, 0.06, 4, 0x666666, 0, 2, 0); p.rotation.z = (rnd() - 0.5) * 0.4; const f = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8, 3, 1), mat(0x2a4a8a, { ds: true })); f.position.set(0.7, 3.5, 0); g.add(f); const pos = f.geometry.attributes.position; for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 3) * 0.15); f.geometry.computeVertexNormals(); return g; }
+export function flag(rnd) { { const mg = AS.propGLB('flag', rnd); if (mg) return mg; } const g = new THREE.Group(); const p = C(g, 0.05, 0.06, 4, 0x666666, 0, 2, 0); p.rotation.z = (rnd() - 0.5) * 0.4; const f = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.8, 3, 1), mat(0x2a4a8a, { ds: true })); f.position.set(0.7, 3.5, 0); g.add(f); const pos = f.geometry.attributes.position; for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 3) * 0.15); f.geometry.computeVertexNormals(); return g; }
 export function hut() { // a heated shelter with an open doorway, a heater glowing inside
   const g = new THREE.Group(), wall = mat(0x8a96a2, { m: 0.3 }), roof = mat(0xd04a2a);
   const shell = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 3, 16, 1, true, 0.35, 6.28 - 0.7), wall); shell.position.y = 1.5; shell.material.side = THREE.DoubleSide; g.add(shell);
@@ -461,16 +475,19 @@ export function hut() { // a heated shelter with an open doorway, a heater glowi
   B(g, 1, 1.2, 0.6, 0x3a3a3a, 0, 0.6, 2.4); B(g, 0.8, 0.5, 0.05, 0xff6020, 0, 0.8, 2.08, { e: 0xff4010, ei: 2 }); B(g, 3, 0.1, 1.4, 0x6a5040, 0, 0.5, -2.5);
   S(g, 0.2, 0xffd040, 0, 3.6, 0, 1, 1, 1, { e: 0xffa000, ei: 2 }); return g;
 }
-export function sniperNest(rnd) { const g = new THREE.Group(), sb = mat(0x7a6a4a, { r: 1 }); for (let i = 0; i < 12; i++) { if (i === 3) continue; const a = i / 12 * 6.283; for (let r = 0; r < 2; r++) { const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.6, 2, 6), sb); b.rotation.z = Math.PI / 2; b.rotation.y = -a; b.position.set(Math.cos(a) * 2.2, 0.22 + r * 0.38, Math.sin(a) * 2.2); b.castShadow = true; g.add(b); } }
+export function sniperNest(rnd) { { const mg = AS.propGLB('sniperNest', rnd); if (mg) return mg; } const g = new THREE.Group(), sb = mat(0x7a6a4a, { r: 1 }); for (let i = 0; i < 12; i++) { if (i === 3) continue; const a = i / 12 * 6.283; for (let r = 0; r < 2; r++) { const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.6, 2, 6), sb); b.rotation.z = Math.PI / 2; b.rotation.y = -a; b.position.set(Math.cos(a) * 2.2, 0.22 + r * 0.38, Math.sin(a) * 2.2); b.castShadow = true; g.add(b); } }
   B(g, 0.9, 0.5, 0.6, 0x4a5a3a, 0.8, 0.25, -0.6); B(g, 0.5, 0.35, 0.3, 0x3a4a2a, -0.6, 0.18, 0.7); const net = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 3.5, 4, 4), mat(0x5a6a3a, { ds: true, op: 0.85 })); net.rotation.x = -Math.PI / 2 + 0.1; net.position.y = 2.2; g.add(net);
   for (const [x, z] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) C(g, 0.04, 0.04, 2.2, 0x555555, x, 1.1, z); return g; }
 export function watchtower() { // platform 7 m up on four legs, rails, a roof; stairs run along -z
   const g = new THREE.Group(), steel = mat(0x5a646e, { m: 0.5 }), dark = mat(0x2c3238), wood = mat(0x6a5a40);
+  const tw = AS.fitGLB('l_watchtower', 'h', 13.5, false); if (tw) { g.add(tw); B(g, 4.8, 0.3, 4.8, wood, 0, 7, 0); }   // the Meshy lookout on its legs, with a floor at the platform height
+  else {
   for (const [x, z] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) B(g, 0.3, 7, 0.3, steel, x, 3.5, z); B(g, 4.8, 0.3, 4.8, wood, 0, 7, 0);
   for (const sd of [-1, 1]) { B(g, 4.8, 1, 0.1, dark, 0, 7.6, sd * 2.4); B(g, 0.1, 1, 4.8, dark, sd * 2.4, 7.6, 0); } B(g, 5.4, 0.2, 5.4, dark, 0, 10, 0); for (const [x, z] of [[-2.3, -2.3], [2.3, -2.3], [-2.3, 2.3], [2.3, 2.3]]) B(g, 0.12, 2.8, 0.12, steel, x, 8.5, z);
+  }
   const st = new THREE.Group(); st.position.set(0, 0, 2.4); g.add(st); for (let i = 0; i < 18; i++) { const f = (i + 0.5) / 18; B(st, 1.8, 0.15, 0.75, wood, 0, 7 * f, 13.2 * (1 - f)); }
   for (const sd of [-1, 1]) { const rail = B(st, 0.08, 0.08, 14.8, steel, sd * 0.95, 4.4, 6.6); rail.rotation.x = Math.atan2(7, 13.2); }
-  S(g, 0.25, 0xffd070, 0, 9.7, 0, 1, 1, 1, { e: 0xffb040, ei: 2 }); return g; }
+  if (!tw) S(g, 0.25, 0xffd070, 0, 9.7, 0, 1, 1, 1, { e: 0xffb040, ei: 2 }); return g; }
 // the marine's left hand and forearm for the first-person view: fingers point along -z, the sleeve trails back along +z
 export function hand(color) {
   const g = new THREE.Group(), glove = 0x23292f, pad = 0x3a434c;

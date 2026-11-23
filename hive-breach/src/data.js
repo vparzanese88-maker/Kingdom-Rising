@@ -209,6 +209,12 @@ export const PATH_W = 9;
 export const BOUNDS = 180;
 
 // Marines the hub sends down the track toward the hive. Trooper is free; the others are unlocked in the armory.
+// vehicles the commander builds from scrap parts handed in at the hub; marines drive them out of the hub (E to get in and out)
+export const VEHICLES = {
+  truck: { name: 'Gun Truck', parts: 60, hp: 1600, text: 'Fast armoured truck with a .50 cal that follows your aim.' },
+  tank: { name: 'Battle Tank', parts: 150, hp: 5000, text: 'Slow and almost unstoppable: a cannon that blows packs apart.' },
+  vtol: { name: 'VTOL Gunship', parts: 240, hp: 2600, text: 'Fly over the battlefield with twin door miniguns (jump climbs, crouch descends).' },
+};
 export const ALLIES = {
   pulsesynth: { name: 'Pulse Synth', hp: 650, dmg: 24, rate: 4, range: 20, speed: 5.6, color: 0x8a2020, gun: 'assault', model: 'synth', weapon: 'pulse', unlock: 0, text: 'A chrome robot soldier with a pulse rifle.' },
   flamesynth: { name: 'Flame Synth', hp: 760, dmg: 9, rate: 10, range: 8, speed: 5.8, color: 0xb04020, gun: 'engineer', model: 'synth', weapon: 'flame', flame: 1, unlock: 0, text: 'A robot soldier that burns everything close with a flamethrower.' },

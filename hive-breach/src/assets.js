@@ -230,7 +230,7 @@ export function fpArms(cls, gun, mode = 'two', fitTo) {
 // Each one is sized to match the simple model it replaces (same length and the same height off the ground), so hit boxes still fit.
 export const ALIEN_GLB = { crawler: 'a_crawler', spitter: 'a_spitter', brute: 'a_brute', ravager: 'a_ravager', queen: 'a_queen', royal: 'a_royal', broodqueen: 'a_broodqueen', flyer: 'a_flyer' };
 export const ALIEN_FILES = Object.values(ALIEN_GLB);
-export const SCENE_FILES = ['p_station', 'p_droppod', 'p_seat', 'p_seat2', 'h_reactor', 'h_wall', 'r_synth', 'r_mech', 'v_dropship', 's_scrap', 'l_sandbags', 'v_vtol', 'v_rover', 'p_bridge', 'p_tunnel', 'l_watchtower', 'l_hivemound', 'h_gatetower', 'h_barracks', 'h_comms', 'h_floodlight'];
+export const SCENE_FILES = ['p_station', 'p_droppod', 'p_seat', 'p_seat2', 'h_reactor', 'h_wall', 'r_synth', 'r_mech', 'v_dropship', 's_scrap', 'l_sandbags', 'v_vtol', 'v_rover', 'p_bridge', 'p_tunnel', 'l_watchtower', 'l_hivemound', 'h_gatetower', 'h_barracks', 'h_comms', 'h_floodlight', 'r_tank'];
 const BIG = new Set(['brute', 'ravager', 'queen', 'broodqueen']);
 const ACLIP = { run: /run/i, walk: /walk/i, pounce: /pounce|skill/i, roar: /roar/i, idle: /idle/i, die: /death|dead/i }, HEAVY = new Set(['brute', 'ravager', 'queen']);
 export function alienGLB(type, ref) {

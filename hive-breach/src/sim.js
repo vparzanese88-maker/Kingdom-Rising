@@ -1,6 +1,7 @@
 // The battle itself. Only the host (or a solo player) runs this; friends receive what it decides.
 import { VARIANTS, DIFFS, scrapCost, techMul, CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
 import { placeError, HUB_R } from './world.js';
+import { VEHICLES } from './data.js';
 import { PATH_W, SPECIALS, MISSILE, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST, MAX_ALLIES } from './data.js';
 
 const LV = { dmg: [1, 1.6, 2.4], rng: [1, 1.12, 1.25], rate: [1, 1.15, 1.32] };
@@ -29,7 +30,7 @@ export class Sim {
     this.W = W; this.path = W.path; this.emit = emit; this.players = new Map(); this.reset();
   }
   reset() { TECH.k = 1; this.hubSaid = {}; this.cmdA = 120; this.cmdD = 150; this.dropN = 0;
-    this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.items = []; this.pools = []; this.tm = []; this.drones = []; this.rides = []; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = []; this.stormT = 0; this.stormI = 0; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0], step: 0, fund: 0 }; this.spawnHive(1);
+    this.wave = 0; this.el = 0; this.phase = 'build'; this.timer = FIRST_COUNT; this.hub = 100; this.hubMax = 100; this.aliens = []; this.turrets = []; this.shells = []; this.pods = []; this.q = []; this.qt = 0; this.nid = 1; this.endless = false; this.podT = 0; this.storm = 0; this.meteors = []; this.allies = []; this.allyN = 0; this.ammo = []; this.items = []; this.pools = []; this.tm = []; this.drones = []; this.rides = []; this.vehs = []; this.parts = 0; this.amb = {}; this.lasers = []; this.medz = []; this.domes = []; this.later = []; this.spores = []; this.stormT = 0; this.stormI = 0; this.cmd = { lv: 0, sz: 0, un: ['trooper'], t: DROP_EVERY[0], step: 0, fund: 0 }; this.spawnHive(1);
     for (const p of this.players.values()) this.resetPlayer(p);
     this.scrap = []; this.scrapT = 0; this.salv = (this.W.salvage || []).map(w => w.amt);   // scrap left in each wreck
   }
@@ -48,7 +49,7 @@ export class Sim {
   // put the turret you are carrying back in your pack: its gold and the kit come back
   stow(p) { const i = this.turrets.findIndex(q => q.carry === p.id); if (i < 0) return; const t = this.turrets[i]; if (t.owner !== p.id) { t.carry = 0; this.settle(t); return; }   // someone else's turret just goes down where you stand
     this.turrets.splice(i, 1); p.kits = Math.min(KITS, (p.kits ?? KITS) + 1); p.scrap = (p.scrap || 0) + scrapCost(t.kind); this.emit({ k: 'stowed', to: p.id, n: TURRETS[t.kind].name }); }
-  removePlayer(id) { const p = this.players.get(id); if (!p) return; this.players.delete(id); this.emit({ k: 'toast', m: p.name + ' left.' }); }
+  removePlayer(id) { const p = this.players.get(id); if (!p) return; for (const v of this.vehs) if (v.driver === id) v.driver = 0; this.players.delete(id); this.emit({ k: 'toast', m: p.name + ' left.' }); }
   living() { return [...this.players.values()].filter(p => !p.dead && !(p.buf && p.buf.cloak > 0)); }
 
   // ---------------------------------------------------------------- requests from marines
@@ -111,6 +112,15 @@ export class Sim {
       const eng = p.cls === 'engineer', dt = Math.min(0.5, +r.dt || 0), pm = pwMax(p.cls), reach = eng ? 8 : 6;
       p.pw = pm;   // the welder never runs dry
       const hp = Array.isArray(r.hp) && r.hp.length === 3 && r.hp.every(Number.isFinite) && Math.hypot(r.hp[0] - p.x, r.hp[2] - p.z) < reach + 4 ? r.hp.map(v => +v.toFixed(2)) : null;   // where the beam lands (the crosshair)
+      if (r.k === 'w') { // cutting scrap parts out of a wreck (carry them back to the hub: the commander builds vehicles from them); now and then something nesting inside wakes up
+        const i = r.id | 0, w = (this.W.salvage || [])[i]; if (!w || Math.hypot(w.x - p.x, w.z - p.z) > reach + w.r + 1.5) return; this.salv = this.salv || (this.W.salvage || []).map(q => q.amt);
+        if ((this.salv[i] || 0) <= 0) { if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say(`Nothing left to cut from this ${w.name}. Find another wreck.`); } return; }
+        const got = Math.min(this.salv[i], (eng ? 9 : 5) * dt); this.salv[i] -= got; p.scrap = (p.scrap || 0) + got; p.salvF = (p.salvF || 0) + got;
+        if (p.salvF >= 1 || this.salv[i] <= 0) { this.emit({ k: 'salvage', to: p.id, n: Math.floor(p.salvF), w: i, left: Math.ceil(this.salv[i]) }); p.salvF -= Math.floor(p.salvF); }
+        if (this.salv[i] <= 0) this.emit({ k: 'stripped', w: i });
+        p.cutT = (p.cutT || 0) + dt; if (p.cutT > 5) { p.cutT = 0; if (Math.random() < 0.35) this.ambush(w, p, 2); }
+        this.emit({ k: 'beam', c: eng ? 0x60c0ff : 0xffc060, a: [p.x, p.y + 1.3, p.z], b: hp || [w.x, (w.y || 0) + 1, w.z], f: id, torch: 1 }); return;
+      }
       if (r.k === 'a') { const a = this.aliens.find(q => q.id === r.id); if (a && !a.dead && Math.hypot(a.x - p.x, a.z - p.z) < reach + ALIENS[a.type].r) { this.hurtAlien(a, (eng ? 95 : 60) * dt, id, true); this.emit({ k: 'beam', c: 0xff8040, a: [p.x, p.y + 1.3, p.z], b: [a.x, a.y + ALIENS[a.type].h * 0.6, a.z], f: id, torch: 1 }); } return; }
       const t = this.turrets.find(q => q.id === r.id);
       if (t && Math.hypot(t.x - p.x, t.z - p.z) < reach + 1.5) {
@@ -146,6 +156,14 @@ export class Sim {
       else if (sp === 'stim') { p.hp = p.mhp; p.stimT = 12; }
       else if (sp === 'squad') { const n = this.path.near(p.x, p.z); for (let i = 0; i < 4; i++) { const type = ['gunner', 'rocketeer', 'trooper', 'medic'][i], A = ALLIES[type]; this.allies.push({ id: this.nid++, type, s: n.s, lat: (Math.random() - 0.5) * 3, x: p.x + (Math.random() - 0.5) * 3, y: p.y, z: p.z + (Math.random() - 0.5) * 3, hp: A.hp * 1.5, mhp: A.hp * 1.5, ry: 0, cd: 0, tg: 0, vet: 1 }); } }
       this.emit({ k: 'usedspecial', s: sp, by: id, n: p.name }); p.special = '';
+    } else if (r.a === 'buildveh') { // the commander builds a vehicle from the parts handed in; it rolls out (or lifts off) at the hub
+      const V = VEHICLES[r.kind]; if (!V) return; if (this.parts < V.parts) return say(`The commander needs ${V.parts} parts for a ${V.name} (the hub has ${Math.floor(this.parts)}). Weld wrecks for scrap and bring it to the hub.`);
+      if (this.vehs.length >= 6) return say('Six vehicles are already out.'); this.parts -= V.parts; const H = this.W.hubP, sp = this.W.spawn, n = this.vehs.length, a = Math.atan2(sp.z - H.z, sp.x - H.x) + 0.9 + n * 0.55, x = H.x + Math.cos(a) * 13, z = H.z + Math.sin(a) * 13;
+      this.radio('cmd', `${p.name} ordered a ${V.name}. My mechanics are on it: it'll be waiting in the hub.`, 1);
+      this.later.push({ t: 4, f: () => { this.vehs.push({ id: this.nid++, kind: r.kind, x, z, y: this.W.top(x, z), ry: a + Math.PI / 2, hp: V.hp, mhp: V.hp, driver: 0 }); this.emit({ k: 'vehready', n: V.name, x, z }); this.radio('cmd', `${V.name} is ready in the hub. Somebody get in it and go kill something.`, 1); } });
+    } else if (r.a === 'drive') { const v = this.vehs.find(q => q.id === r.id); if (!v || v.driver || p.drive || Math.hypot(v.x - p.x, v.z - p.z) > 6) return; v.driver = id; p.drive = v.id; this.emit({ k: 'drive', to: id, id: v.id });
+    } else if (r.a === 'exitveh') { const v = this.vehs.find(q => q.id === p.drive); if (v) v.driver = 0; p.drive = 0;
+    } else if (r.a === 'vpose') { const v = this.vehs.find(q => q.id === p.drive); if (v && [r.x, r.y, r.z, r.ry].every(Number.isFinite)) { v.x = Math.max(-BOUNDS, Math.min(BOUNDS, r.x)); v.y = r.y; v.z = Math.max(-BOUNDS, Math.min(BOUNDS, r.z)); v.ry = r.ry; }
     } else if (r.a === 'fall') {
       this.hurtPlayer(p, 15);
     } else if (r.a === 'boom') {
@@ -180,7 +198,8 @@ export class Sim {
   aggro(a, k, id, time) { a.mode = 'hunt'; a.tk = k; a.tid = id; a.ht = time ? (ALIENS[a.type].hunt || {}).time || 8 : (ALIENS[a.type].hunt || {}).time || 8; this.emit({ k: 'aggro', x: a.x, z: a.z, to: k === 'p' ? id : '', t: a.type }); }
   inSandbags(x, z) { return this.turrets.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - x, t.z - z) < TURRETS.sandbag.range) || (this.W.bags || []).some(b => Math.hypot(b.x - x, b.z - z) < 3.6); }   // a built bunker, or any sandbag wall on the map
   hurtPlayer(p, d, by) {
-    if (p.dead || p.ride) return;   /* nothing touches a marine riding the gunship */ if (this.inSandbags(p.x, p.z)) d *= 0.5; for (const dm of this.domes) if (Math.hypot(p.x - dm.x, p.z - dm.z) < dm.r) return; for (const q of this.players.values()) if (q !== p && !q.dead && q.cls === 'heavy' && Math.hypot(q.x - p.x, q.z - p.z) < 12) { d *= 0.8; break; } p.hp -= d * (p.buf.iron > 0 ? 0.4 : 1) * (p.buf.nano > 0 ? 0.6 : 1); if (by) this.emit({ k: 'hitp', to: p.id, x: +by.x.toFixed(1), z: +by.z.toFixed(1) });
+    if (p.dead || p.ride) return;   /* nothing touches a marine riding the gunship */
+    if (p.drive) { const v = this.vehs.find(q => q.id === p.drive); if (v) { v.hp -= d; if (v.hp <= 0) this.wreckVeh(v); return; } p.drive = 0; }   // the vehicle takes the hits for its driver if (this.inSandbags(p.x, p.z)) d *= 0.5; for (const dm of this.domes) if (Math.hypot(p.x - dm.x, p.z - dm.z) < dm.r) return; for (const q of this.players.values()) if (q !== p && !q.dead && q.cls === 'heavy' && Math.hypot(q.x - p.x, q.z - p.z) < 12) { d *= 0.8; break; } p.hp -= d * (p.buf.iron > 0 ? 0.4 : 1) * (p.buf.nano > 0 ? 0.6 : 1); if (by) this.emit({ k: 'hitp', to: p.id, x: +by.x.toFixed(1), z: +by.z.toFixed(1) });
     if (p.hp <= 0) { p.hp = 0; p.dead = true; p.rt = 7; this.emit({ k: 'toast', m: p.name + ' is down! Back in 7 seconds.' }); }
   }
   hurtTurret(t, d, by) { if (t.carry) d *= 2; t.hp -= d; if (by && this.time - (t.warned || -99) > 5) { t.warned = this.time; this.emit({ k: 'tatk', id: t.id, o: t.owner, kind: t.kind, x: t.x, z: t.z }); } if (t.hp <= 0) { this.turrets = this.turrets.filter(q => q !== t); this.emit({ k: 'boom', x: t.x, y: 1, z: t.z, r: 2.5 }); this.emit({ k: 'say', to: t.owner, m: `Your ${TURRETS[t.kind].name} was destroyed.` }); } }
@@ -225,6 +244,8 @@ export class Sim {
       const inHub = !!this.W.T.hubAt(p.x, p.z); p.regen = this.hub > 0 && inHub && p.hp < p.mhp; if (p.regen) p.hp = Math.min(p.mhp, p.hp + 16 * dt);
       { const pm = pwMax(p.cls); if (inHub) p.pw = Math.min(pm, (p.pw ?? pm) + 25 * dt); else if (this.turrets.some(t => (t.kind === 'resupply' || t.kind === 'ammocache') && !t.fresh && !t.carry && Math.hypot(t.x - p.x, t.z - p.z) < 6)) p.pw = Math.min(pm, (p.pw ?? pm) + 3 * dt); }
       for (const sc of this.scrap) if (!sc.got && Math.abs(sc.x - p.x) < 2.6 && Math.abs(sc.z - p.z) < 2.6 && Math.hypot(sc.x - p.x, sc.z - p.z) < 2.6) { sc.got = true; p.scrap = (p.scrap || 0) + sc.n; this.emit({ k: 'scrap', to: p.id, n: sc.n }); }
+      if (inHub && (p.scrap || 0) >= 1) { const n = Math.floor(p.scrap); p.scrap -= n; this.parts += n; this.emit({ k: 'handin', to: p.id, n, total: Math.floor(this.parts) }); }   // scrap handed in to the commander
+      if (this.phase === 'wave' && !p.drive) for (const [i, w] of (this.W.salvage || []).entries()) { if (this.amb[i] || Math.abs(w.x - p.x) > 9 || Math.abs(w.z - p.z) > 9 || Math.hypot(w.x - p.x, w.z - p.z) > w.r + 5) continue; this.amb[i] = 1; if (Math.random() < 0.4) this.ambush(w, p, 2 + (Math.random() * 3 | 0)); }   // walking past a wreck can wake what's nesting in it
       if (inHub && (p.dr ?? DRESS) < DRESS) { p.drT = (p.drT || 0) + dt; if (p.drT > 4) { p.drT = 0; p.dr = (p.dr ?? DRESS) + 1; } }
       if (inHub && (p.kits ?? KITS) < KITS) { p.kitT = (p.kitT || 0) + dt; if (p.kitT > 3) { p.kitT = 0; p.kits = (p.kits ?? KITS) + 1; this.emit({ k: 'kit', to: p.id, n: p.kits }); } }
       { const X = CLASSES[p.cls].extra; if (X && inHub && (p.ex ?? X.n) < X.n) { p.exT = (p.exT || 0) + dt; if (p.exT > 2.5) { p.exT = 0; p.ex = (p.ex ?? X.n) + 1; } } }
@@ -515,6 +536,11 @@ export class Sim {
     }
     if (this.rides.some(r => r.ph >= 6)) { for (const r of this.rides) if (r.ph >= 6) for (const id of r.riders) { const q = this.players.get(id); if (q) q.ride = 0; } this.rides = this.rides.filter(r => r.ph < 6); }
   }
+  wreckVeh(v) { this.emit({ k: 'boom', x: v.x, y: v.y + 1, z: v.z, r: 5 }); const q = v.driver && this.players.get(v.driver); if (q) { q.drive = 0; this.emit({ k: 'exitveh', to: q.id, x: v.x + 3, z: v.z }); } this.radio('cmd', `We lost a ${VEHICLES[v.kind].name}!`, 1); this.vehs = this.vehs.filter(o => o !== v); }
+  // aliens nesting in a wreck burst out at a marine
+  ambush(w, p, n) {
+    const P = this.path; this.emit({ k: 'ambush', x: w.x, z: w.z }); for (let i = 0; i < n; i++) { const a = this.spawn(Math.random() < 0.7 ? 'crawler' : 'mite', 0), ang = Math.random() * 6.283; a.x = w.x + Math.cos(ang) * (w.r * 0.6); a.z = w.z + Math.sin(ang) * (w.r * 0.6); a.y = this.W.ground(a.x, a.z, 99); a.s = P.near(a.x, a.z).s; a.lat = 0; this.aggro(a, 'p', p.id, true); a.stun = i * 0.2; }
+  }
   // a parachute crate from the commander, a few metres from the marine it is meant for
   airdrop(p, kind) {
     const a = Math.random() * 6.28, x = Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, p.x + Math.cos(a) * 3.5)), z = Math.max(-BOUNDS + 4, Math.min(BOUNDS - 4, p.z + Math.sin(a) * 3.5));
@@ -627,9 +653,9 @@ export class Sim {
       w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), el: Math.floor(this.el || 0), n: this.players.size, wx: +(this.stormI || 0).toFixed(2), wa: +(this.windA || 0).toFixed(2),
       A: this.aliens.map(a => [a.id, a.type, r1(a.x), r1(a.y), r1(a.z), Math.round(a.hp), Math.round(a.mhp), +a.ry.toFixed(2), a.stun > 0 ? 1 : 0, a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0, a.rev > 0 || a.markT > 0 ? 1 : 0]),
       T: this.turrets.map(t => [t.id, t.kind, t.owner, r1(t.x), r1(t.z), +t.ry.toFixed(2), t.lvl, Math.round(t.hp), Math.round(t.mhp), t.tg, r1(t.y), r1(t.b || 0), t.bt || 0, t.fresh ? 1 : 0, t.ch || 0, t.carry || 0, t.next ? +(t.up || 0).toFixed(2) : 0, t.kind === 'rally' ? (t.b > 0 || t.carry ? 0 : this.allies.length >= MAX_ALLIES + 4 ? -1 : this.phase === 'wave' || this.phase === 'assault' ? Math.max(1, Math.ceil(t.rd ?? 20)) : -2) : 0]),
-      P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, Math.floor(p.scrap || 0), Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)])), p.ex ?? 0, (p.jet ? 1 : 0) | (p.boots ? 2 : 0), p.ride || 0]),
+      P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, Math.floor(p.scrap || 0), Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)])), p.ex ?? 0, (p.jet ? 1 : 0) | (p.boots ? 2 : 0), p.ride || 0, p.drive || 0]),
       I: this.items.map(it => [it.id, it.kind, r1(it.x), r1(it.z)]), SC: this.scrap.map(s => [s.id, r1(s.x), r1(s.z)]),
-      M: this.ammo.map(c => [c.id, r1(c.x), r1(c.z), Math.ceil(c.life)]), Z: this.spores.map(c => [r1(c.x), r1(c.z), +(c.r * c.k).toFixed(1)]), K: this.pools.map(q => [r1(q.x), r1(q.y), r1(q.z), q.r, q.fire ? 1 : 0]), R: this.rides.map(r => [r.id, r1(r.x), r1(r.y), r1(r.z), +r.ry.toFixed(2), r.ph, r.riders]), D: this.drones.map(d => [d.id, r1(d.x + Math.cos(d.a) * 8), r1(d.y + 7), r1(d.z + Math.sin(d.a) * 8), d.tg]), Q: this.medz.map(m => [m.id, r1(m.x), r1(m.y), r1(m.z), m.r, Math.ceil(m.t)]), S2: this.domes.map(d => [r1(d.x), r1(d.y), r1(d.z), d.r]),
+      M: this.ammo.map(c => [c.id, r1(c.x), r1(c.z), Math.ceil(c.life)]), Z: this.spores.map(c => [r1(c.x), r1(c.z), +(c.r * c.k).toFixed(1)]), K: this.pools.map(q => [r1(q.x), r1(q.y), r1(q.z), q.r, q.fire ? 1 : 0]), V: this.vehs.map(v => [v.id, v.kind, r1(v.x), r1(v.y), r1(v.z), +v.ry.toFixed(2), Math.round(v.hp), v.mhp, v.driver || 0]), PT: Math.floor(this.parts), R: this.rides.map(r => [r.id, r1(r.x), r1(r.y), r1(r.z), +r.ry.toFixed(2), r.ph, r.riders]), D: this.drones.map(d => [d.id, r1(d.x + Math.cos(d.a) * 8), r1(d.y + 7), r1(d.z + Math.sin(d.a) * 8), d.tg]), Q: this.medz.map(m => [m.id, r1(m.x), r1(m.y), r1(m.z), m.r, Math.ceil(m.t)]), S2: this.domes.map(d => [r1(d.x), r1(d.y), r1(d.z), d.r]),
       O: this.pods.map(p => [p.id, r1(p.x), r1(p.z), Math.ceil(Math.max(0, p.life)), r1(Math.max(0, p.land)), p.kind === 'ammo' ? 1 : p.kind === 'dress' ? 2 : 0]),
       L: this.allies.map(m => [m.id, m.type, r1(m.x), r1(m.y), r1(m.z), Math.round(m.hp), m.mhp, +m.ry.toFixed(2), m.tg]), C: { lv: this.cmd.lv, sz: this.cmd.sz, un: this.cmd.un, t: Math.ceil(this.cmd.t) }, open: this.hiveOpen() ? 1 : 0,
     };

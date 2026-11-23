@@ -10,6 +10,7 @@ const assetsP = M.AS.loadAll();   /* Meshy models stream in behind the cover scr
   const leave = () => { if (!cv.classList.contains('ready')) return; try { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { } cv.remove(); document.body.classList.remove('covered'); removeEventListener('keydown', key); };
   const key = e => { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'Escape') leave(); };
   cv.addEventListener('click', leave); addEventListener('keydown', key); }
+import { VEHICLES } from './data.js';
 import { DIFFS, PLANET_ORDER, scrapCost, techMul, SIDEARM, SPECIALS, MISSILE, CLASSES, TURRETS, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, MAPS, BOUNDS, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST } from './data.js';
 import { buildWorld, placeError, LIQUID } from './world.js';
 import { Sim, upgradeCost, tStat } from './sim.js';
@@ -60,7 +61,7 @@ const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ==
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
 function state() {
-  if (G.sim) { const s = G.sim; return { w: s.wave, ph: s.phase, tm: s.timer, hub: s.hub, en: s.endless, n: s.players.size, left: s.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(s.lvlT || 0), wx: s.stormI || 0, wa: s.windA || 0, L: s.allies, C: s.cmd, open: s.hiveOpen(), el: Math.floor(s.el || 0), A: s.aliens, T: s.turrets, P: [...s.players.values()], O: s.pods, I: s.items, SC: s.scrap, M: s.ammo.map(c => ({ id: c.id, x: c.x, z: c.z, life: c.life })), Z: s.spores, K: s.pools, R: s.rides, D: s.drones.map(d => ({ id: d.id, x: d.x + Math.cos(d.a) * 8, y: d.y + 7, z: d.z + Math.sin(d.a) * 8, tg: d.tg })), Q: s.medz, S2: s.domes }; }
+  if (G.sim) { const s = G.sim; return { w: s.wave, ph: s.phase, tm: s.timer, hub: s.hub, en: s.endless, n: s.players.size, left: s.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(s.lvlT || 0), wx: s.stormI || 0, wa: s.windA || 0, L: s.allies, C: s.cmd, open: s.hiveOpen(), el: Math.floor(s.el || 0), A: s.aliens, T: s.turrets, P: [...s.players.values()], O: s.pods, I: s.items, SC: s.scrap, M: s.ammo.map(c => ({ id: c.id, x: c.x, z: c.z, life: c.life })), Z: s.spores, K: s.pools, V: s.vehs, PT: Math.floor(s.parts || 0), R: s.rides, D: s.drones.map(d => ({ id: d.id, x: d.x + Math.cos(d.a) * 8, y: d.y + 7, z: d.z + Math.sin(d.a) * 8, tg: d.tg })), Q: s.medz, S2: s.domes }; }
   return G.snap;
 }
 function decode(m) {
@@ -69,7 +70,7 @@ function decode(m) {
     L: m.L.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], tg: a[8] })),
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9], rv: a[10] })),
     T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], carry: t[15], up: t[16], rs: t[17] || 0, s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
-    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {}, gear: p[31] || 0, ride: p[32] || 0 })), R: (m.R || []).map(r => ({ id: r[0], x: r[1], y: r[2], z: r[3], ry: r[4], ph: r[5], riders: r[6] || [] })),
+    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {}, gear: p[31] || 0, ride: p[32] || 0, drive: p[33] || 0 })), V: (m.V || []).map(v => ({ id: v[0], kind: v[1], x: v[2], y: v[3], z: v[4], ry: v[5], hp: v[6], mhp: v[7], driver: v[8] })), PT: m.PT || 0, R: (m.R || []).map(r => ({ id: r[0], x: r[1], y: r[2], z: r[3], ry: r[4], ph: r[5], riders: r[6] || [] })),
     O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4], kind: o[5] === 1 ? 'ammo' : o[5] === 2 ? 'dress' : '' })), el: m.el, I: (m.I || []).map(i => ({ id: i[0], kind: i[1], x: i[2], z: i[3] })), SC: (m.SC || []).map(c => ({ id: c[0], x: c[1], z: c[2] })),
     M: (m.M || []).map(c => ({ id: c[0], x: c[1], z: c[2], life: c[3] })), Z: (m.Z || []).map(c => ({ x: c[0], z: c[1], r: c[2] })), K: (m.K || []).map(q => ({ x: q[0], y: q[1], z: q[2], r: q[3], fire: q[4] })), D: (m.D || []).map(d => ({ id: d[0], x: d[1], y: d[2], z: d[3], tg: d[4] })), Q: (m.Q || []).map(q => ({ id: q[0], x: q[1], y: q[2], z: q[3], r: q[4], t: q[5] })), S2: (m.S2 || []).map(d => ({ x: d[0], y: d[1], z: d[2], r: d[3] })),
   };
@@ -171,6 +172,10 @@ function fx(e) {
     case 'board': if (e.to === G.myId) { audio.sfx('place', 0.8); } break;
     case 'unboard': if (e.to === G.myId) { G.me.x = e.x; G.me.z = e.z; G.me.y = G.W.top(e.x, e.z); G.me.vy = 0; toast('Back on the ground. Give them hell, marine.', 2.5); } break;
     case 'hubmort': { const T = e.t || 2.6; G.hm = G.hm || []; G.hm.push({ a: e.a, b: e.b, t: 0, T }); const d0 = dist(e.a[0], e.a[2]); audio.gun('artillery', Math.max(0.12, vol(d0) * 0.9), 1, Math.min(1, d0 / 60)); flashAt(e.a, 3); smoke(e.a[0], e.a[1], e.a[2], 4, 0.8); } break;
+    case 'handin': if (e.to === G.myId) { audio.sfx('place', 0.8); toast(`Handed ${e.n} scrap to the commander · hub parts: ${e.total} (B at the comms console to build a vehicle)`, 4); } break;
+    case 'ambush': { const y = G.W.top(e.x, e.z); burst(e.x, y + 1, e.z, 0x6a5a48, 30, 6, 1, 1.8); burst(e.x, y + 1, e.z, 0x90ff30, 10, 4, 0.5); const d = dist(e.x, e.z); audio.sfx('screech', vol(d)); if (d < 25) { G.shake = Math.max(G.shake || 0, 0.2); toast('AMBUSH! They were nesting in the wreck!', 2); } } break;
+    case 'vehready': toast(`${e.n} ready in the hub: walk up and press E to drive`, 4); break;
+    case 'exitveh': if (e.to === G.myId) { G.me.dv = null; G.me.x = e.x; G.me.z = e.z; G.me.y = G.W.top(e.x, e.z); toast('Your vehicle is gone! Bail out!', 2.5); } break;
     case 'gear': if (e.to === G.myId) { audio.sfx('upg', 0.8); banner(e.g === 'jet' ? 'JETPACK' : 'SHOCK BOOTS', e.g === 'jet' ? 'Yours for the mission: hold jump in the air to fly (uses endurance)' : 'Yours for the mission: jump again in mid-air (uses endurance)'); } break;
     case 'pod': burst(e.x, G.W.top(e.x, e.z) + 1, e.z, 0xffd040, 14, 5, 0.6); if (e.by === G.myId) { audio.sfx('pickup'); toast(e.kind === 'ammo' ? 'Commander\'s ammo crate: full ammo, items and welder power' : e.kind === 'dress' ? 'Commander\'s med crate: field dressings restocked' : 'Supply crate: ammo and welder power' + (e.sp ? `, and a special: ${SPECIALS[e.sp].name} (press ${keyName(KB.special)})` : ''), 4); G.me.reserve = Math.min(stats().reserve, G.me.reserve + stats().reserve * 0.5); } break;
     case 'drop2': toast(`✈ Supply drop! ${e.n} crates parachuting in: grab them within 60 seconds of landing (yellow on the minimap).`, 5); audio.sfx('wave', 0.6); break;
@@ -814,6 +819,7 @@ function updateBeam(dt, S) {
     const hitBox = (bx, q, kk) => { if (ray.intersectBox(bx, P)) { const d = P.distanceTo(o); if (d < tt) { tt = d; best = q; k = kk; } } };
     for (const t of S.T) { if (t.carry || t.kind === 'claymore') continue; const v = view.turrets.get(t.id); if (!v || Math.hypot(t.x - me.x, t.z - me.z) > max + 4) continue; const nw = performance.now(); if (!v.wbox || nw - v.wboxT > 400) { v.wbox = new THREE.Box3().setFromObject(v.mesh).expandByScalar(0.2); v.wboxT = nw; } hitBox(v.wbox, t, 't'); }
     for (const a of S.A) { if (a.dead) continue; const A = ALIENS[a.type]; if (Math.hypot(a.x - me.x, a.z - me.z) > max + A.r + 2) continue; const sp = new THREE.Sphere(new THREE.Vector3(a.x, (a.y || 0) + A.h * 0.6, a.z), Math.max(0.6, A.r)); if (ray.intersectSphere(sp, P)) { const d = P.distanceTo(o); if (d < tt) { tt = d; best = a; k = 'x'; } } }
+    (G.W.salvage || []).forEach((w, i) => { if (Math.hypot(w.x - me.x, w.z - me.z) > max + w.r + 2) return; w.b3 = w.b3 || new THREE.Box3(new THREE.Vector3(w.box[0], w.box[1], w.box[2]), new THREE.Vector3(w.box[3], w.box[4], w.box[5])); hitBox(w.b3, { i, ...w }, 'w'); });   // wrecks: cut scrap parts out of them
     const gt = G.W.T.ray ? G.W.T.ray(o, dv, tt) : Infinity; if (gt < tt) { tt = gt; best = null; k = ''; }
     end = o.clone().addScaledVector(dv, Math.min(tt, max)).toArray(); }
   const pw = 1;   /* the welder never runs out */
@@ -828,7 +834,7 @@ function updateBeam(dt, S) {
       setT('weldT', up === null ? `REPAIRING ${T.name.toUpperCase()}` : up === 'max' ? `${T.name.toUpperCase()} · MAX LEVEL` : `UPGRADING TO LV ${best.lvl + 1}`); $('weldBar').style.width = (up === null ? best.hp / best.mhp : up === 'max' ? 1 : up) * 100 + '%'; $('weld').classList.toggle('rep', up === null); }
     else if (best && k === 'w') { const left = G.stripped && G.stripped.has(best.i) ? 0 : 1; $('weld').hidden = false; setT('weldT', left ? `CUTTING SCRAP · ${best.name.toUpperCase()}` : `${best.name.toUpperCase()} · STRIPPED`); $('weldBar').style.width = (left ? 100 : 0) + '%'; $('weld').classList.add('rep'); }
     else if (best && k === 'x') { $('weld').hidden = false; setT('weldT', `BURNING ${ALIENS[best.type].name.toUpperCase()}`); $('weldBar').style.width = Math.max(0, best.hp / best.mhp) * 100 + '%'; $('weld').classList.add('rep'); }
-    if (!best) prompt('Welding laser · weld turrets to repair and upgrade them (hold it on: upgrades take a while), burn aliens up close');
+    if (G.salvT > 0) prompt(`+${G.salvN} scrap · take it to the hub: the commander builds vehicles from it`); else if (!best) prompt('Welding laser · cut scrap from wrecks, weld turrets to repair and upgrade them, burn aliens up close');
   }
   me.beamAcc = (me.beamAcc || 0) + dt; if (me.beamAcc < 0.1) return; const d0 = me.beamAcc; me.beamAcc = 0;
   if (rc === 'heal') { req({ a: 'heal', id: best ? best.id : '', k: best ? k : '', dt: +d0.toFixed(2) }); prompt(best ? `Healing ${best.name ? esc(best.name) : ALLIES[best.type].name} · ${Math.ceil(best.hp)}/${best.mhp}` : 'Heal beam: aim at a teammate (healing yourself slowly)'); if (Math.random() < 0.5) burst(...muzzleTool(), 0x60ff90, 2, 1.5, 0.2); }
@@ -901,9 +907,60 @@ function rideGun(dt, S, my, rd) {
     G.stats.shots++; tracer(mz.toArray(), end, 0xff7a30, 0.05, 0.05); if (n === 1) { audio.gun('mini', 1, 1, 0); send({ k: 'tr', a: mz.toArray().map(v => +v.toFixed(1)), b: end.map(v => +v.toFixed(1)), c: 0xff7a30, s: 'mini', p: 1 }); } } G.shake = Math.max(G.shake || 0, 0.05); G.flash = 0.04; }
   prompt(rd.ph === 1 ? 'Boarding the gunship...' : rd.ph >= 4 ? 'Touching down: get ready to jump out' : '<b>Left click</b> door minigun · unlimited ammo');
 }
+// driving a vehicle the commander built: the truck's .50 cal and the tank's cannon follow your aim; the VTOL flies (jump climbs, crouch descends)
+function driveVeh(dt, S, my, sv) {
+  const me = G.me, k = keys, T = G.W.T, VD = VEHICLES[sv.kind], live = locked() && !G.shop;
+  if (!me.dv || me.dv.id !== sv.id) { me.dv = { id: sv.id, kind: sv.kind, x: sv.x, y: sv.y, z: sv.z, yaw: sv.ry, sp: 0, vx: 0, vy: 0, vz: 0, cd: 0, st: 0, eng: 0 }; me.yaw = sv.ry; me.pitch = -0.1; banner(VD.name.toUpperCase(), 'W A S D drive · the mouse aims · left click fires · E gets out'); audio.sfx('place', 0.8); }
+  const v = me.dv; v.cd -= dt; for (const kk of ['gun', 'pistol', 'tool', 'thr', 'extra', 'dress', 'healer', 'door']) if (view2[kk]) view2[kk].visible = false; if (view2.hand) view2.hand.visible = false; $('weld').hidden = true;
+  if (v.kind !== 'vtol') { const tank = v.kind === 'tank', top = tank ? 9 : 24;
+    const ac = live ? (k[KB.forward] ? (tank ? 6 : 14) : 0) - (k[KB.back] ? (tank ? 7 : 18) : 0) : 0; v.sp += ac * dt; v.sp *= Math.pow(tank ? 0.4 : 0.6, dt); v.sp = Math.max(-top / 3, Math.min(top, v.sp));
+    const steer = live ? ((k[KB.left] ? 1 : 0) - (k[KB.right] ? 1 : 0)) * (tank ? 0.9 : Math.min(1, Math.abs(v.sp) / 6) * Math.sign(v.sp || 1)) : 0; v.yaw += steer * (tank ? 1.0 : 1.4) * dt;
+    const nx = v.x - Math.sin(v.yaw) * v.sp * dt, nz = v.z - Math.cos(v.yaw) * v.sp * dt; let hit = Math.abs(nx) > BOUNDS - 2 || Math.abs(nz) > BOUNDS - 2; for (const c of G.W.colliders) if (Math.hypot(nx - c.x, nz - c.z) < c.r + (tank ? 2.6 : 2)) { hit = true; break; }
+    const gh = T.ground(nx, nz, v.y + 1.2); if (!hit && gh - v.y > 1.6) hit = true; if (hit) { if (Math.abs(v.sp) > 8) audio.sfx('boom', 0.25); v.sp *= -0.3; } else { v.x = nx; v.z = nz; }
+    v.y = T.ground(v.x, v.z, v.y + 1.2); if (v.y < LIQUID + 0.5) { v.x -= -Math.sin(v.yaw) * v.sp * dt * 3; v.z -= -Math.cos(v.yaw) * v.sp * dt * 3; v.sp = 0; v.y = T.ground(v.x, v.z, 99); }
+    const ds = tank ? 12 : 9; camera.position.set(v.x + Math.sin(me.yaw) * ds, v.y + (tank ? 6 : 5) - me.pitch * 4, v.z + Math.cos(me.yaw) * ds); camera.rotation.set(me.pitch * 0.8 - 0.12, me.yaw, 0, 'YXZ');
+    if (live && mouseL && v.cd <= 0) { const o = camera.getWorldPosition(new THREE.Vector3()), d = camera.getWorldDirection(new THREE.Vector3()), mx = 300, wall = T.ray(o, d, mx), list = hitAliens(o, d, Math.min(mx, wall)), tt = list.length ? list[0].t : Math.min(mx, wall), end = [o.x + d.x * tt, o.y + d.y * tt, o.z + d.z * tt];
+      const mz = [v.x - Math.sin(me.yaw) * (tank ? 4.5 : 2.4), v.y + (tank ? 2.4 : 2.9), v.z - Math.cos(me.yaw) * (tank ? 4.5 : 2.4)];
+      if (tank) { v.cd = 1.5; tracer(mz, end, 0xffc070, 0.08, 0.2); flashAt(mz, 4); smoke(mz[0], mz[1], mz[2], 6, 0.8); audio.gun('rocket', 1, 1.4, 0); audio.gun('boom', 0.6, 1.4, 0.3); G.shake = Math.max(G.shake || 0, 0.4); req({ a: 'boom', x: end[0], y: end[1], z: end[2], r: 6, d: 380 }); boomFx(end[0], end[1] + 0.3, end[2], 7); send({ k: 'tr', a: mz.map(q => +q.toFixed(1)), b: end.map(q => +q.toFixed(1)), c: 0xffc070, s: 'rocket', p: 1.4 }); }
+      else { v.cd = 0.1; tracer(mz, end, 0xffb060, 0.06, 0.09); flashAt(mz, 1.6); audio.gun('sniper', 0.8, 1.5, 0); G.shake = Math.max(G.shake || 0, 0.08); if (list.length) { const q = list[0]; req({ a: 'hit', id: q.v.id, d: +(40 * PLAYER_DMG).toFixed(1) }); bloodHit(end, q.v, q.head, d); G.hitT = 0.1; } else if (tt < mx) burst(end[0], end[1] + 0.2, end[2], G.W.def.ground, 4, 3, 0.4, 1.4); if (Math.random() < 0.5) send({ k: 'tr', a: mz.map(q => +q.toFixed(1)), b: end.map(q => +q.toFixed(1)), c: 0xffb060, s: 'sniper', p: 1 }); } }
+    v.eng -= dt; if (v.eng <= 0) { v.eng = tank ? 0.16 : 0.09 / (0.5 + Math.abs(v.sp) / 24); audio.sfx('engine', tank ? 0.45 : 0.35); }
+  } else {
+    const f = live ? (k[KB.forward] ? 1 : 0) - (k[KB.back] ? 1 : 0) : 0, st = live ? (k[KB.right] ? 1 : 0) - (k[KB.left] ? 1 : 0) : 0, up = live ? (k[KB.jump] ? 1 : 0) - (k[KB.kneel] ? 1 : 0) : 0; v.yaw = me.yaw;
+    v.vx += (-Math.sin(v.yaw) * f + Math.cos(v.yaw) * st) * 26 * dt; v.vz += (-Math.cos(v.yaw) * f - Math.sin(v.yaw) * st) * 26 * dt; v.vy += up * 16 * dt; const drag = Math.pow(0.45, dt); v.vx *= drag; v.vz *= drag; v.vy *= Math.pow(0.3, dt);
+    v.x = Math.max(-BOUNDS + 2, Math.min(BOUNDS - 2, v.x + v.vx * dt)); v.z = Math.max(-BOUNDS + 2, Math.min(BOUNDS - 2, v.z + v.vz * dt)); v.y += v.vy * dt; const gy = T.ground(v.x, v.z, v.y + 2) + 2.2; if (v.y < gy) { v.y = gy; v.vy = Math.max(0, v.vy); } v.y = Math.min(v.y, gy + 120);
+    camera.position.set(v.x + Math.sin(v.yaw) * 16, v.y + 5 - me.pitch * 6, v.z + Math.cos(v.yaw) * 16); camera.rotation.set(me.pitch * 0.8 - 0.15, v.yaw, 0, 'YXZ'); v.tilt = [-f * 0.18, -st * 0.25];
+    if (live && mouseL && v.cd <= 0) { v.cd = 0.07; const o = camera.getWorldPosition(new THREE.Vector3()), d = camera.getWorldDirection(new THREE.Vector3()); d.x += (Math.random() - 0.5) * 0.02; d.y += (Math.random() - 0.5) * 0.02; d.normalize(); const mx = 260, wall = T.ray(o, d, mx), list = hitAliens(o, d, Math.min(mx, wall)), tt = list.length ? list[0].t : Math.min(mx, wall), end = [o.x + d.x * tt, o.y + d.y * tt, o.z + d.z * tt], sd = (v.st = -(v.st || 1)), mz = [v.x + Math.cos(v.yaw) * 2.4 * sd, v.y + 0.6, v.z - Math.sin(v.yaw) * 2.4 * sd];
+      tracer(mz, end, 0xff7a30, 0.05, 0.06); if (sd > 0) audio.gun('mini', 0.9, 1, 0); G.shake = Math.max(G.shake || 0, 0.04); if (list.length) { const q = list[0]; req({ a: 'hit', id: q.v.id, d: +(22 * PLAYER_DMG).toFixed(1) }); bloodHit(end, q.v, q.head, d); G.hitT = 0.1; } else if (tt < mx && Math.random() < 0.4) burst(end[0], end[1] + 0.2, end[2], G.W.def.ground, 3, 3, 0.4, 1.4); if (Math.random() < 0.3) send({ k: 'tr', a: mz.map(q => +q.toFixed(1)), b: end.map(q => +q.toFixed(1)), c: 0xff7a30, s: 'mini', p: 0.8 }); }
+    v.eng -= dt; if (v.eng <= 0) { v.eng = 0.11; audio.sfx('rotor', 0.35); } if (Math.random() < 0.3 && v.y - gy < 10) burst(v.x + (Math.random() - 0.5) * 10, T.raw(v.x, v.z) + 0.3, v.z + (Math.random() - 0.5) * 10, G.W.def.ground, 2, 4, 0.8, 2);
+  }
+  me.x = v.x; me.y = v.y; me.z = v.z; me.vy = 0;
+  v.sendT = (v.sendT || 0) - dt; if (v.sendT <= 0) { v.sendT = 0.08; req({ a: 'vpose', x: +v.x.toFixed(2), y: +v.y.toFixed(2), z: +v.z.toFixed(2), ry: +v.yaw.toFixed(2) }); }
+  if (live && hits[KB.use]) { hits[KB.use] = 0; req({ a: 'exitveh' }); const ex = v.x + Math.cos(v.yaw) * 3.4, ez = v.z - Math.sin(v.yaw) * 3.4; me.dv = null; me.x = ex; me.z = ez; me.y = T.ground(ex, ez, v.y + 2); return; }
+  prompt(`<b>${VD.name}</b> · armour ${Math.max(0, Math.round(sv.hp))}/${sv.mhp} · <b>left click</b> fire · <b>${keyName(KB.use)}</b> get out`);
+}
+// the vehicles everyone sees; the one you drive follows your own controls
+const vehV = new Map();
+function vehMesh(kind) {
+  if (kind === 'truck') return roverModel();
+  if (kind === 'vtol') { const m = vtolModel(); for (const sd of [-1, 1]) { const g = M.gunModel('gunner', CLASSES.gunner.color); g.scale.setScalar(2.2); g.position.set(sd * 2.3, 0.4, 0.4); g.rotation.y = -sd * Math.PI / 2; m.add(g); } return m; }
+  const t = M.AS.fitGLB('r_tank', 'w', 8.5, false); if (t) { const g = new THREE.Group(); t.rotation.y = -Math.PI / 2; g.add(t); return g; } return M.tank(Math.random);
+}
+function updVehs(S, dt) {
+  const seen = new Set(), me = G.me;
+  for (const sv of S.V || []) { seen.add(sv.id); let v = vehV.get(sv.id); if (!v) { v = { mesh: vehMesh(sv.kind), x: sv.x, y: sv.y, z: sv.z, ry: sv.ry }; scene.add(v.mesh); vehV.set(sv.id, v); }
+    const mine0 = me.dv && me.dv.id === sv.id, tx = mine0 ? me.dv.x : sv.x, ty = mine0 ? me.dv.y : sv.y, tz = mine0 ? me.dv.z : sv.z, tr = mine0 ? me.dv.yaw : sv.ry, k = mine0 ? 1 : Math.min(1, dt * 8);
+    v.x += (tx - v.x) * k; v.y += (ty - v.y) * k; v.z += (tz - v.z) * k; let dy = tr - v.ry; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; v.ry += dy * k;
+    v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.order = 'YXZ'; v.mesh.rotation.y = v.ry; if (sv.kind === 'vtol' && mine0 && me.dv.tilt) { v.mesh.rotation.x = me.dv.tilt[0]; v.mesh.rotation.z = me.dv.tilt[1]; }
+    const u = v.mesh.userData; if (u.tur && mine0) u.tur.rotation.y = me.yaw - v.ry; if (sv.kind === 'vtol') for (const r of u.rotors || []) r.rotation.y += dt * 30; }
+  for (const [id, v] of vehV) if (!seen.has(id)) { scene.remove(v.mesh); vehV.delete(id); }
+  // get in: walk up to a free vehicle and press E
+  const my = mine(S); if (my && !my.drive && !my.dead && !G.cine) { let best = null, bd = 6; for (const sv of S.V || []) if (!sv.driver) { const d = Math.hypot(sv.x - me.x, sv.z - me.z); if (d < bd) { bd = d; best = sv; } }
+    if (best) { prompt(`<b>${keyName(KB.use)}</b> drive the ${VEHICLES[best.kind].name} · armour ${Math.round(best.hp)}/${best.mhp}`); if (hits[KB.use] && locked()) { hits[KB.use] = 0; req({ a: 'drive', id: best.id }); } } }
+}
 function updateMe(dt, S) {
   const me = G.me, my = mine(S); if (!my || G.cine) return;
   if (G.explore && G.ex && G.ex.veh) { G.ex.drive(dt); updateFootless(); return; }
+  { const dv = my.drive && (S.V || []).find(q => q.id === my.drive); if (dv && !my.dead) { driveVeh(dt, S, my, dv); return; } if (me.dv) { me.dv = null; if (view2.door) view2.door.visible = false; } }
   { const rd = my.ride && (S.R || []).find(q => q.id === my.ride); if (rd && !my.dead) { rideGun(dt, S, my, rd); return; } if (me.riding) { me.riding = null; if (view2.door) view2.door.visible = false; } }
   if (my.sp !== me.sp) { me.sp = my.sp; const fh = S.T.filter(t => t.kind === 'fieldhosp' && !t.carry && !(t.b > 0)).sort((a, b) => b.id - a.id)[0]; me.x = fh ? fh.x + 2.2 : G.W.spawn.x; me.z = fh ? fh.z : G.W.spawn.z; me.y = G.W.top(me.x, me.z); me.vy = 0; me.yaw = Math.atan2(me.x, me.z); me.ammo = stats().mag; me.rel = 0; }
   if (my.hp < me.hp - 0.5 && !my.dead) { G.hurtT = 0.35; audio.sfx('hurt', 0.6); }
@@ -1094,7 +1151,7 @@ function showPing(e) {
 function updPings(dt) { for (let i = pings.length - 1; i >= 0; i--) { const p = pings[i]; p.t -= dt; p.dia.rotation.y += dt * 3; p.dia.position.y = 2 + Math.sin(G.time * 4) * 0.2; if (p.t < 1) p.g.traverse(o => { if (o.material) o.material.opacity = Math.max(0, p.t) * 0.8; }); if (p.t <= 0) { scene.remove(p.g); pings.splice(i, 1); } } }
 function hud(dt, S) {
   const my = mine(S); if (!my) return; feel(dt, S, my); updPings(dt); const st = stats(), C = CLASSES[G.cls];
-  const hpv = G.explore && G.ex ? G.ex.hp * my.mhp / 100 : my.hp; setT('gold', Math.floor(my.gold)); setT('scrapN', String(Math.floor(my.scrap || 0))); G.scrapFlash = Math.max(0, (G.scrapFlash || 0) - dt); if (G.salvT > 0) { G.salvT -= dt; if (G.salvT <= 0) G.salvN = 0; } $('scrapBox').classList.toggle('fl', G.scrapFlash > 0); setT('hpTxt', `${Math.ceil(hpv)} / ${my.mhp}`); $('hpBar').style.width = (hpv / my.mhp * 100) + '%';
+  const hpv = G.explore && G.ex ? G.ex.hp * my.mhp / 100 : my.hp; setT('gold', Math.floor(my.gold)); setT('scrapN', `${Math.floor(my.scrap || 0)} SCRAP · HUB ${S.PT || 0} PARTS`); G.scrapFlash = Math.max(0, (G.scrapFlash || 0) - dt); if (G.salvT > 0) { G.salvT -= dt; if (G.salvT <= 0) G.salvN = 0; } $('scrapBox').classList.toggle('fl', G.scrapFlash > 0); setT('hpTxt', `${Math.ceil(hpv)} / ${my.mhp}`); $('hpBar').style.width = (hpv / my.mhp * 100) + '%';
   const slotNames = [C.gun.name, SIDEARM.name, 'Welding torch' + (G.cls === 'engineer' ? ' (3x)' : ''), C.throw.name + ' (left click throws)', 'Heal beam']; setT('ammo', G.me.slot === 3 ? String(my.items ?? 0) : G.me.slot === 5 ? String(my.dr ?? 0) : G.me.slot === 2 ? Math.round((my.pw ?? 100) / (G.cls === 'engineer' ? 160 : 100) * 100) + '%' : G.me.slot >= 2 ? '∞' : G.me.rel > 0 ? '--' : String(G.me.ammo)); setT('reserve', G.me.slot === 3 ? '/ ' + C.throw.n : G.me.slot === 5 ? '/ 2' : G.me.slot === 2 ? 'PWR' : G.me.slot >= 2 ? '' : '/ ' + Math.floor(G.me.reserve)); setT("gunName", `SLOT ${[1, 2, 3, 4, 6, 5][G.me.slot]}`); const low = G.me.reserve < st.mag && G.me.ammo < st.mag * 0.5; $('ammoWarn').hidden = !(low || G.me.resup); setT('ammoWarn', G.me.resup ? 'RESUPPLYING' : G.me.reserve < 1 && G.me.ammo === 0 ? 'OUT OF AMMO: BACK TO THE HUB' : 'LOW AMMO'); setT('clsName', C.name);
   const mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('waveTxt', S.ph === 'build' ? `GET READY ${Math.max(0, Math.ceil(S.tm))}` : `⏱ ${mmss(S.el || 0)}`); $('hubBar').style.width = S.hub + '%'; setT('hubTxt', `HUB ${Math.ceil(S.hub)}%`);
   let info = S.ph === 'build' ? 'Stand by: the swarm is coming' : `${S.left} aliens on the field`; if (G.W.cave && Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z) < 40) info = 'The Brood Queen\'s lair: kill her to win';
@@ -1156,10 +1213,11 @@ function shopDraw(my) {
   // the CPU commander runs the reinforcements by itself; this just reports what it has done
   let h = '';
   if (C) h += `<h2>Commander's report</h2><p class="small">The commander sends reinforcements and upgrades them as the battle grows. Nothing to buy.</p><p>Every <b>${DROP_EVERY[C.lv]} s</b>: <b>${SQUAD[C.sz]}</b> veteran${SQUAD[C.sz] > 1 ? 's' : ''} · units: <b>${C.un.map(k => ALLIES[k].name).join(', ')}</b> · next drop in ${Math.ceil(C.t)} s</p>`;
+  { const PT = (state() || {}).PT || 0; h += `<h2>Vehicles · ${PT} parts at the hub</h2><p class="small">Weld wrecks for scrap and bring it back to the hub: the commander builds what you choose. It waits in the hub: walk up and press E to drive.</p>` + Object.entries(VEHICLES).map(([k, V]) => `<button class="up ${PT < V.parts ? 'max' : ''}" data-veh="${k}"><b>${V.name}</b> · ${V.parts} parts<br><span class="small">${V.text}</span></button>`).join(''); }
   h += `<h2>Change class</h2><p class="small">Swap kits here in the hub. <b>Every turret and barricade you own is removed</b> when you swap (your kits come back).</p>` + Object.entries(CLASSES).map(([k, c]) => `<button class="up ${k === G.cls ? 'max' : ''}" data-cls="${k}"${inHub ? '' : ' disabled'}><b style="color:#${c.color.toString(16).padStart(6, '0')}">◆</b><span>${c.name}<small>${c.role} · ${c.gun.name}</small></span><em></em><i>${k === G.cls ? 'CURRENT' : 'SWAP'}</i></button>`).join('');
   setH('shopList', h);
 }
-$('shopList').addEventListener('click', e => { const b = e.target.closest('[data-up]'); if (b) req({ a: 'buy', up: b.dataset.up }); const c = e.target.closest('[data-cmd]'); if (c) req({ a: 'cmd', w: c.dataset.cmd }); const k = e.target.closest('[data-cls]'); if (k && k.dataset.cls !== G.cls) req({ a: 'cls', cls: k.dataset.cls }); });
+$('shopList').addEventListener('click', e => { const vb = e.target.closest('[data-veh]'); if (vb) { req({ a: 'buildveh', kind: vb.dataset.veh }); setTimeout(() => shopDraw(mine(state())), 200); return; } const b = e.target.closest('[data-up]'); if (b) req({ a: 'buy', up: b.dataset.up }); const c = e.target.closest('[data-cmd]'); if (c) req({ a: 'cmd', w: c.dataset.cmd }); const k = e.target.closest('[data-cls]'); if (k && k.dataset.cls !== G.cls) req({ a: 'cls', cls: k.dataset.cls }); });
 function openShop(on) { G.shop = on; $('shop').hidden = !on; if (on) { G.me.place = null; if (document.pointerLockElement) document.exitPointerLock(); } else canvas.requestPointerLock(); }
 
 // ---------------------------------------------------------------- the main loop
@@ -1185,7 +1243,7 @@ function frame(now) {
     if (!paused && !G.explore) G.sim.update(dt);
     if (G.mode === 'host') { netT += dt; if (netT > 0.1) { netT = 0; G.net.send({ t: 'st', v: VER, map: G.map, df: G.diff || 0, ...G.sim.pack(), fx: G.out }); G.out = []; for (const q of [...G.sim.players.values()]) if (q.id !== G.myId && G.time - (q.seen || 0) > 10) G.sim.removePlayer(q.id); } }
   } else { poseT += dt; if (poseT > 0.066) { poseT = 0; G.net.send({ t: 'pose', p: [+G.me.x.toFixed(2), +G.me.y.toFixed(2), +G.me.z.toFixed(2), +((G.ex && G.ex.veh) ? G.ex.veh.yaw : G.me.yaw).toFixed(2), G.me.prone ? 2 : G.me.kneel ? 1 : 0, vehCode()] }); } }
-  updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); updRides(S, dt); if (G.mmap && hits.Escape) closeMissileMap();
+  updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); updRides(S, dt); updVehs(S, dt); if (G.mmap && hits.Escape) closeMissileMap();
   if (G.W) { G.W.sun.position.set(camera.position.x + 40, 90, camera.position.z + 25); G.W.sun.target.position.set(camera.position.x, 0, camera.position.z); }
   if (S.ph === 'wave' || S.ph === 'assault') { G.artT = (G.artT ?? 8) - dt; if (G.artT <= 0) { G.artT = 5 + Math.random() * 9; audio.gun('artillery', 0.35 + Math.random() * 0.3, 1, 1); } }
   if (!paused) { updateGrenades(dt); updateMeteors(dt); updateFx(dt); updateWeather(dt, S); }

@@ -29,7 +29,7 @@ function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.asp
 // switching fullscreen fires a burst of resize events: rebuild the drawing buffers once it settles, not on every one (that froze the page and the sound)
 let resizeT = 0; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 180); }); resize();
 const audio = new Audio(), music = new Music(audio), voice = new Voice(audio); window.hbMusic = music;
-voice.onTalk = dur => { music.fade(0.75, 0.15); clearTimeout(voice.duckT); voice.duckT = setTimeout(() => music.fade(1, 0.6), dur * 1000); };   /* the music dips while someone talks in your helmet */
+voice.onTalk = dur => { music.fade(0.6, 0.15); clearTimeout(voice.duckT); voice.duckT = setTimeout(() => music.fade(1, 0.6), dur * 1000); };   /* the music dips while someone talks in your helmet */
 // one-time sound reset: a saved master volume of zero, music switched off, or a silent effects slider made the whole game silent for good
 try { if (!localStorage.getItem('hb-snd-reset1')) { localStorage.setItem('hb-snd-reset1', '1'); const st = JSON.parse(localStorage.getItem('hb-set') || '{}'); if (!(st.master > 0.05)) { st.master = 1; localStorage.setItem('hb-set', JSON.stringify(st)); } if (!music.on || !(music.vol > 0.05)) { music.on = true; music.vol = Math.max(music.vol || 0, 0.75); music.save(); } if (!(audio.vol > 0.05)) audio.setVol(0.5); } } catch (e) { }
 audio.onRestart = () => { toast('🔊 Sound engine restarted after a glitch (tell the developer if you see this often)', 4); music.reset(); setTimeout(() => { if (audio.ctx && audio.ctx.state === 'running') { music.start(); applyAudio(); } }, 200); };
@@ -59,7 +59,7 @@ const SET = { quality: 'medium', fov: 75, fps: false, invert: false, zoomSens: 1
 function saveSettings() { try { localStorage.setItem('hb-set', JSON.stringify(SET)); localStorage.setItem('hb-keys5', JSON.stringify(KB)); } catch (e) { } }
 function applyQuality() { const q = SET.quality; renderer.setPixelRatio(Math.min(q === 'low' ? 0.75 : q === 'high' ? 1.75 : 1.25, devicePixelRatio)); resize(); if (G.W) G.W.sun.castShadow = q !== 'low'; G.maxParts = q === 'low' ? 120 : q === 'high' ? 320 : 220; }
 const G = { pings: [], on: false, mode: 'solo', myId: 'me', name: 'Marine', cls: 'assault', map: 'mars', W: null, sim: null, net: null, snap: null, out: [], time: 0, shop: false, me: null };
-window.G = G; G.M = M; G.scene = scene; G.camera = camera; G.veh = { vtol: vtolModel, rover: roverModel }; G.bloodTest = (...a) => bloodHit(...a); G.setSlot = n => setSlot(n); G.hitAliens = hitAliens; G.viewA = () => view.aliens; G.turretMuzzle = turretMuzzle; G.renderer = renderer; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
+window.G = G; G.M = M; G.voice = voice; G.scene = scene; G.camera = camera; G.veh = { vtol: vtolModel, rover: roverModel }; G.bloodTest = (...a) => bloodHit(...a); G.setSlot = n => setSlot(n); G.hitAliens = hitAliens; G.viewA = () => view.aliens; G.turretMuzzle = turretMuzzle; G.renderer = renderer; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } };
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.

@@ -4,8 +4,8 @@
 export const VOICE = [
   // the drop
   { k: 'hale_drop', who: 'General Hale', text: 'Drop teams, this is Olympus. The swarm holds the planet. Go down there and take it back.', re: /Drop teams, this is Olympus/ },
-  { k: 'vance_strap', who: 'Commander Vance', text: 'Strap in, marines. We drop in thirty.', re: /Strap in, marines/ },
-  { k: 'vance_listen', who: 'Commander Vance', text: 'Listen up! Thirty seconds to drop. Hands off the straps until we\'re down.', re: /Listen up! Thirty seconds/ },
+  { k: 'vance_strap', who: 'Commander Vance', text: 'Strap in, marines. We drop in ten.', re: /Strap in, marines/ },
+  { k: 'vance_listen', who: 'Commander Vance', text: 'Listen up! Five seconds to drop. Hands off the straps until we\'re down.', re: /Listen up! (Five|Thirty) seconds/ },
   { k: 'vance_herewego', who: 'Commander Vance', text: 'Here we go. Hold on to something!', re: /Here we go\. Hold on/ },
   { k: 'vance_eject', who: 'Commander Vance', text: 'Eject! Eject! Eject!', re: /EJECT! EJECT/ },
   { k: 'vance_cleandrop', who: 'Commander Vance', text: 'Clean drop. Planet dead ahead. Brace for the burn!', re: /Clean drop/ },
@@ -52,7 +52,7 @@ export class Voice {
     const now = c.currentTime; if (this.end && now < this.end - 0.05) return 0;   // one voice at a time
     const t0 = now + 0.08, s = c.createBufferSource(); s.buffer = b;
     // everything goes through one fader (the Voice volume setting), well under the music and the battle
-    const out = c.createGain(); out.gain.value = 0.22 * (this.vol ?? 0.6); out.connect(this.a.bus || c.destination);
+    const out = c.createGain(); out.gain.value = 0.7 * (this.vol ?? 0.6); out.connect(this.a.bus || c.destination);
     // the helmet's tiny speaker: no bass, no air, a boxy hollow middle and a hard little resonance, driven a touch into crackle
     const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 520; hp.Q.value = 1.1;
     const hp2 = c.createBiquadFilter(); hp2.type = 'highpass'; hp2.frequency.value = 420; hp2.Q.value = 0.7;

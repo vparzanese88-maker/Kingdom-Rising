@@ -473,7 +473,7 @@ export function dropIntro(H, squad, done) {
     if (t < 0) { // the opening shot: Station Olympus in high orbit, the drop pods hanging in its bay, then down to yours
       once('o1', () => { cap('STATION OLYMPUS', `High orbit over ${PN} · 7th Orbital Drop Wing`); for (const o of shell) o.visible = true; cabin.traverse(o => { if (!o.isLight && o !== cabin && o.isMesh && o.visible) { o.visible = false; (cabin.userData.hid = cabin.userData.hid || []).push(o); } }); hud.style.display = 'none';   /* hide the cabin's meshes but keep its lights on: a light count change rebuilds every shader */ document.body.classList.remove('pov'); });   /* letterboxed, like a film, until you're in your seat */
       if (t > -7) once('o2', () => cap('', `General Hale: Drop teams, this is Olympus. The swarm holds ${PN}. Go down there and take it back.`));
-      if (t > -2.6) once('o3', () => cap('', 'Commander Vance: Strap in, marines. We drop in thirty.'));
+      if (t > -2.6) once('o3', () => cap('', 'Commander Vance: Strap in, marines. We drop in ten.'));
       if (t > -0.6) once('o4', () => H.fade(true));
       const sp = st.position, pp = pod.position; let cp, cl;
       if (t < -6) { const f = (t + 12) / 6, a = 0.6 + f * 1.1, r = 230 - f * 50; cp = V(sp.x + Math.cos(a) * r, sp.y + 70 - f * 40, sp.z + Math.sin(a) * r); cl = V(sp.x, sp.y - 10, sp.z); }
@@ -484,7 +484,7 @@ export function dropIntro(H, squad, done) {
     once('o5', () => { for (const o of shell) o.visible = false; for (const o of cabin.userData.hid || []) o.visible = true; cabin.userData.hid = null; hud.style.display = ''; document.body.classList.add('pov'); H.fade(false); });
     if (t < 7) { // docked: alarms, red strobes, the commander's countdown
       once('a', () => { cap('', `Station Olympus, drop bay 3 · destination ${PN}`); A.sfx('alarm', 0.5); });
-      if (t > 2.2) once('b', () => cap('', 'Commander Vance: Listen up! Thirty seconds to drop. Hands off the straps until we\'re down.'));
+      if (t > 2.2) once('b', () => cap('', 'Commander Vance: Listen up! Five seconds to drop. Hands off the straps until we\'re down.'));
       if (t > 5.2) once('c', () => { cap('', 'Vance: Here we go. Hold on to something!'); A.sfx('alarm', 0.7); });
       { const pu = 0.5 + 0.5 * Math.sin(t * 2.6); red.intensity = 4 + 4 * pu; strobe.emissiveIntensity = 0.6 + 2.6 * pu; }   /* a slow alarm pulse, no hard flashing */ shake = 0.04; if (t > 5) shake = 0.12;
     } else if (t < 13) { // EJECT: the clamps blow, every pod drops away from the station, thrusters lit

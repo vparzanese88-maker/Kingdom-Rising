@@ -230,14 +230,19 @@ function updateMeteors(dt) {
 }
 const died = new Set(), corpses = [], splats = [];
 function updateCorpses(dt) {
-  for (const c of corpses) { c.t += dt; const u = c.m.userData; if (u.glb && u.act && u.act.die) { if (!c.go) { c.go = 1; const d = u.act.die; d.reset().play(); if (u.cur && u.act[u.cur] && u.act[u.cur] !== d) u.act[u.cur].crossFadeTo(d, 0.12, false); u.cur = 'die'; } u.mixer.update(dt); if (u.mats) for (const mt of u.mats) mt.emissiveIntensity = Math.max(0.2, 1.5 - c.t * 3); if (c.t > 2.4) c.m.position.y -= dt * 0.9; if (c.t > 4) { scene.remove(c.m); c.dead = true; } continue; }   // a Meshy alien plays its death clip, then sinks into the ground
+  for (const c of corpses) { c.t += dt; const u = c.m.userData; if (u.glb && u.act && u.act.die) { if (!c.go) { c.go = 1; const d = u.act.die; d.reset().play(); if (u.cur && u.act[u.cur] && u.act[u.cur] !== d) u.act[u.cur].crossFadeTo(d, 0.12, false); u.cur = 'die'; } u.mixer.update(dt); if (u.mats) for (const mt of u.mats) mt.emissiveIntensity = Math.max(0.2, 1.5 - c.t * 3); if (c.t > 6) c.m.position.y -= dt * 0.7; if (c.t > 8) { scene.remove(c.m); c.dead = true; } continue; }   // the body lies there a few seconds, then sinks   // a Meshy alien plays its death clip, then sinks into the ground
     const f = Math.min(1, c.t / 0.35); c.m.rotation.z = c.side * f * 1.5; c.m.userData.legs.forEach(l => l.rotation.x = Math.sin(c.t * 30) * 0.4 * (1 - f)); if (c.t > 2) c.m.position.y -= dt * 0.8; if (c.t > 3.5) { scene.remove(c.m); c.dead = true; } }
   if (corpses.some(c => c.dead)) corpses.splice(0, corpses.length, ...corpses.filter(c => !c.dead));
   for (const s of splats) { s.t -= dt; s.m.material.opacity = Math.min(0.75, s.t / 4); if (s.t <= 0) { scene.remove(s.m); s.m.geometry.dispose(); s.m.material.dispose(); s.dead = true; } }
   if (splats.some(s => s.dead)) splats.splice(0, splats.length, ...splats.filter(s => !s.dead));
 }
 const marks = []; function impactMark(x, y, z) { if (marks.length > 70) { const o = marks.shift(); scene.remove(o); } const m = new THREE.Mesh(new THREE.CircleGeometry(0.18 + Math.random() * 0.12, 6), new THREE.MeshBasicMaterial({ color: 0x1a1612, transparent: true, opacity: 0.7, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.set(x, G.W.ground(x, z, y + 0.3) + 0.05, z); scene.add(m); marks.push(m); }
-function splat(x, z, r) { if (splats.length > 40) { const o = splats.shift(); scene.remove(o.m); } const m = new THREE.Mesh(new THREE.CircleGeometry(r * (0.7 + Math.random() * 0.6), 9), new THREE.MeshBasicMaterial({ color: 0x4ac020, transparent: true, opacity: 0.75, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6; m.position.set(x, G.W.top(x, z) + 0.12, z); scene.add(m); splats.push({ m, t: 12 }); }
+// alien blood when your bullets land: a spray of bright acid-green droplets and darker gore, bigger on a head shot, and now and then a splash on the ground under it
+function bloodHit(hp, v, head) {
+  burst(hp[0], hp[1], hp[2], 0x7aff30, head ? 16 : 8, head ? 5 : 3.5, 0.5, head ? 1.8 : 1.3); burst(hp[0], hp[1], hp[2], 0x2c5a10, head ? 8 : 4, 2.5, 0.7, 1.1);
+  if (v && Math.random() < (head ? 0.7 : 0.3)) splat(v.x + (Math.random() - 0.5) * 1.2, v.z + (Math.random() - 0.5) * 1.2, head ? 0.9 : 0.55);
+}
+function splat(x, z, r) { if (splats.length > 70) { const o = splats.shift(); scene.remove(o.m); } const m = new THREE.Mesh(new THREE.CircleGeometry(r * (0.7 + Math.random() * 0.6), 9), new THREE.MeshBasicMaterial({ color: 0x4ac020, transparent: true, opacity: 0.75, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6; m.position.set(x, G.W.top(x, z) + 0.12, z); scene.add(m); splats.push({ m, t: 12 }); }
 // class abilities, seen by everyone
 function abilityFx(e) {
   const y = e.y || 0;
@@ -394,7 +399,7 @@ function syncView(S, dt) {
     const A = ALIENS[a.type], sc = a.type === 'broodqueen' ? 6 : a.type === 'royal' ? 1.8 : a.type === 'hivecore' ? 6 : a.type === 'guardian' ? 2.5 : A.boss ? (a.type === 'queen' ? 4 : 2.5) : 1.2, f = Math.max(0, a.hp / a.mhp);
     v.bar.visible = f < 0.999; if (v.bar.visible) { v.bar.position.set(v.x, v.y + BAR_Y[ALIENS[a.type].base || a.type], v.z); v.bar.quaternion.copy(camera.quaternion); v.bar.scale.set(sc, sc, 1); v.fg.scale.x = f; v.fg.position.x = -(1 - f) / 2; }
   }
-  for (const [id, v] of view.aliens) if (!seen.has(id)) { scene.remove(v.bar); if (v.mark) scene.remove(v.mark); view.aliens.delete(id); if (died.has(id) && v.type !== 'hivecore') { died.delete(id); corpses.push({ m: v.mesh, t: 0, side: Math.random() < 0.5 ? -1 : 1 }); } else scene.remove(v.mesh); }
+  for (const [id, v] of view.aliens) if (!seen.has(id)) { scene.remove(v.bar); if (v.mark) scene.remove(v.mark); view.aliens.delete(id); if (died.has(id) && v.type !== 'hivecore') { died.delete(id); corpses.push({ m: v.mesh, t: 0, side: Math.random() < 0.5 ? -1 : 1 }); if (corpses.length > 30) { const o = corpses.shift(); scene.remove(o.m); } } else scene.remove(v.mesh); }
   seen.clear();
   for (const t of S.T) {
     seen.add(t.id); let v = view.turrets.get(t.id);
@@ -562,7 +567,7 @@ function shoot(st) {
     if (list.length) {
       for (const q of list.slice(0, n)) { const fall = q.t <= g.near ? 1 : Math.max(0.3, 1 - 0.7 * (q.t - g.near) / (g.far - g.near)), hm = q.head ? (G.cls === 'sniper' ? 2.5 : 2) : 1, dd = +(st.dmg * fall * hm * (oc ? 4 : 1)).toFixed(1);
         if (q.v.wild) G.ex.hurt(q.v, dd); else req({ a: 'hit', id: q.v.id, d: dd }); q.v.pop = Math.max(q.v.pop || 0, 0.08);
-        if (me.airN > 0 && k === 0) { const hp0 = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; if (G.explore && G.ex) G.ex.splash(...hp0, 3, 45); else req({ a: 'boom', x: hp0[0], y: hp0[1], z: hp0[2], r: 3, d: 45 }); } const hp = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; burst(hp[0], hp[1], hp[2], 0x70ff40, q.head ? 6 : 3, q.head ? 3 : 2, 0.25); if (q.head) head = true; if (fall < 0.6) weak = true; hitAny = true; }
+        if (me.airN > 0 && k === 0) { const hp0 = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; if (G.explore && G.ex) G.ex.splash(...hp0, 3, 45); else req({ a: 'boom', x: hp0[0], y: hp0[1], z: hp0[2], r: 3, d: 45 }); } const hp = [r.o.x + r.d.x * q.t, r.o.y + r.d.y * q.t, r.o.z + r.d.z * q.t]; bloodHit(hp, q.v, q.head); if (q.head) head = true; if (fall < 0.6) weak = true; hitAny = true; }
       const q0 = list[Math.min(list.length, n) - 1]; end = [r.o.x + r.d.x * q0.t, r.o.y + r.d.y * q0.t, r.o.z + r.d.z * q0.t];
     } else { const t = Math.min(mx, wall); end = [r.o.x + r.d.x * t, r.o.y + r.d.y * t, r.o.z + r.d.z * t]; if (t < mx) { burst(end[0], end[1] + 0.1, end[2], G.W.def.ground, 3, 2, 0.35, 1.3); if (k < 2) impactMark(end[0], end[1], end[2]); } }
     if (g.tracers || (G.cls === 'sniper' || g.pellets ? k < 3 : me.shotN % 3 === 0)) tracer(G.cls === 'sniper' && me.scope ? [r.o.x + r.d.x * 0.5, r.o.y - 0.15, r.o.z + r.d.z * 0.5] : mz, end, oc ? 0xffffff : g.tracers ? 0xff7a30 : col, G.cls === 'sniper' ? 0.2 : g.tracers ? 0.07 : 0.05, (G.cls === 'sniper' ? (oc ? 0.2 : 0.09) : g.pellets ? 0.02 : 0.035) * power);
@@ -856,7 +861,7 @@ function updateMe(dt, S) {
   { const u = gn.userData, f = me.rel > 0 ? 1 - me.rel / (me.relT || 1) : 0; 
     if (u.pump) { u.pumpZ0 ??= u.pump.position.z; u.pump.position.z = u.pumpZ0 + ((me.pumpAnim || 0) > 0 ? Math.sin((0.3 - me.pumpAnim) / 0.3 * Math.PI) * 0.18 : 0); }
     if (u.rocket) u.rocket.visible = me.rel > 0 ? f > 0.66 : me.ammo > 0; }
-  gn.position.set(0.21 - me.kh * 0.06 + Math.sin(me.bob * 0.5) * 0.01, -0.21 + me.kh * 0.03 + Math.abs(Math.cos(me.bob * 0.5)) * 0.008 - rf * 0.12 + me.kick * 0.012, -0.42 + me.kick * (G.cls === 'heavy' ? 0.14 : 0.07)); gn.rotation.set(me.kick * (G.cls === 'heavy' ? 0.25 : 0.12) - rf * 0.7, (Math.random() - 0.5) * me.kick * 0.03, rf * 0.3 + me.kick * 0.04 - me.kh * 0.08); gn.visible = me.slot === 0 && !my.dead && !me.place && !me.scope; if (me.ads && me.slot === 0) { if (G.cls === 'gunner' || G.cls === 'heavy') { gn.position.x += 0.06; gn.position.y -= 0.1; } else { gn.position.x = 0.0; gn.position.y = -0.12; gn.position.z -= 0.08; } }   // big guns stay at the hip when aiming so they don't block the view if (me.ads && view2.pistol) { view2.pistol.position.set(0, -0.15, -0.4); } else if (view2.pistol) view2.pistol.position.set(0.2, -0.22, -0.45);
+  gn.position.set(0.21 - me.kh * 0.06 + Math.sin(me.bob * 0.5) * 0.01, -0.21 + me.kh * 0.03 + Math.abs(Math.cos(me.bob * 0.5)) * 0.008 - rf * 0.12 + me.kick * 0.012, -0.42 + me.kick * (G.cls === 'heavy' ? 0.14 : 0.07)); gn.rotation.set(me.kick * (G.cls === 'heavy' ? 0.25 : 0.12) - rf * 0.7, (Math.random() - 0.5) * me.kick * 0.03, rf * 0.3 + me.kick * 0.04 - me.kh * 0.08); gn.visible = me.slot === 0 && !my.dead && !me.place && !me.scope; if (me.ads && me.slot === 0) { if (G.cls === 'gunner' || G.cls === 'heavy') { gn.position.x += 0.06; gn.position.y -= 0.1; } else { gn.position.x = 0.0; gn.position.y = -0.12; gn.position.z -= 0.08; } }   /* big guns stay at the hip when aiming so they don't block the view */ if (me.ads && view2.pistol) { view2.pistol.position.set(0, -0.15, -0.4); } else if (view2.pistol) view2.pistol.position.set(0.2, -0.22, -0.45);
   animReload(me, gn, my, dt);
   if (me.tp > 0.25) { for (const c of camera.children) if (c.isObject3D && !c.isLight) c.visible = false; }   /* third person: no first-person gun */
   if (!live) { me.place = null; updatePlace(S); return; }

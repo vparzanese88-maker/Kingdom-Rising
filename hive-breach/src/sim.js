@@ -165,7 +165,8 @@ export class Sim {
   }
   killAlien(a, owner) {
     a.dead = true; const A = ALIENS[a.type];
-    if (A.burst) { this.emit({ k: 'boom', x: a.x, y: a.y + 1, z: a.z, r: 4.5 }); for (const p of this.living()) if (Math.hypot(p.x - a.x, p.z - a.z) < 4.5) this.hurtPlayer(p, A.burst, a); for (const t of this.turrets) if (Math.hypot(t.x - a.x, t.z - a.z) < 4.5) this.hurtTurret(t, A.burst); this.pools.push({ x: a.x, y: a.y, z: a.z, r: 3.5, t: 0.01, dps: 0 }); }   // Bloaters burst in a spray of acid this.emit({ k: 'die', id: a.id, x: a.x, y: a.y, z: a.z, t: a.type });
+    if (A.burst) { this.emit({ k: 'boom', x: a.x, y: a.y + 1, z: a.z, r: 4.5 }); for (const p of this.living()) if (Math.hypot(p.x - a.x, p.z - a.z) < 4.5) this.hurtPlayer(p, A.burst, a); for (const t of this.turrets) if (Math.hypot(t.x - a.x, t.z - a.z) < 4.5) this.hurtTurret(t, A.burst); this.pools.push({ x: a.x, y: a.y, z: a.z, r: 3.5, t: 0.01, dps: 0 }); }   /* Bloaters burst in a spray of acid */
+    this.emit({ k: 'die', id: a.id, x: a.x, y: a.y, z: a.z, t: a.type });
     const p = this.players.get(owner); if (p) p.kills++;
     for (const q of this.players.values()) q.gold += Math.round(A.bounty * (q.id === owner ? 1 : 0.4));
     if (A.boss || a.type === 'broodqueen') this.emit({ k: 'toast', m: `${A.name} destroyed${p ? ' by ' + p.name : ''}!`, big: 1 });

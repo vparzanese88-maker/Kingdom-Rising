@@ -30,9 +30,9 @@ function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.asp
 let resizeT = 0; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 180); }); resize();
 const audio = new Audio(), music = new Music(audio), voice = new Voice(audio); window.hbMusic = music;
 // the comm card: while Hale or Vance talks, a small framed portrait of him shows at the side of the screen; a line about the queen also opens a card with her turning 360°
-voice.onLine = (v, dur) => { const c = $('comm'), gen = v.who === 'General Hale'; $('commImg').src = './assets/portraits/' + (gen ? 'hale' : 'vance') + '.webp'; $('commN').textContent = gen ? 'GEN. HALE · OLYMPUS' : 'CMDR. VANCE · GROUND'; c.className = gen ? 'gen talk' : 'talk'; c.hidden = false; clearTimeout(c._t); c._t = setTimeout(() => { c.hidden = true; }, (dur + 0.6) * 1000);
+voice.onLine = (v, dur) => { const c = $('comm'), gen = v.who === 'General Hale'; $('commImg').src = './assets/portraits/' + (gen ? 'hale' : 'vance') + '.webp'; $('commN').textContent = gen ? 'GEN. HALE · OLYMPUS' : 'CMDR. VANCE · GROUND'; c.className = gen ? 'gen talk' : 'talk'; c.hidden = false; clearTimeout(c._t); c._t = setTimeout(() => { c.hidden = true; G.qcardT = 0; $('qcard').hidden = true; }, (dur + 0.3) * 1000);   /* the cards close the moment he stops talking */
   sigLoop();
-  if (/queen/i.test(v.text) && !G.cine) { G.qcardT = dur + 1.5; $('qcard').hidden = false; } };
+  if (/queen/i.test(v.text) && !G.cine) { G.qcardT = dur + 0.3; $('qcard').hidden = false; } else { G.qcardT = 0; $('qcard').hidden = true; } };
 // the signal line on the comm card: a scrolling heartbeat-style trace that spikes with the voice, flat between words, only while someone talks
 const sig = { pts: new Array(70).fill(0), on: false, ph: 0 };
 function sigLoop() { if (sig.on) return; sig.on = true; const cv = $('commSig'), g = cv.getContext('2d');

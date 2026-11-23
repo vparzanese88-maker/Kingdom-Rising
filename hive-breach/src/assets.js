@@ -133,7 +133,7 @@ function aimGun(m) {
 export function animGLB(m, sp, opt) {
   const u = m.userData, now = performance.now(), dt = Math.min(0.1, (now - (u.lt || now)) / 1000); u.lt = now;
   let k = opt && opt.pose ? opt.pose : sp > 6.5 ? 'sprint' : sp > 3.2 ? 'run' : sp > 0.4 ? 'walk' : (opt && opt.fire ? 'walk' : 'idle');
-  const far = m.getWorldPosition(_wp).distanceToSquared(CAM); if (!u.fpArms && far > 4900) { u.acc = (u.acc || 0) + dt; return; } if (far > 900) { u.skip = !u.skip; if (u.skip) { u.acc = (u.acc || 0) + dt; return; } }
+  const far = opt && opt.near ? 0 : m.getWorldPosition(_wp).distanceToSquared(CAM); if (!u.fpArms && far > 4900) { u.acc = (u.acc || 0) + dt; return; } if (far > 900) { u.skip = !u.skip; if (u.skip) { u.acc = (u.acc || 0) + dt; return; } }
   const dtM = Math.min(0.2, dt + (u.acc || 0)); u.acc = 0;
   setPose(m, k); const a = u.act[u.cur];
   if (u.cur === 'walk') a.timeScale = sp > 0.4 ? Math.max(0.7, sp / 2.6) : 0.12; else if (u.cur === 'run' || u.cur === 'sprint') a.timeScale = Math.max(0.8, sp / (u.cur === 'run' ? 5 : 7.5)); else a.timeScale = 1;

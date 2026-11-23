@@ -59,7 +59,7 @@ const S = {
 export class Audio {
   constructor() { this.ctx = null; this.vol = 0.5; try { const v = +localStorage.getItem('hb-sfx'); if (localStorage.getItem('hb-sfx') !== null && v >= 0) this.vol = v; } catch (e) { } this.noise = {}; this.last = {}; }
   unlock() {
-    if (!this.ctx) { try { const AC = window.AudioContext || window.webkitAudioContext; try { this.ctx = new AC({ latencyHint: 'playback' }); } catch (e) { this.ctx = new AC(); } /* a bigger buffer: the browser can't run dry when a frame is slow */ setTimeout(() => { if (!this.ctx) return; this.cb ??= {}; for (const n in CREATURE) this.cb[n] ??= [0, 1, 2].map(k => CREATURE[n](this.ctx, k)); this.fb ??= {}; for (const n in FOLEY) this.fb[n] ??= FOLEY[n](this.ctx); }, 900);   /* build the alien voices and reload noises ahead of time, not mid-fight */ this.chain(); this.ctx.onstatechange = () => { const c = this.ctx; if (c && c.state !== 'running' && c.state !== 'closed' && !document.hidden) c.resume().catch(() => { }); }; let i = 0; const kinds = ['rifle', 'pistol', 'shotgun', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
+    if (!this.ctx) { try { const AC = window.AudioContext || window.webkitAudioContext; try { this.ctx = new AC({ latencyHint: 'playback' }); } catch (e) { this.ctx = new AC(); } /* a bigger buffer: the browser can't run dry when a frame is slow */ setTimeout(() => { if (!this.ctx) return; this.cb ??= {}; for (const n in CREATURE) this.cb[n] ??= [0, 1, 2].map(k => CREATURE[n](this.ctx, k)); this.fb ??= {}; for (const n in FOLEY) this.fb[n] ??= FOLEY[n](this.ctx); const jobs = []; for (const n in STEP) for (let k = 0; k < 8; k++) jobs.push([n, k]); const next = () => { const j = jobs.shift(); if (!j || !this.ctx) return; this._stepBuf(j[0], j[1]); setTimeout(next, 30); }; setTimeout(next, 300);   /* footsteps: one buffer per tick, so no frame stalls */ }, 900);   /* build the alien voices and reload noises ahead of time, not mid-fight */ this.chain(); this.ctx.onstatechange = () => { const c = this.ctx; if (c && c.state !== 'running' && c.state !== 'closed' && !document.hidden) c.resume().catch(() => { }); }; let i = 0; const kinds = ['rifle', 'pistol', 'shotgun', 'sniper', 'smg', 'mini', 'rocket', 'boom', 'artillery'], warm = () => { if (i < kinds.length) { this.shots(kinds[i++]); setTimeout(warm, 30); } }; setTimeout(warm, 50); } catch (e) { } }
     if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') this.ctx.resume().catch(() => { });
     // iPhone and iPad: playing a silent HTML audio element moves the page into the "media" sound category, so the game is heard even with the silent switch on
     if (!this.el && /iPad|iPhone|iPod/.test(navigator.userAgent + (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform) ? 'iPad' : ''))) { try { const n = 8000, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, s) => [...s].forEach((ch, i) => b[o + i] = ch.charCodeAt(0)); w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true); b.fill(128, 44);
@@ -169,6 +169,20 @@ export class Audio {
     src.connect(lp); lp.connect(g); g.connect(this.out); const send = c.createGain(); send.gain.value = 0.015 + far * 0.3; g.connect(send); send.connect(this.verbIn);   /* own and nearby shots stay dry: echo only for distant fire */
     src.start(t); this._voice(g, [src], t + src.buffer.duration / src.playbackRate.value, vol >= 0.9 ? 9 : vol);
   }
+  // footsteps: rendered once per surface (5 steps, 3 landings each), then only picked and played. run: louder, brighter, a touch quicker
+  // slots 0-4 are steps, 5-7 landings
+  _stepBuf(surf, k) { this.stb ??= {}; const set = this.stb[surf] ??= { s: [], l: [], last: -1 }, land = k >= 5, list = land ? set.l : set.s, i = land ? k - 5 : k; return list[i] ??= STEP[surf](this.ctx, i, land ? 1 : 0); }
+  _steps(surf) { for (let k = 0; k < 8; k++) this._stepBuf(surf, k); return this.stb[surf]; }
+  _foot(surf, vol, rate, lpf, land) {
+    const c = this.ctx; if (!c || c.state !== 'running' || !(vol >= 0.03) || !this.out) return; if (!STEP[surf]) surf = 'sand';
+    const set = this._steps(surf), list = land ? set.l : set.s; let k = (Math.random() * list.length) | 0; if (!land && k === set.last) k = (k + 1) % list.length; if (!land) set.last = k;
+    const t0 = c.currentTime, src = c.createBufferSource(); src.buffer = list[k]; src.playbackRate.value = rate * (0.94 + Math.random() * 0.12);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = lpf; lp.Q.value = 0.5; const g = c.createGain(); g.gain.value = vol * this.vol * (STEP_TRIM[surf] || 1) * (0.85 + Math.random() * 0.3) * (land ? 0.3 : 0.21);
+    src.connect(lp); lp.connect(g); g.connect(this.out); if (this.verbIn && (surf === 'concrete' || surf === 'metal')) { const sd = c.createGain(); sd.gain.value = 0.05; g.connect(sd); sd.connect(this.verbIn); }
+    src.start(t0); this._voice(g, [src], t0 + list[k].duration / src.playbackRate.value, land ? 1 : vol * 0.5);   /* low priority: the first to make room in a firefight */
+  }
+  step(surf, vol = 1, run = false) { this._foot(surf, vol, run ? 1.06 : 1, run ? 15000 : vol < 0.5 ? 3200 : 7500, 0); }
+  land(surf, vol = 1) { this._foot(surf, vol, 0.97, 12000, 1); }
   setVol(v) { this.vol = v; try { localStorage.setItem('hb-sfx', v); } catch (e) { } }
   buf(dur) { const c = this.ctx, k = Math.round(dur * 100); if (this.noise[k]) return this.noise[k]; const n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), ch = b.getChannelData(0); for (let i = 0; i < n; i++) ch[i] = Math.random() * 2 - 1; return this.noise[k] = b; }
   // vol can be lowered for far-away sounds; a sound is not played twice within 30 ms
@@ -227,4 +241,68 @@ const FOLEY = {
   pouch: c => fbuf(c, 0.3, ({ click, scrape }) => { scrape(0.0, 0.12, 0.7, 2800, 250, 0.9); scrape(0.1, 0.12, 0.5, 2400, 250, 0.9); click(0.06, 0.15, 700, 0.02, 0.3); }),
   rocketload: c => fbuf(c, 0.6, ({ click, thud, scrape }) => { scrape(0.0, 0.34, 0.6, 2200, 180, 0.4); thud(0.34, 1, 80, 0.09); click(0.36, 0.6, 1300, 0.05); }),
   beltin: c => fbuf(c, 0.45, ({ click, thud, scrape }) => { click(0.0, 0.6, 1800, 0.03); scrape(0.04, 0.16, 0.45, 6000, 1500, 0.9); for (let i = 0; i < 6; i++) click(0.05 + i * 0.025, 0.15, 3500, 0.01); click(0.25, 0.9, 1500, 0.045); thud(0.25, 0.6, 140, 0.04); }),
+};
+
+// ---------------------------------------------------------------- footsteps, rendered once per surface: a heel strike then the toe roll, built from
+// a low body thump, tiny damped "grains" (stones, sand, snow crystals, twigs), filtered noise and, for steel, ringing plate modes.
+// L = 1 is a heavier two-footed landing: a deeper, longer thump, more debris.
+function sbuf(c, dur, fn) {
+  const sr = c.sampleRate, n = Math.floor(sr * dur), b = c.createBuffer(1, n, sr), d = b.getChannelData(0), R = Math.random;
+  const put = (i, v) => { if (i >= 0 && i < n) d[i] += v; };
+  const thump = (t0, amp, f, dec) => { const s0 = Math.floor(t0 * sr); let ph = 0, lp = 0; for (let i = 0; i < sr * dec * 6; i++) { const t = i / sr; ph += 6.283 * f * (1 + 0.9 * Math.exp(-t / 0.006)) / sr; lp += 0.06 * ((R() * 2 - 1) - lp); put(s0 + i, (Math.sin(ph) * 0.7 + lp * 1.6) * Math.exp(-t / dec) * Math.min(1, t / 0.0015) * amp); } };
+  const grain = (t0, amp, f, dec) => { const s0 = Math.floor(t0 * sr), p = R() * 6.283; for (let i = 0; i < sr * dec * 5; i++) { const t = i / sr; put(s0 + i, Math.sin(6.283 * f * t + p) * Math.exp(-t / dec) * amp); } };
+  // count grains spread over dur, densest where shape(u) is high
+  const crunch = (t0, dur, count, fLo, fHi, amp, dLo, dHi, shape = u => (1 - u) ** 1.3) => { for (let j = 0; j < count; j++) { const u = R(), a = shape(u); if (R() > a + 0.08) continue; grain(t0 + u * dur, amp * (0.3 + R() * 0.7) * (0.4 + a * 0.6), fLo + (fHi - fLo) * R() ** 1.4, (dLo + (dHi - dLo) * R()) / 1000); } };
+  // band-passed noise with an envelope; gate > 0 chops it into random little segments (rustling leaves)
+  const hiss = (t0, dur, amp, f, q, env = u => Math.sin(Math.PI * Math.min(1, u * 3)) * (1 - u), gate = 0) => { const s0 = Math.floor(t0 * sr), m = Math.floor(dur * sr), st = { x1: 0, x2: 0, y1: 0, y2: 0 }; let gt = 0, gv = 1; for (let i = 0; i < m; i++) { if (gate && --gt <= 0) { gt = sr * (0.002 + R() * 0.01); gv = R() < gate ? 0.1 : 0.4 + R() * 0.6; } put(s0 + i, band(st, R() * 2 - 1, f, q, sr) * env(i / m) * gv * amp); } };
+  const click = (t0, amp, f = 3500, dec = 0.0015) => { const s0 = Math.floor(t0 * sr), st = { x1: 0, x2: 0, y1: 0, y2: 0 }; for (let i = 0; i < sr * dec * 6; i++) put(s0 + i, band(st, R() * 2 - 1, f, 0.8, sr) * Math.exp(-i / (sr * dec)) * amp * 3); };
+  // a steel plate: a handful of inharmonic modes that ring on, the high ones dying first
+  const ring = (t0, amp, f0, len) => { const s0 = Math.floor(t0 * sr), P = [1, 1.58, 2.34, 3.17, 4.41, 5.93, 7.6], A = [0.5, 0.42, 0.34, 0.24, 0.17, 0.12, 0.08], ph = P.map(() => R() * 6.283), fr = P.map(r => f0 * r * (0.97 + R() * 0.06)); const dk = P.map((r, q) => Math.exp(-(4 + q * 3.2) / len * 0.4 / sr)), e = A.slice(); for (let i = 0; i < sr * len && s0 + i < n; i++) { const t = i / sr; let v = 0; for (let q = 0; q < P.length; q++) { v += Math.sin(6.283 * fr[q] * t + ph[q]) * e[q]; e[q] *= dk[q]; } put(s0 + i, v * amp * Math.min(1, t / 0.0008)); } };
+  fn({ thump, grain, crunch, hiss, click, ring, R, sr, n, d });
+  let mx = 1e-6; for (let i = 0; i < n; i++) mx = Math.max(mx, Math.abs(d[i])); const k = 0.9 / mx; for (let i = 0; i < n; i++) d[i] = Math.tanh(d[i] * k * 1.1) * 0.9 * (i < 24 ? i / 24 : i > n - 300 ? (n - i) / 300 : 1); return b;
+}
+// short early reflections off nearby walls (the hub's concrete room): delayed, darker copies
+function reflect(d, sr, taps) { const src = Float32Array.from(d); for (const [ms, g] of taps) { const o = Math.floor(ms / 1000 * sr); let lp = 0; for (let i = 0; i + o < d.length; i++) { lp += 0.35 * (src[i] - lp); d[i + o] += lp * g; } } }
+const STEP_TRIM = { sand: 1, gravel: 0.9, concrete: 1, metal: 0.72, snow: 0.95, grass: 0.95, rock: 1 };
+const STEP = {
+  // soft and granular: a muffled push into loose sand with a fine crunch
+  sand: (c, k, L) => sbuf(c, L ? 0.5 : 0.32, ({ thump, crunch, hiss, R }) => { const toe = 0.06 + R() * 0.03;
+    thump(0, L ? 0.9 : 0.4, L ? 55 : 72, L ? 0.05 : 0.025); if (L) thump(0.02 + R() * 0.01, 0.6, 62, 0.04);
+    hiss(0, L ? 0.32 : 0.2, L ? 0.8 : 0.5, 1100 + k * 120, 0.7); crunch(0.004, L ? 0.2 : 0.13, L ? 200 : 110, 1400, 4800, 0.14, 0.4, 1.3);
+    if (!L) { crunch(toe, 0.09, 50, 1600, 5000, 0.09, 0.3, 1); hiss(toe, 0.12, 0.25, 1800, 0.8); } else hiss(0.06, 0.25, 0.18, 2200, 1); }),
+  // sharp stones: dense bright crunch, a few bigger stones knocking, then the toe grinding
+  gravel: (c, k, L) => sbuf(c, L ? 0.5 : 0.3, ({ thump, crunch, hiss, R }) => { const toe = 0.065 + R() * 0.025;
+    thump(0, L ? 0.8 : 0.4, L ? 65 : 85, L ? 0.04 : 0.02); if (L) thump(0.018 + R() * 0.012, 0.55, 75, 0.03);
+    crunch(0.002, L ? 0.16 : 0.09, L ? 160 : 70, 2000, 7500, 0.38, 0.25, 1.4); crunch(0.004, L ? 0.2 : 0.11, L ? 18 : 9, 800, 2100, 0.55, 2, 4.5);
+    hiss(0, L ? 0.14 : 0.07, 0.3, 3200 + k * 200, 1);
+    if (!L) { crunch(toe, 0.07, 45, 2200, 7000, 0.28, 0.25, 1.2); crunch(toe, 0.08, 5, 900, 2000, 0.4, 2, 4); hiss(toe, 0.09, 0.22, 2600, 1.2); } else crunch(0.12, 0.2, 40, 1500, 6000, 0.15, 0.3, 1.2, u => 1 - u); }),
+  // a hard heel-toe tap on concrete, with short reflections off the hub's walls
+  concrete: (c, k, L) => sbuf(c, L ? 0.45 : 0.3, ({ thump, click, hiss, crunch, R, d, sr }) => { const toe = 0.055 + R() * 0.025;
+    click(0, L ? 1.1 : 0.9, 3000 + k * 250, 0.0012); thump(0, L ? 1 : 0.55, L ? 80 : 110, L ? 0.03 : 0.012);
+    if (L) { click(0.02 + R() * 0.01, 0.8, 2700, 0.0014); thump(0.025, 0.7, 90, 0.025); hiss(0.05, 0.12, 0.12, 1800, 1); }
+    else { click(toe, 0.5, 3600 + k * 200, 0.001); thump(toe, 0.25, 140, 0.008); hiss(toe, 0.04, 0.1, 2600, 1); }
+    crunch(0.003, 0.05, 8, 3000, 7000, 0.08, 0.2, 0.6);   // a little grit under the sole
+    reflect(d, sr, [[8 + k, 0.3], [15 + k * 1.5, 0.2], [27 + k * 2, 0.13], [43 + k, 0.07]]); }),
+  // a hollow clang: the boot hits a steel deck that rings, with a low boom from the span underneath
+  metal: (c, k, L) => sbuf(c, L ? 0.9 : 0.55, ({ thump, click, ring, grain, R }) => { const toe = 0.06 + R() * 0.025, f0 = 160 + k * 21 + R() * 10;
+    click(0, 0.6, 2400, 0.001); thump(0, L ? 1 : 0.5, L ? 60 : 92, L ? 0.05 : 0.02); ring(0, L ? 0.9 : 0.55, f0, L ? 0.75 : 0.42); thump(0.002, L ? 0.8 : 0.4, 75 + k * 4, L ? 0.12 : 0.07);
+    if (L) { ring(0.022, 0.6, f0 * 1.07, 0.6); click(0.022, 0.5, 2000, 0.001); for (let i = 0; i < 6; i++) grain(0.03 + R() * 0.15, 0.25, 1300 + R() * 1800, 0.004); }
+    else { click(toe, 0.35, 2800, 0.0008); ring(toe, 0.3, f0 * 1.12, 0.3); for (let i = 0; i < 3; i++) grain(0.015 + R() * 0.1, 0.15, 1200 + R() * 1500, 0.003); } }),
+  // snow compressing under the boot: a soft thump and a crisp crunch that swells then fades, with a faint squeak
+  snow: (c, k, L) => sbuf(c, L ? 0.55 : 0.38, ({ thump, crunch, hiss, R }) => { const toe = 0.1 + R() * 0.03, sh = u => Math.sin(Math.PI * Math.min(1, u * 1.3)) ** 0.8;
+    thump(0, L ? 0.8 : 0.3, L ? 50 : 62, L ? 0.06 : 0.035);
+    crunch(0.006, L ? 0.28 : 0.19, L ? 320 : 190, 1200, 4000, 0.16, 0.3, 0.9, sh); hiss(0, L ? 0.3 : 0.18, 0.35, 550, 0.7);
+    hiss(0.03, L ? 0.18 : 0.1, 0.08, 1050 + k * 60, 7, u => Math.sin(Math.PI * u));
+    if (!L) crunch(toe, 0.1, 70, 1500, 4200, 0.1, 0.3, 0.8, sh); }),
+  // grass and jungle undergrowth: a soft thump in a rustle of leaves, the odd twig
+  grass: (c, k, L) => sbuf(c, L ? 0.55 : 0.36, ({ thump, crunch, hiss, grain, R }) => { const toe = 0.07 + R() * 0.03;
+    thump(0, L ? 0.75 : 0.3, L ? 58 : 75, L ? 0.045 : 0.025);
+    hiss(0, L ? 0.34 : 0.22, L ? 0.9 : 0.6, 3600 + k * 300, 0.9, u => Math.min(1, u * 8) * (1 - u) ** 1.5, 0.35); hiss(0.01, 0.16, 0.25, 1400, 0.8);
+    if (!L) hiss(toe, 0.16, 0.35, 4400, 1, u => Math.min(1, u * 6) * (1 - u) ** 2, 0.4); else crunch(0.02, 0.2, 30, 2000, 5000, 0.2, 0.3, 1);
+    if (R() < 0.6 || L) grain(0.01 + R() * 0.06, 0.35, 1800 + R() * 1600, 0.0012); }),
+  // bare rock: a hard scuff with a little grit
+  rock: (c, k, L) => sbuf(c, L ? 0.45 : 0.28, ({ thump, click, hiss, crunch, R }) => { const toe = 0.055 + R() * 0.025;
+    click(0, 0.6, 2200 + k * 200, 0.0015); thump(0, L ? 1 : 0.5, L ? 70 : 100, L ? 0.03 : 0.015); hiss(0.004, L ? 0.12 : 0.06, 0.3, 1900, 1);
+    crunch(0.003, L ? 0.12 : 0.07, L ? 40 : 18, 2000, 6500, 0.25, 0.25, 1);
+    if (L) thump(0.022, 0.6, 85, 0.025); else { click(toe, 0.3, 2600, 0.001); hiss(toe, 0.06, 0.18, 2200, 1); } }),
 };

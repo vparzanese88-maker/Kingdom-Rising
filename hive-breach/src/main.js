@@ -743,8 +743,10 @@ function animReload(me, gn, my, dt) {
 function startReload(st, S) { const g = curGun(), me = G.me; if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.42; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
 function surface(me) {
   const T = G.W.T, W = G.W; if (W.fob) return T.hubAt(me.x, me.z) ? 'concrete' : W.def.weather === 'snow' ? 'snow' : W.def.weather === 'rain' ? 'grass' : 'sand';
-  const raw = T.raw(me.x, me.z); if (me.y > raw + 0.4) return 'metal';                       // bridges, walls, towers, roofs
-  const hb = T.hubAt(me.x, me.z); if (hb) return 'concrete'; if (W.path.near(me.x, me.z).d < 5) return 'gravel';
+  const raw = T.raw(me.x, me.z), n = W.path.near(me.x, me.z);
+  if (T.bridgeAt && n.d < 5.5 && T.bridgeAt(n.s) && Math.abs(me.y - W.path.y(n.s)) < 0.25) return 'metal';   // on a steel bridge deck
+  if (me.y > raw + 0.4) return 'metal';                       // walls, towers, roofs
+  const hb = T.hubAt(me.x, me.z); if (hb) return 'concrete'; if (n.d < 5) return 'gravel';
   if (W.def.weather === 'snow') return 'snow'; if (W.def.weather === 'rain') return 'grass';
   return Math.abs(T.raw(me.x + 1, me.z) - raw) > 0.7 ? 'rock' : 'sand';
 }
@@ -982,9 +984,11 @@ function updateMe(dt, S) {
   me.x = Math.max(-BOUNDS + 1.2, Math.min(BOUNDS - 1.2, me.x)); me.z = Math.max(-BOUNDS + 1.2, Math.min(BOUNDS - 1.2, me.z));
   const gh = T.ground(me.x, me.z, me.y + 0.6); let grounded = false;
   if (me.vy <= 0 && me.y - gh < 0.35 && me.y - gh > -0.7) { me.y = gh; me.vy = 0; grounded = true; }
-  else { me.vy -= 22 * dt; me.y += me.vy * dt; if (me.y < gh && me.y > gh - 0.7) { me.y = gh; me.vy = 0; } }
+  else { me.vy -= 22 * dt; me.y += me.vy * dt; me.fallV = Math.min(me.fallV || 0, me.vy); /* the fastest fall in the air, for the landing thud */ if (me.y < gh && me.y > gh - 0.7) { me.y = gh; me.vy = 0; } }
   if (live && hits[KB.jump] && grounded) { me.vy = 7.5; me.y += 0.02; me.airT = 0; }
   // shock boots: jump again in mid-air, off a crackling shock pulse
+  if (grounded && me.fallV < -5.5 && me.airT > 0.2 && live) { const fv = -me.fallV; audio.land(surface(me), Math.min(1.4, 0.45 + (fv - 5.5) * 0.09) * (me.kneel ? 0.7 : 1)); me.stepPh = Math.floor(me.bob / Math.PI); }   // a heavy landing from a jump or a fall
+  if (grounded) me.fallV = 0;
   const gear = my.gear ?? ((my.jet ? 1 : 0) | (my.boots ? 2 : 0)); if (grounded) { me.dj = 0; me.airT = 0; } else me.airT = (me.airT || 0) + dt;
   if (live && (gear & 2) && hits[KB.jump] && !grounded && !me.dj && me.stam >= 15) { me.dj = 1; me.vy = 9; me.stam -= 15; burst(me.x, me.y + 0.1, me.z, 0x80e0ff, 18, 5, 0.35); audio.sfx('zap', 0.6); G.shake = Math.max(G.shake || 0, 0.15); }
   // jetpack: hold jump in the air to fly while endurance lasts
@@ -997,7 +1001,7 @@ function updateMe(dt, S) {
   if (me.y < LIQUID + 0.5 && live) { const sf = me.safe || { x: G.W.spawn.x, z: G.W.spawn.z, y: T.top(G.W.spawn.x, G.W.spawn.z) }; me.x = sf.x; me.z = sf.z; me.y = sf.y + 0.2; me.vy = 0; req({ a: 'fall' }); toast('You fell into the chasm and climbed back out, hurt.', 3); audio.sfx('hurt'); }
   me.bob += dt * (me.moving && grounded ? sp * 1.4 : 0);
   // footsteps that match the ground underfoot
-  if (me.moving && grounded) { const ph = Math.floor(me.bob / Math.PI); if (ph !== me.stepPh) { me.stepPh = ph; audio.sfx('step_' + surface(me), (me.prone ? 0.25 : me.kneel ? 0.45 : run > 1 ? 1 : 0.75)); } }
+  if (me.moving && grounded) { const ph = Math.floor(me.bob / Math.PI); if (ph !== me.stepPh) { me.stepPh = ph; audio.step(surface(me), (me.prone ? 0.2 : me.kneel ? 0.34 : run > 1 ? 1 : 0.62), run > 1); } }
   // camera
   G.shake = Math.max(0, (G.shake || 0) - dt); const sh = G.shake * 0.15;
   me.heat = Math.max(0, (me.heat || 0) - dt * 7); const rr = (me.rcv || 0) * Math.min(1, dt * 5); me.pitch -= rr; me.rcv = (me.rcv || 0) - rr;

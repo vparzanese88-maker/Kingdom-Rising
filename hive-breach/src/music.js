@@ -5,7 +5,7 @@
 //   boss   - "Epic Boss Battle": the Brood Queen's lair and boss aliens
 //   rock   - "Cybersecutor": heavy industrial metal that slams in the moment the drop pod hits the ground, played through once
 // Each track plays through an <audio> element routed into the game's master bus, so it shares the limiter with the effects.
-const TRACK = { title: 'war', drop: 'war_deep', calm: 'calm', battle: 'battle', boss: 'boss', rock: 'rock', off: null };
+const TRACK = { title: 'war', drop: 'drop', calm: 'calm', battle: 'battle', boss: 'boss', rock: 'rock', off: null };
 const BASE = './assets/music/';
 export class Music {
   constructor(audio) { this.a = audio; this.mode = 'title'; this.on = true; this.vol = 0.75; this.el = {}; try { const v = JSON.parse(localStorage.getItem('hb-music2') || 'null'); if (v) { this.on = v.on; this.vol = v.vol; } } catch (e) { } }
@@ -15,7 +15,7 @@ export class Music {
     const c = this.a.ctx; if (!c || this.master) return;
     this.master = c.createGain(); this.master.gain.value = this.level(); this.master.connect(this.a.bus || c.destination);
     this.play(TRACK[this.mode]);
-    if (this.mode === 'title') this.track('war_deep');   /* the drop's deeper theme loads while the title plays, so the crossfade has no gap */
+    if (this.mode === 'title') this.track('drop');   /* the drop's own score loads while the title plays, so the crossfade has no gap */
   }
   // one <audio> per track, made the first time it is needed; each has its own fader into the master
   track(name) {
@@ -39,16 +39,15 @@ export class Music {
   fade(k = 1, tc = 0.2) { if (this.master) this.master.gain.setTargetAtTime(this.level() * k, this.a.ctx.currentTime, tc); }
   // out on the battlefield: the soundtrack eases down to a background level over several seconds (back up at the next drop)
   background(on = true) { this.bg = on ? 0.4 : 1; this.fade(1, on ? 2.2 : 0.5); }
-  // the drop: the title's war theme crossfades into a deeper, slower version of itself (war_deep: the same music pitched down about two semitones
-  // with a heavier low end), starting from its top. The landing track is loaded now, so it's ready the instant the pod hits the ground.
+  // the drop: the title's war theme crossfades into the drop's own score (drop.mp3: dark horns, vocals and deep bass), from its top. The landing track is loaded now, so it's ready the instant the pod hits the ground.
   dropScore() {
     this.bg = 1;
-    if (!this.master) this.start(); if (!this.master) return; this.lock = true; this.mode = 'drop'; const tr = this.track('war_deep');
-    if (this.cur !== 'war_deep') { try { tr.au.currentTime = 0; } catch (e) { } } this.play('war_deep', 3); this.fade(0.8);
+    if (!this.master) this.start(); if (!this.master) return; this.lock = true; this.mode = 'drop'; const tr = this.track('drop');
+    if (this.cur !== 'drop') { try { tr.au.currentTime = 0; } catch (e) { } } this.play('drop', 3); this.fade(0.8);
     const rk = this.track('rock'); rk.au.loop = false; try { rk.au.load(); } catch (e) { }
   }
   // the last seconds of the fall: the war theme sinks under the retro-rockets so the impact and the guitars hit hard
-  brace() { const tr = this.el.war_deep; if (tr && this.cur === 'war_deep') tr.g.gain.setTargetAtTime(0.45, this.a.ctx.currentTime, 0.8); }
+  brace() { const tr = this.el.drop; if (tr && this.cur === 'drop') tr.g.gain.setTargetAtTime(0.45, this.a.ctx.currentTime, 0.8); }
   endScore() { if (!this.lock) return; if (this.rocking) return; this.lock = false; this.mode = 'calm'; this.want = null; this.fade(1); this.play('calm', 4); }
   // touchdown: the drop theme is cut under the crash and the metal track slams in on its first hit, played through once; then the game's own moods take over again
   land() {

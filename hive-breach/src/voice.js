@@ -55,12 +55,12 @@ export class Voice {
     const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 2300; pk.Q.value = 1.3; pk.gain.value = 7;   // the little speaker's resonance
     const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3300; lp.Q.value = 0.9;
     const sh = c.createWaveShaper(), cv = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * 2.6) / Math.tanh(2.6); } sh.curve = cv;
-    const dry = c.createGain(); dry.gain.value = 0.6; s.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(sh); sh.connect(dry); dry.connect(out);
+    const dry = c.createGain(); dry.gain.value = 0.28; s.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(sh); sh.connect(dry); dry.connect(out);
     // the helmet shell: two very short echoes feeding back a little, darkened
-    for (const [ms, fb] of [[6.5, 0.32], [11.5, 0.24]]) { const d = c.createDelay(0.05); d.delayTime.value = ms / 1000; const f = c.createGain(); f.gain.value = fb; const dl = c.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 2600; const w = c.createGain(); w.gain.value = 0.2; sh.connect(d); d.connect(dl); dl.connect(f); f.connect(d); dl.connect(w); w.connect(out); }
+    for (const [ms, fb] of [[6.5, 0.32], [11.5, 0.24]]) { const d = c.createDelay(0.05); d.delayTime.value = ms / 1000; const f = c.createGain(); f.gain.value = fb; const dl = c.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 2600; const w = c.createGain(); w.gain.value = 0.09; sh.connect(d); d.connect(dl); dl.connect(f); f.connect(d); dl.connect(w); w.connect(out); }
     // the static bed under the voice
-    const st = c.createBufferSource(); st.buffer = this.noise(); st.loop = true; const sb = c.createBiquadFilter(); sb.type = 'bandpass'; sb.frequency.value = 1900; sb.Q.value = 0.6; const sg = c.createGain(); sg.gain.setValueAtTime(0, t0); sg.gain.linearRampToValueAtTime(0.011, t0 + 0.03); sg.gain.setValueAtTime(0.011, t0 + b.duration); sg.gain.linearRampToValueAtTime(0, t0 + b.duration + 0.1); st.connect(sb); sb.connect(sg); sg.connect(out); st.start(t0); st.stop(t0 + b.duration + 0.15);
-    this.click(now + 0.02, 0.05, 0.15); this.click(t0 + b.duration + 0.04, 0.07, 0.11);   // squelch on, and off
+    const st = c.createBufferSource(); st.buffer = this.noise(); st.loop = true; const sb = c.createBiquadFilter(); sb.type = 'bandpass'; sb.frequency.value = 1900; sb.Q.value = 0.6; const sg = c.createGain(); sg.gain.setValueAtTime(0, t0); sg.gain.linearRampToValueAtTime(0.006, t0 + 0.03); sg.gain.setValueAtTime(0.006, t0 + b.duration); sg.gain.linearRampToValueAtTime(0, t0 + b.duration + 0.1); st.connect(sb); sb.connect(sg); sg.connect(out); st.start(t0); st.stop(t0 + b.duration + 0.15);
+    this.click(now + 0.02, 0.05, 0.08); this.click(t0 + b.duration + 0.04, 0.07, 0.06);   // squelch on, and off
     s.start(t0); this.end = t0 + b.duration + 0.1; if (this.onTalk) this.onTalk(b.duration + 0.25); return b.duration;
   }
 

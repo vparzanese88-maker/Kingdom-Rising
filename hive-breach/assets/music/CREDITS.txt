@@ -1,6 +1,6 @@
 Soundtrack (all CC0 / public domain, from OpenGameArt.org):
 - war.mp3: "The Battlefield"  https://opengameart.org/content/the-battlefield
-- war_deep.mp3: the same "The Battlefield", pitched down about two semitones, a little slower, with a heavier low end (the drop)
+- drop.mp3: cynicmusic, "Epic Endgame Cinematic"  https://opengameart.org/content/epic-endgame-cinematic
 - calm.mp3: "Inevitable"  https://opengameart.org/content/inevitable
 - battle.mp3: "QaziJamJam Orchestral Battle Theme"  https://opengameart.org/content/qazijamjam-orchestral-battle-theme
 - boss.mp3: Juhani Junkala, "Epic Boss Battle"  https://opengameart.org/content/boss-battle-music

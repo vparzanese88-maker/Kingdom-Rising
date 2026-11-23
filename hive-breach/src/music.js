@@ -10,7 +10,7 @@ const BASE = './assets/music/';
 export class Music {
   constructor(audio) { this.a = audio; this.mode = 'title'; this.on = true; this.vol = 0.75; this.el = {}; try { const v = JSON.parse(localStorage.getItem('hb-music2') || 'null'); if (v) { this.on = v.on; this.vol = v.vol; } } catch (e) { } }
   save() { try { localStorage.setItem('hb-music2', JSON.stringify({ on: this.on, vol: this.vol })); } catch (e) { } }
-  level() { return this.on ? this.vol * 0.9 * (this.mul ?? 1) : 0; }
+  level() { return this.on ? this.vol * 0.9 * (this.mul ?? 1) * (this.bg ?? 1) : 0; }
   start() {
     const c = this.a.ctx; if (!c || this.master) return;
     this.master = c.createGain(); this.master.gain.value = this.level(); this.master.connect(this.a.bus || c.destination);
@@ -35,10 +35,13 @@ export class Music {
   }
   toggle() { this.on = !this.on; this.save(); this.fade(); return this.on; }
   setVol(v) { this.vol = v; this.save(); this.fade(); }
-  fade(k = 1) { if (this.master) this.master.gain.setTargetAtTime(this.level() * k, this.a.ctx.currentTime, 0.2); }
+  fade(k = 1, tc = 0.2) { if (this.master) this.master.gain.setTargetAtTime(this.level() * k, this.a.ctx.currentTime, tc); }
+  // out on the battlefield: the soundtrack eases down to a background level over several seconds (back up at the next drop)
+  background(on = true) { this.bg = on ? 0.4 : 1; this.fade(1, on ? 2.2 : 0.5); }
   // the drop: the war theme carries straight on from the title screen (no jump back to the start); if it wasn't playing, it starts from the top.
   // The landing track is loaded now, so it's ready the instant the pod hits the ground.
   dropScore() {
+    this.bg = 1;
     if (!this.master) this.start(); if (!this.master) return; this.lock = true; this.mode = 'drop'; const tr = this.track('war');
     if (tr.au.paused || this.cur !== 'war') { try { tr.au.currentTime = 0; } catch (e) { } } this.play('war', 2); this.fade(0.8);
     const rk = this.track('rock'); rk.au.loop = false; try { rk.au.load(); } catch (e) { }

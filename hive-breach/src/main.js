@@ -548,7 +548,7 @@ function newMe() {
   // your own marine's arms on each gun (the Meshy model); the old block glove and hand only when those aren't loaded
   // rifles: the magazine is cut out of the Meshy gun so the left hand can really swap it; the rocket and shotgun are fed by hand too
   const NEW_RELOAD = /[?&]reload2/.test(location.search);   /* the hand-and-magazine reload is still being finished: on only with ?reload2 */
-  const magCut = NEW_RELOAD && { assault: 1, medic: 1, sniper: 1 }[G.cls] && M.AS.splitMag(view2.gun, G.cls); if (NEW_RELOAD) M.AS.splitMag(view2.pistol, 'pistol');
+  const magCut = { assault: 1, medic: 1, sniper: 1 }[G.cls] && M.AS.splitMag(view2.gun, G.cls); M.AS.splitMag(view2.pistol, 'pistol');
   view2.oneHand = !!(NEW_RELOAD && (magCut || (view2.gun.userData.glb && (G.cls === 'heavy' || G.cls === 'engineer'))));
   view2.arms = M.AS.fpArms(G.cls, view2.gun, view2.oneHand ? 'one' : 'two'); if (!view2.arms) view2.oneHand = false; if (view2.arms) view2.gun.add(view2.arms); else { const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); view2.gun.add(glove); }
   for (const k of ['pistol', 'tool']) { const a = view2[k] && M.AS.fpArms(G.cls, view2[k], 'one'); if (a) view2[k].add(a); }
@@ -689,6 +689,21 @@ function animReload(me, gn, my, dt) {
   const P = u.glb ? (pistol ? { rest: [-0.03, -0.1, 0.03], bolt: [0, 0.07, -0.04] } : { rest: [0, -0.055, -L0 * 0.3], bolt: [-0.065, 0.045, -0.02], muz: [0, 0.01, -L0 * 0.66], port: [0, -0.05, -L0 * 0.08] }) : (HANDPTS[cls] || HANDPTS.assault);
   u.magY0 ??= u.mag ? u.mag.position.y : 0; const magH = u.mag ? (u.mag.userData.h ?? u.mag.geometry.parameters.height) : 0.2;
   const f = me.rel > 0 ? Math.min(1, 1 - me.rel / (me.relT || 1)) : -1, shells = !pistol && me.shells;
+  // a Meshy gun held in both of your hands: the gun swings up and tilts to show the magazine well, the empty magazine drops out and falls away,
+  // a fresh one rises into the well and seats with a jolt, the gun racks back (charging handle) and settles
+  if (u.glb && !view2.oneHand) { hd.visible = false;
+    if (pistol) { g.userData.bp ??= g.position.clone(); g.position.copy(g.userData.bp); }
+    const fr = f >= 0 ? f : shells ? 0.5 : -1, env = fr < 0 ? 0 : sm(Math.min(1, fr / 0.12)) * (1 - sm(Math.max(0, (fr - 0.86) / 0.14)));
+    if (rocket) { g.rotation.x -= env * 0.4; g.rotation.z += env * 0.3; g.position.y -= env * 0.05; }
+    else { g.rotation.z -= env * 0.55; g.rotation.x += env * 0.42; g.rotation.y += env * 0.28; g.position.x -= env * 0.1; g.position.y += env * 0.1; g.position.z += env * 0.06; }   /* canted so the magazine well faces you */
+    if (fr >= 0.7 && fr < 0.84 && !rocket) { const k = (fr - 0.7) / 0.14; g.position.z += Math.sin(k * Math.PI) * 0.05; g.rotation.z -= Math.sin(k * Math.PI) * 0.15; }   // the charging handle
+    if (u.mag) { const mg = u.mag; mg.userData.p0 ??= mg.position.clone(); mg.position.copy(mg.userData.p0); mg.rotation.set(0, 0, 0); mg.visible = true;
+      if (fr >= 0.12 && fr < 0.32) { const k = sm((fr - 0.12) / 0.2); mg.position.y -= k * 0.32; mg.position.z += k * 0.06; mg.rotation.x = k * 0.9; mg.rotation.z = k * 0.5; }   // the empty one drops out
+      else if (fr >= 0.32 && fr < 0.4) mg.visible = false;
+      else if (fr >= 0.4 && fr < 0.6) { const k = sm((fr - 0.4) / 0.2); mg.position.y -= (1 - k) * 0.22; mg.position.z += (1 - k) * 0.04; mg.rotation.x = (1 - k) * 0.35; }   // the fresh one comes up into the well
+      if (fr >= 0.6 && !(me.rs & 128)) { me.rs |= 128; me.jolt = 1; } }
+    if (fr >= 0.82 && !(me.rs & 256)) { me.rs |= 256; me.jolt = 1; }
+    g.position.y += me.jolt * 0.014; g.rotation.x += me.jolt * 0.06; return; }
   // the gun tips toward you while you work on it, and jolts when the magazine seats or the bolt slams home
   const tl = f >= 0 ? Math.sin(f * Math.PI) : shells ? 0.8 : 0;
   if (rocket) { g.rotation.x -= tl * 0.35; g.rotation.z += tl * 0.3; g.position.y -= tl * 0.04; } else { g.rotation.z += tl * 0.22; g.rotation.x += tl * 0.12; g.rotation.y += tl * 0.1; g.position.x -= tl * 0.09; g.position.y += tl * 0.11; g.position.z -= tl * 0.03; }
@@ -753,7 +768,8 @@ function playDropIntro() {
     G.barrage = { t: 32, next: 1.2, inc: [] };   // the fleet shells the hive while you land
     if (r.x !== undefined) { const my0 = mine(state()); if (my0) G.me.sp = my0.sp; G.me.x = r.x; G.me.z = r.z; G.me.y = G.W.top(r.x, r.z); G.me.vy = 0; G.me.yaw = r.yaw; G.me.pitch = 0; }
     // the marine from the pod becomes a real reinforcement as he steps out of the door
-    if (G.sim) { G.sim.timer = 5; const P = G.W.path, sim = G.sim; setTimeout(() => { for (let i = 0; i < (r.marines || 0); i++) { const x = r.ax ?? P.at(P.len - 40).x, z = r.az ?? P.at(P.len - 40).z, s = P.near(x, z).s, q = P.at(s), A = ALLIES.trooper; sim.allies.push({ id: sim.nid++, type: 'trooper', s, lat: 0, x, y: G.W.top(x, z), z, hp: A.hp, mhp: A.hp, ry: Math.atan2(q.tx, q.tz), cd: 0, tg: 0 }); } }, (r.allyDelay || 0) * 1000); }
+    banner('MOVE OUT', 'The alien bastards know we\'re coming. Get inside the hive and kill the queen! We will extract you as soon as your mission is complete.'); bannerT = 5; voice.say('alien bastards know');
+    if (G.sim) { G.sim.timer = 0.01;   /* no countdown: the swarm is on its way the moment you hit the ground, and you can run straight out */ const P = G.W.path, sim = G.sim; setTimeout(() => { for (let i = 0; i < (r.marines || 0); i++) { const x = r.ax ?? P.at(P.len - 40).x, z = r.az ?? P.at(P.len - 40).z, s = P.near(x, z).s, q = P.at(s), A = ALLIES.trooper; sim.allies.push({ id: sim.nid++, type: 'trooper', s, lat: 0, x, y: G.W.top(x, z), z, hp: A.hp, mhp: A.hp, ry: Math.atan2(q.tx, q.tz), cd: 0, tg: 0 }); } }, (r.allyDelay || 0) * 1000); }
   });
 }
 function nextOf(map, diff) { if (diff < 2) return { map, diff: diff + 1 }; return { map: PLANET_ORDER[(PLANET_ORDER.indexOf(map) + 1) % PLANET_ORDER.length], diff: 0, planet: 1 }; }

@@ -360,8 +360,8 @@ function podInterior() { // a dim cabin: six seats, big windows on both sides, a
   const ceil = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.9, 16), mat(0x2a3036, { m: 0.5, r: 0.6, ds: true })); ceil.rotation.x = Math.PI / 2; ceil.position.y = 3.95; g.add(ceil);
   const rim = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.05, 6, 24), trim); rim.rotation.x = Math.PI / 2; rim.position.y = 3.92; g.add(rim);
   const sky = new THREE.Mesh(new THREE.CircleGeometry(0.7, 24), glass); sky.rotation.x = Math.PI / 2; sky.position.y = 3.96; g.add(sky);
-  const seatM = M.AS.fitGLB('p_seat', 'h', 1.25, false);
-  for (const i of [2, 4, 6, 10, 14]) { const a = i / 16 * 6.283; if (seatM) { const sm = M.AS.fitGLB('p_seat', 'h', 1.25, false); sm.position.set(Math.cos(a) * 1.5, 0.35, Math.sin(a) * 1.5); sm.lookAt(0, 0.35, 0); g.add(sm); continue; } B(g, 0.6, 0.12, 0.5, seat, Math.cos(a) * 1.35, 1.0, Math.sin(a) * 1.35).rotation.y = -a; B(g, 0.6, 0.9, 0.12, seat, Math.cos(a) * 1.62, 1.5, Math.sin(a) * 1.62).rotation.y = -a + Math.PI / 2; }
+  const SEAT = M.AS.A.p_seat2 ? 'p_seat2' : 'p_seat', seatM = M.AS.fitGLB(SEAT, 'h', 1.25, false);   // padded launch seats with five-point harnesses, bolted to the wall
+  for (const i of [2, 4, 6, 10, 14]) { const a = i / 16 * 6.283; if (seatM) { const sm = M.AS.fitGLB(SEAT, 'h', SEAT === 'p_seat2' ? 1.55 : 1.25, false); sm.position.set(Math.cos(a) * (SEAT === 'p_seat2' ? 1.52 : 1.5), 0.33, Math.sin(a) * (SEAT === 'p_seat2' ? 1.52 : 1.5)); sm.lookAt(0, 0.33, 0); g.add(sm); continue; } B(g, 0.6, 0.12, 0.5, seat, Math.cos(a) * 1.35, 1.0, Math.sin(a) * 1.35).rotation.y = -a; B(g, 0.6, 0.9, 0.12, seat, Math.cos(a) * 1.62, 1.5, Math.sin(a) * 1.62).rotation.y = -a + Math.PI / 2; }
   const L = new THREE.PointLight(0xff3020, 6, 6); L.position.set(0, 3.5, 0); g.add(L); const L2 = new THREE.PointLight(0x80c0ff, 2, 5); L2.position.set(0, 1.5, 0); g.add(L2);
   g.userData = { doorG, strobe, red: L, blue: L2 };
   return g;
@@ -426,6 +426,7 @@ export function dropIntro(H, squad, done) {
   const yAt = t => t < 7 ? SY + 2 : t < 13 ? SY + 2 - ((t - 7) / 6) ** 2 * 160 - (t - 7) / 6 * 10 : t < 22 ? L(SY - 168, 900, (t - 13) / 9) : t < 29 ? padY + 0.6 + (900 - padY - 0.6) * (1 - (t - 22) / 7) ** 2.6 : padY + 0.6;
   pod.rotation.y = doorYaw; pod.position.set(padX, SY + 2, padZ); G.me.yaw = Math.atan2(Math.cos(myA), Math.sin(myA)); G.me.pitch = -0.05;   /* your look is relative to the pod: 0 faces the door */
   // compile every shader and upload every texture the ride will need now, behind the opening fade, instead of in the middle of it
+  pod.traverse(o => { if (o.isMesh) o.frustumCulled = false; });   // the strapped-in marines are skinned: never let a wrong bounding box blink them out while the pod shakes
   // Build every shader and upload every texture the ride will need now, behind the opening fade: once for space, once for the battlefield below
   // (the world's lights switch on at the cloud layer, which otherwise rebuilds every shader mid-fall: that was the stutter)
   if (H.renderer) { const R = H.renderer, cc = new THREE.Mesh(cloudG, cloudM), f0 = scene.fog; try {
@@ -473,10 +474,10 @@ export function dropIntro(H, squad, done) {
       once('a', () => { cap('', `Station Olympus, drop bay 3 · destination ${PN}`); A.sfx('alarm', 0.5); });
       if (t > 2.2) once('b', () => cap('', 'Commander Vance: Listen up! Thirty seconds to drop. Hands off the straps until we\'re down.'));
       if (t > 5.2) once('c', () => { cap('', 'Vance: Here we go. Hold on to something!'); A.sfx('alarm', 0.7); });
-      red.intensity = 4 + (Math.sin(t * 6) > 0 ? 6 : 0); strobe.emissiveIntensity = Math.sin(t * 6) > 0 ? 4 : 0.3; shake = 0.04; if (t > 5) shake = 0.12;
+      { const pu = 0.5 + 0.5 * Math.sin(t * 2.6); red.intensity = 4 + 4 * pu; strobe.emissiveIntensity = 0.6 + 2.6 * pu; }   /* a slow alarm pulse, no hard flashing */ shake = 0.04; if (t > 5) shake = 0.12;
     } else if (t < 13) { // EJECT: the clamps blow, every pod drops away from the station, thrusters lit
       once('d', () => { cap('', 'EJECT! EJECT! EJECT!'); A.sfx('boom', 0.4); shakeK = 1.5; });
-      fl.material.opacity = 0.6; rum = 0.45; shake = 0.25; red.intensity = 3; strobe.emissiveIntensity = Math.sin(t * 9) > 0 ? 4 : 0.3;
+      fl.material.opacity = 0.6; rum = 0.45; shake = 0.25; red.intensity = 3; strobe.emissiveIntensity = 0.6 + 2.6 * (0.5 + 0.5 * Math.sin(t * 2.6));
       if (Math.random() < dt * 4) { const w = pod.localToWorld(V((Math.random() - 0.5) * 8, 6, (Math.random() - 0.5) * 8)); H.burst(w.x, w.y, w.z, 0xfff0c0, 2, 5, 0.4); }
       if (t > 10.5) once('e', () => cap('', `Vance: Clean drop. ${PN} dead ahead. Brace for the burn!`));
     } else if (t < 22) { // atmospheric entry: the planet swells below, the air catches fire, everything shakes
@@ -485,7 +486,7 @@ export function dropIntro(H, squad, done) {
       if (t > 17) once('g', () => cap('', 'Vance: Hold together, you old bucket!'));
       pod.rotation.z = Math.sin(t * 31) * 0.025 * f; pod.rotation.x = Math.sin(t * 23) * 0.015 * f; fl.material.opacity = 0; pod.userData.heat.material.opacity = Math.min(0.9, f * 1.3);
       rum = 0.45 + f * 0.55; shake = 0.3 + f * 1.1; orange.intensity = 2 + f * 10 + Math.random() * 3; heat.style.opacity = (0.12 + f * 0.5 + Math.random() * 0.1).toFixed(2); streakO = cl(f * 1.6) * (0.55 + Math.random() * 0.3); temp = 200 + f * 1500;
-      strobe.emissiveIntensity = Math.sin(t * 12) > 0 ? 5 : 0.3;
+      strobe.emissiveIntensity = 0.6 + 2.6 * (0.5 + 0.5 * Math.sin(t * 2.6));
       for (let k = 0; k < 1; k++) { const a = Math.random() * 6.283, w = pod.localToWorld(V(Math.cos(a) * 2.6, 1 + Math.random() * 3, Math.sin(a) * 2.6)); H.burst(w.x, w.y, w.z, Math.random() < 0.5 ? 0xff7020 : 0xffd060, 2, 6, 0.35); }
       if (Math.random() < dt * 0.8) A.sfx('thunder', 0.15 + f * 0.15);
       // the burning sky: black space turns to fire, then to the white of the cloud tops
@@ -503,7 +504,7 @@ export function dropIntro(H, squad, done) {
       for (let i = clouds.length - 1; i >= 0; i--) if (clouds[i].position.y > y + 30) { scene.remove(clouds[i]); clouds.splice(i, 1); }
       heat.style.opacity = Math.max(0, 0.3 - f).toFixed(2); streakO = t < 23 ? 0.3 * (23 - t) : 0;
       const burn = t > 23.6; pod.rotation.z = Math.sin(t * 20) * 0.012; fl.material.opacity = burn ? 0.85 : 0; fl.scale.set(1, 0.7 + (1 - f) * 1.4 + Math.random() * 0.3, 1);
-      rum = burn ? 0.6 + (1 - f) * 0.35 : 0.8; shake = burn ? 0.45 + (1 - f) * 0.5 : 0.9; red.intensity = Math.sin(t * 9) > 0 ? 7 : 1; strobe.emissiveIntensity = Math.sin(t * 9) > 0 ? 5 : 0.3; temp = L(600, 60, f);
+      rum = burn ? 0.6 + (1 - f) * 0.35 : 0.8; shake = burn ? 0.45 + (1 - f) * 0.5 : 0.9; { const pu = 0.5 + 0.5 * Math.sin(t * 2.6); red.intensity = 3 + 4 * pu; strobe.emissiveIntensity = 0.6 + 2.6 * pu; } temp = L(600, 60, f);
       if (burn && Math.random() < 0.6) H.burst(padX + (Math.random() - 0.5) * 3, y - 2.5, padZ + (Math.random() - 0.5) * 3, 0xffa040, 3, 4, 0.4);
       if (burn && y - padY < 40 && Math.random() < 0.7) H.burst(padX + (Math.random() - 0.5) * 16, padY + 0.3, padZ + (Math.random() - 0.5) * 16, 0xb09878, 2, 6, 1);
     } else { // impact, then the door blows off and the squad pours out
@@ -519,7 +520,7 @@ export function dropIntro(H, squad, done) {
       // the door's gone: you're in control from here, standing in the pod; walk out yourself
       if (u > 1.7 && !handed) { handed = true; handoff(); }
     }
-    if (handed) { if (G.W !== W) return; const din = Math.hypot(G.me.x - padX, G.me.z - padZ), out = din > 3.3; if (out !== podOut) { podOut = out; for (const o of shell) o.visible = out; } if (t - 29 > 16 && !crewParked) { crewParked = true; for (const c of crew) if (c.cmd && c.m.parent) W.group.attach(c.m); } requestAnimationFrame(step); return; }   // after the hand-off: walk the commander in, and swap the pod's hull on and off as you leave or step back inside   // after the hand-off this loop only walks the commander to the hub
+    if (handed) { if (G.W !== W) return; const din = Math.hypot(G.me.x - padX, G.me.z - padZ), out = din > 3.3; if (out !== podOut) { podOut = out; for (const o of shell) o.visible = out; } if (out && !said.bgm) { said.bgm = 1; setTimeout(() => { if (MU && MU.background) MU.background(true); }, 5000); }   /* 5 s after you step out, the music eases down to a background level */ if (t - 29 > 16 && !crewParked) { crewParked = true; for (const c of crew) if (c.cmd && c.m.parent) W.group.attach(c.m); } requestAnimationFrame(step); return; }   // after the hand-off: walk the commander in, and swap the pod's hull on and off as you leave or step back inside   // after the hand-off this loop only walks the commander to the hub
     streakM.opacity = streakO; if (streakO > 0) for (const s of streaks) { s.position.y += dt * 45; if (s.position.y > 9) s.position.y -= 15; }
     // helmet readout
     const alt = y < 900 ? (y - padY) * 8 : 7200 + (y - 900) * 75; spd = L(spd, Math.abs(prevAlt - alt) / Math.max(dt, 0.001), 0.1); prevAlt = alt;

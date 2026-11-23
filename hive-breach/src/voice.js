@@ -11,7 +11,6 @@ export const VOICE = [
   { k: 'vance_cleandrop', who: 'Commander Vance', text: 'Clean drop. Planet dead ahead. Brace for the burn!', re: /Clean drop/ },
   { k: 'vance_bucket', who: 'Commander Vance', text: 'Hold together, you old bucket!', re: /old bucket/ },
   { k: 'vance_retros', who: 'Commander Vance', text: 'Retros firing. Landing zone in sight. Brace, brace, brace!', re: /Retros firing/ },
-  { k: 'vance_mikep', who: 'Commander Vance', text: 'Heads up, marines! Be aware of the gay alien named Mike P!', re: /gay alien named Mike P/ },
   { k: 'vance_moveout', who: 'Commander Vance', text: 'Marines, move out! Get to that hive! I\'ll run things from the hub.', re: /Marines, move out/ },
   { k: 'vance_briefing', who: 'Commander Vance', text: 'The alien bastards know we\'re coming. Get inside the hive and kill the queen! We will extract you as soon as your mission is complete.', re: /alien bastards know/ },
   // the battle

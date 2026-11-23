@@ -84,7 +84,7 @@ function emit(e) { fx(e); if (G.mode === 'host') G.out.push(e); }
 
 // ---------------------------------------------------------------- effects
 const FX = { parts: [], tracers: [], booms: [], proj: [], bolts: [] };
-const partGeo = new THREE.BoxGeometry(0.14, 0.14, 0.14), trGeo = new THREE.BoxGeometry(1, 1, 1);
+const partGeo = new THREE.IcosahedronGeometry(0.08, 0), trGeo = new THREE.BoxGeometry(1, 1, 1);
 function burst(x, y, z, color, n, sp, life, size = 1) {
   const m = M.mat(color, { e: color, ei: 0.6 });
   for (let i = 0; i < n; i++) {
@@ -206,7 +206,7 @@ function fx(e) {
     case 'meteor': meteor(e); break;
     case 'alarm': audio.sfx('alarm'); break;
     case 'fob': startFob(); break;
-    case 'beam': if (!(e.torch && e.f === G.myId)) { tracer(e.a, e.b, e.c, 0.12, e.torch ? 0.08 : 0.12); burst(e.b[0], e.b[1], e.b[2], e.c, 2, 1.5, 0.3); if (e.f === G.myId && Math.random() < 0.3) audio.sfx(e.torch ? 'torch' : 'heal', 0.4); } break;
+    case 'beam': if (!(e.torch && e.f === G.myId)) { tracer(e.a, e.b, e.c, 0.12, e.torch ? 0.08 : 0.12); if (e.torch) spark(e.b[0], e.b[1], e.b[2], 4, 0xe8f6ff); else burst(e.b[0], e.b[1], e.b[2], e.c, 2, 1.5, 0.3); if (e.f === G.myId && Math.random() < 0.3) audio.sfx(e.torch ? 'torch' : 'heal', 0.4); } break;
     case 'dressed': if (e.to === G.myId) { audio.sfx('heal'); toast('Field dressing: +40 health', 2); } break;
     case 'kit': if (e.to === G.myId) toast(`Turret kit picked up (${e.n}/2)`, 1.5); break;
     case 'carry': case 'dropped': audio.sfx('place', vol(dist(e.x ?? G.me.x, e.z ?? G.me.z)) * 0.7); break;
@@ -260,7 +260,7 @@ function updateCorpses(dt) {
       for (const at of [0.35, 0.8, 1.4]) if (c.t >= at && !(c.gnd & (1 << at * 10))) { c.gnd = (c.gnd || 0) | (1 << at * 10); c.m.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(c.m, true); if (!bx.isEmpty() && c.t < 6) { const gy = G.W.ground(c.m.position.x, c.m.position.z, c.m.position.y + 1); c.m.position.y += Math.min(0, gy - bx.min.y + 0.05); } }   /* the death clip rolls the body over but keeps its hips up: drop it onto the ground */ if (c.t > 6) c.m.position.y -= dt * 0.7; if (c.t > 8) { scene.remove(c.m); c.dead = true; } continue; }   // the body lies there a few seconds, then sinks   // a Meshy alien plays its death clip, then sinks into the ground
     const f = Math.min(1, c.t / 0.35); c.m.rotation.z = c.side * f * 1.5; c.m.userData.legs.forEach(l => l.rotation.x = Math.sin(c.t * 30) * 0.4 * (1 - f)); if (c.t > 2) c.m.position.y -= dt * 0.8; if (c.t > 3.5) { scene.remove(c.m); c.dead = true; } }
   if (corpses.some(c => c.dead)) corpses.splice(0, corpses.length, ...corpses.filter(c => !c.dead));
-  updBlood(dt);
+  updBlood(dt); updSparks(dt);
   for (const s of splats) { s.t -= dt; s.m.material.opacity = Math.min(0.9, s.t / 4); if (s.t <= 0) { scene.remove(s.m); s.m.geometry.dispose(); s.m.material.dispose(); s.dead = true; } }
   if (splats.some(s => s.dead)) splats.splice(0, splats.length, ...splats.filter(s => !s.dead));
 }
@@ -288,6 +288,17 @@ function bloodHit(hp, v, head, dir) {
   let m = mists.find(q => !q.alive); if (!m && mists.length < 24) { m = { sp: new THREE.Sprite(new THREE.SpriteMaterial({ map: mistTex, color: 0x6ad020, transparent: true, depthWrite: false })) }; scene.add(m.sp); mists.push(m); }
   if (m) { m.alive = true; m.t = 0; m.T = head ? 0.42 : 0.3; m.r = head ? 2.4 : 1.4; m.sp.visible = true; m.sp.position.set(hp[0] + d.x * 0.3, hp[1], hp[2] + d.z * 0.3); }
   if (v && Math.random() < (head ? 0.8 : 0.35)) splat(v.x + d.x * (1 + Math.random()) + (Math.random() - 0.5), v.z + d.z * (1 + Math.random()) + (Math.random() - 0.5), head ? 1.1 : 0.7);
+}
+// welding sparks: thin white-hot streaks that stretch along their flight, arc down, skip once off the ground and cool to orange as they fade
+const sparkGeo = new THREE.BoxGeometry(0.012, 0.012, 1), sparks = [];
+function spark(x, y, z, n, hot) {
+  for (let i = 0; i < n; i++) { let s = sparks.find(q => !q.alive); if (!s) { if (sparks.length > 160) return; s = { mesh: new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color: 0xffd080, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })) }; scene.add(s.mesh); sparks.push(s); }
+    const a = Math.random() * 6.283, up = Math.random(), sp = 2.5 + Math.random() * 5; s.alive = true; s.mesh.visible = true; s.mesh.position.set(x, y, z); s.vx = Math.cos(a) * sp * (1 - up * 0.5); s.vz = Math.sin(a) * sp * (1 - up * 0.5); s.vy = up * sp * 0.9 + 0.5; s.max = s.life = 0.35 + Math.random() * 0.45; s.gy = G.W ? G.W.ground(x, z, y + 0.3) : -99; s.b = 0; s.hot = hot; }
+}
+function updSparks(dt) {
+  for (const s of sparks) if (s.alive) { s.life -= dt; if (s.life <= 0) { s.alive = false; s.mesh.visible = false; continue; } s.vy -= 14 * dt; const o = s.mesh.position; o.x += s.vx * dt; o.y += s.vy * dt; o.z += s.vz * dt;
+    if (o.y < s.gy + 0.02) { if (s.b++) { s.alive = false; s.mesh.visible = false; continue; } o.y = s.gy + 0.02; s.vy = Math.abs(s.vy) * 0.35; s.vx *= 0.5; s.vz *= 0.5; }
+    const f = s.life / s.max, v = Math.hypot(s.vx, s.vy, s.vz); s.mesh.scale.set(1, 1, Math.max(0.03, v * 0.022)); _bv.set(o.x + s.vx, o.y + s.vy, o.z + s.vz); s.mesh.lookAt(_bv); s.mesh.material.color.setHex(f > 0.6 ? (s.hot || 0xfff0c0) : f > 0.3 ? 0xffa040 : 0xff5010); s.mesh.material.opacity = Math.min(1, f * 2); }
 }
 function updBlood(dt) {
   for (const p of drops) if (p.alive) { p.life -= dt; p.vy -= 15 * dt; const o = p.mesh.position; o.x += p.vx * dt; o.y += p.vy * dt; o.z += p.vz * dt;
@@ -858,8 +869,8 @@ function updateBeam(dt, S) {
       const side = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)); if (side.lengthSq() < 1e-4) side.set(1, 0, 0); side.normalize(); const up2 = new THREE.Vector3().crossVectors(side, dir);
       for (const ar of u.arcs) { const p = ar.geometry.attributes.position; for (let q = 0; q < 14; q++) { const f = q / 13, amp = Math.sin(f * Math.PI) * (0.02 + len * 0.012), x = a.x + (b.x - a.x) * f + (side.x * (Math.random() - 0.5) + up2.x * (Math.random() - 0.5)) * amp * 2, y = a.y + (b.y - a.y) * f + (side.y * (Math.random() - 0.5) + up2.y * (Math.random() - 0.5)) * amp * 2, z = a.z + (b.z - a.z) * f + (side.z * (Math.random() - 0.5) + up2.z * (Math.random() - 0.5)) * amp * 2; p.setXYZ(q, x, y, z); } p.needsUpdate = true; ar.geometry.computeBoundingSphere(); }
       const fl = 0.7 + Math.random() * 0.6; u.glow.position.copy(b).addScaledVector(dir, -0.05); u.glow.scale.setScalar((best ? 0.75 : 0.4) * fl); u.lt.position.copy(b).addScaledVector(dir, -0.25); u.lt.intensity = (best ? 5 : 2) * fl;
-      if (best) { if (Math.random() < 0.9) burst(end[0], end[1], end[2], Math.random() < 0.6 ? 0xffb040 : 0xfff0c0, 3, 3.6, 0.45, 0.55); if (Math.random() < 0.25) smoke(end[0], end[1], end[2], 1, 0.3); }
-      else if (Math.random() < 0.4) burst(end[0], end[1], end[2], 0x9fe0ff, 1, 1.5, 0.2, 0.5);
+      if (best) { spark(end[0] - dir.x * 0.05, end[1] - dir.y * 0.05, end[2] - dir.z * 0.05, 3, k === 'x' ? 0xffd0a0 : 0xe8f6ff); if (Math.random() < 0.25) smoke(end[0], end[1], end[2], 1, 0.3); }
+      else if (Math.random() < 0.5) spark(end[0], end[1], end[2], 1, 0xe8f6ff);
       if (view2.tool) { const tl = view2.tool; tl.userData.bp ??= tl.position.clone(); tl.position.copy(tl.userData.bp); tl.position.x += (Math.random() - 0.5) * 0.004; tl.position.y += (Math.random() - 0.5) * 0.004; } if (Math.random() < dt * 8) audio.sfx('torch', 0.35); }
     // the build bar: repair, or an upgrade climbing to completion
     if (best && k === 't') { const T = TURRETS[best.kind], up = best.hp < best.mhp ? null : best.lvl >= 3 ? 'max' : (best.up || 0); $('weld').hidden = false;

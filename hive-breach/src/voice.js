@@ -4,8 +4,8 @@
 export const VOICE = [
   // the drop
   { k: 'hale_drop', who: 'General Hale', text: 'Drop teams, this is Olympus. The swarm holds the planet. Go down there and take it back.', re: /Drop teams, this is Olympus/ },
-  { k: 'vance_strap', who: 'Commander Vance', text: 'Strap in, marines. We drop in ten.', re: /Strap in, marines/ },
-  { k: 'vance_listen', who: 'Commander Vance', text: 'Listen up! Five seconds to drop. Hands off the straps until we\'re down.', re: /Listen up! (Five|Thirty) seconds/ },
+  { k: 'vance_strap', who: 'Commander Vance', text: 'Strap in, marines. We drop in thirty.', re: /Strap in, marines/ },
+  { k: 'vance_listen', who: 'Commander Vance', text: 'Listen up! Thirty seconds to drop. Hands off the straps until we\'re down.', re: /Listen up! Thirty seconds/ },
   { k: 'vance_herewego', who: 'Commander Vance', text: 'Here we go. Hold on to something!', re: /Here we go\. Hold on/ },
   { k: 'vance_eject', who: 'Commander Vance', text: 'Eject! Eject! Eject!', re: /EJECT! EJECT/ },
   { k: 'vance_cleandrop', who: 'Commander Vance', text: 'Clean drop. Planet dead ahead. Brace for the burn!', re: /Clean drop/ },

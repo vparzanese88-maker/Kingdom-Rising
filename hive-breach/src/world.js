@@ -345,19 +345,15 @@ function buildCompound(g, H, W) {
     for (const sd of [-1, 1]) { const rl = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, Math.hypot(SL, top)), stripe); rl.position.set(-1.5 + sd * (sw - 0.05), top / 2 + 1.0, hw + SL / 2); rl.rotation.x = Math.atan2(top, SL); pg.add(rl); }
     T.stairs.push({ x: H.x + sx0, z: H.z + sz0, cx: et[0], cz: et[1], len: SL, hw: sw, y0: H.y + top, y1: H.y });
     W.lpad = { x: H.x + px, z: H.z + pz, y: H.y + top, et, er, top: { x: H.x + sx0 - et[0] * 1.2, z: H.z + sz0 - et[1] * 1.2 }, bottom: { x: H.x + sx0 + et[0] * (SL + 1.5), z: H.z + sz0 + et[1] * (SL + 1.5) } }; }
-  // three vehicle bays on the other flank, marked on the ground, one per vehicle
-  { const cv = document.createElement('canvas'); W.bays = {};
-    for (const [k, da, r, w, l] of [['quad', -1.35, 17, 3.4, 5], ['truck', -1.75, 15.5, 4.4, 9], ['vtol', -2.45, 15.5, 12, 14]]) { const a = back + da, x = Math.cos(a) * r, z = Math.sin(a) * r, et = [-Math.sin(a), Math.cos(a)], ry = Math.atan2(-(-et[0]), -(-et[1]));   /* parked nose toward the gate */
-      W.bays[k] = { x: H.x + x, z: H.z + z, ry };
-      const bg = new THREE.Group(); bg.position.set(x, 0.04, z); bg.rotation.y = ry; C.add(bg);
-      for (const [bw, bd, bx, bz] of [[w, 0.18, 0, l / 2], [w, 0.18, 0, -l / 2], [0.18, l, w / 2, 0], [0.18, l, -w / 2, 0]]) { const ln = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.03, bd), stripe); ln.position.set(bx, 0, bz); bg.add(ln); }
-      const c2 = document.createElement('canvas'); c2.width = 256; c2.height = 64; const g2 = c2.getContext('2d'); g2.fillStyle = '#ffc020'; g2.font = 'bold 44px sans-serif'; g2.textAlign = 'center'; g2.fillText({ quad: 'QUAD', truck: 'TRUCK', vtol: 'VTOL' }[k], 128, 48);
-      const lab = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(w * 0.8, 3.2), Math.min(w * 0.8, 3.2) / 4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c2), transparent: true, depthWrite: false })); lab.rotation.x = -Math.PI / 2; lab.position.set(0, 0.03, l / 2 - 0.9); bg.add(lab); } void cv; }
-  // the comms building: recruitment console out front
-  { const a = back - 0.55, x = Math.cos(a) * 17.5, z = Math.sin(a) * 17.5, hc = GL('h_comms', 'w', 7); if (hc) { hc.position.set(x, 0, z); hc.rotation.y = -a + Math.PI / 2; C.add(hc); } else { const b = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 5), wallM); b.position.set(x, 2, z); b.rotation.y = -a; b.castShadow = true; C.add(b); }
-    if (!hc) { const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 9, 6), dark); mast.position.set(x, 8, z); C.add(mast); const dsh = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 6, 0, 6.29, 0, 1), M.mat(0xd8dde2, { ds: true })); dsh.position.set(x + 1.5, 4.8, z); dsh.rotation.x = 2.1; C.add(dsh); }
-    const cx = Math.cos(a) * 13.8, cz = Math.sin(a) * 13.8, con = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 0.7), dark); con.position.set(cx, 0.6, cz); con.rotation.y = -a + Math.PI / 2; C.add(con); const scr = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.05), M.mat(0x40c0ff, { e: 0x2080c0, ei: 2 })); scr.position.set(cx, 1.45, cz); scr.rotation.y = -a + Math.PI / 2; C.add(scr);
-    W.comms = { x: H.x + cx, z: H.z + cz }; W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.2 }); }
+  // the vehicle pad on the other flank: the one spot where vehicles are welded into being (B anywhere picks one; its hologram stands here)
+  { const a = back - 1.95, r = 15, x = Math.cos(a) * r, z = Math.sin(a) * r, et = [-Math.sin(a), Math.cos(a)], ry = Math.atan2(et[0], et[1]);   /* parked nose toward the gate */
+    W.vpad = { x: H.x + x, z: H.z + z, y: H.y, ry }; W.bays = { quad: W.vpad, truck: W.vpad, vtol: W.vpad };
+    const bg = new THREE.Group(); bg.position.set(x, 0.04, z); bg.rotation.y = ry; C.add(bg); const w = 13, l = 15;
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, l), M.mat(0x2e343a, { m: 0.5, r: 0.6 })); slab.position.y = 0.01; bg.add(slab);
+    for (const [bw, bd, bx, bz] of [[w, 0.25, 0, l / 2], [w, 0.25, 0, -l / 2], [0.25, l, w / 2, 0], [0.25, l, -w / 2, 0]]) { const ln = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.04, bd), stripe); ln.position.set(bx, 0.05, bz); bg.add(ln); }
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const lt = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), lamp); lt.position.set(sx * (w / 2 - 0.3), 0.2, sz * (l / 2 - 0.3)); bg.add(lt); }
+    const c2 = document.createElement('canvas'); c2.width = 512; c2.height = 96; const g2 = c2.getContext('2d'); g2.fillStyle = '#ffc020'; g2.font = 'bold 64px sans-serif'; g2.textAlign = 'center'; g2.fillText('VEHICLE PAD', 256, 72);
+    const lab = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c2), transparent: true, depthWrite: false })); lab.rotation.x = -Math.PI / 2; lab.position.set(0, 0.06, l / 2 - 1.2); bg.add(lab); }
   // floodlights on the walls
   for (let i = 0; i < 2; i++) { const a = H.ga + Math.PI / 2 + i * Math.PI; const L = new THREE.PointLight(0xc0e0ff, 30, 50); L.position.set(Math.cos(a) * (HUB_R - 2), WALL_H + 4, Math.sin(a) * (HUB_R - 2)); C.add(L); const fl = GL('h_floodlight', 'h', 7); if (fl) { fl.position.set(Math.cos(a) * (HUB_R - 1.2), WALL_H, Math.sin(a) * (HUB_R - 1.2)); fl.rotation.y = -a - Math.PI / 2; C.add(fl); } }
 }

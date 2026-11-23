@@ -41,7 +41,7 @@ export const VOICE = [
   { k: 'vance_quad_unl', who: 'Commander Vance', text: 'The quad bike is unlocked. Bring me fifty scrap and it\'s yours.', re: /^The\ quad\ bike\ is\ unlocked\.\ B/ },
   { k: 'vance_truck_unl', who: 'Commander Vance', text: 'The gun truck is unlocked. Bring me a hundred and thirty scrap and I\'ll build it.', re: /^The\ gun\ truck\ is\ unlocked\.\ B/ },
   { k: 'vance_vtol_unl', who: 'Commander Vance', text: 'The VTOL is unlocked. Two hundred and forty scrap and you can fly.', re: /^The\ VTOL\ is\ unlocked\.\ Two\ hu/ },
-  { k: 'vance_veh_parts', who: 'Commander Vance', text: 'We have the scrap for a vehicle. Order it at the comms console.', re: /^We\ have\ the\ scrap\ for\ a\ vehi/ },
+  { k: 'vance_veh_parts', who: 'Commander Vance', text: 'We have the scrap for a vehicle. Press B and build it on the pad.', re: /^We\ have\ the\ scrap\ for\ a\ vehi/ },
   { k: 'vance_veh_ready', who: 'Commander Vance', text: 'Your ride is waiting in its bay. Lock a turret on it and go.', re: /^Your\ ride\ is\ waiting\ in\ its\ / },
   { k: 'vance_veh_lost', who: 'Commander Vance', text: 'We lost a vehicle! Bring me scrap and I\'ll build another.', re: /^We\ lost\ a\ vehicle!\ Bring\ me\ / },
   { k: 'hale_batteries', who: 'General Hale', text: 'All batteries, fire for effect on that hive!', re: /^All\ batteries,\ fire\ for\ effe/ },

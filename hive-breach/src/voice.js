@@ -18,7 +18,7 @@ export const VOICE = [
   { k: 'vance_hold', who: 'Commander Vance', text: 'Copy, Olympus. Marines, hold the hub, keep the turrets fed and push for that cave. I\'ll keep troops and supplies coming.', re: /hold the hub, keep the turrets fed/ },
   { k: 'hale_swarm', who: 'General Hale', text: 'Olympus scans show the swarm thickening. More of them are coming out of that mountain.', re: /swarm thickening|Hive activity rising|More of them/ },
   { k: 'hale_boss', who: 'General Hale', text: 'Olympus here: something big just came out of the hive. Focus everything on it!', re: /just came out of the hive/ },
-  { k: 'vance_hublow', who: 'Commander Vance', text: 'The hub is taking hits. They are getting through, marines!', re: /Hub at \d+ percent/ },
+  { k: 'vance_hublow', who: 'Commander Vance', text: 'The hub is taking hits. They are getting through, marines!', re: /The hub is taking hits/ },
   { k: 'vance_hubfall', who: 'Commander Vance', text: 'The hub is about to fall! Everyone back to the hub, now!', re: /about to fall/ },
   { k: 'vance_troops', who: 'Commander Vance', text: 'Fresh troops on the ground. Move up with them, marines.', re: /Dropship touching down|Fresh troops|Reinforcements/ },
   { k: 'vance_beacon', who: 'Commander Vance', text: 'Extra dropship inbound on the rally beacon.', re: /rally beacon/ },
@@ -32,7 +32,7 @@ export const VOICE = [
   { k: 'hale_more', who: 'General Hale', text: 'Olympus here. I\'m releasing more of my people to you, Commander.', re: /releasing more of my people|authorises more troops|what you need down there/ },
   { k: 'vance_copy', who: 'Commander Vance', text: 'Copy, Olympus. Marines: more troops are on the way.', re: /^Copy, Olympus\. Marines:/ },
   // the end
-  { k: 'vance_victory', who: 'Commander Vance', text: 'The queen is dead! Outstanding work, marines. Extraction is inbound.', re: /queen is dead|Brood Queen is dying/ },
+  { k: 'vance_victory', who: 'Commander Vance', text: 'The queen is dead! Outstanding work, marines. Extraction is inbound.', re: /The queen is dead!/ },
 ];
 // play recordings that exist: assets/voice/lines.json maps each line's key to its file
 export class Voice {
@@ -49,7 +49,7 @@ export class Voice {
   // a squelch click on and off, a faint static bed while it talks, and the music and battle ducking a little so you can hear it
   async say(text) {
     const v = this.find(text); if (!v || !this.files[v.k]) return 0; const b = await this.load(v.k), c = this.a.ctx; if (!b || !c) return 0;
-    const now = c.currentTime; if (this.end && now < this.end - 0.05) return 0;   // one voice at a time
+    const now = c.currentTime; if (this.end && now < this.end - 0.05) { this.q = this.q || []; if (!this.q.includes(text) && this.q.length < 3) this.q.push(text); clearTimeout(this.qT); this.qT = setTimeout(() => this.next(), (this.end - now) * 1000 + 300); return 0; }   // one voice at a time: a line that arrives while someone is talking waits its turn
     const t0 = now + 0.08, s = c.createBufferSource(); s.buffer = b;
     // everything goes through one fader (the Voice volume setting), well under the music and the battle
     const out = c.createGain(); out.gain.value = 0.7 * (this.vol ?? 0.6); out.connect(this.a.bus || c.destination);
@@ -68,8 +68,9 @@ export class Voice {
     // the static bed under the voice
     const st = c.createBufferSource(); st.buffer = this.noise(); st.loop = true; const sb = c.createBiquadFilter(); sb.type = 'bandpass'; sb.frequency.value = 1800; sb.Q.value = 0.7; const sg = c.createGain(); sg.gain.setValueAtTime(0, t0); sg.gain.linearRampToValueAtTime(0.05, t0 + 0.03); sg.gain.setValueAtTime(0.05, t0 + b.duration); sg.gain.linearRampToValueAtTime(0, t0 + b.duration + 0.1); st.connect(sb); sb.connect(sg); sg.connect(out); st.start(t0); st.stop(t0 + b.duration + 0.15);
     this.click(now + 0.02, 0.05, 0.35, out); this.click(t0 + b.duration + 0.04, 0.07, 0.28, out);   // squelch on, and off
-    s.start(t0); this.end = t0 + b.duration + 0.1; if (this.onTalk) this.onTalk(b.duration + 0.25); return b.duration;
+    s.start(t0); this.end = t0 + b.duration + 0.1; if (this.q && this.q.length) { clearTimeout(this.qT); this.qT = setTimeout(() => this.next(), (b.duration + 0.4) * 1000); } if (this.onTalk) this.onTalk(b.duration + 0.25); return b.duration;
   }
 
 
+  next() { const t = this.q && this.q.shift(); if (t) this.say(t); }
 }

@@ -210,7 +210,7 @@ export function victoryScene(H, squad, swap, done) {
     if (t < 4.2) { const k = Math.min(1, t / 2); queen.rotation.z = Math.sin(t * 10) * 0.15 * k; queen.rotation.x = Math.sin(t * 6.7) * 0.12 * k - 0.15 * k; queen.position.y = qy + Math.abs(Math.sin(t * 8)) * 0.5 * k; if (Math.random() < 0.6) H.burst(q0.x + (Math.random() - 0.5) * 6, qy + 2 + Math.random() * 6, q0.z + (Math.random() - 0.5) * 6, Math.random() < 0.6 ? 0xb0ff30 : 0xffb040, 5, 5, 0.6); if (Math.random() < dt * 2.5) H.audio.sfx('screech', 0.9); }
     else { const f = sm((t - 4.2) / 1.6); queen.rotation.z = L(queen.rotation.z, 1.5, 0.08 + f * 0.1); queen.rotation.x *= 0.92; queen.position.y = qy - 1.6 * f; if (booms < 7 && t > 4.3 + booms * 0.3) { booms++; H.boomFx(q0.x + (Math.random() - 0.5) * 7, qy + 1 + Math.random() * 5, q0.z + (Math.random() - 0.5) * 7, 4 + Math.random() * 3); H.audio.sfx('boom', 0.9); } }
     key.intensity = 60 + (t > 4.2 && t < 7 ? Math.random() * 120 : 0); rim.intensity = 50 + Math.sin(t * 5) * 15;
-    once('r0', () => { H.audio.sfx('roar', 1); cap('MISSION COMPLETE', 'The Brood Queen is dying'); });
+    once('r0', () => { H.audio.sfx('roar', 1); cap('MISSION COMPLETE', 'Vance: The queen is dead! Outstanding work, marines. Extraction is inbound.'); });
     if (t > 5.4) once('fl', () => { H.flashAt([q0.x, qy + 4, q0.z], 10); for (let i = 0; i < 5; i++) H.burst(q0.x, qy + 3, q0.z, 0xb0ff30, 30, 10, 1.3); H.audio.sfx('roar', 0.7); cap('', 'The swarm on ' + planet + ' has lost its mother'); });
     // the VTOL
     const hf = sm((t - 8) / 4.5); heli.position.copy(LV(hpA, hpB, 1 - (1 - hf) ** 2)); heli.position.x = L(hpA.x, hpB.x, hf); heli.position.z = L(hpA.z, hpB.z, hf); heli.rotation.y = Math.atan2(-fwd.x, -fwd.z) + Math.PI;
@@ -472,7 +472,7 @@ export function dropIntro(H, squad, done) {
       w.m.userData.flame.material.opacity = tt > 7 && tt < 13 ? 0.6 : 0; w.m.userData.heat.material.opacity = tt > 13 && tt < 22 ? Math.min(0.9, (tt - 13) / 7) : 0; if (tt > 24) w.m.visible = false; }
     if (t < 0) { // the opening shot: Station Olympus in high orbit, the drop pods hanging in its bay, then down to yours
       once('o1', () => { cap('STATION OLYMPUS', `High orbit over ${PN} · 7th Orbital Drop Wing`); for (const o of shell) o.visible = true; cabin.traverse(o => { if (!o.isLight && o !== cabin && o.isMesh && o.visible) { o.visible = false; (cabin.userData.hid = cabin.userData.hid || []).push(o); } }); hud.style.display = 'none';   /* hide the cabin's meshes but keep its lights on: a light count change rebuilds every shader */ document.body.classList.remove('pov'); });   /* letterboxed, like a film, until you're in your seat */
-      if (t > -7) once('o2', () => cap('', `General Hale: Drop teams, this is Olympus. The swarm holds ${PN}. Go down there and take it back.`));
+      if (t > -7) once('o2', () => cap('', 'General Hale: Drop teams, this is Olympus. The swarm holds the planet. Go down there and take it back.'));
       if (t > -2.6) once('o3', () => cap('', 'Commander Vance: Strap in, marines. We drop in ten.'));
       if (t > -0.6) once('o4', () => H.fade(true));
       const sp = st.position, pp = pod.position; let cp, cl;
@@ -491,7 +491,7 @@ export function dropIntro(H, squad, done) {
       once('d', () => { cap('', 'EJECT! EJECT! EJECT!'); A.sfx('boom', 0.4); shakeK = 1.5; if (MU && MU.eject) MU.eject(); });
       fl.material.opacity = 0.6; rum = 0.45; ror = 0.3 * cl((t - 7) / 2); shake = 0.25; red.intensity = 3; strobe.emissiveIntensity = 0.6 + 2.6 * (0.5 + 0.5 * Math.sin(t * 2.6));
       if (Math.random() < dt * 4) { const w = pod.localToWorld(V((Math.random() - 0.5) * 8, 6, (Math.random() - 0.5) * 8)); H.burst(w.x, w.y, w.z, 0xfff0c0, 2, 5, 0.4); }
-      if (t > 10.5) once('e', () => cap('', `Vance: Clean drop. ${PN} dead ahead. Brace for the burn!`));
+      if (t > 10.5) once('e', () => cap('', 'Vance: Clean drop. Planet dead ahead. Brace for the burn!'));
     } else if (t < 22) { // atmospheric entry: the planet swells below, the air catches fire, everything shakes
       const f = (t - 13) / 9; space.position.y = L(SY, 1240, f);
       once('f', () => { cap('', 'Hull temperature critical · atmospheric entry'); A.sfx('alarm', 0.8); });

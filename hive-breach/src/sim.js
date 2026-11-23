@@ -400,7 +400,7 @@ export class Sim {
       if (A.fly) { const tu = T.tunnelAt(a.s, 6), want = (tu ? tu.top + 3 : P.y(a.s) + 4.5) + Math.sin(a.s * 0.5) * 0.6; a.y += (want - a.y) * Math.min(1, dt * 3); a.hidden = false; }
       else if (off <= 1.2) { a.y = P.y(a.s); a.hidden = !!T.tunnelAt(a.s, -1); } else { a.y = this.W.ground(a.x, a.z, a.y + 1); a.hidden = false; }
       void q;
-      if (a.s >= P.len - 4) { a.dead = true; a.reached = true; this.hub = Math.max(0, this.hub - A.hub); this.emit({ k: 'hubhit', d: A.hub, x: a.x, y: a.y, z: a.z }); for (const th of [75, 50, 25]) if (this.hub <= th && !(this.hubSaid || {})[th]) { (this.hubSaid = this.hubSaid || {})[th] = 1; this.radio('cmd', th === 25 ? 'The hub is about to fall! Everyone back to the hub, now!' : `Hub at ${th} percent. They are getting through, marines!`, 1); } }
+      if (a.s >= P.len - 4) { a.dead = true; a.reached = true; this.hub = Math.max(0, this.hub - A.hub); this.emit({ k: 'hubhit', d: A.hub, x: a.x, y: a.y, z: a.z }); for (const th of [75, 50, 25]) if (this.hub <= th && !(this.hubSaid || {})[th]) { (this.hubSaid = this.hubSaid || {})[th] = 1; this.radio('cmd', th === 25 ? 'The hub is about to fall! Everyone back to the hub, now!' : 'The hub is taking hits. They are getting through, marines!', 1); } }
     }
     if (this.aliens.some(a => a.dead)) this.aliens = this.aliens.filter(a => !a.dead);
     if (this.hub <= 0 && this.phase !== 'lose') { this.phase = 'lose'; this.emit({ k: 'lose', w: this.wave, el: Math.floor(this.el || 0) }); }
@@ -515,13 +515,13 @@ export class Sim {
         this.later.push({ t: 4.9, f: () => { for (let i = 0; i < n && this.allies.length < MAX_ALLIES; i++) { const type = C.un[this.allyN++ % C.un.length], A = ALLIES[type], s = sL - i * 1.6, q2 = P.at(s), lat = (Math.random() - 0.5) * 3, ox = rb ? q.x + (Math.random() - 0.5) * 4 : q2.x - q2.tz * lat, oz = rb ? q.z + (Math.random() - 0.5) * 4 : q2.z + q2.tx * lat;
             const route = rb ? [LP.top, LP.bottom, { x: q2.x - q2.tz * lat, z: q2.z + q2.tx * lat }] : null;   /* off the pad, down the wide stairs, out along the track through the gate */
             this.allies.push({ id: this.nid++, type, s, lat, x: ox, y: rb ? LP.y : this.W.top(ox, oz), z: oz, hp: A.hp, mhp: A.hp, ry: Math.atan2(q2.tx, q2.tz), cd: Math.random() + i * 0.6, tg: 0, route, wait: i * 0.6 }); } } });
-        if ((this.dropN = (this.dropN || 0) + 1) % 3 === 1) this.radio('cmd', [`Dropship touching down on the hub pad: ${n} veteran${n > 1 ? 's' : ''} joining the push.`, 'Fresh troops on the ground. Move up with them, marines.', 'Reinforcements on the landing pad, heading out the gate.'][this.dropN % 3]); } } }
+        if ((this.dropN = (this.dropN || 0) + 1) % 3 === 1) this.radio('cmd', 'Fresh troops on the ground. Move up with them, marines.'); } } }
     // each Assault Rally Beacon calls in its own extra dropship of reinforcements (on top of the regular drops at the hub)
     if (this.phase === 'wave' || this.phase === 'assault') for (const rb of this.turrets) { if (rb.kind !== 'rally' || rb.carry || rb.b > 0) continue; rb.rd = (rb.rd ?? 20) - dt; if (rb.rd > 0) continue; rb.rd = [45, 38, 30][rb.lvl - 1] || 45;
       const n = Math.min(1 + rb.lvl, MAX_ALLIES + 4 - this.allies.length); if (n <= 0) continue; const bx = rb.x + 3, bz = rb.z, by = this.W.top(bx, bz), s0 = P.near(bx, bz).s, q0 = P.at(s0);
       this.emit({ k: 'dropship', a: [bx - q0.tz * 70, by + 55, bz + q0.tx * 70], b: [+bx.toFixed(1), +by.toFixed(1), +bz.toFixed(1)], t: 4.5, hold: 3 });
       this.later.push({ t: 4.9, f: () => { for (let i = 0; i < n; i++) { const type = C.un[this.allyN++ % C.un.length], A = ALLIES[type], ox = bx + (Math.random() - 0.5) * 3, oz = bz + (Math.random() - 0.5) * 3; this.allies.push({ id: this.nid++, type, s: s0, lat: (Math.random() - 0.5) * 3, x: ox, y: this.W.top(ox, oz), z: oz, hp: A.hp, mhp: A.hp, ry: Math.atan2(q0.tx, q0.tz), cd: Math.random(), tg: 0 }); } } });
-      this.radio('cmd', `Extra dropship inbound on the rally beacon: ${n} more troops.`); }
+      this.radio('cmd', 'Extra dropship inbound on the rally beacon.'); }
     // the commander's airdrops: ammo on a marine every 2 minutes, field dressings every 2.5 (sooner with more marines)
     if (this.phase === 'wave') { const k = 1 + 0.3 * (this.players.size - 1), L = this.living(); this.cmdA = (this.cmdA ?? 120) - dt * k; this.cmdD = (this.cmdD ?? 150) - dt * k;
       if (L.length && this.cmdA <= 0) { this.cmdA = 120; const p = L[(this.cmdAi = (this.cmdAi || 0) + 1) % L.length]; this.airdrop(p, 'ammo'); }
@@ -583,9 +583,9 @@ export class Sim {
     if (kind === 'sp' && Math.random() < 0.3 && (!p.jet || !p.boots)) kind = 'gear';   // now and then the special crate holds permanent gear instead
     const gear = kind === 'gear' ? (!p.jet && (p.boots || Math.random() < 0.5) ? 'jet' : 'boots') : '';
     const sp = kind === 'sp' ? pickSpecial() : ''; this.pods.push({ id: this.nid++, x, z, land: 6, life: 6 + 75, sp, kind, gear });
-    if (kind === 'gear') return this.radio('cmd', `${p.name}, got some new gear dropping on you, marine: ${gear === 'jet' ? 'a jetpack. Hold jump in the air to fly' : 'shock boots. Jump again in mid-air'}. Strap it on.`, 1);
-    if (kind === 'sp') { const an = /^[AEIOU]/i.test(SPECIALS[sp].name) ? 'an' : 'a'; return this.radio('cmd', [`${p.name}, Olympus authorised ${an} ${SPECIALS[sp].name} for you. Crate's coming down on your position.`, `Special delivery on ${p.name}: ${SPECIALS[sp].name}. Go get it.`, `${p.name}, I've got ${an} ${SPECIALS[sp].name} dropping beside you. Use it well.`][Math.random() * 3 | 0], 1); }
-    this.radio('cmd', kind === 'ammo' ? [`${p.name}, ammo crate inbound on your position. Grab it.`, `Resupply dropping on ${p.name}. Keep those guns fed.`, `Olympus cleared an ammo drop: it's coming down next to ${p.name}.`][Math.random() * 3 | 0] : [`Med supplies inbound on ${p.name}: fresh field dressings.`, `${p.name}, dressings coming down beside you. Patch up and keep moving.`][Math.random() * 2 | 0], 1);
+    if (kind === 'gear') return this.radio('cmd', 'Got some new gear dropping on you, marine. Strap it on.', 1);
+    if (kind === 'sp') { const an = /^[AEIOU]/i.test(SPECIALS[sp].name) ? 'an' : 'a'; return this.radio('cmd', 'Olympus authorised a special for you. Crate\'s coming down on your position. Use it well.', 1); }
+    this.radio('cmd', kind === 'ammo' ? 'Ammo crate inbound on your position. Grab it. Keep those guns fed.' : 'Med supplies inbound: fresh field dressings. Patch up and keep moving.', 1);
   }
   // radio chatter between the commander on the ground and General Hale on Station Olympus in orbit
   radio(who, m, force) { if (!force && this.time - (this.radioT || -99) < 7) return; this.radioT = this.time; this.emit({ k: 'radio', w: who, m }); }
@@ -603,8 +603,8 @@ export class Sim {
     else if (plan === 'size' && C.sz < SQUAD.length - 1) { C.sz++; msg = `${SQUAD[C.sz]} veterans per drop`; }
     else if (ALLIES[plan] && !C.un.includes(plan)) { C.un.push(plan); msg = `${ALLIES[plan].name}s join the reinforcements`; }
     if (!msg || quiet) return;
-    if (paid) { this.radio('cmd', [`Your kills just bought us more, marines: ${msg}.`, `Olympus is impressed with the body count. ${msg[0].toUpperCase() + msg.slice(1)}.`, `Keep killing, it's paying off: ${msg}.`][Math.random() * 3 | 0], 1); return; }
-    this.radio('gen', 'Olympus here. I\'m releasing more of my people to you, Commander.', 1); this.later.push({ t: 4, f: () => this.radio('cmd', `Copy, Olympus. Marines: ${msg}.`, 1) });
+    if (paid) { this.radio('cmd', 'Your kills just bought us more troops, marines. Keep killing, it\'s paying off!', 1); this.emit({ k: 'toast', m: 'Reinforcements upgraded: ' + msg }); return; }
+    this.radio('gen', 'Olympus here. I\'m releasing more of my people to you, Commander.', 1); this.later.push({ t: 4.6, f: () => this.radio('cmd', 'Copy, Olympus. Marines: more troops are on the way.', 1) }); this.emit({ k: 'toast', m: 'Reinforcements upgraded: ' + msg });
   }
   ability(p, id, r) {
     const near = (rad, f) => { for (const q of this.players.values()) if (!q.dead && Math.hypot(q.x - p.x, q.z - p.z) < rad) f(q); }, fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);

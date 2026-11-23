@@ -251,6 +251,19 @@ export function buildWorld(scene, mapId, diff = 0) {
     const pit = new THREE.Mesh(new THREE.CircleGeometry(2.2, 20), M.mat(0x0a0604, { r: 1 })); pit.rotation.x = -Math.PI / 2; pit.position.y = 0.08; hole.add(pit);
     const goo = new THREE.Mesh(new THREE.RingGeometry(2.1, 3.4, 20), M.mat(0x2a3a10, { e: 0x203008, op: 0.7 })); goo.rotation.x = -Math.PI / 2; goo.position.y = 0.06; hole.add(goo);
     for (let i = 0; i < 7; i++) { const a = i / 7 * 6.283 + BR(), r = M.prop('boulder', BR); r.scale.multiplyScalar(0.28 + BR() * 0.15); r.position.set(Math.cos(a) * 2.6, -0.2, Math.sin(a) * 2.6); hole.add(r); } } }
+  // resource extractor sites (like Natural Selection): weld one to build a drill rig that feeds the commander resources; aliens tear them down
+  W.nodes = []; W.nodeG = []; { const NR = rng(mapId.length * 5179 + 23 + (W.diff || 0) * 1013); for (const f of [0.18, 0.34, 0.5, 0.66, 0.82]) { for (let k = 0; k < 60; k++) { const q = path.at(path.len * f), sd = NR() < 0.5 ? -1 : 1, dd = 22 + NR() * 26, x = q.x - q.tz * sd * dd, z = q.z + q.tx * sd * dd;
+      if (Math.abs(x) > BOUNDS - 12 || Math.abs(z) > BOUNDS - 12 || path.near(x, z).d < 16 || T.chasm(x, z) < 0.99 || T.ridge(x, z) > 1 || Math.hypot(x - W.hubP.x, z - W.hubP.z) < HUB_R + 20 || W.burrows.some(b => Math.hypot(b.x - x, b.z - z) < 20)) continue;
+      const y = T.raw(x, z), ng = new THREE.Group(); ng.position.set(x, y, z); g.add(ng);
+      const pad = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.8, 0.4, 20), M.mat(0x2a2e34, { m: 0.5 })); pad.position.y = 0.1; ng.add(pad);
+      for (let i = 0; i < 5; i++) { const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.35 + NR() * 0.4), M.mat(0x40e0ff, { e: 0x20b0ff, ei: 2.2 })); cr.position.set((NR() - 0.5) * 1.6, 0.5 + NR() * 0.3, (NR() - 0.5) * 1.6); cr.rotation.set(NR() * 3, NR() * 3, NR() * 3); ng.add(cr); }   // the glowing vein
+      const L = new THREE.PointLight(0x40c8ff, 6, 12); L.position.y = 1.5; ng.add(L);
+      const real = M.AS.fitGLB('l_derrick', 'h', 9, false) || new THREE.Group(); real.visible = false; ng.add(real);
+      const holo = M.AS.fitGLB('l_derrick', 'h', 9, false) || new THREE.Group(); holo.traverse(o => { if (o.isMesh) { o.material = new THREE.MeshBasicMaterial({ color: 0x60d8ff, transparent: true, opacity: 0.22, wireframe: true, depthWrite: false }); } }); ng.add(holo);   // the blueprint: weld it to build
+      ng.userData = { real, holo }; W.nodeG.push(ng); W.nodes.push({ x, z, y, r: 3.4, box: [x - 3.4, y, z - 3.4, x + 3.4, y + 9, z + 3.4] }); W.colliders.push({ x, z, r: 2.2, h: 9 }); break; } } }
+  // hidden lurk spots: a few aliens lie in wait and leap out at a marine walking past
+  W.lurks = []; { const LR = rng(mapId.length * 2203 + 31 + (W.diff || 0) * 1013); for (let k = 0; k < 600 && W.lurks.length < 22; k++) { const x = (LR() * 2 - 1) * (BOUNDS - 15), z = (LR() * 2 - 1) * (BOUNDS - 15);
+    if (path.near(x, z).d < 10 || Math.hypot(x - W.hubP.x, z - W.hubP.z) < HUB_R + 25 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 50 || T.chasm(x, z) < 0.99 || W.lurks.some(l => Math.hypot(l.x - x, l.z - z) < 30)) continue; W.lurks.push({ x, z, r: 1.5 }); } }
   W.nestP = [];
   if (D.hazard === 'nests') { const NR = rng(41); for (const f of [0.28, 0.5, 0.72]) { for (let k = 0; k < 40; k++) { const s = path.len * (f + (NR() - 0.5) * 0.08), q = path.at(s), side = NR() < 0.5 ? -1 : 1, dd = 13 + NR() * 6, x = q.x - q.tz * side * dd, z = q.z + q.tx * side * dd, n = path.near(x, z);
     if (n.d < 10 || Math.abs(x) > BOUNDS - 6 || Math.abs(z) > BOUNDS - 6 || T.chasm(x, z) < 0.99 || T.ridge(x, z) > 1.5) continue; W.nestP.push({ i: W.nestP.length, x, z, y: T.raw(x, z), s: n.s }); break; } } }
@@ -280,7 +293,7 @@ export function buildWorld(scene, mapId, diff = 0) {
   const MR = 420, mc = document.createElement('canvas'); mc.width = mc.height = MR; const mg = mc.getContext('2d'), im = mg.createImageData(MR, MR);
   for (let j = 0; j < MR; j++) for (let i = 0; i < MR; i++) { const hb0 = T.hubAt(-BOUNDS + (i + 0.5) / MR * BOUNDS * 2, -BOUNDS + (j + 0.5) / MR * BOUNDS * 2); const x = -BOUNDS + (i + 0.5) / MR * BOUNDS * 2, z = -BOUNDS + (j + 0.5) / MR * BOUNDS * 2, h = T.raw(x, z, true), o = (j * MR + i) * 4, v = h < -1 ? 15 : Math.max(20, Math.min(110, 40 + h * 7)); im.data[o] = h < -1 ? (mapId === 'mars' ? 120 : 20) : v * 0.8; im.data[o + 1] = h < -1 ? 30 : v; im.data[o + 2] = h < -1 ? (mapId === 'mars' ? 10 : 90) : v * 1.1; im.data[o + 3] = 200; if (hb0 && hb0.wall) { im.data[o] = im.data[o + 1] = im.data[o + 2] = 210; } }
   mg.putImageData(im, 0, 0); W.miniBg = mc;
-  mergeStatic(g, new Set([ground, liq, W.dome, W.hive, W.hub, W.healRing, W.hiveShield, W.caveLight, hemi, sun, sun.target]));
+  mergeStatic(g, new Set([ground, liq, W.dome, W.hive, W.hub, W.healRing, W.hiveShield, W.caveLight, hemi, sun, sun.target, ...(W.nodeG || [])]));
   return W;
 }
 

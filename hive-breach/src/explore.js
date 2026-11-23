@@ -448,7 +448,8 @@ export function dropIntro(H, squad, done) {
     R.compile(scene, camera); warm();
   } catch (err) { } rt.dispose(); scene.remove(cc); scene.fog = f0; W.group.visible = false; space.visible = true; st.visible = true; }
   const T0 = 12;   // seconds of the opening shot of the station before you're strapped in
-  const DOCK = 24;   // extra seconds docked in the bay, so the 30-second countdown runs true (you're in the cabin 1 s before "thirty seconds" is said)
+  const ORB = 1.5;   // the eject, the fall through space and the burning entry last 1.5x longer
+  const DOCK = 11.2;   // extra seconds docked in the bay, so the eject comes exactly 30 s after Vance's "thirty seconds" at the start of the station shot (-11.8 + 30 = 7 + DOCK)
   if (MU && MU.dropScore) MU.dropScore(T0);
   const t0 = performance.now(); let last = t0, said = {}, shakeK = 0, prevAlt = 0, spd = 0, flyDoor = 0, handed = false, podOut = false, crewParked = false; H.fade(false);
   const once = (k, f) => { if (!said[k]) { said[k] = 1; f(); } };
@@ -465,14 +466,15 @@ export function dropIntro(H, squad, done) {
     done({ marines: crew.filter(c => !c.cmd).length, x: me.x, z: me.z, yaw: G.me.yaw + doorYaw, ax: door.x, az: door.z, allyDelay: 2.2 });
   };
   const step = () => {
-    const now = performance.now(), tr = (now - t0) / 1000 * (G.filmRate || 1) - T0, t = tr < 7 ? tr : tr < 7 + DOCK ? 6.999 : tr - DOCK,   /* the pod waits docked for the full countdown, then the ride runs on its own clock */ dt = Math.min(0.1, (now - last) / 1000) * (G.filmRate || 1); last = now; ring.rotation.z += dt * 0.03;
+    const now = performance.now(), tr = (now - t0) / 1000 * (G.filmRate || 1) - T0, u = tr - DOCK, t = tr < 7 ? tr : tr < 7 + DOCK ? 6.999 : u < 7 + 15 * ORB ? 7 + (u - 7) / ORB : u - 15 * (ORB - 1),   /* docked for the full countdown; then the fall through orbit and the burn (ride 7-22 s) run ORB times slower; clouds and landing at normal speed */   /* the pod waits docked for the full countdown, then the ride runs on its own clock */ dt = Math.min(0.1, (now - last) / 1000) * (G.filmRate || 1); last = now; ring.rotation.z += dt * 0.03;
     let shake = 0, rum = 0.06, ror = 0, streakO = 0, temp = 21; const y = handed ? padY - 0.3 : yAt(t);   /* once landed, the pod sits on the pad with its floor at ground level */ pod.position.set(padX, y, padZ);
     // the other pods fall the same way, a beat behind, and peel away in the clouds
     for (const w of wing) { const tt = t - w.dl, wy = yAt(Math.max(0, tt)), spread = 1 + cl((tt - 13) / 9) * 2.5; w.m.position.set(padX + w.o.x * spread, (tt < 22 ? wy : yAt(22) - (tt - 22) * 260), padZ + w.o.z * spread); w.m.rotation.z = Math.sin(t * 7 + w.dl * 5) * 0.03 * cl(tt - 13);
       w.m.userData.flame.material.opacity = tt > 7 && tt < 13 ? 0.6 : 0; w.m.userData.heat.material.opacity = tt > 13 && tt < 22 ? Math.min(0.9, (tt - 13) / 7) : 0; if (tt > 24) w.m.visible = false; }
     if (t < 0) { // the opening shot: Station Olympus in high orbit, the drop pods hanging in its bay, then down to yours
       once('o1', () => { cap('STATION OLYMPUS', `High orbit over ${PN} · 7th Orbital Drop Wing`); for (const o of shell) o.visible = true; cabin.traverse(o => { if (!o.isLight && o !== cabin && o.isMesh && o.visible) { o.visible = false; (cabin.userData.hid = cabin.userData.hid || []).push(o); } }); hud.style.display = 'none';   /* hide the cabin's meshes but keep its lights on: a light count change rebuilds every shader */ document.body.classList.remove('pov'); });   /* letterboxed, like a film, until you're in your seat */
-      if (t > -11.6) once('o2', () => cap('', 'General Hale: Drop teams, this is Olympus. The swarm holds the planet. Go down there and take it back.'));   /* 7.9 s: done before Vance speaks */
+      if (t > -11.8) once('b', () => cap('', 'Commander Vance: Listen up! Thirty seconds to drop. Hands off the straps until we\'re down.'));   /* right away: the eject comes exactly 30 s later */
+      if (t > -6.4) once('o2', () => cap('', 'General Hale: Drop teams, this is Olympus. The swarm holds the planet. Go down there and take it back.'));   /* after Vance (5 s) */
       if (t > -0.6) once('o4', () => H.fade(true));
       const sp = st.position, pp = pod.position; let cp, cl;
       if (t < -6) { const f = (t + 12) / 6, a = 0.6 + f * 1.1, r = 230 - f * 50; cp = V(sp.x + Math.cos(a) * r, sp.y + 70 - f * 40, sp.z + Math.sin(a) * r); cl = V(sp.x, sp.y - 10, sp.z); }
@@ -483,20 +485,22 @@ export function dropIntro(H, squad, done) {
     once('o5', () => { for (const o of shell) o.visible = false; for (const o of cabin.userData.hid || []) o.visible = true; cabin.userData.hid = null; hud.style.display = ''; document.body.classList.add('pov'); H.fade(false); });
     if (t < 7) { // docked: alarms, red strobes, the commander's countdown
       once('a', () => A.sfx('alarm', 0.5));
-      // the countdown is real: "thirty seconds" is said exactly 30 s before the clamps blow (eject at tr = 7 + DOCK)
+      // the countdown is real: "thirty seconds" (said as the station shot opens) comes exactly 30 s before the clamps blow (eject at tr = 7 + DOCK)
       const EJ = 7 + DOCK;
-      if (tr > EJ - 30) once('b', () => cap('', 'Commander Vance: Listen up! Thirty seconds to drop. Hands off the straps until we\'re down.'));
       if (tr > EJ - 20) once('b2', () => A.sfx('alarm', 0.55));
-      if (tr > EJ - 10) once('b3', () => A.sfx('alarm', 0.6));
-      if (tr > EJ - 5) once('c', () => A.sfx('alarm', 0.7));
+      if (tr > 3) once('b1', () => cap('', 'General Hale: Godspeed, marines. Bring that queen down.'));
+      if (tr > EJ - 10) once('b3', () => { A.sfx('alarm', 0.6); cap('', 'Commander Vance: Pod sealed. Harnesses locked. Ten seconds.'); });
+      if (tr > EJ - 5) once('c', () => { A.sfx('alarm', 0.7); cap('', 'Vance: Here we go. Hold on to something!'); });
       { const pu = 0.5 + 0.5 * Math.sin(tr * 2.6); red.intensity = 4 + 4 * pu; strobe.emissiveIntensity = 0.6 + 2.6 * pu; }   /* a slow alarm pulse, no hard flashing */ shake = 0.04; if (tr > EJ - 10) shake = 0.08; if (tr > EJ - 5) shake = 0.12;
     } else if (t < 13) { // EJECT: the clamps blow, every pod drops away from the station, thrusters lit
       once('d', () => { cap('', 'EJECT! EJECT! EJECT!'); A.sfx('boom', 0.4); shakeK = 1.5; if (MU && MU.eject) MU.eject(); });
+      if (t > 8.6) once('e', () => cap('', 'Vance: Clean drop. Planet dead ahead. Brace for the burn!'));
       fl.material.opacity = 0.6; rum = 0.45; ror = 0.3 * cl((t - 7) / 2); shake = 0.25; red.intensity = 3; strobe.emissiveIntensity = 0.6 + 2.6 * (0.5 + 0.5 * Math.sin(t * 2.6));
       if (Math.random() < dt * 4) { const w = pod.localToWorld(V((Math.random() - 0.5) * 8, 6, (Math.random() - 0.5) * 8)); H.burst(w.x, w.y, w.z, 0xfff0c0, 2, 5, 0.4); }
     } else if (t < 22) { // atmospheric entry: the planet swells below, the air catches fire, everything shakes
       const f = (t - 13) / 9; space.position.y = L(SY, 1240, f);
       once('f', () => A.sfx('alarm', 0.8));
+      if (t > 17) once('g', () => cap('', 'Vance: Hold together, you old bucket!'));
       pod.rotation.z = Math.sin(t * 31) * 0.025 * f; pod.rotation.x = Math.sin(t * 23) * 0.015 * f; fl.material.opacity = 0; pod.userData.heat.material.opacity = Math.min(0.9, f * 1.3);
       rum = 0.45 + f * 0.55; ror = 0.45 + f * 0.55; shake = 0.3 + f * 1.1; orange.intensity = 2 + f * 10 + Math.random() * 3; heat.style.opacity = (0.12 + f * 0.5 + Math.random() * 0.1).toFixed(2); streakO = cl(f * 1.6) * (0.55 + Math.random() * 0.3); temp = 200 + f * 1500;
       strobe.emissiveIntensity = 0.6 + 2.6 * (0.5 + 0.5 * Math.sin(t * 2.6));

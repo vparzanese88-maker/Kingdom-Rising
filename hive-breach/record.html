@@ -29,7 +29,7 @@ kbd{background:#1a2a36;border:1px solid var(--line);padding:0 5px;font-size:13px
 <script type="module">
 const { VOICE: ALL } = await import('./src/voice.js?v=' + Date.now());   // always the latest list of lines (never a cached copy)
 const qs = new URLSearchParams(location.search), only = qs.get('line'), have = qs.has('todo') ? await fetch('./assets/voice/lines.json?v=' + Date.now()).then(r => r.ok ? r.json() : {}).catch(() => ({})) : {};
-const used = new Set(['vance_strap', 'vance_herewego', 'vance_cleandrop', 'vance_bucket', 'vance_moveout', 'vance_hold']);   // lines the game no longer uses
+const used = new Set(['vance_strap', 'vance_moveout', 'vance_hold']);   // lines the game no longer uses
 const VOICE = only && ALL.some(v => v.k === only) ? ALL.filter(v => v.k === only) : qs.has('todo') ? ALL.filter(v => !have[v.k] && !used.has(v.k)) : ALL;   // ?line=<key> records one line; ?todo shows only lines not recorded yet
 const $ = id => document.getElementById(id), rec = {}; let stream = null, mr = null, chunks = [], recK = null, cur = 0, an = null;
 const ext = t => /ogg/.test(t) ? 'ogg' : /mp4|aac|m4a/.test(t) ? 'm4a' : 'webm';

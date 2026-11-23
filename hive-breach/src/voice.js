@@ -53,6 +53,9 @@ export const VOICE = [
   { k: 'marine_hurt', who: 'Marine', text: 'I\'m hit!', re: /(?!)/, bark: 1 },
   { k: 'marine_ammo', who: 'Marine', text: 'I need ammo!', re: /(?!)/, bark: 1 },
   { k: 'marine_mandown', who: 'Marine', text: 'Man down!', re: /(?!)/, bark: 1 },
+  // the opening, added later
+  { k: 'hale_godspeed', who: 'General Hale', text: 'Godspeed, marines. Bring that queen down.', re: /^General Hale: Godspeed, marines/ },
+  { k: 'vance_seal', who: 'Commander Vance', text: 'Pod sealed. Harnesses locked. Ten seconds.', re: /Pod sealed\. Harnesses locked/ },
   // the end
   { k: 'vance_victory', who: 'Commander Vance', text: 'The queen is dead! Outstanding work, marines. Extraction is inbound.', re: /The queen is dead!/ },
 ];

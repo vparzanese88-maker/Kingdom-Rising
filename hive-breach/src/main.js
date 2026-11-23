@@ -58,7 +58,7 @@ const SET = { quality: 'medium', fov: 75, fps: false, invert: false, zoomSens: 1
 function saveSettings() { try { localStorage.setItem('hb-set', JSON.stringify(SET)); localStorage.setItem('hb-keys5', JSON.stringify(KB)); } catch (e) { } }
 function applyQuality() { const q = SET.quality; renderer.setPixelRatio(Math.min(q === 'low' ? 0.75 : q === 'high' ? 1.75 : 1.25, devicePixelRatio)); resize(); if (G.W) G.W.sun.castShadow = q !== 'low'; G.maxParts = q === 'low' ? 120 : q === 'high' ? 320 : 220; }
 const G = { pings: [], on: false, mode: 'solo', myId: 'me', name: 'Marine', cls: 'assault', map: 'mars', W: null, sim: null, net: null, snap: null, out: [], time: 0, shop: false, me: null };
-window.G = G; G.M = M; G.veh = { vtol: vtolModel, rover: roverModel }; G.bloodTest = (...a) => bloodHit(...a); G.setSlot = n => setSlot(n); G.turretMuzzle = turretMuzzle; G.renderer = renderer; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
+window.G = G; G.M = M; G.veh = { vtol: vtolModel, rover: roverModel }; G.bloodTest = (...a) => bloodHit(...a); G.setSlot = n => setSlot(n); G.hitAliens = hitAliens; G.viewA = () => view.aliens; G.turretMuzzle = turretMuzzle; G.renderer = renderer; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } };
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
@@ -585,7 +585,7 @@ function aimRay(spread = 0) {
 }
 // nearest alien along a ray, using a sphere per alien
 const HEAD = { mite: [0.6, 0.55, 0.2], crawler: [1.1, 1.0, 0.32], spitter: [0.62, 2.15, 0.3], brute: [1.3, 1.3, 0.55], flyer: [0.7, 0.05, 0.25], ravager: [1.3, 1.3, 0.55], queen: [1.0, 5.8, 0.7] };
-function sphereHit(o, d, cx, cy, cz, r) { const ox = cx - o.x, oy = cy - o.y, oz = cz - o.z, t = ox * d.x + oy * d.y + oz * d.z; if (t < 0) return -1; const d2 = ox * ox + oy * oy + oz * oz - t * t; return d2 > r * r ? -1 : t - Math.sqrt(r * r - d2); }
+function sphereHit(o, d, cx, cy, cz, r) { const ox = cx - o.x, oy = cy - o.y, oz = cz - o.z, t = ox * d.x + oy * d.y + oz * d.z; if (ox * ox + oy * oy + oz * oz < r * r) return 0; /* point-blank: the muzzle is already inside the alien, so it's a hit */ if (t < 0) return -1; const d2 = ox * ox + oy * oy + oz * oz - t * t; return d2 > r * r ? -1 : t - Math.sqrt(r * r - d2); }
 function hitAliens(o, d, maxD) {
   const out = [];
   for (const v of (G.explore && G.ex ? G.ex.wild : view.aliens.values())) {
@@ -605,7 +605,7 @@ function hitAlien(o, d, maxD) {
   let best = null, bt = maxD;
   for (const v of view.aliens.values()) {
     const A = ALIENS[v.type], big = v.type === 'ravager' ? 1.7 : 1, r = A.r * 1.15, cy = v.y + (A.fly ? 0 : A.h * 0.6 * big);
-    const ox = v.x - o.x, oy = cy - o.y, oz = v.z - o.z, t = ox * d.x + oy * d.y + oz * d.z; if (t < 0) continue;
+    const ox = v.x - o.x, oy = cy - o.y, oz = v.z - o.z, t = ox * d.x + oy * d.y + oz * d.z; if (ox * ox + oy * oy + oz * oz < r * r) { best = v; bt = 0; break; } if (t < 0) continue;
     const d2 = ox * ox + oy * oy + oz * oz - t * t; if (d2 > r * r) continue; const th = t - Math.sqrt(r * r - d2); if (th < bt) { bt = th; best = v; }
   }
   return best ? { v: best, t: bt } : null;

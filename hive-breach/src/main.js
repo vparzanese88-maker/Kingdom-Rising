@@ -1168,7 +1168,7 @@ function hud(dt, S) {
   setT('slotName', G.me.place ? TURRETS[G.me.place].name : sp && G.time - (G.spT ?? -9) < 3 ? SPECIALS[sp].name : (wpn.find(w => w[3] === G.me.slot) || wpn[0])[0]); if (sp !== G.lastSp) { G.lastSp = sp; G.spT = G.time; }
   $('roundsBar').style.width = (G.me.slot <= 1 ? Math.min(100, G.me.ammo / st.mag * 100) : 0) + '%';
   { // in the hub: show everything restocking, with what's full and what's still coming in
-    const rs = $('restock'), inHub = !G.explore && G.W && G.W.T.hubAt(G.me.x, G.me.z);
+    const rs = $('restock'), inHub = !G.explore && !my.drive && G.W && G.W.T.hubAt(G.me.x, G.me.z);
     if (!inHub) rs.hidden = true; else { const st = stats(), C0 = CLASSES[G.cls], rows = [['Ammo', Math.floor(G.me.reserve), st.reserve], ['Turret kits', my.kits ?? 2, 2], [C0.throw.name + 's', my.items ?? 0, C0.throw.n], ['Field dressings', my.dr ?? 2, 2]]; if (my.hp < my.mhp) rows.unshift(['Health', Math.round(my.hp), my.mhp]);
       const busy = rows.some(r => r[1] < r[2]); rs.hidden = false; rs.innerHTML = `<h4>${busy ? 'HUB · RESTOCKING' : 'HUB · ALL STOCKED'}</h4>` + rows.map(([n, v, mx]) => `<div><span>${n}</span><span class="${v >= mx ? 'full' : 'chg'}">${v >= mx ? 'FULL' : v + ' / ' + mx}</span></div>` + (v < mx ? `<div class="bar"><i style="width:${Math.round(v / mx * 100)}%"></i></div>` : '')).join(''); } }
   { const sb = $('stamBar'); if (sb) { sb.style.width = (G.me.stam ?? 100) + '%'; sb.classList.toggle('tired', !!G.me.tired); } }

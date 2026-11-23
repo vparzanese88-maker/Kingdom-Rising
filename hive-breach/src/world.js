@@ -87,7 +87,7 @@ export function makeTerrain(D, path, hubP, hiveP) {
     if (r > HUB_R - WALL_T - RAMP_W && r <= HUB_R - WALL_T) for (const p of H.ramps) { const f = ad(a, p.a0) / (p.a1 - p.a0); if (f >= 0 && f <= 1) return { ramp: 1, h: H.y + WALL_H * f }; }
     return r < HUB_R - WALL_T ? { yard: 1 } : null; };
   T.plats = []; T.stairs = [];
-  const onStructs = (x, z, y) => { let best = -1e9; for (const p of T.plats) if (Math.abs(x - p.x) < p.hw && Math.abs(z - p.z) < p.hw && y >= p.y - 1.6) best = Math.max(best, p.y);
+  const onStructs = (x, z, y) => { let best = -1e9; for (const p of T.plats) { let ux = x - p.x, uz = z - p.z; if (p.cx !== undefined) { const u = ux * p.cx + uz * p.cz; uz = -ux * p.cz + uz * p.cx; ux = u; }   /* a platform can be turned (the hub's landing pad) */ if (Math.abs(ux) < p.hw && Math.abs(uz) < p.hw && y >= p.y - 1.6) best = Math.max(best, p.y); }
     for (const st of T.stairs) { const dx = x - st.x, dz = z - st.z, u = dx * st.cx + dz * st.cz, v = -dx * st.cz + dz * st.cx; if (u >= 0 && u <= st.len && Math.abs(v) < st.hw) { const hh = st.y0 + (st.y1 - st.y0) * u / st.len; if (y >= hh - 1.3) best = Math.max(best, hh); } } return best; };
   T.onStructs = onStructs;
   // walking height at (x, z) for something now at height y (so you can be on a bridge or under it, on a tunnel roof or inside)
@@ -325,13 +325,34 @@ function buildCompound(g, H, W) {
     const body = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.6, WALL_H + 5, 8), wallM); body.position.y = (WALL_H + 5) / 2; body.castShadow = true; t.add(body);
     const top = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.2, 1.2, 8), dark); top.position.y = WALL_H + 5.6; t.add(top); const l = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), lamp); l.position.y = WALL_H + 6.6; t.add(l);
     W.colliders.push({ x: H.x + x, z: H.z + z, r: 2.6 }); }
-  // inside: ammo crates by the spawn, a landing pad, barracks
-  const back = H.ga + Math.PI, ax = Math.cos(back) * 9, az = Math.sin(back) * 9;
-  { const cg = M.AS.propGLB('crate', () => 0.5); if (cg) { cg.position.set(ax - Math.sin(back) * 3, 0, az + Math.cos(back) * 3); C.add(cg); } }
-  if (!M.AS.A.l_crates) for (let i = 0; i < 6; i++) { const cr = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 0.9), M.mat(0x4a5a3a, { r: 0.8 })); cr.position.set(ax + (i % 3 - 1) * 1.3 - Math.sin(back) * 3, 0.45 + (i >= 3 ? 0.9 : 0), az + (i % 3 - 1) * 1.3 * 0 + Math.cos(back) * 3); cr.castShadow = true; C.add(cr); const st2 = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.15, 0.92), stripe); st2.position.copy(cr.position); C.add(st2); }
-  const pad = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.2, 24), dark); pad.position.set(Math.cos(back + 1.3) * 15, 0.1, Math.sin(back + 1.3) * 15); C.add(pad);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(4, 4.4, 32), M.mat(0xffc020, { e: 0x806000, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.set(pad.position.x, 0.22, pad.position.z); C.add(ring);
-  for (const da of [-1.4, 1.6]) { const a = back + da, x = Math.cos(a) * 15.5, z = Math.sin(a) * 15.5, bk = GL('h_barracks', 'w', 7.4); if (bk) { bk.position.set(x, 0, z); bk.rotation.y = -a + Math.PI / 2; C.add(bk); W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.2 }); continue; } const b = new THREE.Mesh(new THREE.BoxGeometry(7, 3.4, 4.5), wallM); b.position.set(x, 1.7, z); b.rotation.y = -a; b.castShadow = true; C.add(b); const roof = new THREE.Mesh(new THREE.BoxGeometry(7.3, 0.4, 4.8), dark); roof.position.set(x, 3.6, z); roof.rotation.y = -a; C.add(roof); W.colliders.push({ x: H.x + x, z: H.z + z, r: 3.4 }); }
+  // inside, everything has a job: the reactor (the hub's life), the comms console (B), the teleporter pad, the reinforcement landing pad with its stairs,
+  // and three marked vehicle bays. (No barracks or crates standing around for show.)
+  const back = H.ga + Math.PI, T = W.T;
+  // the landing pad: a raised deck on pillars on one flank where the reinforcement dropships set down; wide stairs run down toward the gate
+  { const PAD_H = 6.5, hw = 5.2, ap = back + 1.85, er = [Math.cos(ap), Math.sin(ap)], et = [-Math.sin(ap), Math.cos(ap)], px = er[0] * 15, pz = er[1] * 15, top = PAD_H;
+    const pg = new THREE.Group(); pg.position.set(px, 0, pz); pg.rotation.y = -ap; C.add(pg);   /* local x runs out from the hub centre, local z along the wall toward the gate */
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(hw * 2, 0.5, hw * 2), M.mat(0x4a525a, { m: 0.5, r: 0.5 })); deck.position.y = top - 0.25; deck.castShadow = deck.receiveShadow = true; pg.add(deck);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(3.3, 3.8, 40), M.mat(0xffc020, { e: 0x805000, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.y = top + 0.02; pg.add(ring);
+    for (const [w, d, x, z] of [[0.5, 3.2, -0.9, 0], [0.5, 3.2, 0.9, 0], [1.3, 0.5, 0, 0]]) { const hb = new THREE.Mesh(new THREE.BoxGeometry(w, 0.02, d), M.mat(0xffffff, { e: 0x606060 })); hb.position.set(x, top + 0.03, z); pg.add(hb); }   /* the white H */
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const pl = new THREE.Mesh(new THREE.BoxGeometry(0.8, top - 0.5, 0.8), dark); pl.position.set(sx * (hw - 0.6), (top - 0.5) / 2, sz * (hw - 0.6)); pl.castShadow = true; pg.add(pl); const lt = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), sx > 0 ? red : lamp); lt.position.set(sx * (hw - 0.3), top + 0.2, sz * (hw - 0.3)); pg.add(lt);
+      const wx = H.x + px + er[0] * sx * (hw - 0.6) + et[0] * sz * (hw - 0.6), wz = H.z + pz + er[1] * sx * (hw - 0.6) + et[1] * sz * (hw - 0.6); W.colliders.push({ x: wx, z: wz, r: 0.6, h: top }); }
+    // railings on three sides (the stair side is open)
+    for (const [len, x, z, ry] of [[hw * 2, hw - 0.05, 0, 0], [hw * 2, -hw + 0.05, 0, 0], [hw * 2, 0, -hw + 0.05, Math.PI / 2]]) { const r1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, len), stripe); r1.position.set(x, top + 1.0, z); r1.rotation.y = ry; pg.add(r1); for (let k = -2; k <= 2; k++) { const po = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 0.08), dark); if (ry) po.position.set(k * hw / 2.2, top + 0.5, z); else po.position.set(x, top + 0.5, k * hw / 2.2); pg.add(po); } }
+    T.plats.push({ x: H.x + px, z: H.z + pz, hw, y: H.y + top, cx: er[0], cz: er[1] });
+    // the stairs: 5 m wide, from the pad's gate-side edge down to the yard
+    const SL = 10, sw = 2.5, sx0 = px + et[0] * hw - er[0] * 1.5, sz0 = pz + et[1] * hw - er[1] * 1.5, n = 16;
+    for (let k = 0; k < n; k++) { const h = top * (1 - (k + 1) / n) + 0.25, st = new THREE.Mesh(new THREE.BoxGeometry(sw * 2, Math.max(0.3, h), SL / n + 0.04), k % 2 ? wallM : dark); st.position.set(-1.5, Math.max(0.3, h) / 2, hw + (k + 0.5) * SL / n); st.castShadow = st.receiveShadow = true; pg.add(st); }
+    for (const sd of [-1, 1]) { const rl = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, Math.hypot(SL, top)), stripe); rl.position.set(-1.5 + sd * (sw - 0.05), top / 2 + 1.0, hw + SL / 2); rl.rotation.x = Math.atan2(top, SL); pg.add(rl); }
+    T.stairs.push({ x: H.x + sx0, z: H.z + sz0, cx: et[0], cz: et[1], len: SL, hw: sw, y0: H.y + top, y1: H.y });
+    W.lpad = { x: H.x + px, z: H.z + pz, y: H.y + top, et, er, top: { x: H.x + sx0 - et[0] * 1.2, z: H.z + sz0 - et[1] * 1.2 }, bottom: { x: H.x + sx0 + et[0] * (SL + 1.5), z: H.z + sz0 + et[1] * (SL + 1.5) } }; }
+  // three vehicle bays on the other flank, marked on the ground, one per vehicle
+  { const cv = document.createElement('canvas'); W.bays = {};
+    for (const [k, da, r, w, l] of [['quad', -1.35, 17, 3.4, 5], ['truck', -1.75, 15.5, 4.4, 9], ['vtol', -2.45, 15.5, 12, 14]]) { const a = back + da, x = Math.cos(a) * r, z = Math.sin(a) * r, et = [-Math.sin(a), Math.cos(a)], ry = Math.atan2(-(-et[0]), -(-et[1]));   /* parked nose toward the gate */
+      W.bays[k] = { x: H.x + x, z: H.z + z, ry };
+      const bg = new THREE.Group(); bg.position.set(x, 0.04, z); bg.rotation.y = ry; C.add(bg);
+      for (const [bw, bd, bx, bz] of [[w, 0.18, 0, l / 2], [w, 0.18, 0, -l / 2], [0.18, l, w / 2, 0], [0.18, l, -w / 2, 0]]) { const ln = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.03, bd), stripe); ln.position.set(bx, 0, bz); bg.add(ln); }
+      const c2 = document.createElement('canvas'); c2.width = 256; c2.height = 64; const g2 = c2.getContext('2d'); g2.fillStyle = '#ffc020'; g2.font = 'bold 44px sans-serif'; g2.textAlign = 'center'; g2.fillText({ quad: 'QUAD', truck: 'TRUCK', vtol: 'VTOL' }[k], 128, 48);
+      const lab = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(w * 0.8, 3.2), Math.min(w * 0.8, 3.2) / 4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c2), transparent: true, depthWrite: false })); lab.rotation.x = -Math.PI / 2; lab.position.set(0, 0.03, l / 2 - 0.9); bg.add(lab); } void cv; }
   // the comms building: recruitment console out front
   { const a = back - 0.55, x = Math.cos(a) * 17.5, z = Math.sin(a) * 17.5, hc = GL('h_comms', 'w', 7); if (hc) { hc.position.set(x, 0, z); hc.rotation.y = -a + Math.PI / 2; C.add(hc); } else { const b = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 5), wallM); b.position.set(x, 2, z); b.rotation.y = -a; b.castShadow = true; C.add(b); }
     if (!hc) { const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 9, 6), dark); mast.position.set(x, 8, z); C.add(mast); const dsh = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 6, 0, 6.29, 0, 1), M.mat(0xd8dde2, { ds: true })); dsh.position.set(x + 1.5, 4.8, z); dsh.rotation.x = 2.1; C.add(dsh); }

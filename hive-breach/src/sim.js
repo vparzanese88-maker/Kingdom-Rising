@@ -199,7 +199,8 @@ export class Sim {
   inSandbags(x, z) { return this.turrets.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - x, t.z - z) < TURRETS.sandbag.range) || (this.W.bags || []).some(b => Math.hypot(b.x - x, b.z - z) < 3.6); }   // a built bunker, or any sandbag wall on the map
   hurtPlayer(p, d, by) {
     if (p.dead || p.ride) return;   /* nothing touches a marine riding the gunship */
-    if (p.drive) { const v = this.vehs.find(q => q.id === p.drive); if (v) { v.hp -= d; if (v.hp <= 0) this.wreckVeh(v); return; } p.drive = 0; }   // the vehicle takes the hits for its driver if (this.inSandbags(p.x, p.z)) d *= 0.5; for (const dm of this.domes) if (Math.hypot(p.x - dm.x, p.z - dm.z) < dm.r) return; for (const q of this.players.values()) if (q !== p && !q.dead && q.cls === 'heavy' && Math.hypot(q.x - p.x, q.z - p.z) < 12) { d *= 0.8; break; } p.hp -= d * (p.buf.iron > 0 ? 0.4 : 1) * (p.buf.nano > 0 ? 0.6 : 1); if (by) this.emit({ k: 'hitp', to: p.id, x: +by.x.toFixed(1), z: +by.z.toFixed(1) });
+    if (p.drive) { const v = this.vehs.find(q => q.id === p.drive); if (v) { v.hp -= d; if (v.hp <= 0) this.wreckVeh(v); return; } p.drive = 0; }   /* the vehicle takes the hits for its driver */
+    if (this.inSandbags(p.x, p.z)) d *= 0.5; for (const dm of this.domes) if (Math.hypot(p.x - dm.x, p.z - dm.z) < dm.r) return; for (const q of this.players.values()) if (q !== p && !q.dead && q.cls === 'heavy' && Math.hypot(q.x - p.x, q.z - p.z) < 12) { d *= 0.8; break; } p.hp -= d * (p.buf.iron > 0 ? 0.4 : 1) * (p.buf.nano > 0 ? 0.6 : 1); if (by) this.emit({ k: 'hitp', to: p.id, x: +by.x.toFixed(1), z: +by.z.toFixed(1) });
     if (p.hp <= 0) { p.hp = 0; p.dead = true; p.rt = 7; this.emit({ k: 'toast', m: p.name + ' is down! Back in 7 seconds.' }); }
   }
   hurtTurret(t, d, by) { if (t.carry) d *= 2; t.hp -= d; if (by && this.time - (t.warned || -99) > 5) { t.warned = this.time; this.emit({ k: 'tatk', id: t.id, o: t.owner, kind: t.kind, x: t.x, z: t.z }); } if (t.hp <= 0) { this.turrets = this.turrets.filter(q => q !== t); this.emit({ k: 'boom', x: t.x, y: 1, z: t.z, r: 2.5 }); this.emit({ k: 'say', to: t.owner, m: `Your ${TURRETS[t.kind].name} was destroyed.` }); } }
@@ -388,6 +389,7 @@ export class Sim {
     for (const t of this.turrets) {
       if (t.carry) { t.tg = 0; continue; }
       // building and upgrading take time; a new turret does nothing until it is finished, an upgrading one keeps its old level
+      if (t.fresh && !(t.b > 0)) { t.fresh = false; this.emit({ k: 'built', id: t.id, x: t.x, z: t.z, o: t.owner, kind: t.kind }); }   /* turrets with no build time were stuck 'under construction' forever: that blocked welding upgrades */
       if (t.b > 0) { t.b -= dt; if (t.b <= 0) { t.b = 0; if (t.fresh) { t.fresh = false; this.emit({ k: 'built', id: t.id, x: t.x, z: t.z, o: t.owner, kind: t.kind }); } if (t.next) { t.lvl = t.next; t.next = 0; const k = TURRETS[t.kind].hp * (1 + 0.4 * (t.lvl - 1)); t.hp += k - t.mhp; t.mhp = k; this.emit({ k: 'upg', id: t.id }); } } t.tg = 0; continue; }
       t.oc = Math.max(0, (t.oc || 0) - dt); t.od = Math.max(0, (t.od || 0) - dt);
       const st = tStat(t); st.rate *= (t.oc > 0 ? 1.6 : 1) * (t.od > 0 ? 2 : 1); t.cd -= dt; t.tg = 0;

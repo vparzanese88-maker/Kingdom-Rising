@@ -111,7 +111,7 @@ export class Sim {
     } else if (r.a === 'repair') {
       // the welding torch: a short laser that repairs turrets, welds on free upgrades, and burns aliens; it always draws power while lit
       const eng = p.cls === 'engineer', dt = Math.min(0.5, +r.dt || 0), pm = pwMax(p.cls), reach = eng ? 8 : 6;
-      p.pw = Math.min(pm, p.pw ?? pm);   /* power is only used up cutting salvage; repairs and upgrades are free */
+      p.pw = pm;   /* the welder always works */
       const hp = Array.isArray(r.hp) && r.hp.length === 3 && r.hp.every(Number.isFinite) && Math.hypot(r.hp[0] - p.x, r.hp[2] - p.z) < reach + 4 ? r.hp.map(v => +v.toFixed(2)) : null;   // where the beam lands (the crosshair)
       if (r.k === 'n') { // building (or repairing) a resource extractor for the commander
         const i = r.id | 0, nd = (this.W.nodes || [])[i], S = this.nodeS[i]; if (!nd || !S || Math.hypot(nd.x - p.x, nd.z - p.z) > reach + nd.r + 1.5) return;
@@ -121,7 +121,7 @@ export class Sim {
       }
       if (r.k === 'w') { // cutting scrap parts out of a wreck (carry them back to the hub: the commander builds vehicles from them); now and then something nesting inside wakes up
         const i = r.id | 0, w = (this.W.salvage || [])[i]; if (!w || Math.hypot(w.x - p.x, w.z - p.z) > reach + w.r + 1.5) return;
-        if (p.pw <= 0) { if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say('Welder power is empty: recharge it in the hub (repairs and upgrades still work).'); } return; } p.pw = Math.max(0, p.pw - 4 * dt);   /* cutting salvage drains the welder */ this.salv = this.salv || (this.W.salvage || []).map(q => q.amt);
+        /* the welder always works: no power to run out */ this.salv = this.salv || (this.W.salvage || []).map(q => q.amt);
         if ((this.salv[i] || 0) <= 0) { if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say(`Nothing left to cut from this ${w.name}. Find another wreck.`); } return; }
         const got = Math.min(this.salv[i], (eng ? 9 : 5) * dt); this.salv[i] -= got; p.scrap = (p.scrap || 0) + got; p.salvF = (p.salvF || 0) + got;
         if (p.salvF >= 1 || this.salv[i] <= 0) { this.emit({ k: 'salvage', to: p.id, n: Math.floor(p.salvF), w: i, left: Math.ceil(this.salv[i]) }); p.salvF -= Math.floor(p.salvF); }

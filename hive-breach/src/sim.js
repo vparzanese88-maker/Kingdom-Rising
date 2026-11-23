@@ -116,9 +116,8 @@ export class Sim {
       if (t && Math.hypot(t.x - p.x, t.z - p.z) < reach + 1.5) {
         if (t.hp < t.mhp) { t.hp = Math.min(t.mhp, t.hp + (eng ? 81 : 27) * dt); }
         else if (t.lvl < 3 && !t.fresh && !t.carry) {
-          // scrap burns as the weld goes on: no up-front cost, the weld just stops when you run out
-          let dp = dt / (12 + 6 * t.lvl) * (eng ? 3 : 1);   // a long weld: 18 s to level 2, 24 s to level 3 (the Engineer 3x faster) const cost = SCRAP_COST[t.lvl] || 30, need = cost * dp;
-          if ((p.scrap || 0) < need) { if ((p.scrap || 0) <= 0.001) { p.scrap = 0; if (this.time - (p.upgSay || -9) > 3) { p.upgSay = this.time; say('Out of scrap: the weld stops. Weld wrecks lying around the map (tanks, satellites, crashed ships, debris) to cut more.'); } return; } dp *= p.scrap / need; p.scrap = 0; } else p.scrap -= need;
+          // welding on an upgrade: it only takes time
+          const dp = dt / (12 + 6 * t.lvl) * (eng ? 3 : 1);   /* a long weld: 18 s to level 2, 24 s to level 3 (the Engineer 3x faster); no scrap */
           if (!t.next) { t.next = t.lvl + 1; t.up = 0; this.emit({ k: 'upgstart', id: t.id, by: id, x: t.x, z: t.z }); }
           t.up = (t.up || 0) + dp;
           if (t.up >= 1) { t.lvl = t.next; t.next = 0; t.up = 0; const k = TURRETS[t.kind].hp * (1 + 0.4 * (t.lvl - 1)); t.hp += k - t.mhp; t.mhp = k; this.emit({ k: 'upg', id: t.id, lvl: t.lvl, x: t.x, z: t.z }); }
@@ -499,7 +498,7 @@ export class Sim {
       }
       else if (ph === 4) { r.x = r.px; r.z = r.pz; r.y = r.gy + 0.6; for (const id of r.riders) { const q = this.players.get(id); if (q && q.ride === r.id) { q.ride = 0; this.emit({ k: 'unboard', to: id, x: r.x + Math.cos(r.ry) * 3.2 * (r.riders.indexOf(id) ? 1 : -1), z: r.z - Math.sin(r.ry) * 3.2 * (r.riders.indexOf(id) ? 1 : -1) }); } } r.riders = r.riders.filter(id => { const q = this.players.get(id); return q && q.ride === r.id; }); }
       else if (ph === 5) { const f = (r.t - 45) / 6; r.y = r.gy + 0.6 + f * f * 70; r.x -= Math.sin(r.ry) * dt * f * 30; r.z -= Math.cos(r.ry) * dt * f * 30; }
-      for (const id of r.riders) { const q = this.players.get(id); if (!q || q.dead) continue; const s = r.riders.indexOf(id); q.x = r.x + Math.cos(r.ry) * (s ? 1.6 : -1.6); q.z = r.z - Math.sin(r.ry) * (s ? 1.6 : -1.6); q.y = r.y + 0.9; }
+      for (const id of r.riders) { const q = this.players.get(id); if (!q || q.dead) continue; const s = r.riders.indexOf(id); q.x = r.x + Math.cos(r.ry) * (s ? 2.6 : -2.6); q.z = r.z - Math.sin(r.ry) * (s ? 2.6 : -2.6); q.y = r.y + 0.9; }
     }
     if (this.rides.some(r => r.ph >= 6)) { for (const r of this.rides) if (r.ph >= 6) for (const id of r.riders) { const q = this.players.get(id); if (q) q.ride = 0; } this.rides = this.rides.filter(r => r.ph < 6); }
   }

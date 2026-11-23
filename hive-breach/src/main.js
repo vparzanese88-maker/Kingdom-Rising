@@ -867,7 +867,7 @@ function lookTurret(S) {
 function rideGun(dt, S, my, rd) {
   const me = G.me, sd = rd.riders.indexOf(G.myId) ? 1 : -1, live = locked() && !G.shop;
   if (!me.riding) { me.riding = rd.id; me.yaw = rd.ry - sd * Math.PI / 2; me.pitch = -0.3; me.dspin = 0; me.dcd = 0; banner('GUNSHIP', 'Left click works the door minigun · unlimited ammo · it sets you down when the run is over'); audio.sfx('rotor', 0.9); }
-  me.x = rd.x + Math.cos(rd.ry) * 1.6 * sd; me.z = rd.z - Math.sin(rd.ry) * 1.6 * sd; me.y = rd.y + 0.3; me.vy = 0; me.kh = 0; me.rel = 0; me.prone = me.kneel = false;
+  me.x = rd.x + Math.cos(rd.ry) * 2.6 * sd; me.z = rd.z - Math.sin(rd.ry) * 2.6 * sd; me.y = rd.y + 0.3; me.vy = 0; me.kh = 0; me.rel = 0; me.prone = me.kneel = false;
   for (const k of ['gun', 'pistol', 'tool', 'thr', 'extra', 'dress', 'healer']) if (view2[k]) view2[k].visible = false; if (view2.hand) view2.hand.visible = false; $('weld').hidden = true;
   if (!view2.door) { view2.door = M.gunModel('gunner', CLASSES.gunner.color); view2.door.scale.setScalar(0.85); view2.door.traverse(o => { o.castShadow = false; }); camera.add(view2.door); }
   const dg = view2.door; dg.visible = true; const sh = (rd.ph === 2 ? 0.02 : 0.01) + (me.dspin || 0) * 0.012;

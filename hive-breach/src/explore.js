@@ -501,10 +501,10 @@ export function dropIntro(H, squad, done) {
       if (t > -0.6) once('o4', () => H.fade(true));
       if (t < -8) { // inside the hangar: roaming shots, marines sprinting to the pods
         hg.visible = true; const H0 = hg.position, P3 = (x, y, z) => V(H0.x + x, H0.y + y, H0.z + z), e = f => f * f * (3 - 2 * f); let cp, cl;
-        for (const r of hg.userData.run) { const m = r.m, d = V(r.to.x - m.position.x, 0, r.to.z - m.position.z), dl = d.length(); if (t < -15.5 + r.ph * 0.15) { M.animMarine(m, 0, 0, { near: 1 }); continue; } if (dl > 0.4) { const st2 = Math.min(dl, r.sp * dt); m.position.addScaledVector(d.normalize(), st2); m.rotation.y = Math.atan2(-d.x, -d.z); r.ph += dt * r.sp * 1.6; M.animMarine(m, r.ph, r.sp, { near: 1 }); }   /* always fully animated in a cinematic shot */ else { m.visible = false; } }   /* in through the hatch */
+        for (const r of hg.userData.run) { const m = r.m, d = V(r.to.x - m.position.x, 0, r.to.z - m.position.z), dl = d.length(); if (t < -13.6 + r.ph * 0.12) { M.animMarine(m, 0, 0, { near: 1 }); continue; } if (dl > 0.4) { const st2 = Math.min(dl, r.sp * dt); m.position.addScaledVector(d.normalize(), st2); m.rotation.y = Math.atan2(-d.x, -d.z); r.ph += dt * r.sp * 1.6; M.animMarine(m, r.ph, r.sp, { near: 1 }); }   /* always fully animated in a cinematic shot */ else { m.visible = false; } }   /* in through the hatch */
         if (t < -14.5) { const f = e((t + 18) / 3.5); cp = P3(2.5, 2.2 + f, L(-29, -12, f)); cl = P3(-6, 2.4, L(-24, -6, f)); }   /* down the bay past the VTOLs and the missile racks */
         else if (t < -12) { const f = e((t + 14.5) / 2.5); cp = P3(-10.6, 2.8, L(8, 18.5, f)); cl = P3(-13.5, 2.7, L(10, 20, f)); }   /* along the weapons rack */
-        else if (t < -10) { const f = e((t + 12) / 2); cp = P3(L(-4, -1, f), 3.2, L(-6, 0, f)); cl = P3(7, 2, L(8, 18, f)); }   /* marines sprinting for the pods */
+        else if (t < -10) { const f = e((t + 12) / 2); cp = P3(-5, 2.4, L(-25, -12, f)); cl = P3(4, 1.5, L(-8, 10, f)); }   /* behind the marines as they sprint for the pods */
         else { const f = e((t + 10) / 2); cp = P3(L(9, 11.6, f), 7, L(-1, 1, f)); cl = P3(60, L(-30, -40, f), 2); }   /* out the window: the stars and the planet's curve */
         camera.position.copy(cp); camera.lookAt(cl); A.rumble(0.03); requestAnimationFrame(step); return;
       }

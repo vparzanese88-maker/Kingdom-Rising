@@ -211,10 +211,16 @@ export const BOUNDS = 180;
 // Marines the hub sends down the track toward the hive. Trooper is free; the others are unlocked in the armory.
 // vehicles the commander builds from scrap parts handed in at the hub; marines drive them out of the hub (E to get in and out)
 export const VEHICLES = {
-  truck: { name: 'Gun Truck', parts: 60, hp: 1600, text: 'Fast armoured truck with a .50 cal that follows your aim.' },
-  tank: { name: 'Battle Tank', parts: 150, hp: 5000, text: 'Slow and almost unstoppable: a cannon that blows packs apart.' },
-  vtol: { name: 'VTOL Gunship', parts: 240, hp: 2600, text: 'Fly over the battlefield with twin door miniguns (jump climbs, crouch descends).' },
+  // unlock: harvested material needed before the commander can build it (harvesters pull it from the ground; then it still costs scrap parts)
+  // mounts: the fixed turret spots on each vehicle, [right, up, back] in metres from its centre (the nose points forward); turrets only go on these
+  quad: { name: 'Quad Bike', unlock: 90, parts: 50, hp: 1300, text: 'Fast four-wheeler with a platform on the back for 1 turret.', mounts: [[0, 1.55, 1.3]] },
+  truck: { name: 'Gun Truck', unlock: 360, parts: 130, hp: 2600, text: 'Armoured truck with a .50 cal that follows your aim and a flatbed for 2 turrets.', mounts: [[0, 1.75, 1.25], [0, 1.75, 2.7]] },
+  vtol: { name: 'VTOL Gunship', unlock: 900, parts: 240, hp: 2600, text: 'Flies (jump climbs, crouch descends), twin door miniguns and 3 turret mounts.', mounts: [[-5.4, -0.85, 0.2], [5.4, -0.85, 0.2], [0, 0.15, 3.1]] },
 };
+// only gun turrets ride on a vehicle mount (no walls, bunkers, beacons, pads or mines)
+export const mountable = k => { const T = TURRETS[k]; return !!T && T.key === 'sentry' && !T.onPath && !T.mine; };
+// where mount i of vehicle v sits in the world (v: {kind, x, y, z, ry})
+export function mountAt(v, i) { const m = VEHICLES[v.kind] && VEHICLES[v.kind].mounts[i]; if (!m) return null; const c = Math.cos(v.ry), s = Math.sin(v.ry); return { x: v.x + m[0] * c + m[2] * s, y: v.y + m[1], z: v.z - m[0] * s + m[2] * c }; }
 export const ALLIES = {
   pulsesynth: { name: 'Pulse Synth', hp: 650, dmg: 24, rate: 4, range: 20, speed: 5.6, color: 0x8a2020, gun: 'assault', model: 'synth', weapon: 'pulse', unlock: 0, text: 'A chrome robot soldier with a pulse rifle.' },
   flamesynth: { name: 'Flame Synth', hp: 760, dmg: 9, rate: 10, range: 8, speed: 5.8, color: 0xb04020, gun: 'engineer', model: 'synth', weapon: 'flame', flame: 1, unlock: 0, text: 'A robot soldier that burns everything close with a flamethrower.' },

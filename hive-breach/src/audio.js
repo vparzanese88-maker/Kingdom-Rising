@@ -77,6 +77,35 @@ export class Audio {
     R.g.gain.setTargetAtTime(v * 0.55, t, 0.15); R.g2.gain.setTargetAtTime(v * v * 0.25, t, 0.2); R.lo.frequency.setTargetAtTime(80 + level * 180, t, 0.2); R.bp.frequency.setTargetAtTime(300 + level * 1400 + Math.random() * 200, t, 0.1);
     if (level <= 0 && R) { setTimeout(() => { if (this.rmb === R && R.g.gain.value < 0.01) { try { R.src.stop(); R.src2.stop(); } catch (e) { } this.rmb = null; } }, 2500); }
   }
+  // re-entry: the roar of burning air round the pod (a wide band you hear on any speaker, not just sub-bass), a howling whistle
+  // through the hull seams, and the crackle of the heat shield ablating. Level 0 fades it out.
+  roar(level) {
+    const c = this.ctx; if (!c || !this.out) return; const L = Math.max(0, Math.min(1, level || 0));
+    if (!this.ror) { if (L <= 0) return; const n = c.sampleRate * 3, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); let lp = 0; for (let i = 0; i < n; i++) { lp += (Math.random() * 2 - 1 - lp) * 0.35; d[i] = lp * 2.2; }
+      const mk = (type, f, q) => { const x = c.createBiquadFilter(); x.type = type; x.frequency.value = f; x.Q.value = q; return x; };
+      const s1 = c.createBufferSource(); s1.buffer = b; s1.loop = true; const b1 = mk('bandpass', 420, 0.45), b1b = mk('lowpass', 1800, 0.5), g1 = c.createGain(); g1.gain.value = 0; s1.connect(b1); b1.connect(b1b); b1b.connect(g1); g1.connect(this.out);   /* the roar */
+      const s2 = c.createBufferSource(); s2.buffer = b; s2.loop = true; s2.playbackRate.value = 1.3; const b2 = mk('bandpass', 1400, 9), g2 = c.createGain(); g2.gain.value = 0; s2.connect(b2); b2.connect(g2); g2.connect(this.out);   /* the whistle through the seams */
+      const s3 = c.createBufferSource(); s3.buffer = this.buf(2); s3.loop = true; const b3 = mk('highpass', 2600, 0.7), g3 = c.createGain(); g3.gain.value = 0; s3.connect(b3); b3.connect(g3); g3.connect(this.out);   /* the crackle */
+      s1.start(); s2.start(); s3.start(0, 0.5); this.ror = { g1, g2, g3, b1, b2, s: [s1, s2, s3] }; }
+    const R = this.ror, t = c.currentTime, v = this.vol;
+    R.g1.gain.setTargetAtTime(L * 0.75 * v * (0.85 + Math.random() * 0.3), t, 0.12); R.b1.frequency.setTargetAtTime(260 + L * 520 + Math.random() * 120, t, 0.2);
+    R.g2.gain.setTargetAtTime(L * L * 0.22 * v * (0.6 + 0.4 * Math.sin(t * 1.7) ** 2), t, 0.3); R.b2.frequency.setTargetAtTime(900 + L * 900 + Math.sin(t * 0.9) * 250, t, 0.4);
+    R.g3.gain.setTargetAtTime(Math.random() < L * 0.5 ? L * 0.5 * v * Math.random() : 0.01 * L * v, t, 0.012);   /* sputtering crackle */
+    if (L <= 0) { setTimeout(() => { if (this.ror === R && R.g1.gain.value < 0.01) { try { R.s.forEach(q => q.stop()); } catch (e) { } this.ror = null; } }, 2500); }
+  }
+  // the welding arc, for as long as the beam is on: a mains-hum buzz, the frying sizzle of the arc and sputtering crackle; louder and harsher on contact
+  weld(level) {
+    const c = this.ctx; if (!c || !this.out) return; const L = Math.max(0, Math.min(1, level || 0));
+    if (!this.wld) { if (L <= 0) return; const mk = (type, f, q) => { const x = c.createBiquadFilter(); x.type = type; x.frequency.value = f; x.Q.value = q; return x; };
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 120; const ob = mk('bandpass', 900, 1.2), og = c.createGain(); og.gain.value = 0; o.connect(ob); ob.connect(og); og.connect(this.out);   /* the buzz */
+      const o2 = c.createOscillator(); o2.type = 'square'; o2.frequency.value = 240; const o2b = mk('bandpass', 2400, 3), o2g = c.createGain(); o2g.gain.value = 0; o2.connect(o2b); o2b.connect(o2g); o2g.connect(this.out);
+      const n = c.createBufferSource(); n.buffer = this.buf(2); n.loop = true; const nb = mk('highpass', 3200, 0.7), np = mk('peaking', 5500, 1); np.gain.value = 6; const ng = c.createGain(); ng.gain.value = 0; n.connect(nb); nb.connect(np); np.connect(ng); ng.connect(this.out);   /* the sizzle */
+      o.start(); o2.start(); n.start(0, Math.random()); this.wld = { og, o2g, ng, o, src: [o, o2, n] }; }
+    const W = this.wld, t = c.currentTime, v = this.vol;
+    W.og.gain.setTargetAtTime(L * 0.05 * v, t, 0.03); W.o2g.gain.setTargetAtTime(L * L * 0.018 * v * Math.random(), t, 0.02); W.o.frequency.setTargetAtTime(118 + Math.random() * 6, t, 0.05);
+    W.ng.gain.setTargetAtTime(L > 0 ? v * (0.03 + L * 0.06) * (Math.random() < 0.25 ? 2.2 : 0.6 + Math.random() * 0.6) : 0, t, 0.015);   /* sputter */
+    if (L <= 0) { clearTimeout(W.stopT); W.stopT = setTimeout(() => { if (this.wld === W && W.og.gain.value < 0.003) { try { W.src.forEach(q => q.stop()); } catch (e) { } this.wld = null; } }, 1200); } else clearTimeout(W.stopT);
+  }
   // battlefield ambience: a soft bed of wind that never stops (level 0 fades it out)
   ambient(level) {
     const c = this.ctx; if (!c || !this.out) return;
@@ -177,7 +206,7 @@ export class Audio {
     const c = this.ctx; if (!c || c.state !== 'running' || !(vol >= 0.03) || !this.out) return; if (!STEP[surf]) surf = 'sand';
     const set = this._steps(surf), list = land ? set.l : set.s; let k = (Math.random() * list.length) | 0; if (!land && k === set.last) k = (k + 1) % list.length; if (!land) set.last = k;
     const t0 = c.currentTime, src = c.createBufferSource(); src.buffer = list[k]; src.playbackRate.value = rate * (0.94 + Math.random() * 0.12);
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = lpf; lp.Q.value = 0.5; const g = c.createGain(); g.gain.value = vol * this.vol * (STEP_TRIM[surf] || 1) * (0.85 + Math.random() * 0.3) * (land ? 0.3 : 0.21);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = lpf; lp.Q.value = 0.5; const g = c.createGain(); g.gain.value = vol * this.vol * (STEP_TRIM[surf] || 1) * (0.85 + Math.random() * 0.3) * (land ? 0.14 : 0.085);   /* footsteps sit well under the guns and the music */
     src.connect(lp); lp.connect(g); g.connect(this.out); if (this.verbIn && (surf === 'concrete' || surf === 'metal')) { const sd = c.createGain(); sd.gain.value = 0.05; g.connect(sd); sd.connect(this.verbIn); }
     src.start(t0); this._voice(g, [src], t0 + list[k].duration / src.playbackRate.value, land ? 1 : vol * 0.5);   /* low priority: the first to make room in a firefight */
   }

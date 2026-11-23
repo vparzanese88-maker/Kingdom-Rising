@@ -68,6 +68,7 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 #hubwarn{position:fixed;left:50%;top:14%;transform:translateX(-50%);z-index:14;padding:8px 22px;font:700 clamp(20px,3vw,30px) 'Chakra Petch',monospace;letter-spacing:.12em;color:#fff;background:rgba(150,10,10,.78);border:2px solid #ff5040;box-shadow:0 0 24px rgba(255,40,30,.6);text-align:center;pointer-events:none;animation:hubw .6s steps(2,start) infinite}#hubwarn small{display:block;font-size:.5em;letter-spacing:.08em;color:#ffd0c8}@keyframes hubw{50%{opacity:.35}}
 #restock{position:fixed;left:18px;top:24%;z-index:12;min-width:230px;padding:8px 12px;font:600 14px 'Chakra Petch',monospace;color:#bfeaff;background:rgba(8,16,24,.72);border:1px solid rgba(95,216,255,.35);pointer-events:none}
 #restock h4{margin:0 0 5px;font-size:13px;letter-spacing:.12em;color:#60ff90}#restock div{display:flex;justify-content:space-between;gap:10px;margin:2px 0}#restock .full{color:#60ff90}#restock .chg{color:#ffd060}
+#restock{font-size:15px;min-width:300px;max-width:380px}#restock p{margin:2px 0 6px;font-size:12px;color:#9fb8c8}#restock small{color:#9fb8c8;font-size:11px;margin-left:4px}#restock .low{color:#ff6050}#restock h4.t{margin-top:8px;color:#5fd8ff}#restock .tr b{color:#ffd060}#restock.mini{min-width:180px;font-size:13px;top:32%;opacity:.85}#restock.mini h4{color:#ffb040}
 #restock .bar{height:3px;background:rgba(255,255,255,.12);margin:1px 0 4px}#restock .bar i{display:block;height:100%;background:#ffd060}
 #status span{font-size:11px;background:#1a2632;border-radius:3px;padding:2px 6px;color:#ffd060}
 #status .g{color:#60ff90}#status .b{color:#80c0ff}#status .t{color:#a0ff60}
@@ -240,6 +241,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 #hud{font-family:"Chakra Petch","Segoe UI",sans-serif}
 .small{font-size:14px}.pick p{font-size:15px}.pick .kit{font-size:14px}.keys{font-size:15px}.sub{font-size:18px}
 #waveTxt{font-size:19px;letter-spacing:.12em}#waveInfo{font-size:14px;letter-spacing:.02em;color:#d0e2ee}#hubTxt{font-size:12px;letter-spacing:.15em}
+#exBox{margin-top:4px;font:600 13px/1.25 'Chakra Petch',sans-serif;color:#9fdcff;max-width:300px}#exA b{color:#60ff90}#exB{color:#b8ccd8;font-size:12px}.exbar{height:5px;background:#0e2230;margin:3px 0;border:1px solid #24506a}.exbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3aa8ff,#60ff90);transition:width .4s}
 #goldBox{font-size:21px}#scrapBox{font-size:17px}#mapName,#hudCode{font-size:12px;letter-spacing:.06em}
 #toasts{max-width:min(420px,calc(50vw - 190px))}#toasts div{font-size:15px;letter-spacing:0;padding:4px 12px}
 #prompt{font-size:16px;letter-spacing:0;padding:7px 16px}
@@ -269,18 +271,18 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/assets.js": "./src/assets.js?v=1795460261",
-"./src/audio.js": "./src/audio.js?v=1795460261",
-"./src/data.js": "./src/data.js?v=1795460261",
-"./src/explore.js": "./src/explore.js?v=1795460261",
-"./src/icons.js": "./src/icons.js?v=1795460261",
-"./src/main.js": "./src/main.js?v=1795460261",
-"./src/models.js": "./src/models.js?v=1795460261",
-"./src/music.js": "./src/music.js?v=1795460261",
-"./src/net.js": "./src/net.js?v=1795460261",
-"./src/sim.js": "./src/sim.js?v=1795460261",
-"./src/voice.js": "./src/voice.js?v=1795460261",
-"./src/world.js": "./src/world.js?v=1795460261"
+"./src/assets.js": "./src/assets.js?v=1795462528",
+"./src/audio.js": "./src/audio.js?v=1795462528",
+"./src/data.js": "./src/data.js?v=1795462528",
+"./src/explore.js": "./src/explore.js?v=1795462528",
+"./src/icons.js": "./src/icons.js?v=1795462528",
+"./src/main.js": "./src/main.js?v=1795462528",
+"./src/models.js": "./src/models.js?v=1795462528",
+"./src/music.js": "./src/music.js?v=1795462528",
+"./src/net.js": "./src/net.js?v=1795462528",
+"./src/sim.js": "./src/sim.js?v=1795462528",
+"./src/voice.js": "./src/voice.js?v=1795462528",
+"./src/world.js": "./src/world.js?v=1795462528"
 }
 }
 </script>
@@ -298,7 +300,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
   <div id="hunt" hidden><span id="huntT"></span></div>
   <div id="top" class="panel"><div id="waveTxt">BUILD</div><div class="bar"><i id="hubBar" style="width:100%"></i></div><div id="hubTxt">HUB 100%</div><div id="waveInfo"></div></div>
   <div id="boss" class="panel" hidden><div id="bossName"></div><div class="bar"><i id="bossBar"></i></div></div>
-  <div id="tl" class="panel"><div id="goldBox" hidden><span id="gold">0</span></div><div id="scrapBox"><span id="scrapN">0</span></div><div id="mapName"></div><div id="hudCode"></div></div>
+  <div id="tl" class="panel"><div id="goldBox" hidden><span id="gold">0</span></div><div id="scrapBox"><span id="scrapN">0</span></div><div id="exBox"><div id="exA"></div><div class="exbar"><i id="exBar"></i></div><div id="exB"></div></div><div id="mapName"></div><div id="hudCode"></div></div>
   <canvas id="mini" width="340" height="340"></canvas>
   <div id="toasts"></div><div id="fps" hidden></div>
   <div id="banner" hidden><div id="bannerA"></div><div id="bannerB"></div></div>
@@ -346,6 +348,6 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795460261"></script>
+<script type="module" src="./src/main.js?v=1795462528"></script>
 </body>
 </html>

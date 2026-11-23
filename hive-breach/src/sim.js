@@ -1,7 +1,7 @@
 // The battle itself. Only the host (or a solo player) runs this; friends receive what it decides.
 import { VARIANTS, DIFFS, scrapCost, techMul, CLASSES, TURRETS, UPG_COST, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, waveList, hpScale, BOUNDS, countScale, bossScale } from './data.js';
 import { placeError, HUB_R } from './world.js';
-import { VEHICLES } from './data.js';
+import { VEHICLES, mountable, mountAt } from './data.js';
 import { PATH_W, SPECIALS, MISSILE, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST, MAX_ALLIES } from './data.js';
 
 const LV = { dmg: [1, 1.6, 2.4], rng: [1, 1.12, 1.25], rate: [1, 1.15, 1.32] };
@@ -17,7 +17,7 @@ export const BUILD = { teleporter: 3, pulse: 4,  ammocache: 2,  resupply: 5, uav
 // the commander's upgrade list: [threat level it arrives by, what it is]; kills pay for each one early
 const CMD_PLAN = [[3, 'rate'], [4, 'gunner'], [5, 'pulsesynth'], [6, 'size'], [7, 'medic'], [8, 'rocketeer'], [9, 'flamesynth'], [10, 'rate'], [11, 'mech'], [12, 'size'], [13, 'rate'], [15, 'size'], [16, 'rate'], [18, 'rate']];
 const cmdCost = i => 90 + i * 45;   // war funds (alien bounties) for the next step
-const NODE_HP = 1500, NODE_INCOME = 1.4;   // an extractor's armour, and the commander's war funds per second from each one
+const NODE_HP = 1500, NODE_INCOME = 1.0;   // a harvester's armour, and the material it pulls from the ground each second (it unlocks the vehicles)
 export function pickSpecial() { const e = Object.entries(SPECIALS), tot = e.reduce((a, [, v]) => a + v.w, 0); let r = Math.random() * tot; for (const [k, v] of e) { r -= v.w; if (r <= 0) return k; } return 'stim'; }
 export const LEVEL_T = 60, DROP_FALL = 9, DROP_LIFE = 60;
 export const START_GOLD = 350, FIRST_COUNT = 5, NEXT_COUNT = 25;
@@ -50,6 +50,8 @@ export class Sim {
   // put the turret you are carrying back in your pack: its gold and the kit come back
   stow(p) { const i = this.turrets.findIndex(q => q.carry === p.id); if (i < 0) return; const t = this.turrets[i]; if (t.owner !== p.id) { t.carry = 0; this.settle(t); return; }   // someone else's turret just goes down where you stand
     this.turrets.splice(i, 1); p.kits = Math.min(KITS, (p.kits ?? KITS) + 1); p.scrap = (p.scrap || 0) + scrapCost(t.kind); this.emit({ k: 'stowed', to: p.id, n: TURRETS[t.kind].name }); }
+  // a turret on a vehicle mount rides with it
+  mountFollow(t, v) { const m = mountAt(v, t.slot); if (!m) { t.veh = 0; this.settle(t); return; } t.x = m.x; t.z = m.z; const n = this.path.near(t.x, t.z); t.s = n.s; t.on = 0; t.inCave = false; t.y = m.y; }
   removePlayer(id) { const p = this.players.get(id); if (!p) return; for (const v of this.vehs) if (v.driver === id) v.driver = 0; this.players.delete(id); this.emit({ k: 'toast', m: p.name + ' left.' }); }
   living() { return [...this.players.values()].filter(p => !p.dead && !(p.buf && p.buf.cloak > 0)); }
 
@@ -83,9 +85,16 @@ export class Sim {
     } else if (r.a === 'stow') { this.stow(p);
     } else if (r.a === 'carry') {
       const t = this.turrets.find(q => q.id === r.id); if (!t || t.carry || this.turrets.some(q => q.carry === id)) return; if (Math.hypot(t.x - p.x, t.z - p.z) > 6) return;
-      t.carry = id; this.emit({ k: 'carry', id: t.id, by: id });
+      t.carry = id; t.veh = 0; this.emit({ k: 'carry', id: t.id, by: id });
     } else if (r.a === 'drop') {
-      const t = this.turrets.find(q => q.carry === id); if (!t) return; const err = this.dropError(+r.x, +r.z);
+      const t = this.turrets.find(q => q.carry === id); if (!t) return;
+      if (r.veh) { // onto one of a vehicle's fixed turret mounts (only those spots, and only a free one)
+        const v = this.vehs.find(q => q.id === +r.veh), sl = r.slot | 0, V = v && VEHICLES[v.kind]; if (!V) return;
+        if (!mountable(t.kind)) return say(`A ${TURRETS[t.kind].name} can't go on a vehicle mount: only gun turrets can.`);
+        if (sl < 0 || sl >= V.mounts.length || this.turrets.some(q => q.veh === v.id && q.slot === sl)) return say('That mount is taken.');
+        if (Math.hypot(v.x - p.x, v.z - p.z) > 9) return say('Get closer to the vehicle.');
+        t.carry = 0; t.veh = v.id; t.slot = sl; this.mountFollow(t, v); this.emit({ k: 'mounted', id: t.id, x: t.x, z: t.z, by: id, n: V.name }); return; }
+      const err = this.dropError(+r.x, +r.z);
       if (err) { t.x = p.x; t.z = p.z; } else { t.x = +r.x; t.z = +r.z; } t.ry = +r.ry || 0; t.carry = 0; this.settle(t); this.emit({ k: 'dropped', id: t.id, x: t.x, z: t.z, by: id });
     } else if (r.a === 'sell') {
       const i = this.turrets.findIndex(q => q.id === r.id && q.owner === id); if (i < 0) return; const t = this.turrets[i]; p.kits = Math.min(KITS, (p.kits ?? KITS) + 1); p.scrap = (p.scrap || 0) + Math.floor(scrapCost(t.kind) * 0.6); this.turrets.splice(i, 1); this.emit({ k: 'boom', x: t.x, y: 0.5, z: t.z, r: 1.5, small: 1 });
@@ -115,7 +124,7 @@ export class Sim {
       const hp = Array.isArray(r.hp) && r.hp.length === 3 && r.hp.every(Number.isFinite) && Math.hypot(r.hp[0] - p.x, r.hp[2] - p.z) < reach + 4 ? r.hp.map(v => +v.toFixed(2)) : null;   // where the beam lands (the crosshair)
       if (r.k === 'n') { // building (or repairing) a resource extractor for the commander
         const i = r.id | 0, nd = (this.W.nodes || [])[i], S = this.nodeS[i]; if (!nd || !S || Math.hypot(nd.x - p.x, nd.z - p.z) > reach + nd.r + 1.5) return;
-        if (!S.built) { S.prog = Math.min(1, S.prog + dt / 20 * (eng ? 3 : 1)); if (S.prog >= 1) { S.built = 1; S.hp = NODE_HP; this.emit({ k: 'nodeup', i, by: id }); this.radio('cmd', `Extractor online! Resources are flowing, marines. More extractors, faster reinforcements.`, 1); } }
+        if (!S.built) { S.prog = Math.min(1, S.prog + dt / 20 * (eng ? 3 : 1)); if (S.prog >= 1) { S.built = 1; S.hp = NODE_HP; this.emit({ k: 'nodeup', i, by: id }); this.radio('cmd', `Harvester online! Material is flowing, marines. Every harvester brings the next vehicle sooner.`, 1); } }
         else S.hp = Math.min(NODE_HP, S.hp + (eng ? 120 : 40) * dt);
         this.emit({ k: 'beam', c: eng ? 0x60c0ff : 0xffc060, a: [p.x, p.y + 1.3, p.z], b: hp || [nd.x, nd.y + 1.5, nd.z], f: id, torch: 1 }); return;
       }
@@ -165,7 +174,7 @@ export class Sim {
       else if (sp === 'squad') { const n = this.path.near(p.x, p.z); for (let i = 0; i < 4; i++) { const type = ['gunner', 'rocketeer', 'trooper', 'medic'][i], A = ALLIES[type]; this.allies.push({ id: this.nid++, type, s: n.s, lat: (Math.random() - 0.5) * 3, x: p.x + (Math.random() - 0.5) * 3, y: p.y, z: p.z + (Math.random() - 0.5) * 3, hp: A.hp * 1.5, mhp: A.hp * 1.5, ry: 0, cd: 0, tg: 0, vet: 1 }); } }
       this.emit({ k: 'usedspecial', s: sp, by: id, n: p.name }); p.special = '';
     } else if (r.a === 'buildveh') { // the commander builds a vehicle from the parts handed in; it rolls out (or lifts off) at the hub
-      const V = VEHICLES[r.kind]; if (!V) return; if (this.parts < V.parts) return say(`The commander needs ${V.parts} parts for a ${V.name} (the hub has ${Math.floor(this.parts)}). Weld wrecks for scrap and bring it to the hub.`);
+      const V = VEHICLES[r.kind]; if (!V) return; if ((this.mat || 0) < V.unlock) return say(`The ${V.name} isn't unlocked yet: the harvesters have pulled ${Math.floor(this.mat || 0)} of the ${V.unlock} material it needs. Build more harvesters (weld the blue harvester sites).`); if (this.parts < V.parts) return say(`The commander needs ${V.parts} parts for a ${V.name} (the hub has ${Math.floor(this.parts)}). Weld wrecks for scrap and bring it to the hub.`);
       if (this.vehs.length >= 6) return say('Six vehicles are already out.'); this.parts -= V.parts; const H = this.W.hubP, sp = this.W.spawn, n = this.vehs.length, a = Math.atan2(sp.z - H.z, sp.x - H.x) + 0.9 + n * 0.55, x = H.x + Math.cos(a) * 13, z = H.z + Math.sin(a) * 13;
       this.radio('cmd', `${p.name} ordered a ${V.name}. My mechanics are on it: it'll be waiting in the hub.`, 1);
       this.later.push({ t: 4, f: () => { this.vehs.push({ id: this.nid++, kind: r.kind, x, z, y: this.W.top(x, z), ry: a + Math.PI / 2, hp: V.hp, mhp: V.hp, driver: 0 }); this.emit({ k: 'vehready', n: V.name, x, z }); this.radio('cmd', `${V.name} is ready in the hub. Somebody get in it and go kill something.`, 1); } });
@@ -218,7 +227,7 @@ export class Sim {
   startWave() {
     const first = this.phase !== 'wave', DF = DIFFS[this.W.diff || 0]; if (first && this.wave === 0 && DF.startLvl) { for (let w = 1; w <= DF.startLvl; w++) { this.wave = w; this.commander(true); } } this.wave++; TECH.k = techMul(this.wave); this.commander();
     if (first) { this.radio('gen', 'Station Olympus to ground force. The queen\'s hive is confirmed in the mountain. You are cleared to engage.', 1); this.later.push({ t: 6, f: () => this.radio('cmd', 'Copy, Olympus. Marines, hold the hub, keep the turrets fed and push for that cave. I\'ll keep troops and supplies coming.', 1) }); }
-    else if (this.wave % 2 === 0) this.radio('gen', ['Olympus scans show the swarm thickening. More of them are coming out of that mountain.', 'Hive activity rising on our sensors, Commander. Brace your people.', 'Hale here: the bugs are pouring out faster. Hold that line.', 'Orbital count just doubled on the north slope. Stay sharp down there.'][this.wave % 4]); this.phase = 'wave'; this.lvlT = LEVEL_T;
+    else if (this.wave % 2 === 0) this.radio('gen', 'Olympus scans show the swarm thickening. More of them are coming out of that mountain.', 1);   /* General Hale's recorded line, word for word */ this.phase = 'wave'; this.lvlT = LEVEL_T;
     const N = this.players.size, cs = countScale(N), rest = [], bosses = [];
     for (const [type, n0] of waveList(this.wave, this.W.id)) { const boss = ALIENS[type].boss, n = boss ? n0 : Math.round(n0 * cs * DIFFS[this.W.diff || 0].count); for (let i = 0; i < n; i++) (boss ? bosses : rest).push(type); }
     for (let i = rest.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [rest[i], rest[j]] = [rest[j], rest[i]]; }
@@ -240,7 +249,7 @@ export class Sim {
     type = (VARIANTS[this.W.id] || {})[type] || type;   // this planet's own breed
     const A = ALIENS[type], p = this.path.at(s), lat = (Math.random() - 0.5) * (A.boss ? 0.5 : 3.2), sc = A.boss ? hpScale(this.wave, 1) * bossScale(this.players.size) : hpScale(this.wave, this.players.size), hp = A.hp * sc;
     const a = { id: this.nid++, type, s, lat, x: p.x - p.tz * lat, y: p.y + (A.fly ? 4.5 : 0), z: p.z + p.tx * lat, hp, mhp: hp, ry: Math.atan2(-p.tx, -p.tz), spd: A.speed * (0.92 + Math.random() * 0.16), slowT: 0, stun: 0, atk: 0, mode: 'path', cc: Math.random() * 3, tgt: null, rcd: 1 + Math.random() * 2, qcd: 6 };
-    this.aliens.push(a); if (A.boss) { this.emit({ k: 'roar', t: type }); this.radio && this.radio('gen', `Olympus here: a ${A.name} just came out of the hive. Focus everything on it!`, 1); } return a;
+    this.aliens.push(a); if (A.boss) { this.emit({ k: 'roar', t: type }); this.radio && this.radio('gen', 'Olympus here: something big just came out of the hive. Focus everything on it!', 1); } return a;
   }
 
   update(dt) {
@@ -372,8 +381,10 @@ export class Sim {
         else { a.x += dx / d * sp * 1.1 * dt; a.z += dz / d * sp * 1.1 * dt; this.face(a, dx, dz); a.y = A.fly ? a.y + (home.y + 4.5 - a.y) * Math.min(1, dt * 3) : Math.max(this.W.ground(a.x, a.z, a.y + 1), d < 3 ? home.y : -99); a.hidden = false; continue; }
       }
       // aliens tear down extractors they pass
-      if (A.melee) { let hit = -1; for (const [i, nd] of (this.W.nodes || []).entries()) if (this.nodeS[i].built && Math.abs(nd.x - a.x) < 6 && Math.abs(nd.z - a.z) < 6 && Math.hypot(nd.x - a.x, nd.z - a.z) < nd.r + A.r + 0.8) { hit = i; break; }
-        if (hit >= 0) { const S = this.nodeS[hit], nd = this.W.nodes[hit]; this.face(a, nd.x - a.x, nd.z - a.z); if (a.atk <= 0) { a.atk = 1; S.hp -= A.dmg * ((A.base || a.type) === 'brute' || A.boss ? 2.2 : 1.2); this.emit({ k: 'bite', x: a.x, z: a.z }); if (S.hp <= 0) { S.built = 0; S.prog = 0; S.hp = 0; this.emit({ k: 'nodedown', i: hit }); this.radio('cmd', 'We lost an extractor! Get a welder out there and rebuild it!', 1); } else if (this.time - (S.warn || -99) > 12) { S.warn = this.time; this.radio('cmd', 'An extractor is under attack! Defend it!', 1); } } if (a.id % 2 === 0) continue; } }
+      if (a.raid >= 0 && !(this.nodeS[a.raid] && this.nodeS[a.raid].built)) a.raid = -1;
+      if (a.raid >= 0 && A.melee && !(a.stun > 0)) { const nd = this.W.nodes[a.raid], dx = nd.x - a.x, dz = nd.z - a.z, d = Math.hypot(dx, dz); if (d > nd.r + A.r + 0.6) { const st = Math.min(d, (A.speed || 4) * dt); a.x += dx / d * st; a.z += dz / d * st; a.y = this.W.ground(a.x, a.z, a.y + 1); this.face(a, dx, dz); continue; } }   /* raiders walk straight to their harvester */
+      if (A.melee) { let hit = -1; if (a.raid >= 0) hit = a.raid; else for (const [i, nd] of (this.W.nodes || []).entries()) if (this.nodeS[i].built && Math.abs(nd.x - a.x) < 6 && Math.abs(nd.z - a.z) < 6 && Math.hypot(nd.x - a.x, nd.z - a.z) < nd.r + A.r + 0.8) { hit = i; break; }
+        if (hit >= 0) { const S = this.nodeS[hit], nd = this.W.nodes[hit]; this.face(a, nd.x - a.x, nd.z - a.z); if (a.atk <= 0) { a.atk = 1; S.hp -= A.dmg * ((A.base || a.type) === 'brute' || A.boss ? 2.2 : 1.2); this.emit({ k: 'bite', x: a.x, z: a.z }); if (S.hp <= 0) { S.built = 0; S.prog = 0; S.hp = 0; a.raid = -1; this.emit({ k: 'nodedown', i: hit }); this.radio('cmd', 'We lost a harvester! Get a welder out there and rebuild it!', 1); } else if (this.time - (S.warn || -99) > 12) { S.warn = this.time; this.radio('cmd', 'A harvester is under attack! Defend it!', 1); } } if (a.id % 2 === 0 || a.raid >= 0) continue; } }
       // reinforcements block the track: aliens stop to fight them
       if (A.melee) { let al = null; for (const m of this.allies) if (Math.hypot(m.x - a.x, m.z - a.z) < A.r + 1.3) { al = m; break; } if (al) { this.face(a, al.x - a.x, al.z - a.z); if (a.atk <= 0) { a.atk = 1; this.hurtAlly(al, A.dmg * (A.boss ? 2 : 1)); this.emit({ k: 'bite', x: a.x, z: a.z }); } if (A.boss || a.id % 3 === 0) continue; } }   /* only some stop to brawl; the rest claw as they pass and keep going */
       // a marine right next to the track gets bitten even by aliens that do not hunt
@@ -397,6 +408,9 @@ export class Sim {
     // turrets
     for (const t of this.turrets) if (t.kind === 'uav' && !t.fresh && !t.carry) { const st = tStat(t), k = 1.2 + 0.1 * (t.lvl - 1); for (const a of this.aliens) if (Math.hypot(a.x - t.x, a.z - t.z) < st.range) { a.ballK = Math.max(a.ballT > 0 && a.ballK || 1, k); a.ballT = 0.4; a.rev = Math.max(a.rev || 0, 0.4); a.hidden = false; } }
     for (const t of this.turrets) if (t.life !== undefined) { t.life -= dt; if (t.life <= 0) t.hp = 0; } if (this.turrets.some(t => t.hp <= 0)) this.turrets = this.turrets.filter(t => t.hp > 0);
+    for (const t of this.turrets) if (t.veh) { const v = this.vehs.find(q => q.id === t.veh); if (v) this.mountFollow(t, v); else { t.veh = 0; this.settle(t); } }
+    // the commander tells everyone the moment the hub has the parts for each vehicle
+    { this.vAnn = this.vAnn || {}; this.vUnl = this.vUnl || {}; for (const [k, V] of Object.entries(VEHICLES)) { if (!this.vUnl[k] && (this.mat || 0) >= V.unlock) { this.vUnl[k] = 1; this.radio('cmd', `The harvesters have pulled enough material: the ${V.name} is unlocked! Bring me ${V.parts} scrap parts and I'll build it.`, true); this.emit({ k: 'vehunl', n: V.name, p: V.parts }); } const ok = this.vUnl[k] && this.parts >= V.parts; if (ok && !this.vAnn[k]) { this.radio('cmd', `Commander here: the hub has the parts for a ${V.name} (${V.mounts.length} turret mount${V.mounts.length > 1 ? 's' : ''}). Order it at the comms console.`, true); this.emit({ k: 'vehavail', n: V.name, m: V.mounts.length }); } this.vAnn[k] = ok; } }
     for (const t of this.turrets) if (t.carry) { const c = this.players.get(t.carry); if (!c || c.dead) { t.carry = 0; this.settle(t); continue; } t.x = c.x - Math.sin(c.yaw) * 2.0 + Math.cos(c.yaw) * 1.3; t.z = c.z - Math.cos(c.yaw) * 2.0 - Math.sin(c.yaw) * 1.3;   /* carried ahead and to the right, where the carrier sees it */ t.y = (c.y || 0) + 0.3; t.ry = c.yaw; }
     for (const t of this.turrets) {
       if (t.carry) { t.tg = 0; continue; }
@@ -455,7 +469,11 @@ export class Sim {
     for (const c of this.spores) { c.a += (Math.random() - 0.5) * dt * 0.8; c.x += Math.cos(c.a) * 2.2 * dt; c.z += Math.sin(c.a) * 2.2 * dt; if (Math.abs(c.x) > BOUNDS - 10) c.a = Math.PI - c.a; if (Math.abs(c.z) > BOUNDS - 10) c.a = -c.a; c.x = Math.max(-BOUNDS + 10, Math.min(BOUNDS - 10, c.x)); c.z = Math.max(-BOUNDS + 10, Math.min(BOUNDS - 10, c.z)); }
     for (const e of this.later) { e.t -= dt; if (e.t <= 0 && !e.done) { e.done = true; e.f(); } } if (this.later.some(e => e.done)) this.later = this.later.filter(e => !e.done);
     this.updRides(dt);
-    if (this.phase === 'wave') { const on = this.nodeS.filter(n => n.built).length; if (on) this.fund(NODE_INCOME * on * dt); }   // built extractors feed the commander
+    if (this.phase === 'wave') { const on = this.nodeS.filter(n => n.built).length; if (on) this.mat = (this.mat || 0) + NODE_INCOME * on * dt;   // built harvesters pull material out of the ground: it unlocks the vehicles
+      // now and then a small pack bursts out of the ground beside a running harvester and stays to tear it down
+      this.raidT = (this.raidT ?? 120) - dt; if (this.raidT <= 0) { this.raidT = 90 + Math.random() * 40; const up = this.nodeS.map((n, i) => n.built ? i : -1).filter(i => i >= 0);
+        if (up.length) { const i = up[Math.random() * up.length | 0], nd = this.W.nodes[i], n = 3 + Math.min(3, this.wave >> 2); this.emit({ k: 'ambush', x: nd.x, z: nd.z }); this.radio('cmd', 'Movement under one of the harvesters! They\'re digging up to wreck it, get over there!', 1);
+          for (let k = 0; k < n; k++) { const a = this.spawn(Math.random() < 0.75 ? 'crawler' : 'mite', 0), ang = Math.random() * 6.283, d = nd.r + 3 + Math.random() * 4; a.x = nd.x + Math.cos(ang) * d; a.z = nd.z + Math.sin(ang) * d; a.y = this.W.ground(a.x, a.z, 99); a.s = this.path.near(a.x, a.z).s; a.lat = 0; a.raid = i; a.stun = k * 0.25; } } } }
     if (this.phase === 'wave' || this.phase === 'assault') {
       // the hub's own defence guns on its corner towers: they shoot whatever comes close (burrowers, stragglers)
       const HG = this.W.hubGuns || []; this.hgCd = this.hgCd || HG.map(() => Math.random() * 0.2);
@@ -551,7 +569,7 @@ export class Sim {
     }
     if (this.rides.some(r => r.ph >= 6)) { for (const r of this.rides) if (r.ph >= 6) for (const id of r.riders) { const q = this.players.get(id); if (q) q.ride = 0; } this.rides = this.rides.filter(r => r.ph < 6); }
   }
-  wreckVeh(v) { this.emit({ k: 'boom', x: v.x, y: v.y + 1, z: v.z, r: 5 }); const q = v.driver && this.players.get(v.driver); if (q) { q.drive = 0; this.emit({ k: 'exitveh', to: q.id, x: v.x + 3, z: v.z }); } this.radio('cmd', `We lost a ${VEHICLES[v.kind].name}!`, 1); this.vehs = this.vehs.filter(o => o !== v); }
+  wreckVeh(v) { for (const t of this.turrets) if (t.veh === v.id) { t.veh = 0; this.settle(t); this.hurtTurret(t, t.mhp * 0.4); } this.emit({ k: 'boom', x: v.x, y: v.y + 1, z: v.z, r: 5 }); const q = v.driver && this.players.get(v.driver); if (q) { q.drive = 0; this.emit({ k: 'exitveh', to: q.id, x: v.x + 3, z: v.z }); } this.radio('cmd', `We lost a ${VEHICLES[v.kind].name}!`, 1); this.vehs = this.vehs.filter(o => o !== v); }
   // aliens nesting in a wreck burst out at a marine
   ambush(w, p, n) {
     const P = this.path; this.emit({ k: 'ambush', x: w.x, z: w.z }); for (let i = 0; i < n; i++) { const a = this.spawn(Math.random() < 0.7 ? 'crawler' : 'mite', 0), ang = Math.random() * 6.283; a.x = w.x + Math.cos(ang) * (w.r * 0.6); a.z = w.z + Math.sin(ang) * (w.r * 0.6); a.y = this.W.ground(a.x, a.z, 99); a.s = P.near(a.x, a.z).s; a.lat = 0; this.aggro(a, 'p', p.id, true); a.stun = i * 0.2; }
@@ -583,7 +601,7 @@ export class Sim {
     else if (ALLIES[plan] && !C.un.includes(plan)) { C.un.push(plan); msg = `${ALLIES[plan].name}s join the reinforcements`; }
     if (!msg || quiet) return;
     if (paid) { this.radio('cmd', [`Your kills just bought us more, marines: ${msg}.`, `Olympus is impressed with the body count. ${msg[0].toUpperCase() + msg.slice(1)}.`, `Keep killing, it's paying off: ${msg}.`][Math.random() * 3 | 0], 1); return; }
-    this.radio('gen', ['Olympus here. I\'m releasing more of my people to you, Commander.', 'Station Olympus authorises more troops for the push.', 'You\'ll get what you need down there, Commander. Hale out.'][Math.random() * 3 | 0], 1); this.later.push({ t: 4, f: () => this.radio('cmd', `Copy, Olympus. Marines: ${msg}.`, 1) });
+    this.radio('gen', 'Olympus here. I\'m releasing more of my people to you, Commander.', 1); this.later.push({ t: 4, f: () => this.radio('cmd', `Copy, Olympus. Marines: ${msg}.`, 1) });
   }
   ability(p, id, r) {
     const near = (rad, f) => { for (const q of this.players.values()) if (!q.dead && Math.hypot(q.x - p.x, q.z - p.z) < rad) f(q); }, fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);
@@ -667,12 +685,12 @@ export class Sim {
     return {
       w: this.wave, ph: this.phase, tm: r1(this.timer), hub: r1(this.hub), en: this.endless ? 1 : 0, left: this.aliens.filter(a => !ALIENS[a.type].static).length, lt: Math.ceil(this.lvlT || 0), el: Math.floor(this.el || 0), n: this.players.size, wx: +(this.stormI || 0).toFixed(2), wa: +(this.windA || 0).toFixed(2),
       A: this.aliens.map(a => [a.id, a.type, r1(a.x), r1(a.y), r1(a.z), Math.round(a.hp), Math.round(a.mhp), +a.ry.toFixed(2), a.stun > 0 ? 1 : 0, a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0, a.rev > 0 || a.markT > 0 ? 1 : 0]),
-      T: this.turrets.map(t => [t.id, t.kind, t.owner, r1(t.x), r1(t.z), +t.ry.toFixed(2), t.lvl, Math.round(t.hp), Math.round(t.mhp), t.tg, r1(t.y), r1(t.b || 0), t.bt || 0, t.fresh ? 1 : 0, t.ch || 0, t.carry || 0, t.next ? +(t.up || 0).toFixed(2) : 0, t.kind === 'rally' ? (t.b > 0 || t.carry ? 0 : this.allies.length >= MAX_ALLIES + 4 ? -1 : this.phase === 'wave' || this.phase === 'assault' ? Math.max(1, Math.ceil(t.rd ?? 20)) : -2) : 0]),
+      T: this.turrets.map(t => [t.id, t.kind, t.owner, r1(t.x), r1(t.z), +t.ry.toFixed(2), t.lvl, Math.round(t.hp), Math.round(t.mhp), t.tg, r1(t.y), r1(t.b || 0), t.bt || 0, t.fresh ? 1 : 0, t.ch || 0, t.carry || 0, t.next ? +(t.up || 0).toFixed(2) : 0, t.kind === 'rally' ? (t.b > 0 || t.carry ? 0 : this.allies.length >= MAX_ALLIES + 4 ? -1 : this.phase === 'wave' || this.phase === 'assault' ? Math.max(1, Math.ceil(t.rd ?? 20)) : -2) : 0, t.veh || 0, t.slot || 0]),
       P: [...this.players.values()].map(p => [p.id, p.name, p.cls, r1(p.x), r1(p.y), r1(p.z), +p.yaw.toFixed(2), Math.round(p.hp), p.mhp, Math.floor(p.gold), p.ups, p.dead ? 1 : 0, p.kills, p.sp, Math.ceil(p.rt), p.kn || 0, p.special || '', p.acd.map(Math.ceil), +p.adrT.toFixed(1), +p.stimT.toFixed(1), p.rv, p.cold ? 1 : 0, p.toxic > 0 ? 1 : 0, p.veh || 0, p.items, p.kits ?? KITS, Math.round(p.pw ?? 100), p.dr ?? DRESS, Math.floor(p.scrap || 0), Object.fromEntries(Object.entries(p.buf).filter(([, v]) => v > 0).map(([k, v]) => [k, +v.toFixed(1)])), p.ex ?? 0, (p.jet ? 1 : 0) | (p.boots ? 2 : 0), p.ride || 0, p.drive || 0]),
       I: this.items.map(it => [it.id, it.kind, r1(it.x), r1(it.z)]), SC: this.scrap.map(s => [s.id, r1(s.x), r1(s.z)]),
       M: this.ammo.map(c => [c.id, r1(c.x), r1(c.z), Math.ceil(c.life)]), Z: this.spores.map(c => [r1(c.x), r1(c.z), +(c.r * c.k).toFixed(1)]), K: this.pools.map(q => [r1(q.x), r1(q.y), r1(q.z), q.r, q.fire ? 1 : 0]), SV: Object.fromEntries((this.salv || []).map((v, i) => [i, v]).filter(([i, v]) => v < (this.W.salvage[i] || {}).amt).map(([i, v]) => [i, Math.round(Math.max(0, v) / this.W.salvage[i].amt * 100)])), NS: this.nodeS.map(n => [n.built, +n.prog.toFixed(2), Math.round(n.hp)]), V: this.vehs.map(v => [v.id, v.kind, r1(v.x), r1(v.y), r1(v.z), +v.ry.toFixed(2), Math.round(v.hp), v.mhp, v.driver || 0]), PT: Math.floor(this.parts), R: this.rides.map(r => [r.id, r1(r.x), r1(r.y), r1(r.z), +r.ry.toFixed(2), r.ph, r.riders]), D: this.drones.map(d => [d.id, r1(d.x + Math.cos(d.a) * 8), r1(d.y + 7), r1(d.z + Math.sin(d.a) * 8), d.tg]), Q: this.medz.map(m => [m.id, r1(m.x), r1(m.y), r1(m.z), m.r, Math.ceil(m.t)]), S2: this.domes.map(d => [r1(d.x), r1(d.y), r1(d.z), d.r]),
       O: this.pods.map(p => [p.id, r1(p.x), r1(p.z), Math.ceil(Math.max(0, p.life)), r1(Math.max(0, p.land)), p.kind === 'ammo' ? 1 : p.kind === 'dress' ? 2 : 0]),
-      L: this.allies.map(m => [m.id, m.type, r1(m.x), r1(m.y), r1(m.z), Math.round(m.hp), m.mhp, +m.ry.toFixed(2), m.tg]), C: { lv: this.cmd.lv, sz: this.cmd.sz, un: this.cmd.un, t: Math.ceil(this.cmd.t) }, open: this.hiveOpen() ? 1 : 0,
+      L: this.allies.map(m => [m.id, m.type, r1(m.x), r1(m.y), r1(m.z), Math.round(m.hp), m.mhp, +m.ry.toFixed(2), m.tg]), C: { lv: this.cmd.lv, sz: this.cmd.sz, un: this.cmd.un, t: Math.ceil(this.cmd.t), f: Math.floor(this.cmd.fund || 0), need: this.cmd.step < CMD_PLAN.length ? cmdCost(this.cmd.step) : 0, nx: this.cmd.step < CMD_PLAN.length ? CMD_PLAN[this.cmd.step][1] : '', ex: (this.nodeS || []).filter(n => n.built).length, mat: Math.floor(this.mat || 0), exN: (this.nodeS || []).length, inc: +(NODE_INCOME * (this.nodeS || []).filter(n => n.built).length).toFixed(1) }, open: this.hiveOpen() ? 1 : 0,
     };
   }
 }

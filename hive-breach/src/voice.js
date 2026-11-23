@@ -44,24 +44,32 @@ export class Voice {
   }
   // a little noise buffer for the comms squelch and the static under the voice
   noise() { if (this.nb) return this.nb; const c = this.a.ctx, n = c.sampleRate, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; return this.nb = b; }
-  click(t, dur = 0.05, amp = 0.35) { const c = this.a.ctx, s = c.createBufferSource(); s.buffer = this.noise(); const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.8; const g = c.createGain(); g.gain.setValueAtTime(amp, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); s.connect(bp); bp.connect(g); g.connect(this.a.bus || c.destination); s.start(t, Math.random() * 0.5, dur + 0.02); }
+  click(t, dur = 0.05, amp = 0.35, dest) { const c = this.a.ctx, s = c.createBufferSource(); s.buffer = this.noise(); const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.8; const g = c.createGain(); g.gain.setValueAtTime(amp, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); s.connect(bp); bp.connect(g); g.connect(dest || this.a.bus || c.destination); s.start(t, Math.random() * 0.5, dur + 0.02); }
   // through the speaker inside your helmet: a small band-limited speaker with a resonant bump, the short echoes of the helmet shell right round your head,
   // a squelch click on and off, a faint static bed while it talks, and the music and battle ducking a little so you can hear it
   async say(text) {
     const v = this.find(text); if (!v || !this.files[v.k]) return 0; const b = await this.load(v.k), c = this.a.ctx; if (!b || !c) return 0;
     const now = c.currentTime; if (this.end && now < this.end - 0.05) return 0;   // one voice at a time
-    const t0 = now + 0.08, out = this.a.bus || c.destination, s = c.createBufferSource(); s.buffer = b;
-    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 380; hp.Q.value = 0.8;
-    const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 2300; pk.Q.value = 1.3; pk.gain.value = 7;   // the little speaker's resonance
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3300; lp.Q.value = 0.9;
-    const sh = c.createWaveShaper(), cv = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * 2.6) / Math.tanh(2.6); } sh.curve = cv;
-    const dry = c.createGain(); dry.gain.value = 0.28; s.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(sh); sh.connect(dry); dry.connect(out);
-    // the helmet shell: two very short echoes feeding back a little, darkened
-    for (const [ms, fb] of [[6.5, 0.32], [11.5, 0.24]]) { const d = c.createDelay(0.05); d.delayTime.value = ms / 1000; const f = c.createGain(); f.gain.value = fb; const dl = c.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 2600; const w = c.createGain(); w.gain.value = 0.09; sh.connect(d); d.connect(dl); dl.connect(f); f.connect(d); dl.connect(w); w.connect(out); }
+    const t0 = now + 0.08, s = c.createBufferSource(); s.buffer = b;
+    // everything goes through one fader (the Voice volume setting), well under the music and the battle
+    const out = c.createGain(); out.gain.value = 0.22 * (this.vol ?? 0.6); out.connect(this.a.bus || c.destination);
+    // the helmet's tiny speaker: no bass, no air, a boxy hollow middle and a hard little resonance, driven a touch into crackle
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 520; hp.Q.value = 1.1;
+    const hp2 = c.createBiquadFilter(); hp2.type = 'highpass'; hp2.frequency.value = 420; hp2.Q.value = 0.7;
+    const box = c.createBiquadFilter(); box.type = 'peaking'; box.frequency.value = 950; box.Q.value = 1.6; box.gain.value = 6;
+    const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 2200; pk.Q.value = 2.2; pk.gain.value = 5;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2900; lp.Q.value = 1.2;
+    const lp2 = c.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 3400; lp2.Q.value = 0.7;
+    const pre = c.createGain(); pre.gain.value = 0.7;
+    const sh = c.createWaveShaper(), cv = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1, y = Math.tanh(x * 1.8) / Math.tanh(1.8); cv[i] = Math.round(y * 48) / 48; } sh.curve = cv;   /* soft clip plus a little bit-crush: a cheap radio speaker */
+    s.connect(hp); hp.connect(hp2); hp2.connect(box); box.connect(pk); pk.connect(pre); pre.connect(sh); sh.connect(lp); lp.connect(lp2); lp2.connect(out);
+    // the helmet shell: very short echoes right round your head (a few centimetres of hard visor and padding)
+    for (const [ms, fb, wv] of [[2.3, 0.35, 0.3], [4.1, 0.28, 0.22], [7.6, 0.18, 0.14]]) { const d = c.createDelay(0.05); d.delayTime.value = ms / 1000; const f = c.createGain(); f.gain.value = fb; const dl = c.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 2400; const w = c.createGain(); w.gain.value = wv; lp2.connect(d); d.connect(dl); dl.connect(f); f.connect(d); dl.connect(w); w.connect(out); }
     // the static bed under the voice
-    const st = c.createBufferSource(); st.buffer = this.noise(); st.loop = true; const sb = c.createBiquadFilter(); sb.type = 'bandpass'; sb.frequency.value = 1900; sb.Q.value = 0.6; const sg = c.createGain(); sg.gain.setValueAtTime(0, t0); sg.gain.linearRampToValueAtTime(0.006, t0 + 0.03); sg.gain.setValueAtTime(0.006, t0 + b.duration); sg.gain.linearRampToValueAtTime(0, t0 + b.duration + 0.1); st.connect(sb); sb.connect(sg); sg.connect(out); st.start(t0); st.stop(t0 + b.duration + 0.15);
-    this.click(now + 0.02, 0.05, 0.08); this.click(t0 + b.duration + 0.04, 0.07, 0.06);   // squelch on, and off
+    const st = c.createBufferSource(); st.buffer = this.noise(); st.loop = true; const sb = c.createBiquadFilter(); sb.type = 'bandpass'; sb.frequency.value = 1800; sb.Q.value = 0.7; const sg = c.createGain(); sg.gain.setValueAtTime(0, t0); sg.gain.linearRampToValueAtTime(0.05, t0 + 0.03); sg.gain.setValueAtTime(0.05, t0 + b.duration); sg.gain.linearRampToValueAtTime(0, t0 + b.duration + 0.1); st.connect(sb); sb.connect(sg); sg.connect(out); st.start(t0); st.stop(t0 + b.duration + 0.15);
+    this.click(now + 0.02, 0.05, 0.35, out); this.click(t0 + b.duration + 0.04, 0.07, 0.28, out);   // squelch on, and off
     s.start(t0); this.end = t0 + b.duration + 0.1; if (this.onTalk) this.onTalk(b.duration + 0.25); return b.duration;
   }
+
 
 }

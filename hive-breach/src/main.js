@@ -10,7 +10,7 @@ const assetsP = M.AS.loadAll();   /* Meshy models stream in behind the cover scr
   const leave = () => { if (!cv.classList.contains('ready')) return; try { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { } cv.remove(); document.body.classList.remove('covered'); removeEventListener('keydown', key); };
   const key = e => { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'Escape') leave(); };
   cv.addEventListener('click', leave); addEventListener('keydown', key); }
-import { VEHICLES } from './data.js';
+import { VEHICLES, mountable, mountAt } from './data.js';
 import { DIFFS, PLANET_ORDER, scrapCost, techMul, SIDEARM, SPECIALS, MISSILE, CLASSES, TURRETS, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, MAPS, BOUNDS, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST } from './data.js';
 import { buildWorld, placeError, LIQUID } from './world.js';
 import { Sim, upgradeCost, tStat } from './sim.js';
@@ -55,7 +55,7 @@ document.addEventListener('pointerlockchange', () => { if (!locked()) mouseL = m
 const KB_DEFAULT = { w1: 'Digit1', w2: 'Digit2', w3: 'Digit3', w4: 'Digit4', w5: 'Digit5', w6: 'Digit6', third: 'KeyV', grenade: 'KeyG', use: 'KeyE', forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space', sprint: 'ShiftLeft', kneel: 'KeyC', prone: 'KeyZ', reload: 'KeyR', sentry: 'KeyF', defense: 'KeyT', special: 'KeyX', upgrade: 'KeyU', sell: 'KeyY', armory: 'KeyB', map: 'KeyM', kit: 'KeyH', music: 'KeyN', scores: 'Tab', info: 'KeyK', ping: 'KeyQ' };
 const KB_NAMES = { ping: 'Ping a spot or alien for your squad', w1: 'Main weapon', w2: 'Side arm', w3: 'Welding torch', w4: 'Grenade / class item', info: 'Gear guide: what everything does', w5: 'Field dressing', w6: 'Heal beam (Medic)', third: 'Build: third structure', grenade: 'Quick-throw grenade / item', use: 'Use: pick up turret, salvage, vehicles', forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', jump: 'Jump', sprint: 'Sprint', kneel: 'Kneel (hold)', prone: 'Go prone', reload: 'Reload', sentry: 'Build: turret', defense: 'Build: device', special: 'Use special',  upgrade: 'Upgrade turret', sell: 'Sell turret', armory: 'Recruitment (at the comms console)', map: 'Live map', kit: 'Class card', music: 'Music on/off', scores: 'Scores (hold)' };
 const KB = Object.assign({}, KB_DEFAULT); try { Object.assign(KB, JSON.parse(localStorage.getItem('hb-keys5') || '{}')); } catch (e) { }
-const SET = { quality: 'medium', fov: 75, fps: false, invert: false, zoomSens: 1, master: 1 }; try { Object.assign(SET, JSON.parse(localStorage.getItem('hb-set') || '{}')); } catch (e) { }
+const SET = { quality: 'medium', fov: 75, fps: false, invert: false, zoomSens: 1, master: 1, voice: 0.6 }; try { Object.assign(SET, JSON.parse(localStorage.getItem('hb-set') || '{}')); } catch (e) { } voice.vol = SET.voice ?? 0.6;
 function saveSettings() { try { localStorage.setItem('hb-set', JSON.stringify(SET)); localStorage.setItem('hb-keys5', JSON.stringify(KB)); } catch (e) { } }
 function applyQuality() { const q = SET.quality; renderer.setPixelRatio(Math.min(q === 'low' ? 0.75 : q === 'high' ? 1.75 : 1.25, devicePixelRatio)); resize(); if (G.W) G.W.sun.castShadow = q !== 'low'; G.maxParts = q === 'low' ? 120 : q === 'high' ? 320 : 220; }
 const G = { pings: [], on: false, mode: 'solo', myId: 'me', name: 'Marine', cls: 'assault', map: 'mars', W: null, sim: null, net: null, snap: null, out: [], time: 0, shop: false, me: null };
@@ -72,7 +72,7 @@ function decode(m) {
     w: m.w, ph: m.ph, tm: m.tm, hub: m.hub, en: m.en, left: m.left, lt: m.lt, wx: m.wx, wa: m.wa || 0, n: m.n, C: m.C, open: m.open,
     L: m.L.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], tg: a[8] })),
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9], rv: a[10] })),
-    T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], carry: t[15], up: t[16], rs: t[17] || 0, s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
+    T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], carry: t[15], up: t[16], rs: t[17] || 0, vh: t[18] || 0, sl: t[19] || 0, s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
     P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {}, gear: p[31] || 0, ride: p[32] || 0, drive: p[33] || 0 })), SV: m.SV || {}, NS: (m.NS || []).map(n => ({ built: n[0], prog: n[1], hp: n[2] })), V: (m.V || []).map(v => ({ id: v[0], kind: v[1], x: v[2], y: v[3], z: v[4], ry: v[5], hp: v[6], mhp: v[7], driver: v[8] })), PT: m.PT || 0, R: (m.R || []).map(r => ({ id: r[0], x: r[1], y: r[2], z: r[3], ry: r[4], ph: r[5], riders: r[6] || [] })),
     O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4], kind: o[5] === 1 ? 'ammo' : o[5] === 2 ? 'dress' : '' })), el: m.el, I: (m.I || []).map(i => ({ id: i[0], kind: i[1], x: i[2], z: i[3] })), SC: (m.SC || []).map(c => ({ id: c[0], x: c[1], z: c[2] })),
     M: (m.M || []).map(c => ({ id: c[0], x: c[1], z: c[2], life: c[3] })), Z: (m.Z || []).map(c => ({ x: c[0], z: c[1], r: c[2] })), K: (m.K || []).map(q => ({ x: q[0], y: q[1], z: q[2], r: q[3], fire: q[4] })), D: (m.D || []).map(d => ({ id: d[0], x: d[1], y: d[2], z: d[3], tg: d[4] })), Q: (m.Q || []).map(q => ({ id: q[0], x: q[1], y: q[2], z: q[3], r: q[4], t: q[5] })), S2: (m.S2 || []).map(d => ({ x: d[0], y: d[1], z: d[2], r: d[3] })),
@@ -112,7 +112,7 @@ function boomFx(x, y, z, r, small) {
   const d = dist(x, z); audio.gun('boom', (small ? 0.5 : 1) * vol(d * 0.7), 1, Math.min(1, d / 60)); if (d < r + 10) G.shake = Math.max(G.shake, small ? 0.25 : 0.7 * (1 - d / (r + 10)) + 0.2);
 }
 // smoke drifts up and shrinks away
-function smoke(x, y, z, n, r) { const m = M.mat(0x4a4440, { r: 1 }); for (let i = 0; i < n; i++) { let p = FX.parts.find(q => !q.alive); if (!p) { if (FX.parts.length > (G.maxParts || 220)) return; p = { mesh: new THREE.Mesh(partGeo, m) }; scene.add(p.mesh); FX.parts.push(p); } p.alive = true; p.mesh.visible = true; p.mesh.material = m; p.mesh.position.set(x + (Math.random() - 0.5) * r, y + Math.random(), z + (Math.random() - 0.5) * r); p.s0 = 4 + Math.random() * 5; p.mesh.scale.setScalar(p.s0); p.vx = (Math.random() - 0.5) * 1.5; p.vy = 1.5 + Math.random() * 2; p.vz = (Math.random() - 0.5) * 1.5; p.life = p.l0 = 1.6 + Math.random() * 1.4; p.smoke = true; p.gy = -99; } }
+function smoke(x, y, z, n, r) { return;   /* no smoke puffs anywhere: they looked bad */ const m = M.mat(0x4a4440, { r: 1 }); for (let i = 0; i < n; i++) { let p = FX.parts.find(q => !q.alive); if (!p) { if (FX.parts.length > (G.maxParts || 220)) return; p = { mesh: new THREE.Mesh(partGeo, m) }; scene.add(p.mesh); FX.parts.push(p); } p.alive = true; p.mesh.visible = true; p.mesh.material = m; p.mesh.position.set(x + (Math.random() - 0.5) * r, y + Math.random(), z + (Math.random() - 0.5) * r); p.s0 = 4 + Math.random() * 5; p.mesh.scale.setScalar(p.s0); p.vx = (Math.random() - 0.5) * 1.5; p.vy = 1.5 + Math.random() * 2; p.vz = (Math.random() - 0.5) * 1.5; p.life = p.l0 = 1.6 + Math.random() * 1.4; p.smoke = true; p.gy = -99; } }
 // where a turret's barrel really ends: the front-most point of its rotating head (measured once per model), in world space
 const _mv = new THREE.Vector3(), _mi = new THREE.Matrix4();
 function turretMuzzle(v) {
@@ -186,10 +186,13 @@ function fx(e) {
     case 'hubmort': { const T = e.t || 2.6; G.hm = G.hm || []; G.hm.push({ a: e.a, b: e.b, t: 0, T }); const d0 = dist(e.a[0], e.a[2]); audio.gun('artillery', Math.max(0.12, vol(d0) * 0.9), 1, Math.min(1, d0 / 60)); flashAt(e.a, 3); smoke(e.a[0], e.a[1], e.a[2], 4, 0.8); } break;
     case 'handin': if (e.to === G.myId) { audio.sfx('place', 0.8); toast(`Handed ${e.n} scrap to the commander · hub parts: ${e.total} (B at the comms console to build a vehicle)`, 4); } break;
     case 'ambush': { const y = G.W.top(e.x, e.z); burst(e.x, y + 1, e.z, 0x6a5a48, 30, 6, 1, 1.8); burst(e.x, y + 1, e.z, 0x90ff30, 10, 4, 0.5); const d = dist(e.x, e.z); audio.sfx('screech', vol(d)); if (d < 25) { G.shake = Math.max(G.shake || 0, 0.2); toast('AMBUSH! They were nesting in the wreck!', 2); } } break;
+    case 'mounted': audio.sfx('place', vol(dist(e.x, e.z)) * 0.9); if (e.by === G.myId) toast(`Turret locked onto the ${e.n}'s mount: it fires on its own and rides with the vehicle`, 3.5); break;
+    case 'vehunl': banner('VEHICLE UNLOCKED', `${e.n}: bring ${e.p} scrap parts to the hub and order it at the comms console (B)`); bannerT = 5; audio.sfx('upg', 1); break;
+    case 'vehavail': banner('VEHICLE AVAILABLE', `The commander can build a ${e.n} (${e.m} turret mount${e.m > 1 ? 's' : ''}): order it at the hub comms console (B)`); bannerT = 4.5; audio.sfx('pickup', 0.9); break;
     case 'vehready': toast(`${e.n} ready in the hub: walk up and press E to drive`, 4); break;
     case 'exitveh': if (e.to === G.myId) { G.me.dv = null; G.me.x = e.x; G.me.z = e.z; G.me.y = G.W.top(e.x, e.z); toast('Your vehicle is gone! Bail out!', 2.5); } break;
-    case 'nodeup': toast('Extractor online: resources flowing to the commander', 3); audio.sfx('upg', vol(dist(G.W.nodes[e.i].x, G.W.nodes[e.i].z)) + 0.3); break;
-    case 'nodedown': { const nd = G.W.nodes[e.i]; boomFx(nd.x, nd.y + 2, nd.z, 5); toast('An extractor was destroyed! Rebuild it with a welder', 3); } break;
+    case 'nodeup': toast('Harvester online: it pulls material from the ground to unlock vehicles', 3); audio.sfx('upg', vol(dist(G.W.nodes[e.i].x, G.W.nodes[e.i].z)) + 0.3); break;
+    case 'nodedown': { const nd = G.W.nodes[e.i]; boomFx(nd.x, nd.y + 2, nd.z, 5); toast('A harvester was destroyed! Rebuild it with the welder (3)', 3); } break;
     case 'gear': if (e.to === G.myId) { audio.sfx('upg', 0.8); banner(e.g === 'jet' ? 'JETPACK' : 'SHOCK BOOTS', e.g === 'jet' ? 'Yours for the mission: hold jump in the air to fly (uses endurance)' : 'Yours for the mission: jump again in mid-air (uses endurance)'); } break;
     case 'pod': burst(e.x, G.W.top(e.x, e.z) + 1, e.z, 0xffd040, 14, 5, 0.6); if (e.by === G.myId) { audio.sfx('pickup'); toast(e.kind === 'ammo' ? 'Commander\'s ammo crate: full ammo, items and welder power' : e.kind === 'dress' ? 'Commander\'s med crate: field dressings restocked' : 'Supply crate: ammo and welder power' + (e.sp ? `, and a special: ${SPECIALS[e.sp].name} (press ${keyName(KB.special)})` : ''), 4); G.me.reserve = Math.min(stats().reserve, G.me.reserve + stats().reserve * 0.5); } break;
     case 'drop2': toast(`✈ Supply drop! ${e.n} crates parachuting in: grab them within 60 seconds of landing (yellow on the minimap).`, 5); audio.sfx('wave', 0.6); break;
@@ -480,7 +483,7 @@ function syncView(S, dt) {
     if (!v) { const mesh = M.turret(t.kind, colorOf(t.owner, S), t.lvl); mesh.position.set(t.x, t.y, t.z); if (TURRETS[t.kind].onPath) mesh.rotation.y = t.ry; else mesh.userData.head.rotation.y = t.ry; scene.add(mesh); v = { mesh, acc: 0, spin: 0, lvl: 0 }; view.turrets.set(t.id, v); }
     const u = v.mesh.userData; v.d = t;
     // turrets can be carried: the one you hold floats in front of you, others glide to where the host says
-    { const mine0 = t.carry && t.carry === G.myId, tx = mine0 ? G.me.x - Math.sin(G.me.yaw) * 2.0 + Math.cos(G.me.yaw) * 1.3 : t.x, tz = mine0 ? G.me.z - Math.cos(G.me.yaw) * 2.0 - Math.sin(G.me.yaw) * 1.3 : t.z,   /* carried ahead and to the right, so your own marine doesn't hide it */ ty = mine0 ? G.me.y + 0.3 : t.y, m = v.mesh.position;
+    { const mine0 = t.carry && t.carry === G.myId, tx = mine0 ? G.me.x - Math.sin(G.me.yaw) * 2.0 + Math.cos(G.me.yaw) * 1.3 : t.x, tz = mine0 ? G.me.z - Math.cos(G.me.yaw) * 2.0 - Math.sin(G.me.yaw) * 1.3 : t.z,   /* carried ahead and to the right, so your own marine doesn't hide it */ ty = mine0 ? G.me.y + 0.3 : t.y, m = v.mesh.position; const vm = t.vh && vehV.get(t.vh), mp = vm && mountAt({ kind: vm.kind, x: vm.x, y: vm.y, z: vm.z, ry: vm.ry }, t.sl); if (mp) { m.set(mp.x, mp.y, mp.z); } else
       if (mine0 || m.distanceToSquared(_tv.set(tx, ty, tz)) > 900) m.set(tx, ty, tz); else m.lerp(_tv.set(tx, ty, tz), Math.min(1, k * 1.5)); if (TURRETS[t.kind].onPath) v.mesh.rotation.y = t.carry ? (mine0 ? G.me.yaw : t.ry) : t.ry; v.mesh.rotation.z = t.carry ? Math.sin(G.time * 6) * 0.04 : 0; }
     if (!['barricade', 'resupply', 'stasis', 'mines', 'uav', 'claymore', 'medbay', 'rally', 'sandbag', 'nest', 'fieldhosp', 'teleporter'].includes(t.kind)) { let dr = t.ry - u.head.rotation.y; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; u.head.rotation.y += dr * Math.min(1, k * 1.5); }
     if (!v.hpb) { v.hpb = new THREE.Group(); const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x200000, depthTest: false })); bg.scale.set(2, 0.18, 1); const fg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x40e070, depthTest: false })); fg.center.set(0, 0.5); fg.position.x = -0.95; fg.scale.set(1.9, 0.12, 1); bg.renderOrder = 6; fg.renderOrder = 7; v.hpb.add(bg, fg); v.hpb.userData.fg = fg; scene.add(v.hpb); }
@@ -605,6 +608,9 @@ function sphereHit(o, d, cx, cy, cz, r) { const ox = cx - o.x, oy = cy - o.y, oz
 function hitAliens(o, d, maxD) {
   const out = [];
   for (const v of (G.explore && G.ex ? G.ex.wild : view.aliens.values())) {
+    // point-blank: an alien within about 3 m that you're roughly aiming at is hit, wherever its little hit spheres happen to be mid-lunge
+    { const sc0 = v.mesh ? v.mesh.scale.x : 1, A0 = ALIENS[v.type] || {}, hy = v.y + Math.max(0.35, (A0.h || 1) * 0.45) * Math.min(1, sc0 + 0.3), dx = v.x - o.x, dy = hy - o.y, dz = v.z - o.z, hd = Math.hypot(dx, dz);
+      if (hd < 3.2) { const dl = Math.hypot(dx, dy, dz) || 1, cs = (dx * d.x + dy * d.y + dz * d.z) / dl; if (cs > (hd < 1.6 ? 0.62 : 0.8) && dl < maxD + 1) { out.push({ v, t: Math.max(0, dl - 0.5), head: false }); continue; } } }
     const mhb = v.mesh && v.mesh.userData.hb; if (mhb) { const hb = mhb; // a Meshy alien: a chain of spheres along its body, and its head at the front
       const sc = v.mesh.scale.x, ry = v.mesh.rotation.y, ax = Math.sin(ry), az = Math.cos(ry), cx = v.x + ax * hb.cz * sc, cy = v.y + hb.cy * sc, cz = v.z + az * hb.cz * sc, rad = Math.max(0.35, Math.min(hb.wid, hb.hgt) * 0.42) * sc;
       let bt = -1; for (const k of [-0.36, -0.12, 0.12, 0.36]) { const t = sphereHit(o, d, cx + ax * k * hb.len * sc, cy, cz + az * k * hb.len * sc, rad); if (t >= 0 && (bt < 0 || t < bt)) bt = t; }
@@ -687,7 +693,7 @@ function dropNew(kind, my) {
     requestAnimationFrame(fly); return; }
   req({ a: 'place', kind, ...frontOf(1.7) }); audio.sfx('place', 0.6); toast(`${T.name} in hand: left click puts it down · press the key again or switch weapons to put it away`, 2.5);
 }
-function dropCarried() { if (!G.me.carry) return; const me = G.me; req({ a: 'drop', x: +(me.x - Math.sin(me.yaw) * 2.0 + Math.cos(me.yaw) * 1.3).toFixed(2), z: +(me.z - Math.cos(me.yaw) * 2.0 - Math.sin(me.yaw) * 1.3).toFixed(2), ry: +me.yaw.toFixed(2) });   /* set down right where it's held (ahead and to the right), not out in front */ G.me.carry = 0; G.me.holdFire = true; audio.sfx('place', 0.8); }
+function dropCarried() { if (!G.me.carry) return; const me = G.me; { const mt = mountTarget(); if (mt) { req({ a: 'drop', veh: mt.v.id, slot: mt.i }); G.me.carry = 0; G.me.holdFire = true; audio.sfx('place', 0.8); return; } } req({ a: 'drop', x: +(me.x - Math.sin(me.yaw) * 2.0 + Math.cos(me.yaw) * 1.3).toFixed(2), z: +(me.z - Math.cos(me.yaw) * 2.0 - Math.sin(me.yaw) * 1.3).toFixed(2), ry: +me.yaw.toFixed(2) });   /* set down right where it's held (ahead and to the right), not out in front */ G.me.carry = 0; G.me.holdFire = true; audio.sfx('place', 0.8); }
 function setSlot(n) {
   if (G.me.carry) { req({ a: 'stow' }); G.me.carry = 0; audio.sfx('pouch', 0.8); }
   const me = G.me; if (n === 4) return; if (n === me.slot) return; if (me.slot <= 1) me.wpn[me.slot] = { ammo: me.ammo, reserve: me.reserve };
@@ -769,7 +775,7 @@ function animReload(me, gn, my, dt) {
   if (f >= 0.22 && f < 0.5 && !(me.rs & 64) && u.mag) { me.rs |= 64; const m = u.mag.isGroup ? u.mag.clone() : new THREE.Mesh(u.mag.geometry, u.mag.material); m.scale.setScalar(u.mag.isGroup ? g.scale.x : 0.55); hd.updateMatrixWorld(); const w = new THREE.Vector3(0, -(magH / 2 + 0.03), -0.01); hd.localToWorld(w); camera.worldToLocal(w); m.position.copy(w); m.quaternion.copy(hd.quaternion); camera.add(m); view2.drops.push({ m, t: 0, vy: -0.5 }); }
   if (view2.arms && !view2.oneHand) hd.visible = false;   // a two-handed Meshy gun (the minigun): both hands stay on it; the reload is the gun tipping and jolting
 }
-function startReload(st, S) { const g = curGun(), me = G.me; if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.42; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
+function startReload(st, S) { const g = curGun(), me = G.me; if (g.pellets) { me.shells = true; me.shellT = me.shellP = 0.22; return; } me.rel = me.relT = st.reload * reloadMul(S); me.rs = 0; }
 function surface(me) {
   const T = G.W.T, W = G.W; if (W.fob) return T.hubAt(me.x, me.z) ? 'concrete' : W.def.weather === 'snow' ? 'snow' : W.def.weather === 'rain' ? 'grass' : 'sand';
   const raw = T.raw(me.x, me.z), n = W.path.near(me.x, me.z);
@@ -840,7 +846,7 @@ const H = { scene, camera, renderer, audio, keys, hits, KB, G, M, toast: (m, t) 
 function reloadMul(S) { return S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? 0.75 : 1; }
 // medic heal beam and engineer plasma torch: find what is in the crosshair and tell the host ten times a second
 function updateBeam(dt, S) {
-  const me = G.me, laser = view2.laser; if (laser) laser.visible = false; $('weld').hidden = true;
+  const me = G.me, laser = view2.laser; if (laser) laser.visible = false; $('weld').hidden = true; if (audio.weld) audio.weld(G.weldLv || 0); G.weldLv = 0; G.weldHit = false;   /* the arc's sound follows last frame's beam */
   if (!me.beam) { me.beamAcc = 0; return; } const rc = me.slot === 4 ? 'heal' : 'repair', fx = -Math.sin(me.yaw) * Math.cos(me.pitch), fy = Math.sin(me.pitch), fz = -Math.cos(me.yaw) * Math.cos(me.pitch), ey = me.y + 1.7;
   let best = null, bs = 0.95, k = '', end = null; const reach = G.cls === 'engineer' ? 8 : 6;
   const look = (q, kk, range, h = 1.1) => { const dx = q.x - me.x, dy = (q.y || 0) + h - ey, dz = q.z - me.z, d = Math.hypot(dx, dy, dz); if (d > range || d < 0.5) return; const c = (dx * fx + dy * fy + dz * fz) / d; if (c > bs) { bs = c; best = q; k = kk; } };
@@ -853,12 +859,16 @@ function updateBeam(dt, S) {
     (G.W.nodes || []).forEach((w, i) => { if (Math.hypot(w.x - me.x, w.z - me.z) > max + w.r + 2) return; w.b3 = w.b3 || new THREE.Box3(new THREE.Vector3(w.box[0], w.box[1], w.box[2]), new THREE.Vector3(w.box[3], w.box[4], w.box[5])); hitBox(w.b3, { i, ...w }, 'n'); });   // extractors: weld to build them
     (G.W.salvage || []).forEach((w, i) => { if (Math.hypot(w.x - me.x, w.z - me.z) > max + w.r + 2) return; w.b3 = w.b3 || new THREE.Box3(new THREE.Vector3(w.box[0], w.box[1], w.box[2]), new THREE.Vector3(w.box[3], w.box[4], w.box[5])); hitBox(w.b3, { i, ...w }, 'w'); });   // wrecks: cut scrap parts out of them
     const gt = G.W.T.ray ? G.W.T.ray(o, dv, tt) : Infinity; if (gt < tt) { tt = gt; best = null; k = ''; }
+    // rocks, props and other solid things on the map (upright cylinders): the beam stops on them too
+    for (const c of G.W.colliders || []) { const ox = o.x - c.x, oz = o.z - c.z; if (ox * ox + oz * oz > (max + c.r) ** 2) continue; const a2 = dv.x * dv.x + dv.z * dv.z; if (a2 < 1e-6) continue; const b2 = ox * dv.x + oz * dv.z, c2 = ox * ox + oz * oz - c.r * c.r, disc = b2 * b2 - a2 * c2; if (disc < 0) continue; const th = (-b2 - Math.sqrt(disc)) / a2; if (th <= 0 || th >= tt) continue; const hy = o.y + dv.y * th, gy = G.W.ground(c.x, c.z, hy + 5); if (hy > gy + (c.h || 3)) continue; tt = th; best = null; k = ''; }
+    for (const p of S.P) { if (p.id === G.myId || p.dead) continue; const sp = new THREE.Sphere(new THREE.Vector3(p.x, p.y + 1, p.z), 0.6); if (ray.intersectSphere(sp, P)) { const d = P.distanceTo(o); if (d < tt) { tt = d; best = null; k = ''; } } }   /* a teammate: the beam stops on them, no welding done */
+    G.weldHit = tt < max;   /* touching something: only then the sparks, the light and the sizzle */
     end = o.clone().addScaledVector(dv, Math.min(tt, max)).toArray(); }
   const pw = 1;   /* the welder never runs out */
   if (rc === 'repair') {
     // the torch is a short laser: it ends at what it touches, or a few metres out
     const m = muzzleTool();
-    if (pw > 0) { // a welding arc: a white-hot core, a crackling jagged arc around it, a blinding contact point that lights what it touches, and a shower of sparks
+    if (pw > 0) { // a welding arc: a white-hot core, a crackling jagged arc around it, a light where it touches, and a shower of thin sparks (no glowing ball)
       if (!laser) { const add = { transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }, g = new THREE.Group();
         g.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 6, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.95, ...add })));
         for (let j = 0; j < 2; j++) { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(14 * 3), 3)); g.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x9fd8ff, opacity: 0.9, ...add }))); }
@@ -869,14 +879,13 @@ function updateBeam(dt, S) {
       u.core.position.copy(a).lerp(b, 0.5); u.core.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); u.core.scale.set(0.006 + Math.random() * 0.006, len, 0.006 + Math.random() * 0.006);
       const side = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)); if (side.lengthSq() < 1e-4) side.set(1, 0, 0); side.normalize(); const up2 = new THREE.Vector3().crossVectors(side, dir);
       for (const ar of u.arcs) { const p = ar.geometry.attributes.position; for (let q = 0; q < 14; q++) { const f = q / 13, amp = Math.sin(f * Math.PI) * (0.02 + len * 0.012), x = a.x + (b.x - a.x) * f + (side.x * (Math.random() - 0.5) + up2.x * (Math.random() - 0.5)) * amp * 2, y = a.y + (b.y - a.y) * f + (side.y * (Math.random() - 0.5) + up2.y * (Math.random() - 0.5)) * amp * 2, z = a.z + (b.z - a.z) * f + (side.z * (Math.random() - 0.5) + up2.z * (Math.random() - 0.5)) * amp * 2; p.setXYZ(q, x, y, z); } p.needsUpdate = true; ar.geometry.computeBoundingSphere(); }
-      const fl = 0.7 + Math.random() * 0.6; u.glow.position.copy(b).addScaledVector(dir, -0.05); u.glow.scale.setScalar((best ? 0.75 : 0.4) * fl); u.lt.position.copy(b).addScaledVector(dir, -0.25); u.lt.intensity = (best ? 5 : 2) * fl;
-      if (best) { spark(end[0] - dir.x * 0.05, end[1] - dir.y * 0.05, end[2] - dir.z * 0.05, 3, k === 'x' ? 0xffd0a0 : 0xe8f6ff); if (Math.random() < 0.25) smoke(end[0], end[1], end[2], 1, 0.3); }
-      else if (Math.random() < 0.5) spark(end[0], end[1], end[2], 1, 0xe8f6ff);
-      if (view2.tool) { const tl = view2.tool; tl.userData.bp ??= tl.position.clone(); tl.position.copy(tl.userData.bp); tl.position.x += (Math.random() - 0.5) * 0.004; tl.position.y += (Math.random() - 0.5) * 0.004; } if (Math.random() < dt * 8) audio.sfx('torch', 0.35); }
+      const fl = 0.7 + Math.random() * 0.6; u.glow.visible = false;   /* no glowing ball at the weld point: just the arc, its light and the sparks */ u.lt.position.copy(b).addScaledVector(dir, -0.25); u.lt.intensity = G.weldHit ? (best ? 5 : 3.5) * fl : 0;
+      if (G.weldHit) spark(end[0] - dir.x * 0.05, end[1] - dir.y * 0.05, end[2] - dir.z * 0.05, best ? 3 : 2, k === 'x' ? 0xffd0a0 : 0xe8f6ff);   /* sparks only where the beam touches something, never in thin air */
+      if (view2.tool) { const tl = view2.tool; tl.userData.bp ??= tl.position.clone(); tl.position.copy(tl.userData.bp); tl.position.x += (Math.random() - 0.5) * 0.004; tl.position.y += (Math.random() - 0.5) * 0.004; } G.weldLv = G.weldHit ? (best ? 1 : 0.8) : 0.12; }
     // the build bar: repair, or an upgrade climbing to completion
     if (best && k === 't') { const T = TURRETS[best.kind], up = best.hp < best.mhp ? null : best.lvl >= 3 ? 'max' : (best.up || 0); $('weld').hidden = false;
       setT('weldT', up === null ? `REPAIRING ${T.name.toUpperCase()}` : up === 'max' ? `${T.name.toUpperCase()} · MAX LEVEL` : `UPGRADING TO LV ${best.lvl + 1}`); $('weldBar').style.width = (up === null ? best.hp / best.mhp : up === 'max' ? 1 : up) * 100 + '%'; $('weld').classList.toggle('rep', up === null); }
-    else if (best && k === 'n') { const ns = (S.NS || [])[best.i] || {}; $('weld').hidden = false; setT('weldT', ns.built ? `EXTRACTOR · ARMOUR ${Math.round(ns.hp / 15)}%` : `BUILDING EXTRACTOR · ${Math.round((ns.prog || 0) * 100)}%`); $('weldBar').style.width = (ns.built ? ns.hp / 15 : (ns.prog || 0) * 100) + '%'; $('weld').classList.toggle('rep', !!ns.built); }
+    else if (best && k === 'n') { const ns = (S.NS || [])[best.i] || {}; $('weld').hidden = false; setT('weldT', ns.built ? `HARVESTER · ARMOUR ${Math.round(ns.hp / 15)}%` : `BUILDING HARVESTER · ${Math.round((ns.prog || 0) * 100)}%`); prompt(ns.built ? 'Harvester running: it pulls material from the ground that unlocks the Quad Bike, Gun Truck and VTOL. Weld it to repair it.' : 'Building a harvester: once it\'s up it pulls material from the ground that unlocks vehicles. More harvesters, faster unlocks.'); $('weldBar').style.width = (ns.built ? ns.hp / 15 : (ns.prog || 0) * 100) + '%'; $('weld').classList.toggle('rep', !!ns.built); }
     else if (best && k === 'w') { const left = G.stripped && G.stripped.has(best.i) ? 0 : 1; $('weld').hidden = false; setT('weldT', left ? `CUTTING SCRAP · ${best.name.toUpperCase()}` : `${best.name.toUpperCase()} · STRIPPED`); $('weldBar').style.width = (left ? 100 : 0) + '%'; $('weld').classList.add('rep'); }
     else if (best && k === 'x') { $('weld').hidden = false; setT('weldT', `BURNING ${ALIENS[best.type].name.toUpperCase()}`); $('weldBar').style.width = Math.max(0, best.hp / best.mhp) * 100 + '%'; $('weld').classList.add('rep'); }
     if (G.salvT > 0) prompt(`+${G.salvN} scrap · take it to the hub: the commander builds vehicles from it`); else if (!best) prompt('Welding laser · cut scrap from wrecks, weld turrets to repair and upgrade them, burn aliens up close');
@@ -955,20 +964,20 @@ function rideGun(dt, S, my, rd) {
 // driving a vehicle the commander built: the truck's .50 cal and the tank's cannon follow your aim; the VTOL flies (jump climbs, crouch descends)
 function driveVeh(dt, S, my, sv) {
   const me = G.me, k = keys, T = G.W.T, VD = VEHICLES[sv.kind], live = locked() && !G.shop;
-  if (!me.dv || me.dv.id !== sv.id) { me.dv = { id: sv.id, kind: sv.kind, x: sv.x, y: sv.y, z: sv.z, yaw: sv.ry, sp: 0, vx: 0, vy: 0, vz: 0, cd: 0, st: 0, eng: 0 }; me.yaw = sv.ry; me.pitch = -0.1; banner(VD.name.toUpperCase(), 'W A S D drive · the mouse aims · left click fires · E gets out'); audio.sfx('place', 0.8); }
+  if (!me.dv || me.dv.id !== sv.id) { me.dv = { id: sv.id, kind: sv.kind, x: sv.x, y: sv.y, z: sv.z, yaw: sv.ry, sp: 0, vx: 0, vy: 0, vz: 0, cd: 0, st: 0, eng: 0 }; me.yaw = sv.ry; me.pitch = -0.1; banner(VD.name.toUpperCase(), sv.kind === 'quad' ? 'W A S D drive · the turret on the back fires on its own · E gets out' : 'W A S D drive · the mouse aims · left click fires · mounted turrets fire on their own · E gets out'); audio.sfx('place', 0.8); }
   const v = me.dv; v.cd -= dt; for (const kk of ['gun', 'pistol', 'tool', 'thr', 'extra', 'dress', 'healer', 'door']) if (view2[kk]) view2[kk].visible = false; if (view2.hand) view2.hand.visible = false; $('weld').hidden = true;
-  if (v.kind !== 'vtol') { const tank = v.kind === 'tank', top = tank ? 9 : 24;
-    const ac = live ? (k[KB.forward] ? (tank ? 6 : 14) : 0) - (k[KB.back] ? (tank ? 7 : 18) : 0) : 0; v.sp += ac * dt; v.sp *= Math.pow(tank ? 0.4 : 0.6, dt); v.sp = Math.max(-top / 3, Math.min(top, v.sp));
-    const steer = live ? ((k[KB.left] ? 1 : 0) - (k[KB.right] ? 1 : 0)) * (tank ? 0.9 : Math.min(1, Math.abs(v.sp) / 6) * Math.sign(v.sp || 1)) : 0; v.yaw += steer * (tank ? 1.0 : 1.4) * dt;
-    const nx = v.x - Math.sin(v.yaw) * v.sp * dt, nz = v.z - Math.cos(v.yaw) * v.sp * dt; let hit = Math.abs(nx) > BOUNDS - 2 || Math.abs(nz) > BOUNDS - 2; for (const c of G.W.colliders) if (Math.hypot(nx - c.x, nz - c.z) < c.r + (tank ? 2.6 : 2)) { hit = true; break; }
+  if (v.kind !== 'vtol') { const tank = false, quad = v.kind === 'quad', top = quad ? 30 : 24;
+    const ac = live ? (k[KB.forward] ? (quad ? 20 : 14) : 0) - (k[KB.back] ? 18 : 0) : 0; v.sp += ac * dt; v.sp *= Math.pow(0.6, dt); v.sp = Math.max(-top / 3, Math.min(top, v.sp));
+    const steer = live ? ((k[KB.left] ? 1 : 0) - (k[KB.right] ? 1 : 0)) * Math.min(1, Math.abs(v.sp) / 6) * Math.sign(v.sp || 1) : 0; v.yaw += steer * (quad ? 1.9 : 1.4) * dt;
+    const nx = v.x - Math.sin(v.yaw) * v.sp * dt, nz = v.z - Math.cos(v.yaw) * v.sp * dt; let hit = Math.abs(nx) > BOUNDS - 2 || Math.abs(nz) > BOUNDS - 2; for (const c of G.W.colliders) if (Math.hypot(nx - c.x, nz - c.z) < c.r + (quad ? 1.2 : 2.2)) { hit = true; break; }
     const gh = T.ground(nx, nz, v.y + 1.2); if (!hit && gh - v.y > 1.6) hit = true; if (hit) { if (Math.abs(v.sp) > 8) audio.sfx('boom', 0.25); v.sp *= -0.3; } else { v.x = nx; v.z = nz; }
     v.y = T.ground(v.x, v.z, v.y + 1.2); if (v.y < LIQUID + 0.5) { v.x -= -Math.sin(v.yaw) * v.sp * dt * 3; v.z -= -Math.cos(v.yaw) * v.sp * dt * 3; v.sp = 0; v.y = T.ground(v.x, v.z, 99); }
-    const ds = tank ? 12 : 9; camera.position.set(v.x + Math.sin(me.yaw) * ds, v.y + (tank ? 6 : 5) - me.pitch * 4, v.z + Math.cos(me.yaw) * ds); camera.rotation.set(me.pitch * 0.8 - 0.12, me.yaw, 0, 'YXZ');
-    if (live && mouseL && v.cd <= 0) { const o = camera.getWorldPosition(new THREE.Vector3()), d = camera.getWorldDirection(new THREE.Vector3()), mx = 300, wall = T.ray(o, d, mx), list = hitAliens(o, d, Math.min(mx, wall)), tt = list.length ? list[0].t : Math.min(mx, wall), end = [o.x + d.x * tt, o.y + d.y * tt, o.z + d.z * tt];
-      const mz = [v.x - Math.sin(me.yaw) * (tank ? 4.5 : 2.4), v.y + (tank ? 2.4 : 2.9), v.z - Math.cos(me.yaw) * (tank ? 4.5 : 2.4)];
+    const ds = quad ? 7 : 11; camera.position.set(v.x + Math.sin(me.yaw) * ds, v.y + (quad ? 4 : 5.5) - me.pitch * 4, v.z + Math.cos(me.yaw) * ds); camera.rotation.set(me.pitch * 0.8 - 0.12, me.yaw, 0, 'YXZ');
+    if (live && mouseL && v.cd <= 0 && !quad) { const o = camera.getWorldPosition(new THREE.Vector3()), d = camera.getWorldDirection(new THREE.Vector3()), mx = 300, wall = T.ray(o, d, mx), list = hitAliens(o, d, Math.min(mx, wall)), tt = list.length ? list[0].t : Math.min(mx, wall), end = [o.x + d.x * tt, o.y + d.y * tt, o.z + d.z * tt];
+      const mz = [v.x - Math.sin(me.yaw) * 2.4, v.y + 3.2, v.z - Math.cos(me.yaw) * 2.4];
       if (tank) { v.cd = 1.5; tracer(mz, end, 0xffc070, 0.08, 0.2); flashAt(mz, 4); smoke(mz[0], mz[1], mz[2], 6, 0.8); audio.gun('rocket', 1, 1.4, 0); audio.gun('boom', 0.6, 1.4, 0.3); G.shake = Math.max(G.shake || 0, 0.4); req({ a: 'boom', x: end[0], y: end[1], z: end[2], r: 6, d: 380 }); boomFx(end[0], end[1] + 0.3, end[2], 7); send({ k: 'tr', a: mz.map(q => +q.toFixed(1)), b: end.map(q => +q.toFixed(1)), c: 0xffc070, s: 'rocket', p: 1.4 }); }
       else { v.cd = 0.1; tracer(mz, end, 0xffb060, 0.06, 0.09); flashAt(mz, 1.6); audio.gun('sniper', 0.8, 1.5, 0); G.shake = Math.max(G.shake || 0, 0.08); if (list.length) { const q = list[0]; req({ a: 'hit', id: q.v.id, d: +(40 * PLAYER_DMG).toFixed(1) }); bloodHit(end, q.v, q.head, d); G.hitT = 0.1; } else if (tt < mx) burst(end[0], end[1] + 0.2, end[2], G.W.def.ground, 4, 3, 0.4, 1.4); if (Math.random() < 0.5) send({ k: 'tr', a: mz.map(q => +q.toFixed(1)), b: end.map(q => +q.toFixed(1)), c: 0xffb060, s: 'sniper', p: 1 }); } }
-    v.eng -= dt; if (v.eng <= 0) { v.eng = tank ? 0.16 : 0.09 / (0.5 + Math.abs(v.sp) / 24); audio.sfx('engine', tank ? 0.45 : 0.35); }
+    v.eng -= dt; if (v.eng <= 0) { v.eng = (quad ? 0.07 : 0.09) / (0.5 + Math.abs(v.sp) / 24); audio.sfx('engine', quad ? 0.25 : 0.35); }
   } else {
     const f = live ? (k[KB.forward] ? 1 : 0) - (k[KB.back] ? 1 : 0) : 0, st = live ? (k[KB.right] ? 1 : 0) - (k[KB.left] ? 1 : 0) : 0, up = live ? (k[KB.jump] ? 1 : 0) - (k[KB.kneel] ? 1 : 0) : 0; v.yaw = me.yaw;
     v.vx += (-Math.sin(v.yaw) * f + Math.cos(v.yaw) * st) * 26 * dt; v.vz += (-Math.cos(v.yaw) * f - Math.sin(v.yaw) * st) * 26 * dt; v.vy += up * 16 * dt; const drag = Math.pow(0.45, dt); v.vx *= drag; v.vz *= drag; v.vy *= Math.pow(0.3, dt);
@@ -981,7 +990,7 @@ function driveVeh(dt, S, my, sv) {
   me.x = v.x; me.y = v.y; me.z = v.z; me.vy = 0;
   v.sendT = (v.sendT || 0) - dt; if (v.sendT <= 0) { v.sendT = 0.08; req({ a: 'vpose', x: +v.x.toFixed(2), y: +v.y.toFixed(2), z: +v.z.toFixed(2), ry: +v.yaw.toFixed(2) }); }
   if (live && hits[KB.use]) { hits[KB.use] = 0; req({ a: 'exitveh' }); const ex = v.x + Math.cos(v.yaw) * 3.4, ez = v.z - Math.sin(v.yaw) * 3.4; me.dv = null; me.x = ex; me.z = ez; me.y = T.ground(ex, ez, v.y + 2); return; }
-  prompt(`<b>${VD.name}</b> · armour ${Math.max(0, Math.round(sv.hp))}/${sv.mhp} · <b>left click</b> fire · <b>${keyName(KB.use)}</b> get out`);
+  prompt(`<b>${VD.name}</b> · armour ${Math.max(0, Math.round(sv.hp))}/${sv.mhp} · turrets ${S.T.filter(t => t.vh === sv.id).length}/${VD.mounts.length}${sv.kind === 'quad' ? '' : ' · <b>left click</b> fire'} · <b>${keyName(KB.use)}</b> get out`);
 }
 // wrecks that still hold scrap: a gold marker floats over each one within 80 m (gone once it's stripped)
 const salvMk = []; let salvTex = null;
@@ -989,7 +998,7 @@ const nodeMk = []; let nodeTex = null;
 function updNodes(S) {
   const W = G.W; if (!W || !W.nodeG) return;
   W.nodeG.forEach((ng, i) => { const ns = (S.NS || [])[i] || {}, u = ng.userData; u.real.visible = !!ns.built; u.holo.visible = !ns.built; if (!ns.built) { u.holo.scale.y = 0.25 + 0.75 * (ns.prog || 0); u.holo.traverse(o => { if (o.isMesh) o.material.opacity = 0.18 + 0.4 * (ns.prog || 0) + Math.sin(G.time * 4) * 0.05; }); } });
-  if (!nodeTex) { const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64; const g = cv.getContext('2d'); g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; g.shadowColor = '#000'; g.shadowBlur = 5; g.fillStyle = '#60d8ff'; g.fillText('⛏ EXTRACTOR', 64, 28); g.font = 'bold 16px sans-serif'; g.fillText('WELD TO BUILD', 64, 52); nodeTex = new THREE.CanvasTexture(cv); }
+  if (!nodeTex) { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128; const g = cv.getContext('2d'); g.textAlign = 'center'; g.shadowColor = '#000'; g.shadowBlur = 6; g.fillStyle = '#60d8ff'; g.font = 'bold 40px sans-serif'; g.fillText('⛏ HARVESTER', 128, 44); g.font = 'bold 26px sans-serif'; g.fillStyle = '#ffffff'; g.fillText('WELD (3) TO BUILD', 128, 80); g.fillStyle = '#60ff90'; g.font = 'bold 22px sans-serif'; g.fillText('= unlocks vehicles', 128, 112); nodeTex = new THREE.CanvasTexture(cv); }
   let n = 0; const me = G.me; if (!G.cine && !G.explore) for (const [i, nd] of W.nodes.entries()) { const ns = (S.NS || [])[i] || {}; if (ns.built) continue; const d = Math.hypot(nd.x - me.x, nd.z - me.z); if (d > 140 || d < 14) continue; let s = nodeMk[n]; if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: nodeTex, depthTest: false, transparent: true, fog: false })); s.renderOrder = 5; scene.add(s); nodeMk.push(s); } s.visible = true; s.position.set(nd.x, nd.y + 10.5, nd.z); const sc = 1.3 + d * 0.035; s.scale.set(sc * 2, sc, 1); n++; }
   for (let k = n; k < nodeMk.length; k++) nodeMk[k].visible = false;
 }
@@ -1001,8 +1010,15 @@ function updSalvMesh(S, dt) {
     else if (m.visible) { if (!u.gone) { u.gone = 1; (G.stripped = G.stripped || new Set()).add(i); for (let j = 0; j < 4; j++) burst(w.x + (Math.random() - 0.5) * w.r, w.y + 0.5, w.z + (Math.random() - 0.5) * w.r, G.W.def.ground, 12, 4, 1.2, 2); smoke(w.x, w.y + 1, w.z, 8, w.r * 0.5); W.colliders = W.colliders.filter(c => Math.hypot(c.x - w.x, c.z - w.z) > w.r * 0.9); }   /* nothing left to bump into */
       m.position.y -= dt * 1.2; m.scale.y = Math.max(0.05, m.scale.y - dt * 0.4); if (m.position.y < u.y0 - 4) m.visible = false; } }
 }
+// the round sandbag bunkers on the map: a COVER label floats over each one when you're near, so you know what they are
+const bagMk = []; let bagTex = null;
+function updBagMarks() {
+  const W = G.W, me = G.me; let n = 0; if (W && W.bags && !G.cine && !G.explore) { if (!bagTex) { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96; const g = cv.getContext('2d'); g.textAlign = 'center'; g.shadowColor = '#000'; g.shadowBlur = 6; g.fillStyle = '#e8d8a8'; g.font = 'bold 36px sans-serif'; g.fillText('🛡 COVER', 128, 40); g.font = 'bold 22px sans-serif'; g.fillStyle = '#ffffff'; g.fillText('stand inside: half damage', 128, 78); bagTex = new THREE.CanvasTexture(cv); }
+    for (const b of W.bags) { const d = Math.hypot(b.x - me.x, b.z - me.z); if (d > 26 || d < 2.5) continue; let s = bagMk[n]; if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: bagTex, depthTest: false, transparent: true, fog: false })); s.renderOrder = 5; scene.add(s); bagMk.push(s); } s.visible = true; s.position.set(b.x, G.W.top(b.x, b.z) + 2.6, b.z); const sc = 1 + d * 0.03; s.scale.set(sc * 2.6, sc, 1); s.material.opacity = Math.min(1, (26 - d) / 6); if (++n >= 6) break; } }
+  for (let k = n; k < bagMk.length; k++) bagMk[k].visible = false;
+}
 function updSalvMarks() {
-  const W = G.W, me = G.me; if (!W || !W.salvage || G.cine || G.explore) { for (const s of salvMk) s.visible = false; return; }
+  const W = G.W, me = G.me; if (true || !W || !W.salvage || G.cine || G.explore) { for (const s of salvMk) s.visible = false; return; }   /* no floating scrap icons: almost every man-made thing can be welded, aim the welder at it */
   if (!salvTex) { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); g.translate(32, 32); g.rotate(Math.PI / 4); g.strokeStyle = '#ffcc40'; g.lineWidth = 4; g.shadowColor = '#000'; g.shadowBlur = 4; g.strokeRect(-17, -17, 34, 34); g.rotate(-Math.PI / 4); g.fillStyle = '#ffd860'; g.font = 'bold 26px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⚙', 0, 1); salvTex = new THREE.CanvasTexture(cv); }
   let n = 0; for (const [i, w] of W.salvage.entries()) { if (G.stripped && G.stripped.has(i)) continue; const d = Math.hypot(w.x - me.x, w.z - me.z); if (d > 80) continue;
     let s = salvMk[n]; if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: salvTex, depthTest: false, transparent: true, fog: false })); s.renderOrder = 5; scene.add(s); salvMk.push(s); }
@@ -1012,18 +1028,40 @@ function updSalvMarks() {
 // the vehicles everyone sees; the one you drive follows your own controls
 const vehV = new Map();
 function vehMesh(kind) {
-  if (kind === 'truck') return roverModel();
+  const fitV = (n, len) => { const o = M.AS.fitGLB(n, 'w', len, false); if (!o) return null; const g = new THREE.Group(); o.rotation.y = -Math.PI / 2; g.add(o); g.userData = {}; return g; };   /* Meshy vehicles face along -x; turned so the nose points forward */
+  if (kind === 'quad') return fitV('v_quad', 3.6) || roverModel();
+  if (kind === 'truck') return fitV('v_flatbed', 7.5) || roverModel();
   if (kind === 'vtol') { const m = vtolModel(); for (const sd of [-1, 1]) { const g = M.gunModel('gunner', CLASSES.gunner.color); g.scale.setScalar(2.2); g.position.set(sd * 2.3, 0.4, 0.4); g.rotation.y = -sd * Math.PI / 2; m.add(g); } return m; }
   const t = M.AS.fitGLB('r_tank', 'w', 8.5, false); if (t) { const g = new THREE.Group(); t.rotation.y = -Math.PI / 2; g.add(t); return g; } return M.tank(Math.random);
 }
+// the turret in your hands snaps onto a vehicle only at its fixed mounts: the nearest free one within reach of where you hold it
+function mountTarget() {
+  const S = state(); if (!S || !G.me.carry) return null; const held = S.T.find(t => t.id === G.me.carry); if (!held || !mountable(held.kind)) return null; const me = G.me;
+  const hx = me.x - Math.sin(me.yaw) * 2.0 + Math.cos(me.yaw) * 1.3, hz = me.z - Math.cos(me.yaw) * 2.0 - Math.sin(me.yaw) * 1.3; let best = null, bd = 3.2;
+  for (const sv of S.V || []) { const vv = vehV.get(sv.id); if (!vv || Math.hypot(vv.x - me.x, vv.z - me.z) > 9) continue; VEHICLES[sv.kind].mounts.forEach((_, i) => { if (S.T.some(t => t.vh === sv.id && t.sl === i)) return; const p = mountAt({ kind: sv.kind, x: vv.x, y: vv.y, z: vv.z, ry: vv.ry }, i), d = Math.min(Math.hypot(p.x - hx, p.z - hz), Math.hypot(p.x - me.x, p.z - me.z) * 0.9); if (d < bd) { bd = d; best = { v: sv, i, p }; } }); }
+  return best;
+}
+// while you carry a gun turret near a vehicle, its mounts glow: green for free spots, the one it will lock onto brighter, red for taken ones
+const mountMk = [];
+function updMountMarks(S) {
+  let n = 0; const me = G.me, held = me && me.carry && S.T.find(t => t.id === me.carry);
+  if (held && !G.cine) { const tgt = mountTarget(), ok = mountable(held.kind);
+    for (const sv of S.V || []) { const vv = vehV.get(sv.id); if (!vv || Math.hypot(vv.x - me.x, vv.z - me.z) > 16) continue;
+      VEHICLES[sv.kind].mounts.forEach((_, i) => { let r = mountMk[n]; if (!r) { r = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 32), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false })); r.rotation.x = -Math.PI / 2; r.renderOrder = 6; scene.add(r); mountMk.push(r); }
+        const p = mountAt({ kind: sv.kind, x: vv.x, y: vv.y, z: vv.z, ry: vv.ry }, i), taken = S.T.some(t => t.vh === sv.id && t.sl === i), on = tgt && tgt.v.id === sv.id && tgt.i === i;
+        r.visible = true; r.position.set(p.x, p.y + 0.05, p.z); r.material.color.setHex(taken || !ok ? 0xff4030 : on ? 0x80ffa0 : 0x30c060); r.material.opacity = on ? 0.9 + Math.sin(G.time * 10) * 0.1 : 0.45; r.scale.setScalar(on ? 1.15 : 1); n++; }); } }
+  for (let k = n; k < mountMk.length; k++) mountMk[k].visible = false;
+  if (held && n) { const tgt = mountTarget(); if (!mountable(held.kind)) prompt(`Only gun turrets go on vehicle mounts`); else if (tgt) prompt(`<b>Left click</b> locks the ${TURRETS[held.kind].name} onto the ${VEHICLES[tgt.v.kind].name}'s mount ${tgt.i + 1}`); else prompt('Hold the turret over a green mount ring on the vehicle to lock it on'); }
+}
 function updVehs(S, dt) {
   const seen = new Set(), me = G.me;
-  for (const sv of S.V || []) { seen.add(sv.id); let v = vehV.get(sv.id); if (!v) { v = { mesh: vehMesh(sv.kind), x: sv.x, y: sv.y, z: sv.z, ry: sv.ry }; scene.add(v.mesh); vehV.set(sv.id, v); }
+  for (const sv of S.V || []) { seen.add(sv.id); let v = vehV.get(sv.id); if (!v) { v = { kind: sv.kind, mesh: vehMesh(sv.kind), x: sv.x, y: sv.y, z: sv.z, ry: sv.ry }; scene.add(v.mesh); vehV.set(sv.id, v); }
     const mine0 = me.dv && me.dv.id === sv.id, tx = mine0 ? me.dv.x : sv.x, ty = mine0 ? me.dv.y : sv.y, tz = mine0 ? me.dv.z : sv.z, tr = mine0 ? me.dv.yaw : sv.ry, k = mine0 ? 1 : Math.min(1, dt * 8);
     v.x += (tx - v.x) * k; v.y += (ty - v.y) * k; v.z += (tz - v.z) * k; let dy = tr - v.ry; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; v.ry += dy * k;
     v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.order = 'YXZ'; v.mesh.rotation.y = v.ry; if (sv.kind === 'vtol' && mine0 && me.dv.tilt) { v.mesh.rotation.x = me.dv.tilt[0]; v.mesh.rotation.z = me.dv.tilt[1]; }
     const u = v.mesh.userData; if (u.tur && mine0) u.tur.rotation.y = me.yaw - v.ry; if (sv.kind === 'vtol') for (const r of u.rotors || []) r.rotation.y += dt * 30; }
   for (const [id, v] of vehV) if (!seen.has(id)) { scene.remove(v.mesh); vehV.delete(id); }
+  updMountMarks(S);
   // get in: walk up to a free vehicle and press E
   const my = mine(S); if (my && !my.drive && !my.dead && !G.cine) { let best = null, bd = 6; for (const sv of S.V || []) if (!sv.driver) { const d = Math.hypot(sv.x - me.x, sv.z - me.z); if (d < bd) { bd = d; best = sv; } }
     if (best) { prompt(`<b>${keyName(KB.use)}</b> drive the ${VEHICLES[best.kind].name} · armour ${Math.round(best.hp)}/${best.mhp}`); if (hits[KB.use] && locked()) { hits[KB.use] = 0; req({ a: 'drive', id: best.id }); } } }
@@ -1098,7 +1136,7 @@ function updateMe(dt, S) {
     else { cue(1, 0.12, 'magout'); cue(16, 0.28, 'pouch'); if (f > 0.36 && !(me.rs & 32)) { me.rs |= 32; audio.sfx('magdrop', 0.55); } jolt(2, 0.55, g0.spin ? 'beltin' : 'magin', 1); jolt(4, 0.72, me.slot === 1 ? 'slide' : 'bolt', 0.8); }
     if (me.rel <= 0) { const take = Math.min(st.mag - me.ammo, me.reserve); me.ammo += take; me.reserve -= take; }
   }
-  if (me.shells) { me.shellT -= dt; if (me.shellT <= 0) { if (me.ammo < st.mag && me.reserve >= 1) { me.ammo++; me.reserve--; audio.sfx('shell', 0.9); me.shellT = me.shellP = 0.42 * reloadMul(S); me.jolt = 0.4; } else { me.shells = false; me.pumpAt = 0.05; } } }
+  if (me.shells) { me.shellT -= dt; if (me.shellT <= 0) { if (me.ammo < st.mag && me.reserve >= 1) { me.ammo++; me.reserve--; audio.sfx('shell', 0.9); me.shellT = me.shellP = 0.2 * reloadMul(S); me.jolt = 0.4; } else { me.shells = false; me.pumpAt = 0.05; } } }
   if (me.pumpAt > 0) { me.pumpAt -= dt; if (me.pumpAt <= 0) { audio.sfx(G.cls === 'sniper' ? 'bolt' : 'pump', 0.9); me.pumpAnim = 0.3; } }
   me.pumpAnim = Math.max(0, (me.pumpAnim || 0) - dt);
   if (me.slot <= 1 && me.reserve > st.reserve) me.reserve = st.reserve;
@@ -1239,7 +1277,9 @@ function showPing(e) {
 function updPings(dt) { for (let i = pings.length - 1; i >= 0; i--) { const p = pings[i]; p.t -= dt; p.dia.rotation.y += dt * 3; p.dia.position.y = 2 + Math.sin(G.time * 4) * 0.2; if (p.t < 1) p.g.traverse(o => { if (o.material) o.material.opacity = Math.max(0, p.t) * 0.8; }); if (p.t <= 0) { scene.remove(p.g); pings.splice(i, 1); } } }
 function hud(dt, S) {
   const my = mine(S); if (!my) return; feel(dt, S, my); updPings(dt); const st = stats(), C = CLASSES[G.cls];
-  const hpv = G.explore && G.ex ? G.ex.hp * my.mhp / 100 : my.hp; setT('gold', Math.floor(my.gold)); setT('scrapN', `${Math.floor(my.scrap || 0)} SCRAP · HUB ${S.PT || 0} PARTS`); G.scrapFlash = Math.max(0, (G.scrapFlash || 0) - dt); if (G.salvT > 0) { G.salvT -= dt; if (G.salvT <= 0) G.salvN = 0; } $('scrapBox').classList.toggle('fl', G.scrapFlash > 0); setT('hpTxt', `${Math.ceil(hpv)} / ${my.mhp}`); $('hpBar').style.width = (hpv / my.mhp * 100) + '%';
+  const hpv = G.explore && G.ex ? G.ex.hp * my.mhp / 100 : my.hp; setT('gold', Math.floor(my.gold)); setT('scrapN', `${Math.floor(my.scrap || 0)} SCRAP · HUB ${S.PT || 0} PARTS`); { const C = S.C, eb = $('exBox'); if (eb) { eb.hidden = !C || G.explore || !C.exN; if (C && C.exN) { const nxt = Object.values(VEHICLES).find(V => (C.mat || 0) < V.unlock), prev = Object.values(VEHICLES).filter(V => (C.mat || 0) >= V.unlock).pop();
+      setH('exA', `⛏ HARVESTERS <b>${C.ex}/${C.exN}</b> built · ${C.ex ? `<b>+${C.inc}</b> material/s` : 'none built: weld one!'}`); $('exBar').style.width = (nxt ? Math.min(100, 100 * ((C.mat || 0) - (prev ? prev.unlock : 0)) / (nxt.unlock - (prev ? prev.unlock : 0))) : 100) + '%';
+      setT('exB', nxt ? `Unlocking: ${nxt.name} (${C.mat || 0}/${nxt.unlock} material)${C.ex ? ` · ~${Math.ceil((nxt.unlock - (C.mat || 0)) / C.inc / 60 * 10) / 10} min` : ''}` : 'All vehicles unlocked: build them with scrap'); } } } G.scrapFlash = Math.max(0, (G.scrapFlash || 0) - dt); if (G.salvT > 0) { G.salvT -= dt; if (G.salvT <= 0) G.salvN = 0; } $('scrapBox').classList.toggle('fl', G.scrapFlash > 0); setT('hpTxt', `${Math.ceil(hpv)} / ${my.mhp}`); $('hpBar').style.width = (hpv / my.mhp * 100) + '%';
   const slotNames = [C.gun.name, SIDEARM.name, 'Welding torch' + (G.cls === 'engineer' ? ' (3x)' : ''), C.throw.name + ' (left click throws)', 'Heal beam']; setT('ammo', G.me.slot === 3 ? String(my.items ?? 0) : G.me.slot === 5 ? String(my.dr ?? 0) : G.me.slot >= 2 ? '∞' : G.me.rel > 0 ? '--' : String(G.me.ammo)); setT('reserve', G.me.slot === 3 ? '/ ' + C.throw.n : G.me.slot === 5 ? '/ 2' : G.me.slot >= 2 ? '' : '/ ' + Math.floor(G.me.reserve)); setT("gunName", `SLOT ${[1, 2, 3, 4, 6, 5][G.me.slot]}`); const low = G.me.reserve < st.mag && G.me.ammo < st.mag * 0.5; $('ammoWarn').hidden = !(low || G.me.resup); setT('ammoWarn', G.me.resup ? 'RESUPPLYING' : G.me.reserve < 1 && G.me.ammo === 0 ? 'OUT OF AMMO: BACK TO THE HUB' : 'LOW AMMO'); setT('clsName', C.name);
   const mmss = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('waveTxt', S.ph === 'build' ? `GET READY ${Math.max(0, Math.ceil(S.tm))}` : `⏱ ${mmss(S.el || 0)}`); $('hubBar').style.width = S.hub + '%'; setT('hubTxt', `HUB ${Math.ceil(S.hub)}%`);
   let info = S.ph === 'build' ? 'Stand by: the swarm is coming' : `${S.left} aliens on the field`; if (G.W.cave && Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z) < 40) info = 'The Brood Queen\'s lair: kill her to win';
@@ -1256,9 +1296,18 @@ function hud(dt, S) {
     const on = !G.cine && !G.explore && S.ph !== 'win' && S.ph !== 'lose' && (G.hubAtk > 0 || near >= 3); $('hubwarn').hidden = !on; if (on) setT('hubwarnS', `Hub ${Math.round(S.hub)}% · ${near} alien${near === 1 ? '' : 's'} at the walls · get back and defend it!`);
     if (on && !G.hubWarned) { G.hubWarned = 1; audio.sfx('alarm', 0.5); } else if (!on) G.hubWarned = 0; }
   { // in the hub: show everything restocking, with what's full and what's still coming in
-    const rs = $('restock'), inHub = !G.explore && !my.drive && G.W && G.W.T.hubAt(G.me.x, G.me.z);
-    if (!inHub) rs.hidden = true; else { const st = stats(), C0 = CLASSES[G.cls], rows = [['Ammo', Math.floor(G.me.reserve), st.reserve], ['Turret kits', my.kits ?? 2, 2], [C0.throw.name + 's', my.items ?? 0, C0.throw.n], ['Field dressings', my.dr ?? 2, 2]]; if (my.hp < my.mhp) rows.unshift(['Health', Math.round(my.hp), my.mhp]);
-      const busy = rows.some(r => r[1] < r[2]); rs.hidden = false; rs.innerHTML = `<h4>${busy ? 'HUB · RESTOCKING' : 'HUB · ALL STOCKED'}</h4>` + rows.map(([n, v, mx]) => `<div><span>${n}</span><span class="${v >= mx ? 'full' : 'chg'}">${v >= mx ? 'FULL' : v + ' / ' + mx}</span></div>` + (v < mx ? `<div class="bar"><i style="width:${Math.round(v / mx * 100)}%"></i></div>` : '')).join(''); } }
+    const rs = $('restock'), inHub = !G.explore && !my.drive && G.W && G.W.T.hubAt(G.me.x, G.me.z), st = stats(), C0 = CLASSES[G.cls], X0 = C0.extra;
+    const rows = [['❤ Health', Math.round(my.hp), my.mhp, '+16/s'], ['▮ Ammo', Math.floor(G.me.reserve), st.reserve, 'fast'], ['⬢ Turret kits', my.kits ?? 2, 2, '+1 every 3 s'], ['● ' + C0.throw.name + 's', my.items ?? 0, C0.throw.n, '+1 every 2 s'], ['✚ Field dressings', my.dr ?? 2, 2, '+1 every 4 s']];
+    if (X0) rows.splice(4, 0, ['◆ ' + X0.name + 's', my.ex ?? X0.n, X0.n, '+1 every 2.5 s']);
+    const myT = S.T.filter(t => t.owner === G.myId && !TURRETS[t.kind].throwExtra);
+    const tRows = myT.map(t => { const T = TURRETS[t.kind], f = t.hp / t.mhp, d = Math.round(Math.hypot(t.x - G.me.x, t.z - G.me.z)), where = t.carry ? 'carried' : t.vh ? 'on a vehicle' : d + ' m';
+      return `<div class="tr"><span>${T.name} <b>Lv${t.lvl}</b></span><span class="${f > 0.6 ? 'full' : f > 0.3 ? 'chg' : 'low'}">${Math.round(f * 100)}% · ${where}</span></div>`; }).join('');
+    const low = rows.filter(r => r[1] < r[2] * (r[0].includes('Health') ? 0.5 : r[0].includes('Ammo') ? 0.35 : 1));
+    if (inHub) { const busy = rows.some(r => r[1] < r[2]); rs.hidden = false; rs.classList.remove('mini');
+      rs.innerHTML = `<h4>${busy ? '⟳ HUB RESUPPLY · RESTOCKING' : '✔ HUB RESUPPLY · ALL STOCKED'}</h4><p>Standing in the hub refills everything below.</p>` + rows.map(([n, v, mx, rate]) => `<div><span>${n}</span><span class="${v >= mx ? 'full' : 'chg'}">${v >= mx ? 'FULL' : `${v} / ${mx} <small>${rate}</small>`}</span></div>` + (v < mx ? `<div class="bar"><i style="width:${Math.round(v / mx * 100)}%"></i></div>` : '')).join('')
+        + `<h4 class="t">YOUR TURRETS (${myT.length})</h4>` + (tRows || '<p>None placed. F T V take one out of a kit.</p>') + (myT.some(t => t.hp < t.mhp) ? '<p>The hub doesn\'t fix turrets: repair them with the welder (3).</p>' : ''); }
+    else if (low.length && !my.dead && !G.cine) { rs.hidden = false; rs.classList.add('mini'); rs.innerHTML = `<h4>LOW ON SUPPLIES</h4>` + low.map(([n, v, mx]) => `<div><span>${n}</span><span class="low">${v} / ${mx}</span></div>`).join('') + '<p>Go back to the hub to restock.</p>'; }
+    else rs.hidden = true; }
   { const sb = $('stamBar'); if (sb) { sb.style.width = (G.me.stam ?? 100) + '%'; sb.classList.toggle('tired', !!G.me.tired); } }
   setH('status', [(my.gear & 1 || my.jet) ? '<span class="b">🚀 Jetpack</span>' : '', (my.gear & 2 || my.boots) ? '<span class="b">⚡ Shock boots</span>' : '', my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get under cover, or crouch behind something on the windward side</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', G.me.braced ? '<span class="g">▤ Braced on sandbags</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
   // a boss bar while a big one is alive
@@ -1309,7 +1358,7 @@ function shopDraw(my) {
   // the CPU commander runs the reinforcements by itself; this just reports what it has done
   let h = '';
   if (C) h += `<h2>Commander's report</h2><p class="small">The commander sends reinforcements and upgrades them as the battle grows. Nothing to buy.</p><p>Every <b>${DROP_EVERY[C.lv]} s</b>: <b>${SQUAD[C.sz]}</b> veteran${SQUAD[C.sz] > 1 ? 's' : ''} · units: <b>${C.un.map(k => ALLIES[k].name).join(', ')}</b> · next drop in ${Math.ceil(C.t)} s</p>`;
-  { const PT = (state() || {}).PT || 0; h += `<h2>Vehicles · ${PT} parts at the hub</h2><p class="small">Weld wrecks for scrap and bring it back to the hub: the commander builds what you choose. It waits in the hub: walk up and press E to drive.</p>` + Object.entries(VEHICLES).map(([k, V]) => `<button class="up ${PT < V.parts ? 'max' : ''}" data-veh="${k}"><b>${V.name}</b> · ${V.parts} parts<br><span class="small">${V.text}</span></button>`).join(''); }
+  { const PT = (state() || {}).PT || 0; const MT = ((state() || {}).C || {}).mat || 0; h += `<h2>Vehicles · ${PT} parts at the hub · ${MT} material</h2><p class="small">Harvesters pull material from the ground that unlocks each vehicle (more harvesters, faster unlocks); then weld wrecks for scrap and bring it back to the hub: the commander builds what you choose. It waits in the hub: walk up and press E to drive. Carry a gun turret (E) to it and left click it onto one of its mount rings: it rides along and fires on its own.</p>` + Object.entries(VEHICLES).map(([k, V]) => `<button class="up ${PT < V.parts || MT < V.unlock ? 'max' : ''}" data-veh="${k}"><b>${V.name}</b> · ${MT < V.unlock ? `🔒 ${MT}/${V.unlock} material` : `${V.parts} parts`} · ${V.mounts.length} turret mount${V.mounts.length > 1 ? 's' : ''}<br><span class="small">${V.text}</span></button>`).join(''); }
   h += `<h2>Change class</h2><p class="small">Swap kits here in the hub. <b>Every turret and barricade you own is removed</b> when you swap (your kits come back).</p>` + Object.entries(CLASSES).map(([k, c]) => `<button class="up ${k === G.cls ? 'max' : ''}" data-cls="${k}"${inHub ? '' : ' disabled'}><b style="color:#${c.color.toString(16).padStart(6, '0')}">◆</b><span>${c.name}<small>${c.role} · ${c.gun.name}</small></span><em></em><i>${k === G.cls ? 'CURRENT' : 'SWAP'}</i></button>`).join('');
   setH('shopList', h);
 }
@@ -1339,7 +1388,7 @@ function frame(now) {
     if (!paused && !G.explore) G.sim.update(dt);
     if (G.mode === 'host') { netT += dt; if (netT > 0.1) { netT = 0; G.net.send({ t: 'st', v: VER, map: G.map, df: G.diff || 0, ...G.sim.pack(), fx: G.out }); G.out = []; for (const q of [...G.sim.players.values()]) if (q.id !== G.myId && G.time - (q.seen || 0) > 10) G.sim.removePlayer(q.id); } }
   } else { poseT += dt; if (poseT > 0.066) { poseT = 0; G.net.send({ t: 'pose', p: [+G.me.x.toFixed(2), +G.me.y.toFixed(2), +G.me.z.toFixed(2), +((G.ex && G.ex.veh) ? G.ex.veh.yaw : G.me.yaw).toFixed(2), G.me.prone ? 2 : G.me.kneel ? 1 : 0, vehCode()] }); } }
-  updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); updRides(S, dt); updVehs(S, dt); updSalvMarks(); updNodes(S); updSalvMesh(S, dt); if (G.mmap && hits.Escape) closeMissileMap();
+  updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); updRides(S, dt); updVehs(S, dt); updSalvMarks(); updBagMarks(); updNodes(S); updSalvMesh(S, dt); if (G.mmap && hits.Escape) closeMissileMap();
   if (G.W) { G.W.sun.position.set(camera.position.x + 40, 90, camera.position.z + 25); G.W.sun.target.position.set(camera.position.x, 0, camera.position.z); }
   if (S.ph === 'wave' || S.ph === 'assault') { G.artT = (G.artT ?? 8) - dt; if (G.artT <= 0) { G.artT = 5 + Math.random() * 9; audio.gun('artillery', 0.35 + Math.random() * 0.3, 1, 1); } }
   if (!paused) { updateGrenades(dt); updateMeteors(dt); updateFx(dt); updateWeather(dt, S); }
@@ -1421,7 +1470,7 @@ function drawSettings() {
   const row = (label, ctl) => `<div class="srow"><span>${label}</span>${ctl}</div>`, rng = (id, min, max, step, v) => `<input type="range" data-s="${id}" min="${min}" max="${max}" step="${step}" value="${v}">`;
   let h = '';
   if (setTab === 'video') h = row('Fullscreen', `<button class="kb" data-act="full">${document.fullscreenElement ? 'On' : 'Off'}</button>`) + row('Graphics quality', `<select data-s="quality">${['low', 'medium', 'high'].map(q => `<option value="${q}" ${SET.quality === q ? 'selected' : ''}>${q[0].toUpperCase() + q.slice(1)}</option>`).join('')}</select>`) + row(`Field of view: <b>${SET.fov}</b>`, rng('fov', 60, 100, 1, SET.fov)) + row('Show frame rate', `<button class="kb" data-act="fps">${SET.fps ? 'On' : 'Off'}</button>`) + '<p class="small">Low quality turns off shadows and draws fewer pixels: use it if the game is laggy.</p>';
-  if (setTab === 'audio') h = row('Master volume', rng('master', 0, 1, 0.05, SET.master)) + row('Music volume', rng('music', 0, 1, 0.05, music.vol)) + row('Effects volume', rng('sfx', 0, 1, 0.05, audio.vol)) + row('Music', `<button class="kb" data-act="musictoggle">${music.on ? 'On' : 'Off'}</button>`) + row(`Sound check · <small>${audio.ctx ? 'audio ' + audio.ctx.state : 'audio not started yet: click anywhere'}${SET.master < 0.05 ? ' · master volume is at zero' : ''}${audio.vol < 0.05 ? ' · effects volume is at zero' : ''}</small>`, '<button class="kb" data-act="testsound">Test sound</button>');
+  if (setTab === 'audio') h = row('Master volume', rng('master', 0, 1, 0.05, SET.master)) + row('Music volume', rng('music', 0, 1, 0.05, music.vol)) + row('Effects volume', rng('sfx', 0, 1, 0.05, audio.vol)) + row('Voice volume (radio in your helmet)', rng('voice', 0, 1, 0.05, SET.voice ?? 0.6)) + row('Music', `<button class="kb" data-act="musictoggle">${music.on ? 'On' : 'Off'}</button>`) + row(`Sound check · <small>${audio.ctx ? 'audio ' + audio.ctx.state : 'audio not started yet: click anywhere'}${SET.master < 0.05 ? ' · master volume is at zero' : ''}${audio.vol < 0.05 ? ' · effects volume is at zero' : ''}</small>`, '<button class="kb" data-act="testsound">Test sound</button>');
   if (setTab === 'controls') h = row('Mouse sensitivity', rng('sens', 0.3, 2.5, 0.1, sens)) + row('Scope and aim sensitivity', rng('zoomSens', 0.3, 2, 0.1, SET.zoomSens)) + row('Invert mouse up/down', `<button class="kb" data-act="invert">${SET.invert ? 'On' : 'Off'}</button>`) + '<p class="small">Click a key, then press the new key. Esc cancels.</p>' + Object.keys(KB_DEFAULT).filter(k => k !== 'upgrade').map(k => row(KB_NAMES[k], `<button class="kb ${rebinding === k ? 'wait' : ''}" data-key="${k}">${rebinding === k ? 'press a key…' : keyName(KB[k])}</button>`)).join('') + row('', '<button class="kb" data-act="resetkeys">Reset keys</button>');
   $('setBody').innerHTML = h;
 }
@@ -1430,7 +1479,7 @@ $('btnSet').onclick = openSettings; $('btnSet2').onclick = openSettings; $('btnR
 $('setClose').onclick = () => { $('settings').hidden = true; G.settings = false; rebinding = ''; saveSettings(); };
 document.querySelector('.tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) { setTab = b.dataset.tab; rebinding = ''; drawSettings(); } };
 $('setBody').addEventListener('input', e => { const k = e.target.dataset.s; if (!k) return; const v = e.target.value;
-  if (k === 'quality') { SET.quality = v; applyQuality(); } else if (k === 'fov') { SET.fov = +v; e.target.parentElement.firstChild.innerHTML = `Field of view: <b>${v}</b>`; } else if (k === 'master') { SET.master = +v; applyAudio(); } else if (k === 'music') { music.setVol(+v); if (!music.on) music.toggle(); } else if (k === 'sfx') { audio.setVol(+v); audio.gun('rifle', 0.8); } else if (k === 'sens') { sens = +v; localStorage.setItem('hb-sens', sens); } else if (k === 'zoomSens') SET.zoomSens = +v;
+  if (k === 'quality') { SET.quality = v; applyQuality(); } else if (k === 'fov') { SET.fov = +v; e.target.parentElement.firstChild.innerHTML = `Field of view: <b>${v}</b>`; } else if (k === 'master') { SET.master = +v; applyAudio(); } else if (k === 'music') { music.setVol(+v); if (!music.on) music.toggle(); } else if (k === 'sfx') { audio.setVol(+v); audio.gun('rifle', 0.8); } else if (k === 'voice') { SET.voice = +v; voice.vol = +v; } else if (k === 'sens') { sens = +v; localStorage.setItem('hb-sens', sens); } else if (k === 'zoomSens') SET.zoomSens = +v;
   saveSettings(); });
 $('setBody').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.key) { rebinding = b.dataset.key; drawSettings(); return; }

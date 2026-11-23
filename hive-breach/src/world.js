@@ -71,11 +71,11 @@ export function makeTerrain(D, path, hubP, hiveP) {
   T.bridges = []; T.tunnels = [];
   let cur = null, curT = null;
   for (let s = 0; s <= path.len; s += 0.5) {
-    const p = path.at(s), br = chasm(p.x, p.z) < 0.995, tu = ridge(p.x, p.z) > 2.2;
+    const p = path.at(s), hw = PATH_W / 2 + 1.2, br = chasm(p.x, p.z) < 0.995 || chasm(p.x + p.tz * hw, p.z - p.tx * hw) < 0.995 || chasm(p.x - p.tz * hw, p.z + p.tx * hw) < 0.995, tu = ridge(p.x, p.z) > 2.2;   /* a bridge wherever the chasm reaches any part of the deck's width, so a slanted edge leaves no gap at one corner */
     if (br) { if (!cur) T.bridges.push(cur = { s0: s, s1: s }); cur.s1 = s; } else cur = null;
     if (tu) { if (!curT) T.tunnels.push(curT = { s0: s, s1: s }); curT.s1 = s; } else curT = null;
   }
-  for (const b of T.bridges) { b.s0 -= 1.2; b.s1 += 1.2; }
+  for (const b of T.bridges) { b.s0 -= 2.5; b.s1 += 2.5; }   /* each end rests well onto the dirt */
   for (const t of T.tunnels) { let top = 0; for (let s = t.s0; s <= t.s1; s += 0.5) { const p = path.at(s); top = Math.max(top, hills(p.x, p.z) + ridge(p.x, p.z)); } t.bottom = Math.max(path.y(t.s0), path.y(t.s1)) + ROOF_GAP; t.top = Math.max(top, t.bottom + 2); }
   T.bridgeAt = s => T.bridges.find(b => s >= b.s0 && s <= b.s1);
   T.tunnelAt = (s, pad = 0) => T.tunnels.find(t => s >= t.s0 - pad && s <= t.s1 + pad);
@@ -274,7 +274,7 @@ export function buildWorld(scene, mapId, diff = 0) {
     if (n.d < PATH_W + 4 && !out) continue; if (Math.hypot(x - W.hubP.x, z - W.hubP.z) < HUB_R + 10 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 44) continue;
     if (T.chasm(x, z) < 0.99 || T.ridge(x, z) > 3) continue;
     if (!out && R() < (D.dense ? 0.35 : 0.55)) continue; if (W.nestP.some(n => Math.hypot(n.x - x, n.z - z) < 6)) continue;
-    const kind = !out && R() < 0.3 ? (R() < 0.2 ? 'crate' : D.extra[(R() * D.extra.length) | 0]) : R() < 0.3 ? 'boulder' : D.prop, p = M.prop(kind, R); p.position.set(x, T.raw(x, z) - 0.1, z); p.rotation.y = R() * 6; g.add(p); settle(p, T, kind === 'boulder' || kind === 'rock' ? 0.4 : 0.15);
+    const kind = !out && R() < 0.3 ? (R() < 0.2 ? 'crate' : D.extra[(R() * D.extra.length) | 0]) : R() < 0.3 ? 'boulder' : D.prop, p = M.prop(kind, R); p.position.set(x, T.raw(x, z) - 0.1, z); p.rotation.y = R() * 6; g.add(p); settle(p, T, kind === 'boulder' || kind === 'rock' ? 0.4 : 0.15); { const sv = SALV_PROP[kind]; if (sv) salvage(W, p, sv[0], sv[1]); }   /* man-made props can be welded for scrap too */
     if (!out) W.colliders.push({ x, z, r: { tower: 2.2, crate: 1.1, tree: 0.7, dome: 4, derrick: 1.8, dish: 1.5, spire: 1.2, shroom: 0.8, boulder: 1.8 }[kind] || 1.6, h: { tower: 7, crate: 1.4, tree: 9, dome: 5, derrick: 9, dish: 5, spire: 8, shroom: 5, boulder: 3, rock: 3, ice: 4 }[kind] || 3 });
   }
   const sky = { mars: [[0xd8c0a0, 26, -0.6, 0.35], [0xa09080, 9, 0.9, 0.5]], ice: [[0x6a8ad0, 60, 0.4, 0.3], [0xe0d0c0, 12, -0.9, 0.55]], jungle: [[0xb0a0e0, 45, -0.3, 0.32], [0xf0e0c0, 14, 1.1, 0.6], [0xc0f0d0, 7, 1.6, 0.45]] }[mapId];
@@ -396,6 +396,7 @@ function salvage(W, m, name, amt) {
   (W.salvMesh = W.salvMesh || []).push(m);   // kept as its own object (not merged into the map) so it can shrink as it's cut up and vanish once stripped
   (W.salvage = W.salvage || []).push({ x: c.x, z: c.z, y: b.min.y, r: Math.max(1, Math.min(9, Math.max(sz.x, sz.z) / 2)), amt, name, box: [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z] });
 }
+const SALV_PROP = { crate: ['supply crate', 12], dome: ['habitat dome', 40], derrick: ['drill derrick', 50], dish: ['radar dish', 35] };
 const SALV = { satellite: ['crashed satellite', 60], wreck: ['wrecked ship', 160], capsule: ['supply capsule', 45], rover: ['wrecked rover', 45], debris: ['crashed ship', 55] };
 // sit a model on the ground: drop it so the lowest ground under its footprint touches its bottom (no wreck hangs in the air on a slope)
 const _sb = new THREE.Box3();
@@ -415,7 +416,7 @@ function placePOIs(g, W, T, D, mapId, path) {
   // downed dropships: their cargo holds still have ammunition to salvage (E)
   W.loot = []; { const wr = W.lore.find(l => l.kind === 'wreck'); if (wr) W.loot.push({ x: wr.x, z: wr.z, name: 'Wrecked dropship' }); }
   for (let i = 0; i < 6; i++) { const p = spot(14); if (!p) continue; const [x, z] = p, y = T.raw(x, z), ry = R() * 6, m = M.dropship(); m.position.set(x, y + 0.5, z); m.rotation.set((R() - 0.5) * 0.3, ry, (R() > 0.5 ? 1 : -1) * (0.25 + R() * 0.2)); m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.multiplyScalar(0.55); } }); g.add(m); salvage(W, m, 'downed dropship', 90);
-    const cx = x + Math.cos(ry) * 4, cz = z - Math.sin(ry) * 4, c = M.ammoCrate(); c.position.set(cx, T.raw(cx, cz), cz); c.rotation.y = R() * 6; g.add(c);
+    const cx = x + Math.cos(ry) * 4, cz = z - Math.sin(ry) * 4, c = M.ammoCrate(); c.position.set(cx, T.raw(cx, cz), cz); c.rotation.y = R() * 6; g.add(c); salvage(W, c, 'ammo crate', 10);
     W.colliders.push({ x, z, r: 3.2, h: 3, gy: y }); W.loot.push({ x: cx, z: cz, name: 'Downed dropship' }); W.lore.push({ x, z, kind: 'dropship' + i, silent: 1 }); }
   // the cave: a ring of great rocks with a rock roof, open on one side, a log terminal inside
   const p = spot(26); if (p) {
@@ -437,13 +438,13 @@ function placePOIs(g, W, T, D, mapId, path) {
 function battlefield(g, W, T, D, mapId, path) {
   const R = rng(mapId.length * 4447 + 5 + (W.diff || 0) * 1013), H = T.hub, hv = W.hiveP;
   const free = (x, z, clear) => Math.abs(x) < BOUNDS - 6 && Math.abs(z) < BOUNDS - 6 && path.near(x, z).d > clear && Math.hypot(x - H.x, z - H.z) > HUB_R + 6 && Math.hypot(x - hv.x, z - hv.z) > 44 && T.chasm(x, z) > 0.99 && T.ridge(x, z) < 2;
-  const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); settle(m, T, make === M.corpse || make === M.carcass ? 0.05 : 0.15); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); if ([M.tank, M.mech, M.deadTurret, M.burntCrate].includes(make)) { W.wrecks.push({ x, z, r: col ? col[0] : 2 }); salvage(W, m, make === M.tank ? 'wrecked tank' : make === M.mech ? 'wrecked mech' : make === M.deadTurret ? 'dead turret' : 'burnt crate', make === M.tank ? 75 : make === M.mech ? 60 : make === M.deadTurret ? 30 : 15); } };
+  const put = (make, x, z, col) => { const m = make(R); m.position.set(x, T.raw(x, z) - 0.05, z); m.rotation.y = R() * 6; g.add(m); settle(m, T, make === M.corpse || make === M.carcass ? 0.05 : 0.15); if (col) W.colliders.push({ x, z, r: col[0], h: col[1] }); if (make === M.tankTrap || make === M.flag) salvage(W, m, make === M.flag ? 'flag pole' : 'tank trap', make === M.flag ? 6 : 10); if ([M.tank, M.mech, M.deadTurret, M.burntCrate].includes(make)) { W.wrecks.push({ x, z, r: col ? col[0] : 2 }); salvage(W, m, make === M.tank ? 'wrecked tank' : make === M.mech ? 'wrecked mech' : make === M.deadTurret ? 'dead turret' : 'burnt crate', make === M.tank ? 75 : make === M.mech ? 60 : make === M.deadTurret ? 30 : 15); } };
   // battle lines along the track: sandbags, tank traps, bodies and wrecks 12-40 m from it
   for (let s = 30; s < path.len - 40; s += 22) {
     const q = path.at(s);
     for (const sd of [-1, 1]) {
       if (R() < 0.35) continue; const off = 14 + R() * 26, x = q.x - q.tz * sd * off, z = q.z + q.tx * sd * off; if (!free(x, z, 12)) continue; const k = R();
-      if (k < 0.3) { const m = M.sandbags(R); m.position.set(x, T.raw(x, z), z); m.rotation.y = Math.atan2(q.tx, q.tz) + (sd > 0 ? Math.PI / 2 : -Math.PI / 2); g.add(m); W.colliders.push({ x, z, r: 2.5, h: 1.1 }); (W.bags = W.bags || []).push({ x, z }); }   // the map's own sandbag walls: cover anyone can use
+      if (k < 0.3) { const m = M.sandbags(R); m.position.set(x, T.raw(x, z), z); m.rotation.y = Math.atan2(q.tx, q.tz) + (sd > 0 ? Math.PI / 2 : -Math.PI / 2); settle(m, T, 0.2); g.add(m);   /* down onto the lowest ground under the ring: none hover on slopes */ W.colliders.push({ x, z, r: 2.5, h: 1.1 }); (W.bags = W.bags || []).push({ x, z }); }   // the map's own sandbag walls: cover anyone can use
       else if (k < 0.45) put(M.tankTrap, x, z, [1, 1.8]);
       else if (k < 0.62) put(M.corpse, x, z);
       else if (k < 0.8) put(M.carcass, x, z);

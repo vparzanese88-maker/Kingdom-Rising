@@ -855,7 +855,7 @@ function startFob() {
 }
 const H = { scene, camera, renderer, audio, keys, hits, KB, G, M, toast: (m, t) => toast(m, t), prompt: h => prompt(h), banner: (a, b) => banner(a, b), burst: (...a) => burst(...a), boomFx: (...a) => boomFx(...a), tracer: (...a) => tracer(...a), flashAt: (...a) => flashAt(...a),
   mouseL: () => mouseL && locked(), shake: v => { G.shake = Math.max(G.shake || 0, v); }, hurtFlash: () => { G.hurtT = 0.35; audio.sfx('hurt', 0.6); }, keyName: c => keyName(c), fade: on => { $('fade').style.opacity = on ? 1 : 0; },
-  caption: (a, b) => { if (b && !a && !voice.has(b)) return; if (b) voice.say(b);   /* dialog shows only when it has a recorded voice (title cards with a heading always show) */ const c = $('cap'); clearTimeout(c._t); $('capA').textContent = a || ''; $('capB').textContent = b || ''; c.classList.add('on'); c._t = setTimeout(() => c.classList.remove('on'), 5200); } };
+  caption: (a, b) => { if (b && !voice.has(b) && (!a || /^(General |Gen\. )?Hale:|^(Commander |Cmdr\. )?Vance:/.test(b))) { if (!a) return; b = ''; } if (b) voice.say(b);   /* dialog shows only when it has a recorded voice (title cards with a heading always show) */ const c = $('cap'); clearTimeout(c._t); $('capA').textContent = a || ''; $('capB').textContent = b || ''; c.classList.add('on'); c._t = setTimeout(() => c.classList.remove('on'), 5200); } };
 function reloadMul(S) { return S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? 0.75 : 1; }
 // medic heal beam and engineer plasma torch: find what is in the crosshair and tell the host ten times a second
 function updateBeam(dt, S) {

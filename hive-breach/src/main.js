@@ -855,7 +855,7 @@ function startFob() {
 }
 const H = { scene, camera, renderer, audio, keys, hits, KB, G, M, toast: (m, t) => toast(m, t), prompt: h => prompt(h), banner: (a, b) => banner(a, b), burst: (...a) => burst(...a), boomFx: (...a) => boomFx(...a), tracer: (...a) => tracer(...a), flashAt: (...a) => flashAt(...a),
   mouseL: () => mouseL && locked(), shake: v => { G.shake = Math.max(G.shake || 0, v); }, hurtFlash: () => { G.hurtT = 0.35; audio.sfx('hurt', 0.6); }, keyName: c => keyName(c), fade: on => { $('fade').style.opacity = on ? 1 : 0; },
-  caption: (a, b) => { if (b) voice.say(b); const c = $('cap'); clearTimeout(c._t); $('capA').textContent = a || ''; $('capB').textContent = b || ''; c.classList.add('on'); c._t = setTimeout(() => c.classList.remove('on'), 5200); } };
+  caption: (a, b) => { if (b && !a && !voice.has(b)) return; if (b) voice.say(b);   /* dialog shows only when it has a recorded voice (title cards with a heading always show) */ const c = $('cap'); clearTimeout(c._t); $('capA').textContent = a || ''; $('capB').textContent = b || ''; c.classList.add('on'); c._t = setTimeout(() => c.classList.remove('on'), 5200); } };
 function reloadMul(S) { return S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? 0.75 : 1; }
 // medic heal beam and engineer plasma torch: find what is in the crosshair and tell the host ten times a second
 function updateBeam(dt, S) {
@@ -1234,7 +1234,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 let toastT = 0, bannerT = 0, promptSet = false;
 // radio chatter: the commander on the ground and General Hale on Station Olympus, shown one message at a time
 const radioQ = []; let radioBusy = 0;
-function radioSay(w, m) { if (!voice.has(m)) { toast(m, 4); return; }   /* the radio box only carries lines with a recorded voice; the rest are short notes */ radioQ.push({ w, m }); if (radioQ.length > 4) radioQ.shift(); if (!radioBusy) radioNext(); }
+function radioSay(w, m) { if (!voice.has(m)) return;   /* only lines with a recorded voice are shown at all */ radioQ.push({ w, m }); if (radioQ.length > 4) radioQ.shift(); if (!radioBusy) radioNext(); }
 function radioNext() { const r = radioQ.shift(), el = $('radio'); if (!r) { radioBusy = 0; el.classList.remove('on'); return; } radioBusy = 1; el.className = 'on ' + r.w; $('radioW').textContent = r.w === 'gen' ? '🛰 GEN. HALE · STATION OLYMPUS' : '📡 COMMANDER VANCE · GROUND'; $('radioM').textContent = r.m; voice.say(r.m); audio.sfx('tick', 0.5); setTimeout(() => audio.sfx('tick', 0.35), 120); setTimeout(radioNext, Math.max(4500, r.m.length * 70)); }
 function toast(m, t = 3) { const d = document.createElement('div'); d.textContent = m; $('toasts').prepend(d); setTimeout(() => d.remove(), t * 1000); while ($('toasts').children.length > 3) $('toasts').lastChild.remove(); }
 function banner(a, b) { $('bannerA').textContent = a; $('bannerB').textContent = b; $('banner').hidden = false; bannerT = 2.4; }

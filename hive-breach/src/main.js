@@ -940,6 +940,16 @@ function driveVeh(dt, S, my, sv) {
   if (live && hits[KB.use]) { hits[KB.use] = 0; req({ a: 'exitveh' }); const ex = v.x + Math.cos(v.yaw) * 3.4, ez = v.z - Math.sin(v.yaw) * 3.4; me.dv = null; me.x = ex; me.z = ez; me.y = T.ground(ex, ez, v.y + 2); return; }
   prompt(`<b>${VD.name}</b> · armour ${Math.max(0, Math.round(sv.hp))}/${sv.mhp} · <b>left click</b> fire · <b>${keyName(KB.use)}</b> get out`);
 }
+// wrecks that still hold scrap: a gold marker floats over each one within 80 m (gone once it's stripped)
+const salvMk = []; let salvTex = null;
+function updSalvMarks() {
+  const W = G.W, me = G.me; if (!W || !W.salvage || G.cine || G.explore) { for (const s of salvMk) s.visible = false; return; }
+  if (!salvTex) { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); g.translate(32, 32); g.rotate(Math.PI / 4); g.strokeStyle = '#ffcc40'; g.lineWidth = 4; g.shadowColor = '#000'; g.shadowBlur = 4; g.strokeRect(-17, -17, 34, 34); g.rotate(-Math.PI / 4); g.fillStyle = '#ffd860'; g.font = 'bold 26px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⚙', 0, 1); salvTex = new THREE.CanvasTexture(cv); }
+  let n = 0; for (const [i, w] of W.salvage.entries()) { if (G.stripped && G.stripped.has(i)) continue; const d = Math.hypot(w.x - me.x, w.z - me.z); if (d > 80) continue;
+    let s = salvMk[n]; if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: salvTex, depthTest: false, transparent: true, fog: false })); s.renderOrder = 5; scene.add(s); salvMk.push(s); }
+    s.visible = true; s.position.set(w.x, w.box[4] + 1.6 + Math.sin(G.time * 2 + i) * 0.25, w.z); const sc = 1.4 + d * 0.045; s.scale.set(sc, sc, 1); s.material.opacity = d < 10 ? 0.45 : 0.95; if (++n >= 28) break; }
+  for (let k = n; k < salvMk.length; k++) salvMk[k].visible = false;
+}
 // the vehicles everyone sees; the one you drive follows your own controls
 const vehV = new Map();
 function vehMesh(kind) {
@@ -1062,7 +1072,7 @@ function updateMe(dt, S) {
     if (me.slot === 3 && clickL && !me.place && me.cd <= 0) { clickL = false; me.cd = 0.8; throwItem(my); }
     if (hits[KB.grenade] && !me.place && (me.gcd || 0) <= 0) { me.gcd = 0.8; throwItem(my); }
     if (!me.place) {
-      const g = curGun(); if (me.holdFire && !mouseL && !mouseR) me.holdFire = false; if (clickL) me.semiQ = G.time; const semi = g.semi && me.slot === 0, trig = semi ? (G.time - (me.semiQ ?? -9) < 0.4 && !me.holdFire) : mouseL && !me.holdFire;   // the Engineer's auto shotgun fires once per click (a click made while it cycles still fires)
+      const g = curGun(); if (me.holdFire && !mouseL && !mouseR) me.holdFire = false; if (clickL) me.semiQ = G.time; const semi = g.semi && me.slot === 0, trig = (mouseL || (semi && G.time - (me.semiQ ?? -9) < 0.4)) && !me.holdFire;   /* hold the trigger for automatic fire on every gun (a quick click is still buffered) */   // the Engineer's auto shotgun fires once per click (a click made while it cycles still fires)
       if (g.spin) { const want = (trig || mouseR) && me.rel <= 0 && !me.holdFire; if (want && me.spin === 0) audio.sfx('spin', 0.8); me.spin = want ? Math.min(1, me.spin + dt / g.spin) : Math.max(0, me.spin - dt * 1.5); }
       if (me.shells && trig && me.ammo > 0) { me.shells = false; me.pumpAt = 0.05; }
       if (me.slot <= 1 && trig && !me.carry && me.cd <= 0 && me.rel <= 0 && !me.shells && (!g.spin || me.spin >= 1)) { if (me.ammo > 0) { shoot(st); me.semiQ = -9; } else if (me.reserve >= 1 && !me.shells) startReload(st, S); else { me.cd = 0.4; audio.sfx('empty'); if (G.time - (G.emptyT || 0) > 3) { G.emptyT = G.time; toast('OUT OF AMMO: get back to the hub, or find a Gunner\'s ammo crate.', 3); } } }
@@ -1207,6 +1217,7 @@ function minimap(S) {
   G.pings = G.pings.filter(p => (p.t -= 0.1) > 0); for (const p of G.pings) { g.strokeStyle = `rgba(255,60,40,${Math.min(1, p.t)})`; g.lineWidth = 2; g.beginPath(); g.arc(X(p.x), Z(p.z), 4 + (3 - p.t) * 5 % 10, 0, 7); g.stroke(); }
   g.strokeStyle = 'rgba(80,255,130,.5)'; g.lineWidth = 1; g.beginPath(); g.arc(X(G.W.hubP.x), Z(G.W.hubP.z), 15 * k, 0, 7); g.stroke();
   g.fillStyle = '#d8b860'; for (const c of S.SC || []) { const px = X(c.x), py = Z(c.z); if (px > 0 && py > 0 && px < W && py < W) g.fillRect(px - 2, py - 2, 4, 4); }
+  g.fillStyle = '#ffcc40'; for (const [i, w] of (G.W.salvage || []).entries()) { if (G.stripped && G.stripped.has(i)) continue; const px = X(w.x), py = Z(w.z); if (px > 0 && py > 0 && px < W && py < W) g.fillRect(px - 1.5, py - 1.5, 3, 3); }   // wrecks with scrap left
   for (const L of G.W.loot || []) { const px = X(L.x), py = Z(L.z); if (px < 0 || py < 0 || px > W || py > W) continue; const cd = G.lootCd && (G.lootCd.get(L) || 0) > G.time; g.strokeStyle = cd ? '#556' : '#c8d8e0'; g.lineWidth = 2; g.strokeRect(px - 4, py - 3, 8, 6); }
   for (const o of S.O) { if (o.got) continue; const on = (o.land ?? 0) > 0 || o.life > 10 || Math.sin(G.time * 10) > 0; let px = X(o.x) - W / 2, py = Z(o.z) - W / 2; const rr = W / 2 - 12, d = Math.hypot(px, py); if (d > rr) { px *= rr / d; py *= rr / d; } px += W / 2; py += W / 2; g.fillStyle = on ? '#ffd040' : '#806020'; g.save(); g.translate(px, py); g.rotate(0.785); g.fillRect(-6, -6, 12, 12); g.restore(); g.strokeStyle = '#000'; g.lineWidth = 1.5; g.strokeRect(px - 3, py - 3, 6, 6); }
   for (const m of S.L || []) { g.fillStyle = '#9fe870'; g.fillRect(X(m.x) - 2, Z(m.z) - 2, 4, 4); }
@@ -1249,7 +1260,7 @@ function frame(now) {
     if (!paused && !G.explore) G.sim.update(dt);
     if (G.mode === 'host') { netT += dt; if (netT > 0.1) { netT = 0; G.net.send({ t: 'st', v: VER, map: G.map, df: G.diff || 0, ...G.sim.pack(), fx: G.out }); G.out = []; for (const q of [...G.sim.players.values()]) if (q.id !== G.myId && G.time - (q.seen || 0) > 10) G.sim.removePlayer(q.id); } }
   } else { poseT += dt; if (poseT > 0.066) { poseT = 0; G.net.send({ t: 'pose', p: [+G.me.x.toFixed(2), +G.me.y.toFixed(2), +G.me.z.toFixed(2), +((G.ex && G.ex.veh) ? G.ex.veh.yaw : G.me.yaw).toFixed(2), G.me.prone ? 2 : G.me.kneel ? 1 : 0, vehCode()] }); } }
-  updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); updRides(S, dt); updVehs(S, dt); if (G.mmap && hits.Escape) closeMissileMap();
+  updateFlashes(dt); updateCorpses(dt); updateTacMissiles(dt); updRides(S, dt); updVehs(S, dt); updSalvMarks(); if (G.mmap && hits.Escape) closeMissileMap();
   if (G.W) { G.W.sun.position.set(camera.position.x + 40, 90, camera.position.z + 25); G.W.sun.target.position.set(camera.position.x, 0, camera.position.z); }
   if (S.ph === 'wave' || S.ph === 'assault') { G.artT = (G.artT ?? 8) - dt; if (G.artT <= 0) { G.artT = 5 + Math.random() * 9; audio.gun('artillery', 0.35 + Math.random() * 0.3, 1, 1); } }
   if (!paused) { updateGrenades(dt); updateMeteors(dt); updateFx(dt); updateWeather(dt, S); }

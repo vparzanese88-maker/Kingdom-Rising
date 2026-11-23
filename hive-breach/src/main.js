@@ -55,7 +55,7 @@ const SET = { quality: 'medium', fov: 75, fps: false, invert: false, zoomSens: 1
 function saveSettings() { try { localStorage.setItem('hb-set', JSON.stringify(SET)); localStorage.setItem('hb-keys5', JSON.stringify(KB)); } catch (e) { } }
 function applyQuality() { const q = SET.quality; renderer.setPixelRatio(Math.min(q === 'low' ? 0.75 : q === 'high' ? 1.75 : 1.25, devicePixelRatio)); resize(); if (G.W) G.W.sun.castShadow = q !== 'low'; G.maxParts = q === 'low' ? 120 : q === 'high' ? 320 : 220; }
 const G = { pings: [], on: false, mode: 'solo', myId: 'me', name: 'Marine', cls: 'assault', map: 'mars', W: null, sim: null, net: null, snap: null, out: [], time: 0, shop: false, me: null };
-window.G = G; G.M = M; G.veh = { vtol: vtolModel, rover: roverModel }; G.bloodTest = (...a) => bloodHit(...a); G.renderer = renderer; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
+window.G = G; G.M = M; G.veh = { vtol: vtolModel, rover: roverModel }; G.bloodTest = (...a) => bloodHit(...a); G.setSlot = n => setSlot(n); G.renderer = renderer; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } };
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
@@ -69,7 +69,7 @@ function decode(m) {
     L: m.L.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], tg: a[8] })),
     A: m.A.map(a => ({ id: a[0], type: a[1], x: a[2], y: a[3], z: a[4], hp: a[5], mhp: a[6], ry: a[7], stun: a[8], tg: a[9], rv: a[10] })),
     T: m.T.map(t => ({ id: t[0], kind: t[1], owner: t[2], x: t[3], z: t[4], ry: t[5], lvl: t[6], hp: t[7], mhp: t[8], tg: t[9], y: t[10], b: t[11], bt: t[12], fresh: t[13], ch: t[14], carry: t[15], up: t[16], rs: t[17] || 0, s: t[1] === 'barricade' ? G.W.path.near(t[3], t[4]).s : 0 })),
-    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {} })),
+    P: m.P.map(p => ({ id: p[0], name: p[1], cls: p[2], x: p[3], y: p[4], z: p[5], yaw: p[6], hp: p[7], mhp: p[8], gold: p[9], ups: p[10], dead: p[11], kills: p[12], sp: p[13], rt: p[14], kn: p[15], special: p[16], acd: p[17], adrT: p[18], stimT: p[19], rv: p[20], cold: p[21], toxic: p[22], veh: p[23], items: p[24], ex: p[30], kits: p[25], pw: p[26], dr: p[27], scrap: p[28], buf: p[29] || {}, gear: p[31] || 0 })),
     O: m.O.map(o => ({ id: o[0], x: o[1], z: o[2], life: o[3], land: o[4], kind: o[5] === 1 ? 'ammo' : o[5] === 2 ? 'dress' : '' })), el: m.el, I: (m.I || []).map(i => ({ id: i[0], kind: i[1], x: i[2], z: i[3] })), SC: (m.SC || []).map(c => ({ id: c[0], x: c[1], z: c[2] })),
     M: (m.M || []).map(c => ({ id: c[0], x: c[1], z: c[2], life: c[3] })), Z: (m.Z || []).map(c => ({ x: c[0], z: c[1], r: c[2] })), K: (m.K || []).map(q => ({ x: q[0], y: q[1], z: q[2], r: q[3], fire: q[4] })), D: (m.D || []).map(d => ({ id: d[0], x: d[1], y: d[2], z: d[3], tg: d[4] })), Q: (m.Q || []).map(q => ({ id: q[0], x: q[1], y: q[2], z: q[3], r: q[4], t: q[5] })), S2: (m.S2 || []).map(d => ({ x: d[0], y: d[1], z: d[2], r: d[3] })),
   };
@@ -167,6 +167,8 @@ function fx(e) {
     case 'clear': banner(`WAVE ${e.w} CLEARED`, `+${e.b} gold · resupply`); audio.sfx('win'); break;
     case 'roar': audio.sfx('roar'); toast(`The ${ALIENS[e.t].name} has emerged from the hive!`, 4); G.shake = 0.6; break;
     case 'hubhit': G.hubFlash = 0.5; boomFx(e.x, e.y + 1, e.z, 2, 1); if (G.time - lastHubMsg > 6) { lastHubMsg = G.time; toast('The hub is under attack!', 2.5); audio.sfx('alarm', 0.5); } break;
+    case 'burrow': { const y = G.W.top(e.x, e.z); burst(e.x, y + 0.3, e.z, 0x5a3a20, 24, 5, 0.9, 1.6); burst(e.x, y + 0.3, e.z, 0x90ff30, 8, 3, 0.5); const d = dist(e.x, e.z); if (d < 60) audio.sfx('screech', vol(d) * 0.8); } break;
+    case 'gear': if (e.to === G.myId) { audio.sfx('upg', 0.8); banner(e.g === 'jet' ? 'JETPACK' : 'SHOCK BOOTS', e.g === 'jet' ? 'Yours for the mission: hold jump in the air to fly (uses endurance)' : 'Yours for the mission: jump again in mid-air (uses endurance)'); } break;
     case 'pod': burst(e.x, G.W.top(e.x, e.z) + 1, e.z, 0xffd040, 14, 5, 0.6); if (e.by === G.myId) { audio.sfx('pickup'); toast(e.kind === 'ammo' ? 'Commander\'s ammo crate: full ammo, items and welder power' : e.kind === 'dress' ? 'Commander\'s med crate: field dressings restocked' : 'Supply crate: ammo and welder power' + (e.sp ? `, and a special: ${SPECIALS[e.sp].name} (press ${keyName(KB.special)})` : ''), 4); G.me.reserve = Math.min(stats().reserve, G.me.reserve + stats().reserve * 0.5); } break;
     case 'drop2': toast(`✈ Supply drop! ${e.n} crates parachuting in: grab them within 60 seconds of landing (yellow on the minimap).`, 5); audio.sfx('wave', 0.6); break;
     case 'podgone': smoke(e.x, G.W.top(e.x, e.z) + 0.5, e.z, 3, 1); break;
@@ -370,7 +372,7 @@ function updateWeather(dt, S) {
 // ---------------------------------------------------------------- view: meshes that follow the battle
 const view = { aliens: new Map(), turrets: new Map(), players: new Map(), pods: new Map(), allies: new Map() };
 const huntOf = a => a.tg !== undefined ? a.tg : a.mode === 'hunt' ? (a.tk === 'p' ? a.tid : 't') : 0;
-const BAR_Y = { broodqueen: 11, royal: 3.2, guardian: 5, hivecore: 9, nest: 3.4, crawler: 1.8, spitter: 2.9, brute: 2.9, flyer: 1.1, ravager: 4.9, queen: 7.8 };
+const BAR_Y = { mite: 1.1, broodqueen: 11, royal: 3.2, guardian: 5, hivecore: 9, nest: 3.4, crawler: 1.8, spitter: 2.9, brute: 2.9, flyer: 1.1, ravager: 4.9, queen: 7.8 };
 const barGeo = new THREE.PlaneGeometry(1, 0.12), barBg = new THREE.MeshBasicMaterial({ color: 0x200000, depthTest: false, transparent: true, opacity: 0.7 }), barFg = new THREE.MeshBasicMaterial({ color: 0xff4040, depthTest: false });
 function colorOf(id, S) { const p = S.P.find(q => q.id === id); return p ? CLASSES[p.cls].color : 0x888888; }
 function nameTag(text, color) {
@@ -544,6 +546,7 @@ function newMe() {
   // your own marine's arms on each gun (the Meshy model); the old block glove and hand only when those aren't loaded
   view2.arms = M.AS.fpArms(G.cls, view2.gun, 'two'); if (view2.arms) view2.gun.add(view2.arms); else { const glove = new THREE.Group(); M.B(glove, 0.12, 0.12, 0.22, 0x2a3036, 0.02, -0.14, 0.05); view2.gun.add(glove); }
   for (const k of ['pistol', 'tool']) { const a = view2[k] && M.AS.fpArms(G.cls, view2[k], 'one'); if (a) view2[k].add(a); }
+  if (view2.thr) { for (const c of view2.thr.children) c.scale.multiplyScalar(1.8); const a = M.AS.fpArms(G.cls, view2.thr, 'one', [new THREE.Vector3(0.07, -0.3, 0.32), new THREE.Vector3(0.01, -0.07, 0.05)]); if (a) view2.thr.add(a); }   // your glove round the grenade
   if (view2.hand) camera.remove(view2.hand); view2.hand = M.hand(CLASSES[G.cls].color); view2.hand.scale.setScalar(0.55); camera.add(view2.hand); if (view2.arms) view2.hand.visible = false;   /* the old glove is swapped for your marine's own left arm; magazines it carries still show */ for (const d of view2.drops || []) camera.remove(d.m); view2.drops = [];
 }
 const ray = { o: new THREE.Vector3(), d: new THREE.Vector3() };
@@ -553,7 +556,7 @@ function aimRay(spread = 0) {
   return ray;
 }
 // nearest alien along a ray, using a sphere per alien
-const HEAD = { crawler: [1.1, 1.0, 0.32], spitter: [0.62, 2.15, 0.3], brute: [1.3, 1.3, 0.55], flyer: [0.7, 0.05, 0.25], ravager: [1.3, 1.3, 0.55], queen: [1.0, 5.8, 0.7] };
+const HEAD = { mite: [0.6, 0.55, 0.2], crawler: [1.1, 1.0, 0.32], spitter: [0.62, 2.15, 0.3], brute: [1.3, 1.3, 0.55], flyer: [0.7, 0.05, 0.25], ravager: [1.3, 1.3, 0.55], queen: [1.0, 5.8, 0.7] };
 function sphereHit(o, d, cx, cy, cz, r) { const ox = cx - o.x, oy = cy - o.y, oz = cz - o.z, t = ox * d.x + oy * d.y + oz * d.z; if (t < 0) return -1; const d2 = ox * ox + oy * oy + oz * oz - t * t; return d2 > r * r ? -1 : t - Math.sqrt(r * r - d2); }
 function hitAliens(o, d, maxD) {
   const out = [];
@@ -631,7 +634,7 @@ function dropNew(kind, my) {
   // pressing the key of the turret in your hands puts it back in your pack
   const held = (state() || { T: [] }).T.find(t => t.carry === G.myId); if (held && held.kind === kind) { req({ a: 'stow' }); G.me.carry = 0; audio.sfx('pouch', 0.8); return; }
   if (held) { req({ a: 'stow' }); my = Object.assign({}, my, { kits: (my.kits ?? 2) + 1, scrap: (my.scrap || 0) + scrapCost(held.kind) }); }
-  if ((my.scrap || 0) < scrapCost(kind) && !(held && held.kind === kind)) { audio.sfx('nope'); toast(`Need ${scrapCost(kind)} scrap for a ${T.name}: run over the scrap piles around wrecks.`, 2.5); return; }
+  /* no scrap: a turret costs only a kit */
   if ((my.kits ?? 2) < 1) { audio.sfx('nope'); toast('No turret kits left: pick up more in the hub (you carry 2).', 2.5); return; }
   if (T.ball) { // the sentry ball is thrown, not carried: it arcs out to where you are looking
     const r = aimRay(0), hl = Math.hypot(r.d.x, r.d.z) || 1; let d = G.W.T.ray(r.o, r.d, 26); d = Math.min(isFinite(d) ? d : 18, 26 / hl, 26); const x = r.o.x + r.d.x * d, z = r.o.z + r.d.z * d, y1 = G.W.top(x, z);
@@ -770,7 +773,6 @@ function updateBeam(dt, S) {
     const hitBox = (bx, q, kk) => { if (ray.intersectBox(bx, P)) { const d = P.distanceTo(o); if (d < tt) { tt = d; best = q; k = kk; } } };
     for (const t of S.T) { if (t.carry || t.kind === 'claymore') continue; const v = view.turrets.get(t.id); if (!v || Math.hypot(t.x - me.x, t.z - me.z) > max + 4) continue; const nw = performance.now(); if (!v.wbox || nw - v.wboxT > 400) { v.wbox = new THREE.Box3().setFromObject(v.mesh).expandByScalar(0.2); v.wboxT = nw; } hitBox(v.wbox, t, 't'); }
     for (const a of S.A) { if (a.dead) continue; const A = ALIENS[a.type]; if (Math.hypot(a.x - me.x, a.z - me.z) > max + A.r + 2) continue; const sp = new THREE.Sphere(new THREE.Vector3(a.x, (a.y || 0) + A.h * 0.6, a.z), Math.max(0.6, A.r)); if (ray.intersectSphere(sp, P)) { const d = P.distanceTo(o); if (d < tt) { tt = d; best = a; k = 'x'; } } }
-    (G.W.salvage || []).forEach((w, i) => { if (Math.hypot(w.x - me.x, w.z - me.z) > max + w.r + 2) return; w.b3 = w.b3 || new THREE.Box3(new THREE.Vector3(w.box[0], w.box[1], w.box[2]), new THREE.Vector3(w.box[3], w.box[4], w.box[5])); hitBox(w.b3, { i, ...w }, 'w'); });
     const gt = G.W.T.ray ? G.W.T.ray(o, dv, tt) : Infinity; if (gt < tt) { tt = gt; best = null; k = ''; }
     end = o.clone().addScaledVector(dv, Math.min(tt, max)).toArray(); }
   const pw = 1;   /* the welder never runs out */
@@ -785,7 +787,7 @@ function updateBeam(dt, S) {
       setT('weldT', up === null ? `REPAIRING ${T.name.toUpperCase()}` : up === 'max' ? `${T.name.toUpperCase()} · MAX LEVEL` : `UPGRADING TO LV ${best.lvl + 1}`); $('weldBar').style.width = (up === null ? best.hp / best.mhp : up === 'max' ? 1 : up) * 100 + '%'; $('weld').classList.toggle('rep', up === null); }
     else if (best && k === 'w') { const left = G.stripped && G.stripped.has(best.i) ? 0 : 1; $('weld').hidden = false; setT('weldT', left ? `CUTTING SCRAP · ${best.name.toUpperCase()}` : `${best.name.toUpperCase()} · STRIPPED`); $('weldBar').style.width = (left ? 100 : 0) + '%'; $('weld').classList.add('rep'); }
     else if (best && k === 'x') { $('weld').hidden = false; setT('weldT', `BURNING ${ALIENS[best.type].name.toUpperCase()}`); $('weldBar').style.width = Math.max(0, best.hp / best.mhp) * 100 + '%'; $('weld').classList.add('rep'); }
-    if (G.salvT > 0) prompt(`+${G.salvN} scrap`); else if (!best) prompt('Welding laser · cut scrap from wrecks, weld turrets to repair and upgrade them, burn aliens up close');
+    if (!best) prompt('Welding laser · weld turrets to repair and upgrade them (hold it on: upgrades take a while), burn aliens up close');
   }
   me.beamAcc = (me.beamAcc || 0) + dt; if (me.beamAcc < 0.1) return; const d0 = me.beamAcc; me.beamAcc = 0;
   if (rc === 'heal') { req({ a: 'heal', id: best ? best.id : '', k: best ? k : '', dt: +d0.toFixed(2) }); prompt(best ? `Healing ${best.name ? esc(best.name) : ALLIES[best.type].name} · ${Math.ceil(best.hp)}/${best.mhp}` : 'Heal beam: aim at a teammate (healing yourself slowly)'); if (Math.random() < 0.5) burst(...muzzleTool(), 0x60ff90, 2, 1.5, 0.2); }
@@ -852,7 +854,9 @@ function updateMe(dt, S) {
   let mx = 0, mz = 0; if (live && locked() && !frozen) { if (keys[KB.forward]) mz -= 1; if (keys[KB.back]) mz += 1; if (keys[KB.left]) mx -= 1; if (keys[KB.right]) mx += 1; }
   if (live && locked() && hits[KB.prone]) me.prone = !me.prone; if (!live || hits[KB.jump] || me.place) me.prone = false;
   me.kneel = me.prone || (live && locked() && keys[KB.kneel] && !me.place); me.kh = (me.kh || 0) + ((me.prone ? 1.6 : me.kneel ? 1 : 0) - (me.kh || 0)) * Math.min(1, dt * 10);
-  const l = Math.hypot(mx, mz) || 1, run = me.carry ? 0.8 : keys[KB.sprint] && mz < 0 && !me.kneel ? 1.45 : 1, sp = st.speed * run * (me.prone ? 0.22 : me.kneel ? 0.4 : 1) * (1 - 0.45 * (me.spin || 0)) * (me.scope ? 0.5 : me.ads ? 0.7 : 1), s = Math.sin(me.yaw), c = Math.cos(me.yaw);
+  // endurance: sprinting and the jetpack burn it; it refills a moment after you stop (run it dry and you're winded until it's back to a quarter)
+  me.stam ??= 100; const wantRun = live && keys[KB.sprint] && mz < 0 && !me.kneel && !me.carry, running = wantRun && !me.tired && me.stam > 0; if (running) me.stam -= 16 * dt;
+  const l = Math.hypot(mx, mz) || 1, run = me.carry ? 0.8 : running ? 1.45 : 1, sp = st.speed * run * (me.prone ? 0.22 : me.kneel ? 0.4 : 1) * (1 - 0.45 * (me.spin || 0)) * (me.scope ? 0.5 : me.ads ? 0.7 : 1), s = Math.sin(me.yaw), c = Math.cos(me.yaw);
   const vx = (mx * c + mz * s) / l * sp, vz = (-mx * s + mz * c) / l * sp; me.moving = mx || mz;
   // step each way on its own so you slide along cliffs instead of sticking
   const T = G.W.T, foot = me.y;
@@ -862,7 +866,15 @@ function updateMe(dt, S) {
   const gh = T.ground(me.x, me.z, me.y + 0.6); let grounded = false;
   if (me.vy <= 0 && me.y - gh < 0.35 && me.y - gh > -0.7) { me.y = gh; me.vy = 0; grounded = true; }
   else { me.vy -= 22 * dt; me.y += me.vy * dt; if (me.y < gh && me.y > gh - 0.7) { me.y = gh; me.vy = 0; } }
-  if (live && hits[KB.jump] && grounded) { me.vy = 7.5; me.y += 0.02; }
+  if (live && hits[KB.jump] && grounded) { me.vy = 7.5; me.y += 0.02; me.airT = 0; }
+  // shock boots: jump again in mid-air, off a crackling shock pulse
+  const gear = my.gear ?? ((my.jet ? 1 : 0) | (my.boots ? 2 : 0)); if (grounded) { me.dj = 0; me.airT = 0; } else me.airT = (me.airT || 0) + dt;
+  if (live && (gear & 2) && hits[KB.jump] && !grounded && !me.dj && me.stam >= 15) { me.dj = 1; me.vy = 9; me.stam -= 15; burst(me.x, me.y + 0.1, me.z, 0x80e0ff, 18, 5, 0.35); audio.sfx('zap', 0.6); G.shake = Math.max(G.shake || 0, 0.15); }
+  // jetpack: hold jump in the air to fly while endurance lasts
+  me.jetting = live && (gear & 1) && keys[KB.jump] && !grounded && me.airT > 0.18 && !me.tired && me.stam > 0;
+  if (me.jetting) { me.vy = Math.min(6, me.vy + 42 * dt); me.stam -= 30 * dt; if (Math.random() < 0.8) burst(me.x + (Math.random() - 0.5) * 0.4, me.y + 0.6, me.z + (Math.random() - 0.5) * 0.4, Math.random() < 0.5 ? 0xffa040 : 0x60c0ff, 2, 1.5, 0.3); me.jetSnd = (me.jetSnd || 0) - dt; if (me.jetSnd <= 0) { me.jetSnd = 0.22; audio.sfx('rocket', 0.25); } }
+  if (running || me.jetting) me.stamT = 0; else { me.stamT = (me.stamT || 0) + dt; if (me.stamT > 0.7) me.stam = Math.min(100, me.stam + 24 * dt); }
+  if (me.stam <= 0) { me.stam = 0; me.tired = 1; } if (me.tired && me.stam >= 25) me.tired = 0;
   const ceil = T.ceiling(me.x, me.z, me.y); if (me.y + 1.9 > ceil) { me.y = Math.min(me.y, ceil - 1.9); me.vy = Math.min(0, me.vy); }
   if (grounded && T.chasm(me.x, me.z) > 0.99) me.safe = { x: me.x, z: me.z, y: me.y };
   if (me.y < LIQUID + 0.5 && live) { const sf = me.safe || { x: G.W.spawn.x, z: G.W.spawn.z, y: T.top(G.W.spawn.x, G.W.spawn.z) }; me.x = sf.x; me.z = sf.z; me.y = sf.y + 0.2; me.vy = 0; req({ a: 'fall' }); toast('You fell into the chasm and climbed back out, hurt.', 3); audio.sfx('hurt'); }
@@ -937,7 +949,7 @@ function updateMe(dt, S) {
       const t = me.carry || me.beam ? null : lookTurret(S); G.lookT = t;
       if (t) {
         const T = TURRETS[t.kind], own = S.P.find(p => p.id === t.owner), c = upgradeCost(t);
-        prompt(`<b>${T.name}</b> Lv${t.lvl}${own ? ' · ' + esc(own.name) : ''} · ${Math.ceil(t.hp)}/${t.mhp} · ` + (t.b > 0 ? `building: ${t.b.toFixed(1)} s` : t.lvl < 3 ? (t.up ? `welding upgrade ${Math.round(t.up * 100)}%` : `weld it with <b>3</b> to upgrade (burns ${[0, 15, 30][t.lvl]} scrap)`) : 'max level') + (t.carry ? '' : ` · <b>${keyName(KB.use)}</b> pick up`) + (t.owner === G.myId ? ` · <b>${keyName(KB.sell)}</b> sell` : ''));
+        prompt(`<b>${T.name}</b> Lv${t.lvl}${own ? ' · ' + esc(own.name) : ''} · ${Math.ceil(t.hp)}/${t.mhp} · ` + (t.b > 0 ? `building: ${t.b.toFixed(1)} s` : t.lvl < 3 ? (t.up ? `welding upgrade ${Math.round(t.up * 100)}%` : `weld it with <b>3</b> to upgrade (about ${[0, 18, 24][t.lvl] / (G.cls === 'engineer' ? 3 : 1)} s)`) : 'max level') + (t.carry ? '' : ` · <b>${keyName(KB.use)}</b> pick up`) + (t.owner === G.myId ? ` · <b>${keyName(KB.sell)}</b> sell` : ''));
         if (hits[KB.use] && !t.carry) { hits[KB.use] = false; req({ a: 'carry', id: t.id }); audio.sfx('place', 0.6); } if (hits[KB.sell] && t.owner === G.myId) req({ a: 'sell', id: t.id });
       }
     }
@@ -1026,7 +1038,7 @@ function hud(dt, S) {
   const mt = S.T.filter(t => t.owner === G.myId).length, sT = TURRETS[C.sentry], dT = TURRETS[C.defense];
   const sp = my.special, TH = C.throw, tT = TURRETS[C.third];
   const pwPct = Math.round((my.pw ?? 100) / (G.cls === 'engineer' ? 160 : 100) * 100), wpn = [[C.gun.name, icon(G.cls), '', 0], [SIDEARM.name, icon('pistol'), '', 1], ['Welding torch', icon('welder'), pwPct + '%', 2], [TH.name, icon(TH.kind), `${my.items ?? 0}`, 3], ['Field dressing', icon('medkit'), `${my.dr ?? 2}`, 5], ];
-  const bslot = (key, kind) => { if (!kind) return ''; const T0 = TURRETS[kind]; if (T0.throwExtra) { const n = my.ex ?? C.extra.n; return `<div class="slot ${n < 1 ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i>×${n}</i></div>`; } return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${(my.kits ?? 2) < 1 || (my.scrap || 0) < scrapCost(kind) ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i>${scrapCost(kind)}</i></div>`; };
+  const bslot = (key, kind) => { if (!kind) return ''; const T0 = TURRETS[kind]; if (T0.throwExtra) { const n = my.ex ?? C.extra.n; return `<div class="slot ${n < 1 ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}<i>×${n}</i></div>`; } return `<div class="slot ${G.me.place === kind ? 'on' : ''} ${(my.kits ?? 2) < 1 ? 'poor' : ''}"><b>${keyName(KB[key])}</b>${icon(kind)}</div>`; };
   setH('slots', wpn.map(([n, ic, c, sl], i) => `<div class="slot w ${G.me.slot === sl ? 'on' : ''} ${(sl === 3 && !my.items) || (sl === 5 && !my.dr) || (sl === 2 && (my.pw ?? 1) <= 0) ? 'poor' : ''}"><b>${i + 1}</b>${ic}<i>${c}</i></div>`).join('') + `<div class="gap"></div><div class="kits" title="turret kits">${'▮'.repeat(my.kits ?? 2)}${'▯'.repeat(Math.max(0, 2 - (my.kits ?? 2)))}<small>KITS</small></div>` + bslot('sentry', C.sentry) + bslot('defense', C.defense) + bslot('third', C.third) + `<div class="slot ${sp ? 'ready sp' : 'poor'}"><b>${keyName(KB.special)}</b>${sp ? icon(sp) : icon('empty')}</div>`);
   setT('slotName', G.me.place ? TURRETS[G.me.place].name : sp && G.time - (G.spT ?? -9) < 3 ? SPECIALS[sp].name : (wpn.find(w => w[3] === G.me.slot) || wpn[0])[0]); if (sp !== G.lastSp) { G.lastSp = sp; G.spT = G.time; }
   $('roundsBar').style.width = (G.me.slot <= 1 ? Math.min(100, G.me.ammo / st.mag * 100) : 0) + '%';
@@ -1034,7 +1046,8 @@ function hud(dt, S) {
     const rs = $('restock'), inHub = !G.explore && G.W && G.W.T.hubAt(G.me.x, G.me.z);
     if (!inHub) rs.hidden = true; else { const st = stats(), C0 = CLASSES[G.cls], rows = [['Ammo', Math.floor(G.me.reserve), st.reserve], ['Turret kits', my.kits ?? 2, 2], [C0.throw.name + 's', my.items ?? 0, C0.throw.n], ['Field dressings', my.dr ?? 2, 2]]; if (my.hp < my.mhp) rows.unshift(['Health', Math.round(my.hp), my.mhp]);
       const busy = rows.some(r => r[1] < r[2]); rs.hidden = false; rs.innerHTML = `<h4>${busy ? 'HUB · RESTOCKING' : 'HUB · ALL STOCKED'}</h4>` + rows.map(([n, v, mx]) => `<div><span>${n}</span><span class="${v >= mx ? 'full' : 'chg'}">${v >= mx ? 'FULL' : v + ' / ' + mx}</span></div>` + (v < mx ? `<div class="bar"><i style="width:${Math.round(v / mx * 100)}%"></i></div>` : '')).join(''); } }
-  setH('status', [my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get under cover, or crouch behind something on the windward side</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', G.me.braced ? '<span class="g">▤ Braced on sandbags</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
+  { const sb = $('stamBar'); if (sb) { sb.style.width = (G.me.stam ?? 100) + '%'; sb.classList.toggle('tired', !!G.me.tired); } }
+  setH('status', [(my.gear & 1 || my.jet) ? '<span class="b">🚀 Jetpack</span>' : '', (my.gear & 2 || my.boots) ? '<span class="b">⚡ Shock boots</span>' : '', my.adrT > 0 ? '<span>⚡ Adrenaline</span>' : '', ...Object.entries(my.buf || {}).filter(([, v]) => v > 0).map(([k]) => `<span>${{ rally: '📣 Rally', iron: '🛡 Iron Skin', nano: '🛡 Nano Shield', storm: '🔥 Bullet Storm', fortify: '⛰ Fortified', cloak: '👻 Cloaked', napalm: '🔥 Napalm ready', airburst: '💥 Airburst' }[k] || k}</span>`), G.me.prone ? '<span>▁ Prone</span>' : G.me.kneel ? '<span>▃ Kneeling</span>' : '', my.stimT > 0 ? '<span>💉 Stim</span>' : '', my.regen || G.me.resup ? '<span class="g">✚ Hub</span>' : '', my.cold ? '<span class="b">❄ Frostbite: get under cover, or crouch behind something on the windward side</span>' : '', my.toxic ? '<span class="t">☣ Spores</span>' : '', G.me.braced ? '<span class="g">▤ Braced on sandbags</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'heavy' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 12) ? '<span>🛡 Bulwark</span>' : '', S.P.some(p => p.id !== G.myId && p.cls === 'assault' && !p.dead && Math.hypot(p.x - G.me.x, p.z - G.me.z) < 14) ? '<span>★ Squad leader</span>' : ''].join(''));
   // a boss bar while a big one is alive
   const nearQ = G.W.cave && Math.hypot(G.me.x - G.W.cave.x, G.me.z - G.W.cave.z) < 34, boss = S.A.find(a => ALIENS[a.type].boss) || (nearQ ? S.A.find(a => a.type === 'broodqueen') : null); $('boss').hidden = !boss; if (boss) { setT('bossName', ALIENS[boss.type].name); $('bossBar').style.width = (boss.hp / boss.mhp * 100) + '%'; }
   const hunters = [...view.aliens.values()].filter(v => v.hunt === G.myId); $('hunt').hidden = !hunters.length || my.dead; if (hunters.length) setT('huntT', `⚠ ${hunters.length} ALIEN${hunters.length > 1 ? 'S' : ''} HUNTING YOU`);
@@ -1051,7 +1064,7 @@ function hud(dt, S) {
   const end = S.ph === 'lose' && !G.explore && !G.cine; $('end').hidden = !end; $('btnFob').hidden = !(S.ph === 'win' && G.mode !== 'client');
   if (end) { setT('endTitle', S.ph === 'win' ? 'VICTORY' : 'THE HUB HAS FALLEN'); { const t = S.el || 0, ms = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; setT('endText', S.ph === 'win' ? `The hive is destroyed after ${ms}! The colony is safe.` : `Your squad held the hub for ${ms}.`); } { const my = mine(S) || {}, st = G.stats, acc = st.shots ? Math.round(100 * st.hits / st.shots) : 0; setH('endStats', `<div><b>${my.kills || 0}</b>kills</div><div><b>${acc}%</b>accuracy</div><div><b>${st.built}</b>turrets built</div><div><b>${Math.round(st.taken)}</b>damage taken</div><div><b>${S.lvl || S.w || '-'}</b>threat level</div>`); } setT('endKey', G.mode === 'client' ? 'Waiting for the host to choose…' : ''); $('btnAgain').hidden = G.mode === 'client'; $('btnAgain').textContent = S.ph === 'win' ? 'Keep fighting (endless mode)' : 'Try again'; if (document.pointerLockElement) document.exitPointerLock(); }
   $('pause').hidden = locked() || G.shop || end || G.mmap || G.settings;
-  $('board').hidden = !keys[KB.scores]; if (keys[KB.scores]) setH('boardT', '<tr><th>Marine</th><th>Class</th><th>Kills</th><th>Scrap</th></tr>' + S.P.map(p => `<tr><td>${esc(p.name)}${p.dead ? ' ✝' : ''}</td><td>${CLASSES[p.cls].name}</td><td>${p.kills}</td><td>${Math.floor(p.scrap || 0)}</td></tr>`).join(''));
+  $('board').hidden = !keys[KB.scores]; if (keys[KB.scores]) setH('boardT', '<tr><th>Marine</th><th>Class</th><th>Kills</th></tr>' + S.P.map(p => `<tr><td>${esc(p.name)}${p.dead ? ' ✝' : ''}</td><td>${CLASSES[p.cls].name}</td><td>${p.kills}</td></tr>`).join(''));
   if (G.shop) shopDraw(my);
   mapT -= dt; if (mapT <= 0) { mapT = 0.1; minimap(S); }
   if (G.explore) { const v = G.ex && G.ex.veh; setT('waveTxt', 'FOB VALOR'); setT('waveInfo', v ? (v.kind === 'vtol' ? `VTOL · altitude ${Math.round(v.y - G.W.T.raw(v.x, v.z))} m` : `Rover · ${Math.round(Math.abs(v.sp) * 3.6)} km/h`) : `Explore the planet · wild aliens slain: ${G.ex ? G.ex.kills || 0 : 0}`); }
@@ -1210,16 +1223,16 @@ function infoHTML(k) {
   let h = `<h2>${c.name}</h2><p class="sub2">${c.role} · ${c.hp} health · ${c.team}</p><div class="gg">`;
   h += row('1', k, g.name, gunTxt, `${Math.round(g.dmg)}${g.pellets ? '×' + g.pellets : ''} dmg · ${g.mag} mag · ${g.reserve} spare`);
   h += row('2', 'pistol', 'Side arm', 'Backup pistol for when you run dry.', `${SIDEARM.mag} mag · ${SIDEARM.reserve} spare`);
-  h += row('3', 'welder', 'Welding laser', 'Repairs turrets, welds on upgrades, burns aliens up close.', `Upgrades cost scrap: 15, then 30${k === 'engineer' ? ' · you weld 3x faster' : ''}`);
+  h += row('3', 'welder', 'Welding laser', 'Repairs turrets, welds on upgrades, burns aliens up close.', `Upgrades take a long weld: 18 s, then 24 s${k === 'engineer' ? ' · you weld 3x faster' : ''}`);
   h += row('4·G', th.kind, th.name, thTxt, `${th.n} carried`);
   h += row('5', 'medkit', 'Field dressing', 'Click to bandage yourself.', '+40 health · 2 carried');
-  for (const [key, kind] of [['F', c.sentry], ['T', c.defense], ['V', c.third]]) { if (!kind) continue; const t = TURRETS[kind]; h += row(key, kind, t.name, t.desc, t.throwExtra ? `${CLASSES[k].extra.n} carried · restock in the hub` : `${scrapCost(kind)} scrap · ` + (t.ball ? 'thrown' : 'left click places it')); }
+  for (const [key, kind] of [['F', c.sentry], ['T', c.defense], ['V', c.third]]) { if (!kind) continue; const t = TURRETS[kind]; h += row(key, kind, t.name, t.desc, t.throwExtra ? `${CLASSES[k].extra.n} carried · restock in the hub` : (t.ball ? 'thrown' : 'left click places it')); }
   h += row('X', 'supply', 'Special', 'Found in supply drops. Air strikes, troops and more.', '');
   h += row('E', 'crate', 'Use', 'Pick up turrets, salvage wrecks, use teleporters.', '');
   return h + '</div><p class="sub2">Refill ammo, turret kits and dressings in the hub · B at the comms console changes class · K closes</p>';
 }
 function kitHTML(k) {
-  const c = CLASSES[k], g = c.gun, bl = (key, kind) => !kind ? '' : `<p><b>${key}</b> ${TURRETS[kind].name} (${scrapCost(kind)} scrap): ${TURRETS[kind].desc}</p>`;
+  const c = CLASSES[k], g = c.gun, bl = (key, kind) => !kind ? '' : `<p><b>${key}</b> ${TURRETS[kind].name}: ${TURRETS[kind].desc}</p>`;
   return `<p class="role">${c.role} · ${c.hp} health</p><p><b>1</b> ${g.name}${g.pellets ? ' (pellets, deadly up close)' : g.pierce ? ' (pierces 3 aliens)' : g.kind === 'rocket' ? ' (explodes)' : g.spin ? ' (spins up first)' : ''} · <b>2</b> side arm · <b>3</b> welding torch${k === 'engineer' ? ' (3x faster)' : ''} · <b>4</b> or <b>G</b> ${c.throw.name} ×${c.throw.n}</p><p><b>Team</b> ${c.team}</p>` + bl(keyName(KB.sentry), c.sentry) + bl(keyName(KB.defense), c.defense) + bl(keyName(KB.third), c.third);
 }
 // campaign unlocks: Mars on Easy to start; each win opens the next difficulty, and a Hard win opens the next planet

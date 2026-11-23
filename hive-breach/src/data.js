@@ -71,8 +71,8 @@ export const SPECIALS = {
 export const MISSILE = { launch: 2.5, speed: 75, radius: 12, dmg: 1400 };
 
 // lvl 1-3. Upgrading a turret costs its price times UPG_COST[lvl].
-// building a turret costs scrap: a tenth of its old gold price
-export const scrapCost = kind => Math.max(4, Math.round((TURRETS[kind].cost || 0) / 10));
+// no scrap any more: turrets cost only a turret kit
+export const scrapCost = kind => 0;
 export const TURRETS = {
   pulse: { name: 'Pulse Rifle Sentry', cost: 90, hp: 240, range: 22, rate: 6, dmg: 14, key: 'sentry', desc: 'Accurate long-range shots.' },
   minigun: { name: 'Minigun Turret', cost: 100, hp: 260, range: 17, rate: 12, dmg: 7.5, key: 'sentry', desc: 'Spins up and shreds anything close.' },
@@ -121,6 +121,7 @@ export const ALIENS = {
   flyer: { name: 'Wraith', hp: 55, speed: 9.5, hub: 3, bounty: 9, r: 0.7, h: 4.2, dmg: 9, fly: 1, melee: 1, hunt: { p: 15, t: 9, leash: 26, time: 6, cd: 4 } },
   ravager: { name: 'Behemoth', hp: 3400, speed: 2.8, hub: 30, bounty: 220, r: 1.4, h: 1.5, dmg: 40, melee: 1, armor: 0.35, boss: 1, hunt: { t: 14, p: 9, leash: 20, time: 10, cd: 5 } },
   queen: { name: 'Hive Tyrant', hp: 15000, speed: 2.0, hub: 100, bounty: 1000, r: 3.4, h: 3.5, dmg: 55, melee: 1, armor: 0.35, boss: 1, ranged: 24 },
+  mite: { name: 'Burrower', hp: 22, speed: 9.6, hub: 1, bounty: 2, r: 0.5, h: 0.55, dmg: 5, melee: 1, base: 'crawler' },   // small and weak, pours out of burrow holes and runs straight across country for the hub
   nest: { name: 'Alien Nest', hp: 600, speed: 0, hub: 0, bounty: 80, r: 2.0, h: 1.0, dmg: 0, nest: 1, static: 1 },
   guardian: { name: 'Hive Guardian', hp: 2600, speed: 0, hub: 0, bounty: 150, r: 1.7, h: 3.2, dmg: 13, static: 1, armor: 0.2, guard: 26 },
   // the endgame: the Brood Queen sits in a cave at the start of the track, births the swarm and is guarded by Royal Guards

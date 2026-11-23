@@ -176,8 +176,8 @@ export function item(kind) {
 export const FP_ROLL = { two: -0.7, one: -0.5, hand: 0 };
 // mode 'hand': the left forearm and hand alone, fitted to the reload hand's frame (palm at the origin, forearm back along +z), so it can
 // follow the hand's reload path: down to the magazine, out, in, and back to the foregrip
-export function fpArms(cls, gun, mode = 'two') {
-  if (mode !== 'hand' && (!gun || !gun.userData.glb)) return null; const g = marineGLB(cls); if (!g) return null; const u = g.userData;
+export function fpArms(cls, gun, mode = 'two', fitTo) {
+  if (mode !== 'hand' && !fitTo && (!gun || !gun.userData.glb)) return null; const g = marineGLB(cls); if (!g) return null; const u = g.userData;
   if (u.gun) { g.remove(u.gun); u.gun = null; }
   setPose(g, 'walk', 0); const a = u.act.walk; a.time = a.getClip().duration * 0.15; a.timeScale = 0; u.mixer.update(0);
   // keep only the sleeves and gloves: every triangle whose skin mostly follows an arm bone; the chest, head and legs are cut away
@@ -195,7 +195,7 @@ export function fpArms(cls, gun, mode = 'two') {
   let A, B, A2, B2;
   if (mode === 'hand') { if (!lf || !lh) return null; A = lf; B = lh; A2 = new THREE.Vector3(0, -0.01, 0.42); B2 = new THREE.Vector3(0, 0.005, 0.06); }
   else if (mode === 'two' && lh) { A = rh; B = lh; A2 = new THREE.Vector3(0.035, -0.06, 0.2); B2 = new THREE.Vector3(-0.045, -0.055, -L * 0.3); }
-  else { A = rf; B = rh; A2 = new THREE.Vector3(0.05, -0.32, 0.3); B2 = new THREE.Vector3(0.01, -0.08, 0.12); }
+  else { A = rf; B = rh; A2 = fitTo ? fitTo[0].clone() : new THREE.Vector3(0.06, -0.22, 0.36); B2 = fitTo ? fitTo[1].clone() : new THREE.Vector3(0.006, -0.05, 0.045); }   // forearm, then the hand wrapped round the grip
   const d1 = B.clone().sub(A), d2 = B2.clone().sub(A2), s = d2.length() / d1.length();
   const basis = (d, upHint) => { const z = d.clone().normalize(), x = new THREE.Vector3().crossVectors(upHint, z).normalize(), y = new THREE.Vector3().crossVectors(z, x); return new THREE.Matrix4().makeBasis(x, y, z); };
   const m1 = basis(d1, new THREE.Vector3(0, 1, 0)), m2 = basis(d2, new THREE.Vector3(0, 1, 0)), R = m2.clone().multiply(m1.clone().invert());

@@ -119,6 +119,7 @@ function scythe(parent, x, y, z, len, m, side) {
 const _aBox = {};
 export function alien(type, plain) {
   // the Meshy model for a Mars alien, sized from the simple one (measured once per type)
+  if (type === 'mite') { const k = 0.55, g = alien('crawler', plain), u = g.userData; g.scale.setScalar(k); if (u.hb) u.hb = { len: u.hb.len * k, wid: u.hb.wid * k, hgt: u.hb.hgt * k, cy: u.hb.cy * k, cz: u.hb.cz * k }; u.mite = 1; return g; }   // a burrower: a small Stalker
   if (!plain && AS.ALIEN_GLB[type] && AS.A[AS.ALIEN_GLB[type]]) { if (!_aBox[type]) _aBox[type] = new THREE.Box3().setFromObject(alien(type, true)); const mg = AS.alienGLB(type, _aBox[type]); if (mg) return mg; }
   // planet breeds: a base alien recoloured, resized and given its own growths (ice crystals, thorns, an acid sac)
   const VAR = { shard: ['crawler', 0x7fd0ff, 'ice', 1.05], cryospit: ['spitter', 0xa8ecff, 'ice', 1], glacier: ['brute', 0xc0eaff, 'ice', 1.18], frostwraith: ['flyer', 0x90c8ff, 'ice', 1], creeper: ['crawler', 0x2f5a22, 'thorn', 0.95], bloater: ['spitter', 0x7aa020, 'bloat', 1.1], thornback: ['brute', 0x2a4a1a, 'thorn', 1.08], moth: ['flyer', 0x8a50b0, 'moth', 0.8] };

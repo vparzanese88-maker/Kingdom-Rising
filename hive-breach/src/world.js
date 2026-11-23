@@ -238,6 +238,13 @@ export function buildWorld(scene, mapId, diff = 0) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(HUB_R - WALL_T - 0.6, HUB_R - WALL_T - 0.2, 96), M.mat(0x40ff80, { e: 0x20c050, op: 0.55, ds: true })); ring.rotation.x = -Math.PI / 2; ring.position.set(s1.x, path.y(path.len) + 0.12, s1.z); g.add(ring); W.healRing = ring;
   W.spawn = { x: s1.x - Math.cos(T.hub.ga) * 14, z: s1.z - Math.sin(T.hub.ga) * 14 };
 
+  // burrow holes all over the open ground: small burrowers pour out of them and run straight for the hub
+  W.burrows = []; { const BR = rng(mapId.length * 3301 + 17 + (W.diff || 0) * 1013); for (let k = 0; k < 400 && W.burrows.length < 9; k++) { const x = (BR() * 2 - 1) * (BOUNDS - 20), z = (BR() * 2 - 1) * (BOUNDS - 20);
+    if (path.near(x, z).d < 28 || Math.hypot(x - W.hubP.x, z - W.hubP.z) < 75 || Math.hypot(x - W.hiveP.x, z - W.hiveP.z) < 50 || T.chasm(x, z) < 0.99 || T.ridge(x, z) > 1 || W.burrows.some(b => Math.hypot(b.x - x, b.z - z) < 45)) continue;
+    const y = T.raw(x, z), hole = new THREE.Group(); hole.position.set(x, y, z); g.add(hole); W.burrows.push({ x, z });
+    const pit = new THREE.Mesh(new THREE.CircleGeometry(2.2, 20), M.mat(0x0a0604, { r: 1 })); pit.rotation.x = -Math.PI / 2; pit.position.y = 0.08; hole.add(pit);
+    const goo = new THREE.Mesh(new THREE.RingGeometry(2.1, 3.4, 20), M.mat(0x2a3a10, { e: 0x203008, op: 0.7 })); goo.rotation.x = -Math.PI / 2; goo.position.y = 0.06; hole.add(goo);
+    for (let i = 0; i < 7; i++) { const a = i / 7 * 6.283 + BR(), r = M.prop('boulder', BR); r.scale.multiplyScalar(0.28 + BR() * 0.15); r.position.set(Math.cos(a) * 2.6, -0.2, Math.sin(a) * 2.6); hole.add(r); } } }
   W.nestP = [];
   if (D.hazard === 'nests') { const NR = rng(41); for (const f of [0.28, 0.5, 0.72]) { for (let k = 0; k < 40; k++) { const s = path.len * (f + (NR() - 0.5) * 0.08), q = path.at(s), side = NR() < 0.5 ? -1 : 1, dd = 13 + NR() * 6, x = q.x - q.tz * side * dd, z = q.z + q.tx * side * dd, n = path.near(x, z);
     if (n.d < 10 || Math.abs(x) > BOUNDS - 6 || Math.abs(z) > BOUNDS - 6 || T.chasm(x, z) < 0.99 || T.ridge(x, z) > 1.5) continue; W.nestP.push({ i: W.nestP.length, x, z, y: T.raw(x, z), s: n.s }); break; } } }

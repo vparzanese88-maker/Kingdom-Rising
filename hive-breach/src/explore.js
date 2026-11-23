@@ -456,7 +456,7 @@ export function dropIntro(H, squad, done) {
     // the pod's wall: a ring of small posts you can't walk through, open where the door was (straight ahead of your seat)
     pod.updateMatrixWorld(true); for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, rel = Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2)); if (Math.abs(rel) < 0.55) continue; const p = pod.localToWorld(V(Math.cos(a) * 1.95, 0, Math.sin(a) * 1.95)); W.colliders.push({ x: p.x, z: p.z, r: 0.42, h: 4.5, gy: padY }); }
     W.group.visible = true; scene.background = bg0; scene.fog = fog0; G.cineFog = false; heat.remove(); hud.remove(); document.body.classList.remove('pov'); A.rumble(0); if (MU && MU.endScore) MU.endScore();
-    setTimeout(() => cap('', 'Vance: Marines, move out! Get to that hive! I\'ll run things from the hub.'), 3500);   /* after the Mike P warning has been heard */
+    cap('', 'Vance: Marines, move out! Get to that hive! I\'ll run things from the hub.');
     const me = pod.localToWorld(V(Math.cos(myA) * 0.75, 0, Math.sin(myA) * 0.75)), door = pod.localToWorld(V(0, 0, -3.4));
     done({ marines: crew.filter(c => !c.cmd).length, x: me.x, z: me.z, yaw: G.me.yaw + doorYaw, ax: door.x, az: door.z, allyDelay: 2.2 });
   };

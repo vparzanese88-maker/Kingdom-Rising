@@ -84,7 +84,7 @@ button:hover{background:#4a2c18}
     <div class="how">
       <b>First to 100 points wins.</b> Three darts a turn. Treble ring = triple, outer ring = double, bull 25, bullseye 50.<br>
       You stand beside your board and throw at the board across the bar, right where your opponent stands. <b>Nothing stops you throwing at him instead.</b> Body shots hurt. Darts in the face bleed, and <b>about three to the face and he bleeds out and passes out: you win</b>. He can do the same to you, so watch him and lean (A / D) or duck (C) when he lines one up on you.<br>
-      Hold left click to wind up and let go to throw: let go on the green line and the dart lands on the crosshair, early drops low, late flies high. Shift holds your breath to steady your hand. Mind the waiters.
+      Hold left click to wind up and let go to throw: let go on the green line and the dart lands on the crosshair, early drops low, late flies high. Shift holds your breath to steady your hand. You can hit anyone in the bar, but <b>hit the same person three times and the police come and beat you with clubs</b> until you pass out.
     </div>
   </div>
 </div>
@@ -221,7 +221,10 @@ function wall(w, px, pz, ry) {
   mesh(BOX(w, .12, .04), std(0x1a0d05), 0, .06, .02, g);
   return g;
 }
-wall(RX * 2, 0, -RZ, 0); wall(RX * 2, 0, RZ, Math.PI); wall(RZ * 2, -RX, 0, Math.PI / 2); wall(RZ * 2, RX, 0, -Math.PI / 2);
+wall(RX * 2, 0, -RZ, 0); wall(RX * 2, 0, RZ, Math.PI);
+{ const dg = new THREE.Group(); dg.position.set(-3.0, 0, RZ - .02); dg.rotation.y = Math.PI; scene.add(dg);
+  mesh(BOX(1.0, 2.2, .04), std(0x3a1e0c, {roughness: .5}), 0, 1.1, 0, dg); mesh(BOX(1.14, .08, .06), std(0x1a0d05), 0, 2.24, 0, dg);
+  mesh(BOX(.5, .6, .01), std(0x88a0a8, {roughness: .1, metalness: .6}), 0, 1.55, .03, dg); mesh(new THREE.SphereGeometry(.03, 8, 6), std(0xc8963a, {metalness: .8, roughness: .3}), .38, 1.05, .04, dg); } wall(RZ * 2, -RX, 0, Math.PI / 2); wall(RZ * 2, RX, 0, -Math.PI / 2);
 
 // lights
 scene.add(new THREE.HemisphereLight(0xffc896, 0x2a1408, .55));
@@ -724,7 +727,7 @@ function start(mode, diff) {
   $('black').style.opacity = 0; $('red').style.opacity = 0;
   $('menu').style.display = 'none'; $('end').style.display = 'none'; hud.style.display = 'block';
   setOwner(mode === 'net' && NET.mode === 'client' ? TH[1] : TH[0]);
-  G.pend = 0; dartId = 0;
+  G.pend = 0; dartId = 0; resetBystanders(); TH.forEach(T => T.copped = false);
   for (const w of waiters) { for (const o of w.darts) o.parent && o.parent.remove(o); w.darts = []; }
   drawChalk(); updHUD();
   bigTurn(mode === 'cpu' ? `You vs ${TH[1].name}` : mode === 'net' ? `${TH[0].name} vs ${TH[1].name}` : 'Player 1, you\'re up');
@@ -840,6 +843,7 @@ function stepDarts(dt) {
       const cand = (t, kind, extra) => { if (t >= 0 && t <= 1 && (!hit || t < hit.t)) hit = Object.assign({t, kind}, extra); };
       for (const T of TH) if (T !== d.owner && !T.out) { const r = segPerson(T.p, a, b); if (r) cand(r.t, 'person', {who: T, part: r.part}); }
       for (const w of waiters) { const r = segPerson(w, a, b); if (r) cand(r.t, 'waiter', {who: w, part: r.part}); }
+      for (const q of bystanders) if (q.g.position.distanceToSquared(b) < 2.5) { const r = segPerson(q, a, b); if (r) cand(r.t, 'npc', {who: q, part: r.part}); }
       for (const bd of [boardA, boardB]) {
         const pz = bd.planeZ;
         if ((a.z - pz) * (b.z - pz) <= 0 && a.z !== b.z) {
@@ -857,7 +861,7 @@ function stepDarts(dt) {
         const dir = d.vel.clone().normalize();
         d.obj.position.addScaledVector(dir, hit.kind === 'person' || hit.kind === 'waiter' ? .025 : .012);
         if (NET.mode === 'client') { d.vel = null; d.frozen = true; break; }
-        if (NET.mode === 'host') netSend({t: 'land', id: d.id, k: hit.kind, pa: hit.part || '', w: hit.who ? (hit.kind === 'waiter' ? waiters.indexOf(hit.who) : hit.who.i) : -1, b: hit.board === boardB ? 1 : 0, p: v3(p), d: v3(dir)});
+        if (NET.mode === 'host') netSend({t: 'land', id: d.id, k: hit.kind, pa: hit.part || '', w: hit.who ? (hit.kind === 'waiter' ? waiters.indexOf(hit.who) : hit.kind === 'npc' ? bystanders.indexOf(hit.who) : hit.who.i) : -1, b: hit.board === boardB ? 1 : 0, p: v3(p), d: v3(dir)});
         land(d, hit, p, dir);
         flying.splice(k, 1); d.vel = null; break;
       }
@@ -891,7 +895,14 @@ function land(d, hit, p, dir) {
     S.squelch(); S.scream(1.15, .5); S.crowd('ooh'); pop('YOU HIT THE WAITER', '#ff9a7a'); O.hist.push('waiter');
     say('Waiter', pick(['OW! Are you mental?!', 'My tray! Watch it!', 'I don\'t get paid enough for this!', 'That\'s coming out of your tab!']));
     for (let i = 0; i < 12; i++) blood(p, V(rand(-1, 1), rand(0, 1.5), rand(-1, 1)));
-    waiterHit(w);
+    waiterHit(w); bystanderHit(w, O, p, hit.part);
+  } else if (hit.kind === 'npc') {
+    const q = hit.who; q[hit.part === 'head' ? 'head' : 'body'].attach(d.obj);
+    S.squelch(); S.scream(q === barman ? .8 : rand(.75, 1.2), hit.part === 'head' ? .9 : .5); S.crowd('ooh');
+    for (let i = 0; i < (hit.part === 'head' ? 20 : 10); i++) blood(p, dir.clone().multiplyScalar(-rand(.3, 1.2)).add(V(rand(-.8, .8), rand(0, 1.4), rand(-.8, .8))));
+    say(q === barman ? 'Barman' : 'Customer', q === barman ? pick(['OI! I pour your drinks!', 'You\'re barred! BARRED!', 'Not the barman, you idiot!']) : pick(['OI! What\'s your problem?!', 'ARGH! Me drink hand!', 'Watch where you\'re throwing!', 'I\'m just trying to have a pint!', 'Are you blind?!']));
+    O.hist.push('ouch');
+    bystanderHit(q, O, p, hit.part);
   }
   drawChalk(); updHUD();
 }
@@ -1010,7 +1021,7 @@ addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'Escape' 
 addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; charging = false; });
-function canThrow() { return G.state === 'play' && G.phase === 'aim' && TH[G.turn] === owner && owner.human && !owner.out && !G.paused; }
+function canThrow() { return !G.cops && G.state === 'play' && G.phase === 'aim' && TH[G.turn] === owner && owner.human && !owner.out && !G.paused; }
 function aimDir() { const d = V(0, 0, -1); d.applyEuler(camera.rotation); return d; }
 function humanThrow() {
   const T = owner, f = .86 + .18 * power;
@@ -1020,10 +1031,11 @@ function humanThrow() {
   let dist = 12;
   const foe = TH[T.i ^ 1];
   const r = !foe.out && segPerson(foe.p, eye, far); if (r) dist = Math.min(dist, r.t * 12);
-  for (const w of waiters) { const q = segPerson(w, eye, far); if (q) dist = Math.min(dist, q.t * 12); }
-  const wz = T.i === 0 ? -RZ + .04 : RZ - .04;
-  if (Math.abs(dir.z) > 1e-4) { const t = (wz - eye.z) / dir.z; if (t > 0) dist = Math.min(dist, t); }
+  for (const w of [...waiters, ...bystanders]) { const q = segPerson(w, eye, far); if (q) dist = Math.min(dist, q.t * 12); }
+  for (const wz of [-RZ + .04, RZ - .04]) if (Math.abs(dir.z) > 1e-4) { const t = (wz - eye.z) / dir.z; if (t > 0) dist = Math.min(dist, t); }
+  for (const wx of [-RX + .35, RX - .4]) if (Math.abs(dir.x) > 1e-4) { const t = (wx - eye.x) / dir.x; if (t > 0) dist = Math.min(dist, t); }
   if (dir.y < 0) dist = Math.min(dist, -eye.y / dir.y);
+  if (dir.y > 0) dist = Math.min(dist, (RY - eye.y) / dir.y);
   const target = eye.clone().addScaledVector(dir, dist);
   const right = V(1, 0, 0).applyEuler(camera.rotation), up = V(0, 1, 0).applyEuler(camera.rotation);
   const from = eye.clone().addScaledVector(right, .13).addScaledVector(up, -.07).addScaledVector(dir, .3);
@@ -1222,11 +1234,12 @@ function clientRecv(m) {
     const p = fromV3(m.p), dir = fromV3(m.d);
     d.pos.copy(p); d.obj.position.copy(p); d.obj.lookAt(p.clone().add(dir));
     const hit = {kind: m.k, part: m.pa};
-    if (m.k === 'person') hit.who = TH[m.w]; else if (m.k === 'waiter') hit.who = waiters[m.w]; else if (m.k === 'board') hit.board = m.b ? boardB : boardA;
+    if (m.k === 'person') hit.who = TH[m.w]; else if (m.k === 'waiter') hit.who = waiters[m.w]; else if (m.k === 'npc') hit.who = bystanders[m.w]; else if (m.k === 'board') hit.board = m.b ? boardB : boardA;
     d.obj.position.addScaledVector(dir, m.k === 'person' || m.k === 'waiter' ? .025 : .012);
     land(d, hit, p, dir);
     if (G.pend === m.id) G.pend = 0;
   }
+  else if (m.t === 'cops') callCops(TH[m.o]);
   else if (m.t === 'end') { if (m.lo) TH[m.w].loserOut = true; finish(TH[m.w], m.why, true); }
 }
 function sendState() {
@@ -1273,6 +1286,97 @@ function netTick(dt) {
 }
 addEventListener('beforeunload', () => { if (NET.mode !== 'off') netSend({t: 'bye'}); });
 
+// ---------- customers, and the police ----------
+const bystanders = [...patrons, barman];
+function bystanderHit(q, O, p, part) {
+  q.flinch = 1; q.bleedT = part === 'head' ? 6 : 3; q.bleedPt = (part === 'head' ? q.head : q.body).worldToLocal(p.clone()); q.bleedHead = part === 'head';
+  q.hits = q.hits || [0, 0]; q.hits[O.i]++;
+  const n = q.hits[O.i];
+  if (n >= 3) { if (NET.mode !== 'client') callCops(O); }
+  else pop(n === 2 ? 'HIT HIM AGAIN AND THE COPS COME' : (q.state ? 'YOU HIT THE WAITER' : 'YOU HIT A CUSTOMER'), '#ff9a7a');
+}
+const cops = [];
+for (let i = 0; i < 2; i++) {
+  const c = makePerson({shirt: 0x1a2a5a, pants: 0x121a33, hair: 'short', beard: i === 1, belly: i === 0, w: 1.1, skin: pick(SKINS)});
+  mesh(new THREE.CylinderGeometry(.13, .12, .07, 12), flat(0x101a3a), 0, .1, -.005, c.head);
+  mesh(BOX(.22, .02, .1), flat(0x050505), 0, .07, .11, c.head);
+  mesh(BOX(.04, .04, .01), std(0xd8b040, {metalness: .8, roughness: .3}), 0, .1, .125, c.head);
+  mesh(BOX(.06, .07, .01), std(0xd8b040, {metalness: .8, roughness: .3}), -.1, 1.36, .13, c.body);
+  mesh(BOX(.44, .06, .27), flat(0x0a0a0a), 0, .98, 0, c.body);
+  const club = mesh(new THREE.CylinderGeometry(.018, .022, .6, 8), flat(0x0a0a0a), 0, -.03, .28, c.R.hand); club.rotation.x = Math.PI / 2;
+  c.g.visible = false; cops.push(c);
+}
+function callCops(O) {
+  if (G.cops || G.state !== 'play') return;
+  G.cops = {who: O.i, t: 0};
+  if (NET.mode === 'host') netSend({t: 'cops', o: O.i});
+  const T = O, right = T.i === 0 ? V(1, 0, 0) : V(-1, 0, 0), fwd = T.i === 0 ? V(0, 0, -1) : V(0, 0, 1);
+  cops.forEach((c, i) => {
+    c.g.visible = true; c.g.position.set(-3.0 + i * .5, 0, RZ - .3); c.g.rotation.y = Math.PI;
+    const spot = T.base.clone().addScaledVector(right, i ? -.62 : .62).addScaledVector(fwd, .25);
+    c.path = [V(-2.2 + i * .3, 0, 2.2), T.i === 0 ? V(-1.6, 0, 1.8 - i * .3) : V(-1.6 + i * .3, 0, -1.4), spot];
+    c.swing = i * .3; c.beat = false;
+  });
+  pop('POLICE!', '#6ab0ff'); bigTurn('You hit the same person three times. Here come the cops.');
+  say('Police', pick(['POLICE! Drop the darts, sunshine!', 'Right, you. Darts down. NOW.', 'We had a complaint about a lunatic with darts.']));
+  siren();
+}
+function siren() {
+  if (!AC) return; const t = AC.currentTime;
+  const o = AC.createOscillator(); o.type = 'square'; const g = AC.createGain(); const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1500;
+  for (let i = 0; i < 8; i++) o.frequency.setValueAtTime(i % 2 ? 620 : 820, t + i * .45);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .2); g.gain.setValueAtTime(.12, t + 3.2); g.gain.exponentialRampToValueAtTime(.0001, t + 3.7);
+  o.connect(f); f.connect(g); g.connect(master); o.start(t); o.stop(t + 3.8);
+}
+function updCops(dt) {
+  if (!G.cops) return;
+  const T = TH[G.cops.who];
+  for (const c of cops) {
+    const s = c.R, L = c.L;
+    if (c.path.length) {
+      const d = c.path[0].clone().sub(c.g.position); d.y = 0; const len = d.length();
+      if (len < .08) { c.path.shift(); continue; }
+      c.g.position.addScaledVector(d.normalize(), Math.min(len, 3.2 * dt));
+      let dr = Math.atan2(d.x, d.z) - c.g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); c.g.rotation.y += dr * Math.min(1, dt * 10);
+      c.ph = (c.ph || 0) + dt * 14; const k = Math.sin(c.ph);
+      s.hip.rotation.x = k * .7; L.hip.rotation.x = -k * .7; s.kn.rotation.x = Math.max(0, -k) * 1.1; L.kn.rotation.x = Math.max(0, k) * 1.1;
+      s.sh.rotation.x = -1.2; s.el.rotation.x = -.8; L.sh.rotation.x = k * .6;
+      c.body.position.y = Math.abs(Math.cos(c.ph)) * .04;
+    } else {
+      // face the offender and swing the club
+      const tp = T.p.g.position, d = V(tp.x - c.g.position.x, 0, tp.z - c.g.position.z);
+      let dr = Math.atan2(d.x, d.z) - c.g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); c.g.rotation.y += dr * Math.min(1, dt * 10);
+      s.hip.rotation.x = L.hip.rotation.x = s.kn.rotation.x = L.kn.rotation.x = 0; c.body.position.y = 0;
+      c.swing += dt / .6; const q = c.swing % 1;
+      s.sh.rotation.x = q < .7 ? lerp(-.6, -2.9, q / .7) : lerp(-2.9, -.5, (q - .7) / .3); s.el.rotation.x = q < .7 ? -.9 : -.2;
+      if (c.swing >= 1) { c.swing -= 1; copHit(T, c); }
+    }
+  }
+}
+function copHit(T, c) {
+  if (T.out) return;
+  S.thud(); tone(AC ? AC.currentTime : 0, 'sine', 90, 40, .12, .5);
+  if (Math.random() < .5) S.grunt();
+  const hp = V(0, 1.4 + T.p.body.position.y, 0); T.p.g.updateMatrixWorld(true); hp.applyMatrix4(T.p.g.matrixWorld);
+  for (let i = 0; i < 6; i++) blood(hp, V(rand(-1, 1), rand(0, 1.4), rand(-1, 1)));
+  if (NET.mode !== 'client') T.blood -= 9;
+  T.copped = true;
+  if (T === owner) { splatScreen(2, .8); shake = .45; $('red').style.opacity = .7; }
+  else { T.p.R.sh.rotation.x = -2.4; T.p.L.sh.rotation.x = -2.6; T.p.head.rotation.x = .3; }
+}
+function updBystander(q, dt) {
+  if (q.flinch > 0) { q.flinch = Math.max(0, q.flinch - dt * 1.5); q.body.rotation.z = Math.sin(time * 30) * q.flinch * .06; q.head.rotation.x = -q.flinch * .3; }
+  if (q.bleedT > 0) { q.bleedT -= dt; if (Math.random() < dt * 10) { const v = q.bleedPt.clone(); (q.bleedHead ? q.head : q.body).localToWorld(v); blood(v, V(rand(-.1, .1), -.2, rand(-.1, .1))); } }
+}
+function resetBystanders() {
+  for (const q of [...bystanders, ...waiters]) {
+    q.hits = [0, 0]; q.flinch = 0; q.bleedT = 0; q.body.rotation.z = 0;
+    const rm = []; q.g.traverse(o => { if (o.userData.isDart) rm.push(o); }); rm.forEach(o => o.parent.remove(o));
+  }
+  for (const c of cops) c.g.visible = false;
+  G.cops = null;
+}
+
 // ---------- main loop ----------
 let last = performance.now(), time = 0;
 const camPos = V(0, 0, 0);
@@ -1288,6 +1392,8 @@ function step(dt) {
   // ambient
   for (const p of patrons) updPatron(p, dt, time);
   for (const w of waiters) updWaiter(w, dt, time);
+  for (const q of bystanders) updBystander(q, dt);
+  for (const w of waiters) updBystander(w, dt);
   barman.R.sh.rotation.z = -.07 + Math.sin(time * 3) * .25; barman.head.rotation.y = Math.sin(time * .4) * .5;
   for (const h of haze) { h.position.x += Math.sin(time * .1 + h.position.z) * dt * .05; }
   for (const s of smokes) if (s.life > 0) {
@@ -1347,16 +1453,18 @@ function updGame(dt) {
       pop(`${T.name.toUpperCase()} PASSED OUT!`, '#ff5a4a');
       if (T === owner) { T.p.g.visible = false; }
       W.loserOut = true;
-      finish(W, T.human && G.mode === 'cpu' ? `You took too many darts to the face, bled out and passed out on the floor.` : `${T.name} took ${T.faceHits} dart${T.faceHits === 1 ? '' : 's'} to the face, bled out and passed out on the floor.`);
+      finish(W, T.copped ? (T === owner ? 'You hit the same person three times. The police beat you unconscious with their clubs.' : `${T.name} hit the same person three times, so the police beat him unconscious with their clubs.`) : T.human && G.mode === 'cpu' ? `You took too many darts to the face, bled out and passed out on the floor.` : `${T.name} took ${T.faceHits} dart${T.faceHits === 1 ? '' : 's'} to the face, bled out and passed out on the floor.`);
       updHUD();
     }
   }
   if (Math.random() < dt * 2) updHUD();
   stepDarts(dt);
+  updCops(dt);
   if (G.state === 'ending') { G.endT -= dt; if (G.endT <= 0) showEnd(); return; }
   const cur = TH[G.turn];
   if (NET.mode === 'client') { netTick(dt); return; }
   if (NET.mode === 'host') netTick(dt);
+  if (G.cops) return;
   if (G.phase === 'settle') { G.t -= dt; if (G.t <= 0) nextDart(); }
   else if (G.phase === 'switch') { G.t -= dt; if (G.t <= 0) endTurnSwitch(); }
   for (const T of TH) if (!T.human && !T.out && T.cpu && (T.cpu.st === 'throw' || T.cpu.st === 'recover')) cpuUpdate(T, dt);
@@ -1386,7 +1494,7 @@ function updCamera(dt) {
     return;
   }
   // lean / duck (only the one throwing, or the CPU-mode player at any time)
-  const mayMove = G.state === 'play' && !T.out && (G.mode !== 'hot' || TH[G.turn] === T);
+  const mayMove = G.state === 'play' && !T.out && !(G.cops && G.cops.who === T.i) && (G.mode !== 'hot' || TH[G.turn] === T);
   const lt = mayMove ? ((keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0)) * .38 : 0;
   const ct = mayMove && (keys.KeyC || keys.ControlLeft) ? .42 : 0;
   T.lean = lerp(T.lean, lt, Math.min(1, dt * 9)); T.crouch = lerp(T.crouch, ct, Math.min(1, dt * 9));
@@ -1436,7 +1544,7 @@ document.fonts && document.fonts.ready.then(() => { drawChalk(); });
 TH[0].name = 'You'; TH[1].name = 'Big Mick'; TH[0].short = 'YOU'; TH[1].short = 'MICK'; drawChalk();
 requestAnimationFrame(frame);
 // debugging hook for automated checks
-window.__bb = {draw() { renderer.render(scene, camera); }, sim(sec) { for (let i = 0; i < sec * 60; i++) step(1 / 60); }, flying, G, TH, start, waiters, camera, throwAt(p, pw = .78) { const e = camera.position.clone(), d = p.clone().sub(e); yaw = Math.atan2(-d.x, -d.z); pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); camera.rotation.set(pitch, yaw, 0); power = pw; humanThrow(); }, foeHead, boardPoint, boardA};
+window.__bb = {THREE, bystanders, draw() { renderer.render(scene, camera); }, sim(sec) { for (let i = 0; i < sec * 60; i++) step(1 / 60); }, flying, G, TH, start, waiters, camera, throwAt(p, pw = .78) { const e = camera.position.clone(), d = p.clone().sub(e); yaw = Math.atan2(-d.x, -d.z); pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); camera.rotation.set(pitch, yaw, 0); power = pw; humanThrow(); }, foeHead, boardPoint, boardA};
 </script>
 </body>
 </html>

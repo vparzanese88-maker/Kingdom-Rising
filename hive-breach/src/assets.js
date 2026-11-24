@@ -135,7 +135,8 @@ function aimGun(m) {
 export function animGLB(m, sp, opt) {
   const u = m.userData, now = performance.now(), dt = Math.min(0.1, (now - (u.lt || now)) / 1000); u.lt = now;
   if (u.var === undefined) { u.var = 0.92 + Math.random() * 0.16; u.spine = u.root && (u.root.getObjectByName('Spine02') || u.root.getObjectByName('Spine01') || u.root.getObjectByName('Spine')); u.head = u.root && u.root.getObjectByName('Head'); u.ph = Math.random() * 9; }
-  let k = opt && opt.pose ? opt.pose : sp > 6.5 ? 'sprint' : sp > 3.2 ? 'run' : sp > 0.4 ? 'walk' : (opt && opt.fire ? (u.act.stance ? 'stance' : 'walk') : 'idle');   /* standing and shooting: a planted combat stance, not a frozen half-step */
+  let k = opt && opt.pose ? opt.pose : sp > 6.5 ? 'sprint' : sp > 3.2 ? 'run' : sp > 0.4 ? 'walk' : (opt && opt.fire ? (u.act.stance ? 'stance' : 'walk') : 'idle');
+  if (u.mech && !(opt && opt.pose)) k = sp > 0.4 ? 'walk' : opt && opt.fire && u.act.stance ? 'stance' : 'idle';   /* a mech never runs */   /* standing and shooting: a planted combat stance, not a frozen half-step */
   const far = opt && opt.near ? 0 : m.getWorldPosition(_wp).distanceToSquared(CAM); if (!u.fpArms && far > 4900) { u.acc = (u.acc || 0) + dt; return; } if (far > 900) { u.skip = !u.skip; if (u.skip) { u.acc = (u.acc || 0) + dt; return; } }
   const dtM = Math.min(0.2, dt + (u.acc || 0)); u.acc = 0;
   setPose(m, k); const a = u.act[u.cur];
@@ -163,7 +164,8 @@ const STRUCT = { rally: ['s_rally', 'h', 3.6], ammopack: ['s_ammopack', 'w', 0.8
 export const STRUCT_FILES = Object.values(STRUCT).map(e => e[0]);
 export const fitGLB = (name, mode, size, center) => A[name] ? fit(name, mode, size, center) : null;
 function fit(name, mode, size, center) {
-  const inner = A[name].scene.clone(true), o = new THREE.Group(); o.add(inner); inner.updateMatrixWorld(true);
+  let skin = false; A[name].scene.traverse(q => { if (q.isSkinnedMesh) skin = true; });
+  const inner = skin ? SU.clone(A[name].scene) : A[name].scene.clone(true), o = new THREE.Group(); o.add(inner); inner.updateMatrixWorld(true);   /* a rigged model must be cloned with its own skeleton, or it draws at the original's bones (a speck at the map's origin) */
   let b = new THREE.Box3().setFromObject(inner); const sz = b.getSize(new THREE.Vector3()), d = mode === 'h' ? sz.y : Math.max(sz.x, sz.z); inner.scale.setScalar(size / (d || 1)); inner.updateMatrixWorld(true);
   b = new THREE.Box3().setFromObject(inner); const c = b.getCenter(new THREE.Vector3()); inner.position.set(-c.x, center ? -c.y : -b.min.y, -c.z); return o;
 }
@@ -304,9 +306,16 @@ export function wallPiece(len, h, d) {
 }
 
 // ---- the War Mech: a big Meshy walker; it bobs and sways as it strides (its minigun arm and rocket pod are part of the model)
+let MECHCLIPS = null;
 export function mechGLB() {
-  const o = fit('r_mech', 'h', 5.2, false); if (!A.r_mech) return null; o.traverse(q => { if (q.isMesh) { q.material = q.material.clone(); q.material.transparent = false; q.material.opacity = 1; q.material.depthWrite = true; q.castShadow = true; } });
-  const g = new THREE.Group(), body = new THREE.Group(); body.add(o); o.rotation.y = Math.PI; g.add(body); g.userData = { legL: new THREE.Object3D(), legR: new THREE.Object3D(), arms: new THREE.Group(), mech: 1, glbMech: true, body }; return g;
+  // the War Mech is rigged on the same humanoid skeleton as the marines: it strides with their walk-and-shoot clip and plants into their combat stance, just 5 m tall (its minigun arm and rocket pod are part of the model)
+  if (!A.r_mech) return null; const g = marineGLB('gunner', 'r_mech'); if (!g) return null; const u = g.userData;
+  if (u.gun) { g.remove(u.gun); u.gun = null; } g.children[0].scale.multiplyScalar(5.2 / 2.1); u.mech = 1; u.var = 0.62;   /* a heavy, slower stride */
+  // only the legs, hips and spine follow the marines' clips: its arms keep their modelled pose with the guns
+  if (!MECHCLIPS) { MECHCLIPS = {}; for (const [k, c] of Object.entries(CLIPS)) MECHCLIPS[k] = new THREE.AnimationClip(c.name + '_mech', c.duration, c.tracks.filter(t => /hips|upleg|leg\.|leg_|foot|toe|spine/i.test(t.name) && !/arm|hand|shoulder|neck|head/i.test(t.name))); }
+  u.mixer.stopAllAction(); u.mixer = new THREE.AnimationMixer(u.root); u.act = {}; u.cur = null; for (const [k, c] of Object.entries(MECHCLIPS)) { const a = u.mixer.clipAction(c); if (k === 'die' || k === 'throw' || k === 'reload' || k === 'hit' || k === 'flinch' || k === 'roll') { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } u.act[k] = a; } setPose(g, 'idle'); u.mixer.update(0.01);
+  g.traverse(q => { if (q.isMesh) { q.material = q.material.clone(); q.material.transparent = false; q.material.opacity = 1; q.material.depthWrite = true; q.castShadow = true; q.frustumCulled = false; } });
+  return g;
 }
 // ---- vehicles: flying Meshy craft, turned to face +z (the way the game points them at their target)
 export function craftGLB(name, len, ry = 0) { if (!A[name]) return null; const o = fit(name, 'w', len, true), g = new THREE.Group(); o.rotation.y = ry; g.add(o); g.userData = { rotors: ROTORS[name] ? spinRotors(o.children[0], ROTORS[name]) : [] }; return g; }

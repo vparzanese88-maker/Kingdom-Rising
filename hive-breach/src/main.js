@@ -118,12 +118,24 @@ function tracer(a, b, color = 0xffe080, life = 0.05, w = 0.04) {
 }
 const lights = []; for (let i = 0; i < 3; i++) { const L = new THREE.PointLight(0xffa040, 0, 26); scene.add(L); lights.push({ L, t: 0 }); }
 function flashLight(x, y, z, power, life = 0.12) { const l = lights.reduce((a, b) => a.t < b.t ? a : b); l.L.position.set(x, y, z); l.L.intensity = power; l.t = life; l.life = life; l.p = power; }
+// a fireball: soft, turbulent billows (white-hot at the heart, orange, then deep red) that swell, rise and burn out; no hard-edged shapes
+const fireTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d'); let sd = 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 26; i++) { const a = rnd() * 6.283, d = rnd() * 30, x = 64 + Math.cos(a) * d, y = 64 + Math.sin(a) * d, r = 18 + rnd() * 26, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.22)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); }
+  const id = g.getImageData(0, 0, 128, 128); for (let i = 0; i < id.data.length; i += 4) { const px = (i / 4) % 128 - 64, py = Math.floor(i / 4 / 128) - 64, fall = Math.max(0, 1 - Math.hypot(px, py) / 62); id.data[i + 3] = Math.min(255, id.data[i + 3] * fall * 1.6); } g.putImageData(id, 0, 0); return new THREE.CanvasTexture(cv); })();
+FX.fire = [];
+function fireball(x, y, z, r, n) {
+  for (let i = 0; i < n; i++) { let f = FX.fire.find(q => !q.alive); if (!f) { if (FX.fire.length > 90) return; f = { sp: new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false })) }; f.sp.renderOrder = 3; scene.add(f.sp); FX.fire.push(f); }
+    const a = Math.random() * 6.283, d = Math.random() * r * 0.35; f.alive = true; f.sp.visible = true; f.sp.position.set(x + Math.cos(a) * d, y + Math.random() * r * 0.3, z + Math.sin(a) * d); f.vx = Math.cos(a) * r * (0.6 + Math.random()); f.vz = Math.sin(a) * r * (0.6 + Math.random()); f.vy = r * (0.5 + Math.random() * 0.9);
+    f.t = -i * 0.025; f.life = 0.55 + Math.random() * 0.45; f.s0 = r * (0.45 + Math.random() * 0.35); f.s1 = r * (1.3 + Math.random() * 0.8); f.sp.material.rotation = Math.random() * 6.283; f.spin = (Math.random() - 0.5) * 2; f.sp.scale.setScalar(0.01); }
+}
+function updFire(dt) { for (const f of FX.fire) { if (!f.alive) continue; f.t += dt; if (f.t < 0) continue; const k = f.t / f.life; if (k >= 1) { f.alive = false; f.sp.visible = false; continue; }
+  const e = 1 - (1 - k) ** 3; f.sp.position.x += f.vx * dt * (1 - k); f.sp.position.z += f.vz * dt * (1 - k); f.sp.position.y += f.vy * dt * (1 - k * 0.6); f.sp.scale.setScalar(f.s0 + (f.s1 - f.s0) * e); f.sp.material.rotation += f.spin * dt;
+  f.sp.material.color.setRGB(Math.max(0.35, 1 - k * 0.5), Math.max(0.08, 0.72 - k * 0.9), Math.max(0.02, 0.38 - k * 1.2)); f.sp.material.opacity = 0.7 * (k < 0.12 ? 1 : Math.max(0, (1 - k) / 0.88) ** 1.4); } }
 function boomFx(x, y, z, r, small) {
-  r = r || 3; const m = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ color: 0xffb050, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
-  m.position.set(x, y, z); scene.add(m); FX.booms.push({ mesh: m, t: 0, r });
+  r = r || 3; fireball(x, y + 0.4, z, small ? r * 0.7 : r, small ? 5 : 11);
   const gy = G.W.ground(x, z, y + 1), ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 32), new THREE.MeshBasicMaterial({ color: 0xffd0a0, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.set(x, gy + 0.2, z); scene.add(ring); FX.booms.push({ mesh: ring, t: 0, r: r * 2.2, ring: 1 });
-  burst(x, y + 0.3, z, 0xff8020, small ? 6 : 22, 8, 0.6); burst(x, y + 0.3, z, 0xffe080, small ? 3 : 10, 11, 0.35, 0.7); smoke(x, y + 0.5, z, small ? 4 : 12, r);
-  burst(x, y + 0.3, z, 0x3a2a20, small ? 3 : 10, 6, 1.4, 1.4);
+  burst(x, y + 0.3, z, 0xff8020, small ? 6 : 18, 9, 0.5, 0.35); burst(x, y + 0.3, z, 0xffe080, small ? 3 : 10, 12, 0.35, 0.25);   /* sparks */
+  burst(x, y + 0.3, z, 0x3a2a20, small ? 3 : 9, 7, 1.4, 0.45);   /* small dirt and rock chips */
   flashLight(x, y + 2, z, small ? 40 : 160, 0.18);
   const d = dist(x, z); audio.gun('boom', (small ? 0.5 : 1) * vol(d * 0.7), 1, Math.min(1, d / 60)); if (d < r + 10) G.shake = Math.max(G.shake, small ? 0.25 : 0.7 * (1 - d / (r + 10)) + 0.2);
 }
@@ -162,7 +174,7 @@ function updateFx(dt) {
   for (const p of FX.parts) if (p.alive) { p.life -= dt; if (p.life <= 0) { p.alive = false; p.smoke = false; p.mesh.visible = false; continue; } if (p.smoke) { p.vx *= 0.98; p.vz *= 0.98; p.mesh.scale.setScalar(p.s0 * (0.3 + 0.7 * p.life / p.l0)); p.mesh.position.x += p.vx * dt; p.mesh.position.y += p.vy * dt; p.mesh.position.z += p.vz * dt; continue; } p.vy -= 18 * dt; p.mesh.position.x += p.vx * dt; p.mesh.position.y += p.vy * dt; p.mesh.position.z += p.vz * dt; if (p.mesh.position.y < p.gy) { if (p.casing === 1) { p.casing = 2; if (dist(p.mesh.position.x, p.mesh.position.z) < 6) audio.sfx('tink', 0.5); } p.mesh.position.y = p.gy; p.vy *= -0.3; p.vx *= 0.6; p.vz *= 0.6; } }
   for (const t of FX.tracers) if (t.alive) { t.life -= dt; if (t.life <= 0) { t.alive = false; t.mesh.visible = false; } }
   for (const b of FX.booms) { b.t += dt; const f = b.t / (b.ring ? 0.45 : 0.35); if (b.ring) b.mesh.scale.set(b.r * f, b.r * f, 1); else b.mesh.scale.setScalar(b.r * (0.3 + f)); if (!b.ring) b.mesh.material.color.setHSL(0.08 - f * 0.06, 1, 0.6 - f * 0.3); b.mesh.material.opacity = Math.max(0, 0.9 * (1 - f)); if (f >= 1) { scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); b.dead = true; } }
-  FX.booms = FX.booms.filter(b => !b.dead);
+  FX.booms = FX.booms.filter(b => !b.dead); updFire(dt);
   for (const b of FX.bolts) { b.t -= dt; if (b.t <= 0) { scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); b.dead = true; } }
   FX.bolts = FX.bolts.filter(b => !b.dead);
   for (const p of FX.proj) {

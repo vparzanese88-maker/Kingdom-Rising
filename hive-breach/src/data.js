@@ -24,7 +24,7 @@ export const CLASSES = {
     gun: { name: 'RL-4 Rocket Launcher', dmg: 110, rate: 1.2, mag: 4, reserve: 48, reload: 2.5, spread: 0, kind: 'rocket', splash: 4.6, sound: 'rocket', recoil: 0.07, life: 1.8 },
     throw: { kind: 'frag', name: 'Frag grenade', n: 4 },
     team: 'Bulwark: teammates near you take less damage.',
-    sentry: 'missile', defense: null, third: null,
+    sentry: 'missile', defense: 'autocannon', third: 'flamer',   // demolitions and protector: armour-piercing twin cannons for the big ones, a flame turret for anything that gets close
   },
   gunner: {
     name: 'Gunner', color: 0x6a8a3a, hp: 190, speed: 6.8, role: 'Suppression and ammo carrier',

@@ -40,7 +40,7 @@ const P = {
   empty: '<circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/>',
 };
 const MAP = {
-  pulse: 'sentry', minigun: 'minigunT', tesla: 'tesla', missile: 'missile', barricade: 'barricade', resupply: 'crate', ammocache: 'crate', mortar: 'mortar', medbay: 'medbay', stasis: 'stasis', flamer: 'flame', railgun: 'railgun', mines: 'mine', claymore: 'claymore', uav: 'ball',
+  pulse: 'sentry', autocannon: 'minigunT', minigun: 'minigunT', tesla: 'tesla', missile: 'missile', barricade: 'barricade', resupply: 'crate', ammocache: 'crate', mortar: 'mortar', medbay: 'medbay', stasis: 'stasis', flamer: 'flame', railgun: 'railgun', mines: 'mine', claymore: 'claymore', uav: 'ball',
   frag: 'frag', medkit: 'medkit', ammo: 'ammo', ammodrop: 'ammo', dropship: 'squad', squad: 'squad', drone: 'uav', airstrike: 'strike', orbital: 'strike', napalm: 'flame', emp: 'tesla', cryo: 'cryo', dome: 'shield', hubrepair: 'wrench', fixall: 'wrench', sentrydrop: 'sentry', barrage: 'missile', healnade: 'medkit',
   ammopack: 'ammo', medkitT: 'medkit', shotgunT: 'shotgunT', rally: 'rally', sandbag: 'sandbag', nest: 'nest', fieldhosp: 'medbay',
   assault: 'rifle', engineer: 'shotgun', heavy: 'launcher', gunner: 'minigun', sniper: 'sniper', medic: 'carbine',

@@ -1129,7 +1129,10 @@ function updVehs(S, dt) {
   updMountMarks(S);
   // get in: walk up to a free vehicle and press E
   const my = mine(S); if (my && !my.drive && !my.dead && !G.cine) { let best = null, bd = 6; for (const sv of S.V || []) if (!sv.driver) { const d = Math.hypot(sv.x - me.x, sv.z - me.z); if (d < bd) { bd = d; best = sv; } }
-    if (best) { prompt(`<b>${keyName(KB.use)}</b> drive the ${VEHICLES[best.kind].name} · armour ${Math.round(best.hp)}/${best.mhp}`); if (hits[KB.use] && locked()) { hits[KB.use] = 0; req({ a: 'drive', id: best.id }); } }
+    if (best) { const lt = G.lookT, onMount = lt && (lt.vh ?? lt.veh) === best.id && !lt.carry;   /* looking at a turret on this vehicle: a quick tap gets in, holding takes the turret off */
+      if (onMount) { if (keys[KB.use]) { me.eTap = (me.eTap || 0) + dt; } else { if (me.eTap > 0 && me.eTap < 0.3 && locked()) req({ a: 'drive', id: best.id }); me.eTap = 0; } hits[KB.use] = 0;
+        if (!(me.eHold > 0)) prompt(`<b>${keyName(KB.use)}</b> tap: drive the ${VEHICLES[best.kind].name} · <b>hold ${keyName(KB.use)}</b>: take the ${TURRETS[lt.kind].name} off`); }
+      else { me.eTap = 0; prompt(`<b>${keyName(KB.use)}</b> drive the ${VEHICLES[best.kind].name} · armour ${Math.round(best.hp)}/${best.mhp}`); if (hits[KB.use] && locked()) { hits[KB.use] = 0; req({ a: 'drive', id: best.id }); } } }
     else if (!my.seatv) { let bv = null, bd2 = 7; for (const sv of S.V || []) if (sv.driver && VEHICLES[sv.kind].seats) { const vv = vehV.get(sv.id), d = vv ? Math.hypot(vv.x - me.x, vv.z - me.z) : 99; if (d < bd2) { bd2 = d; bv = sv; } }   /* someone's driving it: hop in as a passenger */
       if (bv) { prompt(`<b>${keyName(KB.use)}</b> ride in the ${VEHICLES[bv.kind].name} (${bv.kind === 'vtol' ? 'door gunner' : 'truck bed'}) · you keep your weapons`); if (hits[KB.use] && locked()) { hits[KB.use] = 0; req({ a: 'board', id: bv.id }); } } } }
 }
@@ -1146,6 +1149,7 @@ function drawQueenCard(dt) {
   renderer.render(qcard.qs, qcard.cam); renderer.setScissorTest(false); renderer.setViewport(0, 0, cr.width, cr.height); renderer.setClearColor(cc, ca);
 }
 function updateMe(dt, S) {
+  G.lookT = null;   // recomputed below when you're on foot; nothing stale for the vehicle tap/hold check
   const me = G.me, my = mine(S); if (!my || G.cine) return;
   if (G.explore && G.ex && G.ex.veh) { G.ex.drive(dt); updateFootless(); return; }
   { const dv = my.drive && (S.V || []).find(q => q.id === my.drive); if (dv && !my.dead) { driveVeh(dt, S, my, dv); return; } if (me.dv) { me.dv = null; if (view2.door) view2.door.visible = false; } }

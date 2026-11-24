@@ -392,10 +392,17 @@ function drawMissileMap() {
   g.fillStyle = '#60c0ff'; g.beginPath(); g.arc(X(G.W.hubP.x), Z(G.W.hubP.z), 10, 0, 7); g.fill(); g.fillStyle = '#a040ff'; g.beginPath(); g.arc(X(G.W.hiveP.x), Z(G.W.hiveP.z), 10, 0, 7); g.fill();
   g.font = 'bold 13px system-ui'; g.fillStyle = '#fff'; g.fillText('HUB', X(G.W.hubP.x) + 12, Z(G.W.hubP.z) + 4); g.fillText('HIVE', X(G.W.hiveP.x) + 12, Z(G.W.hiveP.z) + 4);
   for (const l of G.W.lore || []) if (!l.silent) { g.fillStyle = '#40ffb0'; g.font = '16px system-ui'; g.fillText({ cave: '⛰', satellite: '🛰', capsule: '🛸', wreck: '✈', rover: '🚙' }[l.kind] || '?', X(l.x) - 8, Z(l.z) + 6); }
-  for (const o of S.O) { g.fillStyle = '#ffd040'; g.fillRect(X(o.x) - 4, Z(o.z) - 4, 8, 8); }
+  g.fillStyle = '#ffcc40'; for (const [i, w] of (G.W.salvage || []).entries()) { if (G.stripped && G.stripped.has(i)) continue; g.fillRect(X(w.x) - 2, Z(w.z) - 2, 4, 4); }   // wrecks with scrap left
+  for (const [i, nd] of (G.W.nodes || []).entries()) { const b = ((S.NS || [])[i] || {}).built; g.fillStyle = b ? '#60ff90' : '#60d8ff'; g.fillRect(X(nd.x) - 6, Z(nd.z) - 6, 12, 12); g.strokeStyle = '#000'; g.lineWidth = 2; g.strokeRect(X(nd.x) - 6, Z(nd.z) - 6, 12, 12); g.fillStyle = '#fff'; g.font = 'bold 11px Chakra Petch, system-ui'; g.fillText(b ? 'HARVESTER' : 'HARVESTER SITE', X(nd.x) + 9, Z(nd.z) + 4); }
+  for (const v of S.V || []) { g.fillStyle = '#c0f0ff'; g.save(); g.translate(X(v.x), Z(v.z)); g.rotate(-v.ry); g.fillRect(-5, -7, 10, 14); g.restore(); }
+  for (const o of S.O) { g.fillStyle = '#ffd040'; g.save(); g.translate(X(o.x), Z(o.z)); g.rotate(0.785); g.fillRect(-5, -5, 10, 10); g.restore(); }
   for (const t of S.T) { g.fillStyle = '#80ff90'; g.fillRect(X(t.x) - 3, Z(t.z) - 3, 6, 6); } for (const a of S.A) { if (!revealed(a)) continue; const b = ALIENS[a.type].boss || ALIENS[a.type].static; g.fillStyle = b ? '#ff40ff' : '#ff4040'; g.beginPath(); g.arc(X(a.x), Z(a.z), b ? 6 : 3, 0, 7); g.fill(); }
   for (const m of S.L || []) { g.fillStyle = '#9fe870'; g.fillRect(X(m.x) - 2, Z(m.z) - 2, 4, 4); }
-  for (const p of S.P) { g.fillStyle = p.id === G.myId ? '#fff' : '#' + CLASSES[p.cls].color.toString(16).padStart(6, '0'); g.beginPath(); g.arc(X(p.x), Z(p.z), 5, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = '11px system-ui'; g.fillText(p.name, X(p.x) + 7, Z(p.z) - 6); }
+  for (const p of S.P) { const mine = p.id === G.myId, px = X(mine ? G.me.x : p.x), pz = Z(mine ? G.me.z : p.z); g.fillStyle = mine ? '#fff' : '#' + CLASSES[p.cls].color.toString(16).padStart(6, '0'); g.save(); g.translate(px, pz); g.rotate(-(mine ? G.me.yaw : p.yaw || 0)); g.beginPath(); g.moveTo(0, -9); g.lineTo(6.5, 7); g.lineTo(0, 3.5); g.lineTo(-6.5, 7); g.closePath(); g.fill(); g.strokeStyle = '#000'; g.lineWidth = 1.5; g.stroke(); g.restore(); g.fillStyle = '#fff'; g.font = 'bold 12px Chakra Petch, system-ui'; g.fillText(mine ? 'YOU' : p.name, px + 10, pz - 8); }
+  // scale bar and legend
+  { const m100 = 100 * k; g.fillStyle = 'rgba(4,10,16,0.8)'; g.fillRect(12, W - 120, 210, 108); g.strokeStyle = '#5fd8ff'; g.lineWidth = 1; g.strokeRect(12, W - 120, 210, 108); g.font = '12px Chakra Petch, system-ui'; let ly = W - 102;
+    for (const [col, txt, sh] of [['#60c0ff', 'Hub', 'o'], ['#a040ff', 'Hive (the queen)', 'o'], ['#60d8ff', 'Harvester site (weld it)', 's'], ['#80ff90', 'Turret', 's'], ['#ffcc40', 'Wreck with scrap', 's'], ['#ffd040', 'Supply crate', 'd']]) { g.fillStyle = col; sh === 'o' ? (g.beginPath(), g.arc(26, ly - 4, 5, 0, 7), g.fill()) : g.fillRect(21, ly - 9, 10, 10); g.fillStyle = '#dfe9f0'; g.fillText(txt, 40, ly); ly += 15; }
+    g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(W - 20 - m100, W - 22); g.lineTo(W - 20, W - 22); g.moveTo(W - 20 - m100, W - 27); g.lineTo(W - 20 - m100, W - 17); g.moveTo(W - 20, W - 27); g.lineTo(W - 20, W - 17); g.stroke(); g.fillStyle = '#fff'; g.fillText('100 m', W - 20 - m100 / 2 - 16, W - 30); }
   if (G.mmHover && G.mmSp) { const [hx, hz] = G.mmHover, R0 = SPECIALS[G.mmSp].r || 5; g.strokeStyle = '#ff3020'; g.lineWidth = 2; g.beginPath(); g.arc(X(hx), Z(hz), Math.max(5, R0 * k), 0, 7); g.stroke();
     if (G.mmSp === 'missile') { const d = Math.hypot(hx - G.W.hubP.x, hz - G.W.hubP.z), eta = MISSILE.launch + 1.5 + d / MISSILE.speed; g.setLineDash([6, 6]); g.beginPath(); g.moveTo(X(G.W.hubP.x), Z(G.W.hubP.z)); g.lineTo(X(hx), Z(hz)); g.stroke(); g.setLineDash([]); g.fillStyle = '#fff'; g.font = 'bold 16px system-ui'; g.fillText(`Impact in ${eta.toFixed(1)} s`, X(hx) + 14, Z(hz) - 10); } }
   requestAnimationFrame(drawMissileMap);
@@ -1442,7 +1449,11 @@ function minimap(S) {
   for (const m of S.L || []) { g.fillStyle = '#9fe870'; g.fillRect(X(m.x) - 2, Z(m.z) - 2, 4, 4); }
   for (const a of S.A) { if (!revealed(a)) continue; const b = ALIENS[a.type].boss || a.type === 'broodqueen'; g.fillStyle = b ? '#ff40ff' : '#ff4040'; g.beginPath(); g.arc(X(a.x), Z(a.z), b ? 4 : 2, 0, 7); g.fill(); }
   for (const p of S.P) if (p.id !== G.myId && !p.dead) { g.fillStyle = '#' + CLASSES[p.cls].color.toString(16).padStart(6, '0'); g.beginPath(); g.arc(X(p.x), Z(p.z), 3.5, 0, 7); g.fill(); }
-  const me = G.me; g.save(); g.translate(W / 2, W / 2); g.rotate(-me.yaw); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, -7); g.lineTo(5, 5); g.lineTo(-5, 5); g.closePath(); g.fill(); g.restore();
+  const me = G.me; g.save(); g.translate(W / 2, W / 2); g.rotate(-me.yaw);
+  { const cg = g.createRadialGradient(0, 0, 4, 0, 0, W * 0.42); cg.addColorStop(0, 'rgba(160,230,255,0.38)'); cg.addColorStop(1, 'rgba(160,230,255,0)'); g.fillStyle = cg; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, W * 0.42, -Math.PI / 2 - 0.62, -Math.PI / 2 + 0.62); g.closePath(); g.fill(); }   // where you are looking
+  g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, -8); g.lineTo(5.5, 6); g.lineTo(0, 3); g.lineTo(-5.5, 6); g.closePath(); g.fill(); g.stroke(); g.restore();
+  // the rim: a dark edge ring and north
+  { const rg = g.createRadialGradient(W / 2, W / 2, W * 0.36, W / 2, W / 2, W * 0.5); rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(1, 'rgba(0,8,14,0.75)'); g.fillStyle = rg; g.fillRect(0, 0, W, W); g.fillStyle = '#9fe0ff'; g.font = `bold ${Math.round(W * 0.075)}px Chakra Petch, system-ui`; g.textAlign = 'center'; g.fillText('N', W / 2, W * 0.1); g.textAlign = 'left'; }
 }
 function shopDraw(my) {
   const S = state() || {}, C = S.C || {}, PT = S.PT || 0, MT = C.mat || 0, out = new Set((S.V || []).map(v => v.kind)), bp = S.BP;

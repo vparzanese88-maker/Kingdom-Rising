@@ -289,14 +289,47 @@ export function buildWorld(scene, mapId, diff = 0) {
   // bullets: big props stop them (a grid of colliders with heights, looked up by cell)
   const cell = 16, grid = new Map(); for (const c of W.colliders) { c.gy = c.gy ?? T.raw(c.x, c.z); c.h = c.h ?? 3; const x0 = Math.floor((c.x - c.r) / cell), x1 = Math.floor((c.x + c.r) / cell), z0 = Math.floor((c.z - c.r) / cell), z1 = Math.floor((c.z + c.r) / cell); for (let a = x0; a <= x1; a++) for (let b = z0; b <= z1; b++) { const k = a + ',' + b; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(c); } }
   const CR = W.caveRoof; T.block = (x, y, z) => { if (CR && y > CR.y && y < CR.y + 7 && (x - CR.x) ** 2 + (z - CR.z) ** 2 < CR.r * CR.r) return true; const l = grid.get(Math.floor(x / cell) + ',' + Math.floor(z / cell)); if (!l) return false; for (const c of l) if (y < c.gy + c.h && y > c.gy - 1 && (x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true; return false; };
-  // a picture of the land for the minimap
-  const MR = 420, mc = document.createElement('canvas'); mc.width = mc.height = MR; const mg = mc.getContext('2d'), im = mg.createImageData(MR, MR);
-  for (let j = 0; j < MR; j++) for (let i = 0; i < MR; i++) { const hb0 = T.hubAt(-BOUNDS + (i + 0.5) / MR * BOUNDS * 2, -BOUNDS + (j + 0.5) / MR * BOUNDS * 2); const x = -BOUNDS + (i + 0.5) / MR * BOUNDS * 2, z = -BOUNDS + (j + 0.5) / MR * BOUNDS * 2, h = T.raw(x, z, true), o = (j * MR + i) * 4, v = h < -1 ? 15 : Math.max(20, Math.min(110, 40 + h * 7)); im.data[o] = h < -1 ? (mapId === 'mars' ? 120 : 20) : v * 0.8; im.data[o + 1] = h < -1 ? 30 : v; im.data[o + 2] = h < -1 ? (mapId === 'mars' ? 10 : 90) : v * 1.1; im.data[o + 3] = 200; if (hb0 && hb0.wall) { im.data[o] = im.data[o + 1] = im.data[o + 2] = 210; } }
-  mg.putImageData(im, 0, 0); W.miniBg = mc;
+  // a picture of the land for the maps: shaded relief in the planet's own colours, glowing chasms, the track as a road with its bridges and tunnels, the hub, rocks and wrecks
+  W.miniBg = mapPicture(W, T, path, mapId);
   mergeStatic(g, new Set([ground, liq, W.dome, W.hive, W.hub, W.healRing, W.hiveShield, W.caveLight, hemi, sun, sun.target, ...(W.nodeG || []), ...(W.salvMesh || [])]));
   return W;
 }
 
+// the map picture (1024 px): shaded relief, colour by height, the chasms lit from below, a fine grid, then the track, bridges, tunnels, the hub, the cave and the props
+function mapPicture(W, T, path, mapId) {
+  const MR = 1024, B = BOUNDS, mc = document.createElement('canvas'); mc.width = mc.height = MR; const g = mc.getContext('2d'), im = g.createImageData(MR, MR), H = new Float32Array(MR * MR), px = i => -B + (i + 0.5) / MR * B * 2;
+  for (let j = 0; j < MR; j++) for (let i = 0; i < MR; i++) H[j * MR + i] = T.raw(px(i), px(j), true);
+  const gc = new THREE.Color(W.def.ground), lo = gc.clone().multiplyScalar(0.45), hi = gc.clone().lerp(new THREE.Color(0xf4e2c8), 0.35), lava = mapId === 'mars' ? [255, 90, 20] : mapId === 'ice' ? [60, 170, 255] : [120, 255, 80], cell = B * 2 / MR, tmp = new THREE.Color();
+  let hMin = 1e9, hMax = -1e9; for (const h of H) if (h > -1) { hMin = Math.min(hMin, h); hMax = Math.max(hMax, h); }
+  for (let j = 0; j < MR; j++) for (let i = 0; i < MR; i++) { const k = j * MR + i, h = H[k], o = k * 4;
+    if (h < -1) { const deep = Math.min(1, (-1 - h) / 6), glow = 0.25 + 0.35 * (1 - deep); im.data[o] = lava[0] * glow; im.data[o + 1] = lava[1] * glow; im.data[o + 2] = lava[2] * glow; im.data[o + 3] = 255; continue; }   // the chasm floor, lit from below
+    const hx = (H[j * MR + Math.min(MR - 1, i + 1)] - H[j * MR + Math.max(0, i - 1)]) / (2 * cell), hz = (H[Math.min(MR - 1, j + 1) * MR + i] - H[Math.max(0, j - 1) * MR + i]) / (2 * cell);
+    const nx = -hx, ny = 1, nz = -hz, nl = Math.hypot(nx, ny, nz), shade = Math.max(0, (nx * -0.55 + ny * 0.62 + nz * -0.55) / nl);   // sun from the north-west
+    const f = Math.max(0, Math.min(1, (h - hMin) / (hMax - hMin || 1))); tmp.copy(lo).lerp(gc, Math.min(1, f * 1.6)).lerp(hi, Math.max(0, f - 0.6) * 1.6);
+    const sl = 0.62 + 0.9 * shade, ao = Math.min(1, 0.85 + f * 0.3); let r = tmp.r * 255 * sl * ao, gg = tmp.g * 255 * sl * ao, bb = tmp.b * 255 * sl * ao;
+    const hb = T.hubAt(px(i), px(j)); if (hb) { const c = hb.wall ? 200 : 120; r = r * 0.3 + c * 0.7; gg = gg * 0.3 + c * 0.72; bb = bb * 0.3 + c * 0.78; }
+    im.data[o] = Math.min(255, r); im.data[o + 1] = Math.min(255, gg); im.data[o + 2] = Math.min(255, bb); im.data[o + 3] = 255; }
+  // the chasm rims: a thin dark edge where the ground drops away
+  for (let j = 1; j < MR - 1; j++) for (let i = 1; i < MR - 1; i++) { const k = j * MR + i; if (H[k] < -1) continue; if (H[k - 1] < -1 || H[k + 1] < -1 || H[k - MR] < -1 || H[k + MR] < -1) { const o = k * 4; im.data[o] *= 0.35; im.data[o + 1] *= 0.35; im.data[o + 2] *= 0.35; } }
+  g.putImageData(im, 0, 0);
+  const X = x => (x + B) / (B * 2) * MR, s2p = MR / (B * 2);
+  // a fine tactical grid every 50 m
+  g.strokeStyle = 'rgba(255,255,255,0.06)'; g.lineWidth = 1; for (let v = -B; v <= B; v += 50) { g.beginPath(); g.moveTo(X(v), 0); g.lineTo(X(v), MR); g.stroke(); g.beginPath(); g.moveTo(0, X(v)); g.lineTo(MR, X(v)); g.stroke(); }
+  // rocks, props and wrecks: small dark marks with a light edge
+  for (const c of W.colliders || []) { if (c.r > 9) continue; g.fillStyle = 'rgba(20,14,10,0.55)'; g.beginPath(); g.arc(X(c.x) + 0.8, X(c.z) + 0.8, Math.max(1.2, c.r * s2p), 0, 7); g.fill(); g.fillStyle = 'rgba(255,235,210,0.18)'; g.beginPath(); g.arc(X(c.x) - 0.4, X(c.z) - 0.4, Math.max(0.8, c.r * s2p * 0.6), 0, 7); g.fill(); }
+  // the alien track: a pale dusty road with dark shoulders, metal bridges over the chasms, dashed where it runs through tunnels
+  const road = (lw, col, from = 0, to = path.len, dash) => { g.strokeStyle = col; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round'; g.setLineDash(dash || []); g.beginPath(); for (let sv = from; sv <= to; sv += 1.5) { const q = path.at(Math.min(to, sv)); sv === from ? g.moveTo(X(q.x), X(q.z)) : g.lineTo(X(q.x), X(q.z)); } g.stroke(); g.setLineDash([]); };
+  road(PATH_W * s2p + 4, 'rgba(25,16,10,0.55)'); road(PATH_W * s2p, mapId === 'mars' ? 'rgba(214,164,118,0.85)' : mapId === 'ice' ? 'rgba(210,225,235,0.85)' : 'rgba(150,140,100,0.85)'); road(1.2, 'rgba(255,255,255,0.18)', 0, path.len, [6, 8]);
+  for (const b of T.bridges || []) { road(PATH_W * s2p + 3, 'rgba(10,12,16,0.9)', b.s0, b.s1); road(PATH_W * s2p - 1, 'rgba(150,165,180,0.95)', b.s0, b.s1); }
+  for (const t of T.tunnels || []) { road(PATH_W * s2p + 4, 'rgba(12,10,8,0.85)', t.s0, t.s1); road(PATH_W * s2p - 2, 'rgba(90,80,70,0.9)', t.s0, t.s1, [5, 4]); }
+  // the cave mouth and the hub's walls
+  if (W.cave) { const C = W.cave; g.fillStyle = 'rgba(10,6,14,0.85)'; g.beginPath(); g.arc(X(C.x), X(C.z), C.r * s2p, 0, 7); g.fill(); g.strokeStyle = 'rgba(190,80,255,0.8)'; g.lineWidth = 2; g.stroke(); }
+  { const Hb = W.hubP; g.strokeStyle = 'rgba(120,220,255,0.9)'; g.lineWidth = 3; g.beginPath(); g.arc(X(Hb.x), X(Hb.z), HUB_R * s2p, 0, 7); g.stroke(); g.strokeStyle = 'rgba(120,220,255,0.25)'; g.lineWidth = 9; g.stroke(); }
+  for (const b of W.burrows || []) { g.fillStyle = 'rgba(0,0,0,0.75)'; g.beginPath(); g.arc(X(b.x), X(b.z), 3.2, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,90,40,0.7)'; g.lineWidth = 1.2; g.stroke(); }
+  // a soft vignette at the map's edge
+  const vg = g.createRadialGradient(MR / 2, MR / 2, MR * 0.38, MR / 2, MR / 2, MR * 0.72); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.35)'); g.fillStyle = vg; g.fillRect(0, 0, MR, MR);
+  return mc;
+}
 // The hub compound: ring wall with a walkway and battlements, a gate where the track comes in, ramps up to the walkway,
 // corner towers, the reactor in the middle, ammo crates, a landing pad and barracks.
 const GL = (n, mode, size) => M.AS.fitGLB(n, mode, size, false);
@@ -384,28 +417,58 @@ const LORE = {
 };
 // The Brood Queen's lair: a great rock chamber with a roof, open toward the track; the queen sits at the start of the track inside it
 function hiveCave(g, W, T, D, path) {
-  // a great cavern in the side of a mountain: a 30 m chamber under a high rock roof, a huge mouth facing the track, the queen at the very back
-  const R = rng(4242), p0 = path.at(0), cy = path.y(0), cx = W.hiveP.x, cz = W.hiveP.z, open = Math.atan2(p0.tz, p0.tx), RAD = 30, HALF = 0.6, fx = p0.tx, fz = p0.tz;
+  // The Brood Queen's lair: a living hive grown inside the mountain. A ribbed resin tunnel runs in from a huge rock mouth to a great chamber whose lumpy walls
+  // are laced with glowing veins under a ribcage of bone; tendrils drip from the roof, egg pods cling to the walls, and the queen sits on a resin throne at the back.
+  const R = rng(4242), p0 = path.at(0), cy = path.y(0), cx = W.hiveP.x, cz = W.hiveP.z, open = Math.atan2(p0.tz, p0.tx), RAD = 30, HALF = 0.6, fx = p0.tx, fz = p0.tz, sx = -fz, sz = fx;
   const rockM = M.mat(D.rock, { flat: false, r: 1 }), C = new THREE.Group(); C.position.set(cx, 0, cz); g.add(C);
   const rock = (x, z, r, sy, y0, col = true, h = 26) => { const gy = T.raw(cx + x, cz + z), m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), rockM); m.position.set(x, (y0 ?? gy) + r * sy * 0.55, z); m.scale.set(1, sy, 1); m.rotation.set(R() * 0.5, R() * 6, R() * 0.5); m.castShadow = true; C.add(m); if (col) W.colliders.push({ x: cx + x, z: cz + z, r: r * 0.9, h, gy }); return m; };
-  // the cavern wall: a ring of tall rock, open toward the track
-  for (let i = 0; i < 34; i++) { const a = open + HALF + i / 33 * (6.283 - HALF * 2), rr = 6 + R() * 2.5; rock(Math.cos(a) * (RAD + 2), Math.sin(a) * (RAD + 2), rr, 2.6 + R() * 0.8); }
-  // the mountain itself, heaped around and over the cavern
+  const nz3 = (x, y, z) => Math.sin(x * 0.31 + y * 0.17) * Math.cos(z * 0.27 - x * 0.11) + 0.5 * Math.sin(x * 0.83 + z * 0.71 + y * 0.4) + 0.25 * Math.sin(y * 1.7 + x * 1.3 - z * 1.1);
+  // the hive skin: dark wet chitin, mottled, threaded with glowing veins (the veins alone light it from within)
+  const skin = (() => { const S = 512, a = document.createElement('canvas'), e = document.createElement('canvas'); a.width = a.height = e.width = e.height = S; const ga = a.getContext('2d'), ge = e.getContext('2d'); ga.fillStyle = '#231520'; ga.fillRect(0, 0, S, S); ge.fillStyle = '#000'; ge.fillRect(0, 0, S, S);
+    for (let k = 0; k < 900; k++) { const x = R() * S, y = R() * S, r = 4 + R() * 40; const gr = ga.createRadialGradient(x, y, 0, x, y, r); const c = R() < 0.5 ? '60,34,52' : R() < 0.5 ? '30,18,28' : '78,52,40'; gr.addColorStop(0, `rgba(${c},${0.25 + R() * 0.3})`); gr.addColorStop(1, `rgba(${c},0)`); ga.fillStyle = gr; ga.fillRect(x - r, y - r, r * 2, r * 2); }
+    const vein = (x, y, a0, len, w, d) => { for (let k = 0; k < len; k++) { const nx = x + Math.cos(a0) * 6, ny = y + Math.sin(a0) * 6; for (const [g2, col, lw] of [[ga, 'rgba(70,24,80,0.7)', w * 2.4], [ge, 'rgba(170,60,230,0.85)', w]]) { g2.strokeStyle = col; g2.lineWidth = lw; g2.beginPath(); g2.moveTo(x, y); g2.lineTo(nx, ny); g2.stroke(); } x = nx; y = ny; a0 += (R() - 0.5) * 0.7; if (d < 3 && R() < 0.06) vein(x, y, a0 + (R() < 0.5 ? 0.9 : -0.9), len * 0.5, w * 0.6, d + 1); } };
+    for (let k = 0; k < 11; k++) vein(R() * S, R() * S, R() * 6.283, 30 + R() * 50, 1 + R() * 1.4, 0);
+    for (let k = 0; k < 18; k++) { const x = R() * S, y = R() * S, r = 1.5 + R() * 3.5; for (const [g2, col] of [[ga, 'rgba(160,255,90,0.6)'], [ge, 'rgba(140,255,60,1)']]) { g2.fillStyle = col; g2.beginPath(); g2.arc(x, y, r, 0, 7); g2.fill(); } }   // acid pustules
+    const t1 = new THREE.CanvasTexture(a), t2 = new THREE.CanvasTexture(e); for (const t of [t1, t2]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 2); t.colorSpace = THREE.SRGBColorSpace; } return new THREE.MeshStandardMaterial({ map: t1, emissiveMap: t2, emissive: 0xffffff, emissiveIntensity: 0.42, roughness: 0.45, metalness: 0.1, side: THREE.DoubleSide }); })();
+  const boneM = M.mat(0x6a5a48, { r: 0.6, flat: false }), fleshM = M.mat(0x3a1830, { r: 0.5, flat: false, e: 0x180818 });
+  // a surface from a grid of points, with noise pushed along its own outward direction
+  const sheet = (nu, nv, at) => { const pos = [], uv = [], idx = []; for (let v = 0; v <= nv; v++) for (let u = 0; u <= nu; u++) { const [x, y, z] = at(u / nu, v / nv); pos.push(x, y, z); uv.push(u / nu * 6, v / nv * 3); } for (let v = 0; v < nv; v++) for (let u = 0; u < nu; u++) { const a = v * (nu + 1) + u, b = a + 1, c = a + nu + 1, d = c + 1; idx.push(a, c, b, b, c, d); } const ge = new THREE.BufferGeometry(); ge.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); ge.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); ge.setIndex(idx); ge.computeVertexNormals(); const m = new THREE.Mesh(ge, skin); m.receiveShadow = true; C.add(m); return m; };
+  // the chamber: lumpy walls rising from the floor and curling over into a low vaulted roof, open where the tunnel comes in
+  const GAP = 0.42, HH = 19; sheet(96, 26, (u, v) => { const a = open + GAP + u * (6.283 - GAP * 2), th = v * Math.PI * 0.5, n = nz3(Math.cos(a) * 20, v * 14, Math.sin(a) * 20), rr = RAD * (1.02 + 0.09 * n) * Math.cos(th * 0.92) + 2 * Math.sin(v * 9 + a * 5) * (1 - v), y = cy - 1 + HH * Math.sin(th) * (1 + 0.06 * n) + 1.5 * n * (1 - v); return [Math.cos(a) * rr, y, Math.sin(a) * rr]; });
+  // the entrance tunnel: a ribbed arch of resin running out from the chamber to the mouth in the mountainside
+  const T0 = RAD - 4, T1 = RAD + 20; sheet(30, 40, (u, v) => { const d = T0 + u * (T1 - T0), w = 9.5 - u * 1.8 + Math.sin(u * 19) * 0.4, h = 11 - u * 1.5, ph = v * Math.PI, n = nz3(d, v * 10, u * 30); const lx = Math.cos(ph) * w * (1 + 0.08 * n), ly = Math.sin(ph) * h * (1 + 0.07 * n) + cy - 0.5 + (T.raw(cx + fx * d, cz + fz * d) - cy) * 0.6; return [fx * d + sx * lx, ly, fz * d + sz * lx]; });
+  // its walls stop marines and aliens
+  for (let d = T0; d <= T1; d += 3) for (const sd of [-1, 1]) { const w = 9.5 - (d - T0) / (T1 - T0) * 1.8 + 1.2; W.colliders.push({ x: cx + fx * d + sx * w * sd, z: cz + fz * d + sz * w * sd, r: 1.6, h: 12, gy: T.raw(cx + fx * d, cz + fz * d) }); }
+  for (let i = 0; i < 40; i++) { const a = open + GAP + 0.05 + i / 39 * (6.283 - GAP * 2 - 0.1); W.colliders.push({ x: cx + Math.cos(a) * (RAD + 0.5), z: cz + Math.sin(a) * (RAD + 0.5), r: 2.2, h: 20, gy: cy }); }
+  // ribs of bone: arches across the tunnel, and a ribcage over the chamber that meets above the queen
+  for (let d = T0 + 2; d < T1; d += 3.6) { const w = 9.2 - (d - T0) / (T1 - T0) * 1.8, rb = new THREE.Mesh(new THREE.TorusGeometry(w, 0.45 + R() * 0.2, 6, 20, Math.PI), boneM); rb.position.set(fx * d, cy - 0.5 + (T.raw(cx + fx * d, cz + fz * d) - cy) * 0.6, fz * d); rb.rotation.y = -open + Math.PI / 2; rb.scale.y = 1.12; C.add(rb); }
+  for (let k = 0; k < 11; k++) { const a = open + GAP + 0.25 + k / 10 * (6.283 - GAP * 2 - 0.5), rb = new THREE.Mesh(new THREE.TorusGeometry(RAD * 0.93, 0.7, 6, 28, Math.PI * 0.5), boneM); rb.position.set(0, cy - 1, 0); rb.rotation.set(0, -a, 0); rb.scale.y = HH / (RAD * 0.93); C.add(rb); }
+  // tendrils hanging from the roof, and glowing pustules on the walls
+  const pusM = new THREE.MeshStandardMaterial({ color: 0x3a8a20, emissive: 0x58e020, emissiveIntensity: 0.9, roughness: 0.3 });
+  for (let i = 0; i < 46; i++) { const a = R() * 6.283, d = 4 + R() * (RAD - 8), roofY = cy - 1 + HH * Math.cos(Math.asin(Math.min(0.99, d / RAD))) - 1, len = 2 + R() * 6, td = new THREE.Mesh(new THREE.ConeGeometry(0.25 + R() * 0.45, len, 7, 3), fleshM); td.position.set(Math.cos(a) * d, roofY - len / 2, Math.sin(a) * d); td.rotation.set(Math.PI + (R() - 0.5) * 0.3, 0, (R() - 0.5) * 0.3); C.add(td); if (R() < 0.4) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), pusM); b.position.set(td.position.x, roofY - len - 0.1, td.position.z); C.add(b); } }
+  for (let i = 0; i < 28; i++) { const a = open + GAP + R() * (6.283 - GAP * 2), y = cy + R() * 9, rr = RAD * Math.cos(Math.asin(Math.min(0.99, (y - cy + 1) / HH))) * 0.97 - 0.4, b = new THREE.Mesh(new THREE.SphereGeometry(0.25 + R() * 0.5, 10, 8), pusM); b.position.set(Math.cos(a) * rr, y, Math.sin(a) * rr); b.scale.set(1, 1.3, 1); C.add(b); }
+  // the floor: dark resin with glowing acid pools
+  const floorM = M.mat(0x2a1222, { e: 0x12040e, r: 0.85 }), carpet = (geo) => { geo.rotateX(-Math.PI / 2); const ps = geo.attributes.position; for (let k = 0; k < ps.count; k++) ps.setY(k, T.top(cx + ps.getX(k), cz + ps.getZ(k)) + 0.06); geo.computeVertexNormals(); const m = new THREE.Mesh(geo, floorM); m.receiveShadow = true; C.add(m); };
+  floorM.side = THREE.DoubleSide; carpet(new THREE.RingGeometry(0.05, RAD - 0.5, 72, 18));   /* the resin floor follows the ground */
+  { const gg = new THREE.PlaneGeometry(17, T1 - T0 + 2, 8, 24); gg.rotateZ(0); gg.translate(0, (T0 + T1) / 2, 0); const ps = gg.attributes.position; for (let k = 0; k < ps.count; k++) { const lx = ps.getX(k), d = ps.getY(k); ps.setXY(k, fx * d + sx * lx, -(fz * d + sz * lx)); } carpet(gg); }   /* and runs out along the tunnel */
+  const poolM = new THREE.MeshStandardMaterial({ color: 0x1c4a10, emissive: 0x3aa010, emissiveIntensity: 0.7, roughness: 0.1 });
+  for (let i = 0; i < 7; i++) { const a = R() * 6.283, d = 7 + R() * (RAD - 12), pl = new THREE.Mesh(new THREE.CircleGeometry(0.6 + R() * 1.4, 20), poolM); pl.rotation.x = -Math.PI / 2; pl.position.set(Math.cos(a) * d, T.top(cx + Math.cos(a) * d, cz + Math.sin(a) * d) + 0.1, Math.sin(a) * d); pl.scale.set(1, 0.6 + R() * 0.6, 1); C.add(pl); }
+  // egg pods: clustered against the walls between the ribs, never in the middle of the floor or over the queen
+  const eggG = M.AS.A.l_eggs; for (let i = 0; i < 12; i++) { const a = open + GAP + 0.35 + R() * (6.283 - GAP * 2 - 0.7); if (Math.abs(((a - (open + Math.PI)) + 9.42) % 6.283 - 3.14) < 0.45) continue; const d = RAD - 3.5 - R() * 2, x = Math.cos(a) * d, z = Math.sin(a) * d; if (eggG) { const eg = M.AS.propGLB('eggs', R); eg.position.set(x, cy, z); eg.rotation.y = R() * 6; eg.scale.multiplyScalar(0.8 + R() * 0.4); C.add(eg); } }
+  // the queen's throne: a raised mound of resin against the back wall, ribbed and veined, lit from below
+  const q = { x: cx - fx * 20, z: cz - fz * 20 };
+  { const th = new THREE.Mesh(new THREE.SphereGeometry(7, 32, 16, 0, 6.283, 0, Math.PI * 0.5), skin); th.scale.set(1.25, 0.32, 1); th.position.set(-fx * 21, cy - 0.3, -fz * 21); th.rotation.y = -open; C.add(th);
+    for (let k = 0; k < 7; k++) { const a = open + Math.PI + (k - 3) * 0.32, sp = new THREE.Mesh(new THREE.ConeGeometry(0.9, 9 + R() * 6, 7), boneM); sp.position.set(-fx * 21 + Math.cos(a) * 9, cy + 3.5, -fz * 21 + Math.sin(a) * 9); sp.rotation.set(Math.cos(a - open) * 0.35, 0, Math.sin(a - open) * 0.35); C.add(sp); } }   // great curved spines fanning behind her
+  // the mountain itself, heaped around and over the lair, and the huge rock mouth framing the tunnel
   for (let i = 0; i < 22; i++) { const a = open + HALF + 0.25 + R() * (6.283 - HALF * 2 - 0.5), d = RAD + 12 + R() * 18, r = 13 + R() * 9; rock(Math.cos(a) * d, Math.sin(a) * d, r, 1.5 + R() * 0.7, undefined, false); }
   for (let i = 0; i < 9; i++) { const a = open + Math.PI + (R() - 0.5) * 3.6, d = R() * RAD * 0.8, r = 12 + R() * 7; rock(Math.cos(a) * d, Math.sin(a) * d, r, 0.9, cy + 24 + R() * 6, false); }
-  // the huge mouth: two great buttresses and a lintel of rock arching over the track
-  for (const sd of [-1, 1]) { const a = open + sd * (HALF + 0.05), x = Math.cos(a) * (RAD + 3), z = Math.sin(a) * (RAD + 3); rock(x, z, 9, 3.2); }
-  for (let i = -3; i <= 3; i++) { const a = open + i * 0.18, x = Math.cos(a) * (RAD + 3), z = Math.sin(a) * (RAD + 3), m = rock(x, z, 6.5, 0.9, cy + 23 + Math.abs(i) * 1.2, false); m.scale.x = 1.4; }
-  const roof = new THREE.Mesh(new THREE.SphereGeometry(RAD + 6, 32, 14, 0, 6.29, 0, 1.3), rockM.clone()); roof.scale.y = 0.72; roof.position.y = cy + 2; roof.material.side = THREE.DoubleSide; C.add(roof);
-  for (let i = 0; i < 26; i++) { const a = R() * 6.28, d = 4 + R() * (RAD - 6), st = new THREE.Mesh(new THREE.ConeGeometry(0.7 + R() * 1, 3 + R() * 5, 6), rockM); st.position.set(Math.cos(a) * d, cy + 25 - (d / RAD) ** 2 * 12 - 2, Math.sin(a) * d); st.rotation.x = Math.PI; C.add(st); }
-  // inside: a slime floor, egg clusters and a sick purple glow
-  const goo = new THREE.Mesh(new THREE.CircleGeometry(RAD - 1, 48), M.mat(0x3a1a40, { e: 0x200828, r: 0.3 })); goo.rotation.x = -Math.PI / 2; goo.position.y = cy + 0.06; C.add(goo);
-  const eggM = M.mat(0xc0a060, { e: 0x604010, ei: 0.8, op: 0.9, flat: false }); const eggG = M.AS.A.l_eggs; for (let i = 0; i < (eggG ? 16 : 46); i++) { const a = R() * 6.28, d = 10 + R() * (RAD - 12); if (Math.abs(((a - open + 9.42) % 6.283) - 3.14) < 0.7) continue; if (eggG) { const x = Math.cos(a) * d, z = Math.sin(a) * d, eg = M.AS.propGLB('eggs', R); eg.position.set(x, T.raw(cx + x, cz + z), z); eg.rotation.y = R() * 6; C.add(eg); continue; } const e = new THREE.Mesh(new THREE.SphereGeometry(0.5 + R() * 0.35, 10, 8), eggM); e.scale.y = 1.4; const x = Math.cos(a) * d, z = Math.sin(a) * d; e.position.set(x, T.raw(cx + x, cz + z) + 0.55, z); C.add(e); }
-  const L = new THREE.PointLight(0xb040ff, 55, 70); L.position.set(-fx * 14, cy + 9, -fz * 14); C.add(L); W.caveLight = L;
-  const q = { x: cx - fx * 20, z: cz - fz * 20 };
-  W.caveRoof = { x: cx, z: cz, y: cy + 21, r: RAD + 2 }; W.cave = { x: cx, z: cz, r: RAD, q, y: cy }; (W.shelters = W.shelters || []).push({ x: cx, z: cz, r: RAD - 2 });
-  // the hive mound behind the queen
-  if (W.hive) { W.hive.position.set(q.x - fx * 7, cy, q.z - fz * 7); W.hive.scale.set(0.9, 0.7, 0.9); }
+  for (let i = 0; i < 16; i++) { const t = i / 15; if (Math.abs(t - 0.5) < 0.34) continue; const a = open + (t - 0.5) * 1.5, d = T1 - 2 + Math.abs(t - 0.5) * 6; rock(Math.cos(a) * d * 1.02 + sx * (t - 0.5) * 6, Math.sin(a) * d * 1.02 + sz * (t - 0.5) * 6, 6 + R() * 3, 1.6 + R() * 0.6, undefined, false); }   // the mountainside around the mouth
+  for (const sd of [-1, 1]) rock(fx * (T1 + 1) + sx * sd * 11.5, fz * (T1 + 1) + sz * sd * 11.5, 7.5, 2.6);   // the two great buttresses
+  for (let i = -3; i <= 3; i++) { const m = rock(fx * (T1 + 1) + sx * i * 3.4, fz * (T1 + 1) + sz * i * 3.4, 5.5, 0.9, cy + 11 + Math.abs(i) * 0.6, false); m.scale.x = 1.4; }   // the lintel over the mouth
+  // light: a deep violet glow at the back behind the throne, a sickly green fill low on the floor (the light count is fixed)
+  const L = new THREE.PointLight(0xb040ff, 70, 80); L.position.set(-fx * 16, cy + 8, -fz * 16); C.add(L); W.caveLight = L;
+  W.caveRoof = { x: cx, z: cz, y: cy + HH - 2, r: RAD - 1 }; W.cave = { x: cx, z: cz, r: RAD, q, y: cy }; (W.shelters = W.shelters || []).push({ x: cx, z: cz, r: RAD - 2 });
+  if (W.hive) W.hive.visible = false;   // the old hive mound is gone: the throne and the living walls are the hive
 }
 // a wreck the welder can cut scrap out of: remember where it is, how big it really is (for the welding beam) and how much scrap it holds
 function salvage(W, m, name, amt) {

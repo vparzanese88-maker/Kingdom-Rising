@@ -81,7 +81,7 @@ input{font:inherit;background:#0e1822;color:var(--ink);border:2px solid var(--li
 #kit{position:absolute;right:12px;top:190px;width:min(330px,40vw);font-size:12px;line-height:1.35}
 #kit h3{margin:0 0 4px;color:var(--acc)}#kit p{margin:4px 0}#kit b{color:var(--gold)}
 #mmap{background:rgba(0,0,0,.6);z-index:9}#mmap .card{background:rgba(8,14,20,.96);border:1px solid var(--line);border-radius:8px;padding:14px 18px;text-align:center}
-#mmapCv{width:min(640px,80vh,90vw);height:min(640px,80vh,90vw);cursor:crosshair;border:1px solid var(--line);border-radius:6px}
+#mmapCv{width:min(860px,84vh,94vw);height:min(860px,84vh,94vw);cursor:crosshair;border:1px solid var(--line);border-radius:6px}
 #mmap h2{margin:0 0 4px}
 #hit.head:before,#hit.head:after{background:#ff5a2a;box-shadow:0 0 1px #000,0 0 6px #ff7a30}
 .pick .role{color:var(--c);font-weight:600;filter:brightness(1.3)}
@@ -275,18 +275,18 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/assets.js": "./src/assets.js?v=1795485589",
-"./src/audio.js": "./src/audio.js?v=1795485589",
-"./src/data.js": "./src/data.js?v=1795485589",
-"./src/explore.js": "./src/explore.js?v=1795485589",
-"./src/icons.js": "./src/icons.js?v=1795485589",
-"./src/main.js": "./src/main.js?v=1795485589",
-"./src/models.js": "./src/models.js?v=1795485589",
-"./src/music.js": "./src/music.js?v=1795485589",
-"./src/net.js": "./src/net.js?v=1795485589",
-"./src/sim.js": "./src/sim.js?v=1795485589",
-"./src/voice.js": "./src/voice.js?v=1795485589",
-"./src/world.js": "./src/world.js?v=1795485589"
+"./src/assets.js": "./src/assets.js?v=1795486129",
+"./src/audio.js": "./src/audio.js?v=1795486129",
+"./src/data.js": "./src/data.js?v=1795486129",
+"./src/explore.js": "./src/explore.js?v=1795486129",
+"./src/icons.js": "./src/icons.js?v=1795486129",
+"./src/main.js": "./src/main.js?v=1795486129",
+"./src/models.js": "./src/models.js?v=1795486129",
+"./src/music.js": "./src/music.js?v=1795486129",
+"./src/net.js": "./src/net.js?v=1795486129",
+"./src/sim.js": "./src/sim.js?v=1795486129",
+"./src/voice.js": "./src/voice.js?v=1795486129",
+"./src/world.js": "./src/world.js?v=1795486129"
 }
 }
 </script>
@@ -319,7 +319,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
   <div id="board" class="panel" hidden><table id="boardT"></table></div>
 </div>
 
-<div id="mmap" class="screen" hidden><div class="card"><h2 id="mmapT">Live map</h2><p class="small" id="mmapD"></p><canvas id="mmapCv" width="640" height="640"></canvas><p><button class="btn alt" id="mmapX">Close (Esc)</button></p></div></div>
+<div id="mmap" class="screen" hidden><div class="card"><h2 id="mmapT">Live map</h2><p class="small" id="mmapD"></p><canvas id="mmapCv" width="900" height="900"></canvas><p><button class="btn alt" id="mmapX">Close (Esc)</button></p></div></div>
 <div id="shop" class="screen" hidden><div class="card"><h2>Vehicles</h2><div id="shopList"></div><p class="small">B or Esc to close. The battle keeps going, so be quick.</p></div></div>
 <div id="pause" class="screen" hidden><div class="card"><h2>Paused</h2><p class="small">Click anywhere to keep fighting.</p><p><button class="btn" id="btnResume">Resume</button></p><p><button class="btn alt" id="btnSet2">Settings</button></p><p><button class="btn alt" id="btnQuit">Quit to title</button></p></div></div>
 <div id="settings" class="screen" hidden><div class="card"><h2>Settings</h2><div class="tabs"><button data-tab="video" class="on">Video</button><button data-tab="audio">Audio</button><button data-tab="controls">Controls</button></div><div id="setBody"></div><p><button class="btn" id="setClose">Done</button></p></div></div>
@@ -353,6 +353,6 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795485589"></script>
+<script type="module" src="./src/main.js?v=1795486129"></script>
 </body>
 </html>

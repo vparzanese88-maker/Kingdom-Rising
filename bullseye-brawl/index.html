@@ -80,12 +80,32 @@ button:hover{background:#4a2c18}
     <h1>Bullseye<br>Brawl</h1>
     <div class="tag">A smoky bar. Two boards. One opponent standing right next to yours.</div>
     <div class="row"><button data-d="0">Vs CPU: Easy</button><button data-d="1">Vs CPU: Normal</button><button data-d="2">Vs CPU: Hard</button></div>
-    <div class="row"><button id="hot">2 Players (same computer)</button></div>
+    <div class="row"><button id="online">Play online 1 v 1</button><button id="hot">2 Players (same computer)</button></div>
     <div class="how">
       <b>First to 100 points wins.</b> Three darts a turn. Treble ring = triple, outer ring = double, bull 25, bullseye 50.<br>
       You stand beside your board and throw at the board across the bar, right where your opponent stands. <b>Nothing stops you throwing at him instead.</b> Body shots hurt. Darts in the face bleed, and <b>about three to the face and he bleeds out and passes out: you win</b>. He can do the same to you, so watch him and lean (A / D) or duck (C) when he lines one up on you.<br>
       Hold left click to wind up and let go to throw: let go on the green line and the dart lands on the crosshair, early drops low, late flies high. Shift holds your breath to steady your hand. Mind the waiters.
     </div>
+  </div>
+</div>
+
+<div class="panel" id="net" style="display:none">
+  <div class="box">
+    <div class="res big" style="font-size:56px;color:#ffcf6e">Online 1 v 1</div>
+    <div style="margin:10px 0 6px">Your name</div>
+    <input id="nm" maxlength="14" placeholder="Your name">
+    <div id="netA">
+      <div class="row" style="margin-top:14px"><button id="hostB">Host online game</button></div>
+      <div style="margin:14px 0 6px">or type your friend's code</div>
+      <div class="row"><input id="code" maxlength="4" placeholder="CODE" style="width:140px;text-transform:uppercase;text-align:center;font-size:22px;letter-spacing:.2em"><button id="joinB">Join</button></div>
+    </div>
+    <div id="netB" style="display:none;margin-top:16px">
+      <div>Tell your friend this code:</div>
+      <div id="bigCode" class="big" style="font-size:72px;color:#ffd27a;letter-spacing:.15em"></div>
+      <div>Waiting for them to join…</div>
+    </div>
+    <div id="status" style="margin-top:12px;min-height:22px;color:#ffb08a"></div>
+    <div class="row" style="margin-top:10px"><button id="netBack">Back</button></div>
   </div>
 </div>
 
@@ -104,6 +124,7 @@ button:hover{background:#4a2c18}
   </div>
 </div>
 
+<script src="./vendor/peerjs.min.js"></script>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -663,8 +684,14 @@ const screenDrips = [];
 // ---------- game flow ----------
 document.querySelectorAll('#menu button[data-d]').forEach(b => b.onclick = () => start('cpu', +b.dataset.d));
 $('hot').onclick = () => start('hot', 1);
-$('again').onclick = () => start(G.mode, G.diff);
-$('tomenu').onclick = toMenu; $('quit').onclick = () => { $('pause').style.display = 'none'; G.paused = false; toMenu(); };
+$('online').onclick = () => { initAudio(); $('menu').style.display = 'none'; $('net').style.display = 'flex'; $('netA').style.display = 'block'; $('netB').style.display = 'none'; $('status').textContent = ''; try { $('nm').value = localStorage.getItem('bb-name') || ''; } catch (e) {} };
+$('netBack').onclick = () => { netReset(); $('net').style.display = 'none'; $('menu').style.display = 'flex'; };
+$('hostB').onclick = () => { saveName(); startHost(); };
+$('joinB').onclick = () => { saveName(); startJoin($('code').value); };
+$('code').addEventListener('keydown', e => { if (e.key === 'Enter') $('joinB').click(); });
+function saveName() { NET.myName = ($('nm').value.trim() || (Math.random() < .5 ? 'Darts Dave' : 'Lucky Lou')).slice(0, 14); try { localStorage.setItem('bb-name', NET.myName); } catch (e) {} }
+$('again').onclick = () => { if (G.mode !== 'net') return start(G.mode, G.diff); if (NET.mode === 'host') netStart(); else { netSend({t: 'again'}); $('endWhy').textContent = 'Asked for a rematch. Waiting for ' + TH[0].name + '…'; } };
+$('tomenu').onclick = () => { netReset(); toMenu(); }; $('quit').onclick = () => { $('pause').style.display = 'none'; G.paused = false; netReset(); toMenu(); };
 $('resume').onclick = () => { $('pause').style.display = 'none'; G.paused = false; cv.requestPointerLock(); };
 function toMenu() { G.state = 'menu'; $('end').style.display = 'none'; $('menu').style.display = 'flex'; hud.style.display = 'none'; document.exitPointerLock && document.exitPointerLock(); }
 
@@ -686,8 +713,9 @@ function start(mode, diff) {
   initAudio(); if (AC.state === 'suspended') AC.resume();
   G.mode = mode; G.diff = diff; G.state = 'play'; G.turn = 0; G.darts = 3; G.phase = 'aim'; G.t = 0; G.endT = 0;
   for (const T of TH) resetThrower(T);
-  TH[0].human = true; TH[1].human = mode === 'hot';
-  if (mode === 'cpu') { TH[0].name = 'You'; TH[0].short = 'YOU'; TH[1].name = pick(CPU_NAMES); TH[1].short = TH[1].name.split(' ').pop().toUpperCase(); }
+  TH[0].human = true; TH[1].human = mode !== 'cpu';
+  if (mode === 'net') { for (let i = 0; i < 2; i++) { TH[i].name = NET.names[i] || ('Player ' + (i + 1)); TH[i].short = TH[i].name.split(' ')[0].slice(0, 8).toUpperCase(); } }
+  else if (mode === 'cpu') { TH[0].name = 'You'; TH[0].short = 'YOU'; TH[1].name = pick(CPU_NAMES); TH[1].short = TH[1].name.split(' ').pop().toUpperCase(); }
   else { TH[0].name = 'Player 1'; TH[0].short = 'P1'; TH[1].name = 'Player 2'; TH[1].short = 'P2'; }
   for (const d of [...flying, ...stuck]) d.obj.parent && d.obj.parent.remove(d.obj);
   flying.length = 0; stuck.length = 0;
@@ -695,9 +723,12 @@ function start(mode, diff) {
   fxc.clearRect(0, 0, fx.width, fx.height); screenDrips.length = 0;
   $('black').style.opacity = 0; $('red').style.opacity = 0;
   $('menu').style.display = 'none'; $('end').style.display = 'none'; hud.style.display = 'block';
-  setOwner(TH[0]);
+  setOwner(mode === 'net' && NET.mode === 'client' ? TH[1] : TH[0]);
+  G.pend = 0; dartId = 0;
+  for (const w of waiters) { for (const o of w.darts) o.parent && o.parent.remove(o); w.darts = []; }
   drawChalk(); updHUD();
-  bigTurn(mode === 'cpu' ? `You vs ${TH[1].name}` : 'Player 1, you\'re up');
+  bigTurn(mode === 'cpu' ? `You vs ${TH[1].name}` : mode === 'net' ? `${TH[0].name} vs ${TH[1].name}` : 'Player 1, you\'re up');
+  if (mode === 'net') setTimeout(() => G.state === 'play' && bigTurn(owner === TH[0] ? 'You throw first' : `${TH[0].name} throws first`), 1800);
   if (mode === 'cpu') setTimeout(() => G.state === 'play' && say(TH[1].name, pick(['Loser buys the next round.', 'Stand still and nobody gets hurt.', 'I\'ve been drinking since noon. Still gonna beat you.'])), 1500);
   cv.requestPointerLock && cv.requestPointerLock();
 }
@@ -723,30 +754,40 @@ function endTurnSwitch() {
   G.turn ^= 1; G.darts = 3; G.phase = 'aim';
   const T = TH[G.turn];
   if (G.mode === 'hot') { TH[G.turn ^ 1].lean = 0; TH[G.turn ^ 1].crouch = 0; setOwner(T); bigTurn(`${T.name}, you're up`); }
-  else bigTurn(T.human ? 'Your throw' : `${T.name}'s throw`);
+  else bigTurn(T === owner ? 'Your throw' : `${T.name}'s throw`);
   T.cpu = null; updHUD();
 }
-function finish(winner, why) {
+function finish(winner, why, fromNet) {
   if (G.state !== 'play') return;
+  if (NET.mode === 'client' && !fromNet) return;
+  if (NET.mode === 'host') netSend({t: 'end', w: winner.i, why, lo: winner.loserOut ? 1 : 0});
   G.state = 'ending'; G.endT = winner.loserOut ? 3 : 1.6;
   G.winner = winner; G.why = why;
 }
 function showEnd() {
   G.state = 'over'; document.exitPointerLock && document.exitPointerLock();
-  const w = G.winner, you = G.mode === 'cpu';
-  $('endRes').textContent = you ? (w.i === 0 ? 'You win!' : `${w.name} wins`) : `${w.name} wins!`;
+  const w = G.winner, you = G.mode === 'cpu' || G.mode === 'net';
+  $('endRes').textContent = you ? (w === owner ? 'You win!' : `${w.name} wins`) : `${w.name} wins!`;
   $('endWhy').textContent = G.why;
   $('end').style.display = 'flex'; hud.style.display = 'none'; updHUD();
 }
 
 // ---------- throwing ----------
 const tmpA = V(0, 0, 0), tmpB = V(0, 0, 0);
+let dartId = 0;
 function launch(owner, from, target, f, speed = 13) {
   const d = target.clone().sub(from), T = d.length() / speed;
   const vel = d.divideScalar(T); vel.y += .5 * GRAV * T; vel.multiplyScalar(f);
+  return launchVel(owner, from, vel, owner.i * 100000 + (++dartId), true);
+}
+function launchVel(owner, from, vel, id, local) {
   const obj = makeDart(owner.col); obj.userData.isDart = true; obj.position.copy(from); scene.add(obj);
-  flying.push({obj, pos: from.clone(), vel, owner, t: 0});
+  const d = {obj, pos: from.clone(), vel: vel.clone(), owner, t: 0, id};
+  flying.push(d);
   S.whoosh();
+  if (local && NET.mode !== 'off') netSend({t: 'throw', id, o: owner.i, f: v3(from), v: v3(vel)});
+  owner.throwT = .35;
+  return d;
 }
 // segment vs person hitbox (local space). returns {t, part}
 const inv = new THREE.Matrix4();
@@ -815,6 +856,8 @@ function stepDarts(dt) {
         d.obj.position.copy(p); d.obj.lookAt(p.clone().add(d.vel));
         const dir = d.vel.clone().normalize();
         d.obj.position.addScaledVector(dir, hit.kind === 'person' || hit.kind === 'waiter' ? .025 : .012);
+        if (NET.mode === 'client') { d.vel = null; d.frozen = true; break; }
+        if (NET.mode === 'host') netSend({t: 'land', id: d.id, k: hit.kind, pa: hit.part || '', w: hit.who ? (hit.kind === 'waiter' ? waiters.indexOf(hit.who) : hit.who.i) : -1, b: hit.board === boardB ? 1 : 0, p: v3(p), d: v3(dir)});
         land(d, hit, p, dir);
         flying.splice(k, 1); d.vel = null; break;
       }
@@ -868,16 +911,18 @@ function hurt(T, part, p, dir, from) {
   if (!T.human) {
     T.grudge += face ? 2 : 1;
     say(T.name, face ? pick(['ARGH! MY FACE!', 'Me eye! Me bleedin\' eye!', 'You little... that\'s it. You\'re dead.', 'Right in the nose! RIGHT IN THE NOSE!']) : pick(['Oi! Watch it!', 'That\'s my good shirt!', 'You did that on purpose.', 'Ow! Ya muppet!']));
-  } else if (from && !from.human) {
-    // first person: camera owner got hit
+  } else if (from && (!from.human || G.mode === 'net')) {
+    // first person: the camera owner got hit by the opponent
     if (T === owner) { splatScreen(face ? 7 : 3, face ? 1.2 : .8); shake = face ? .5 : .25; $('red').style.opacity = .8; }
     if (face) {
       const fd = makeDart(from.col); T.fp.add(fd);
       const sx = pick([-1, 1]) * rand(.03, .07);
       fd.position.set(sx, rand(-.075, -.045), -.035);
       fd.quaternion.setFromUnitVectors(V(0, 0, 1), V(-sx * 3, .25, 1).normalize());
-      say(from.name, pick(['Bullseye!', 'Nice face. Shame about the dart.', 'Oops. Slipped.', 'Thought you might like one.']));
-    } else if (Math.random() < .6) say(from.name, pick(['Oops.', 'Hand slipped.', 'Stand closer to your board, why don\'t ya.']));
+      if (!from.human) say(from.name, pick(['Bullseye!', 'Nice face. Shame about the dart.', 'Oops. Slipped.', 'Thought you might like one.']));
+      else if (T !== owner) say(T.name, 'ARGH! MY FACE!');
+    } else if (!from.human && Math.random() < .6) say(from.name, pick(['Oops.', 'Hand slipped.', 'Stand closer to your board, why don\'t ya.']));
+    else if (from.human && T !== owner) say(T.name, 'Oi!');
   } else if (T === owner) { splatScreen(face ? 6 : 3); shake = .4; $('red').style.opacity = .8; }
   else if (from && from.human && T.human) say(T.name, face ? 'ARGH! MY FACE!' : 'Oi!');
 }
@@ -982,7 +1027,8 @@ function humanThrow() {
   const target = eye.clone().addScaledVector(dir, dist);
   const right = V(1, 0, 0).applyEuler(camera.rotation), up = V(0, 1, 0).applyEuler(camera.rotation);
   const from = eye.clone().addScaledVector(right, .13).addScaledVector(up, -.07).addScaledVector(dir, .3);
-  launch(T, from, target, f);
+  const dd = launch(T, from, target, f);
+  if (NET.mode === 'client') G.pend = dd.id;
   G.darts--; G.phase = 'flight'; vmKick = 1; vmHide = .45; updHUD();
 }
 
@@ -1003,6 +1049,22 @@ function refillTray(w) {
 }
 function updWaiter(w, dt, time) {
   w.t -= dt;
+  if (NET.mode === 'client' && w.net) {
+    // the host runs the waiters; follow its positions
+    const [x, z, ry, st] = w.net;
+    const mv = Math.hypot(x - w.g.position.x, z - w.g.position.z);
+    w.g.position.x = lerp(w.g.position.x, x, Math.min(1, dt * 8)); w.g.position.z = lerp(w.g.position.z, z, Math.min(1, dt * 8));
+    let dr = ry - w.g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); w.g.rotation.y += dr * Math.min(1, dt * 8);
+    w.L.sh.rotation.x = -.45; w.L.el.rotation.x = -1.35; w.L.sh.rotation.z = .15; w.tray.rotation.x = 1.8;
+    if (st === 2) { w.R.sh.rotation.x = -2.6; w.R.el.rotation.x = -1.2; }
+    else if (mv > .01) {
+      w.phase += dt * 9; const s = Math.sin(w.phase);
+      w.R.hip.rotation.x = s * .5; w.L.hip.rotation.x = -s * .5; w.R.kn.rotation.x = Math.max(0, -s) * .7; w.L.kn.rotation.x = Math.max(0, s) * .7;
+      w.R.sh.rotation.x = -s * .4; w.R.el.rotation.x = 0; w.body.position.y = Math.abs(Math.cos(w.phase)) * .025;
+    } else { w.R.hip.rotation.x = w.L.hip.rotation.x = w.R.kn.rotation.x = w.L.kn.rotation.x = 0; w.R.sh.rotation.x = -.1; w.R.el.rotation.x = 0; w.body.position.y = 0; }
+    if (w.net[4] && w.trayFull === false) refillTray(w);
+    return;
+  }
   const walkPose = (sp) => {
     w.phase += dt * sp * 7;
     const s = Math.sin(w.phase);
@@ -1064,13 +1126,160 @@ function updPatron(p, dt, time) {
   p.head.rotation.y = lerp(p.head.rotation.y, look, dt);
 }
 
+// ---------- online 1 v 1 (PeerJS; ?net=loop uses a BroadcastChannel for two tabs on one computer) ----------
+const NET = {mode: 'off', loop: /net=loop/.test(location.search), conn: null, peer: null, bc: null, names: ['', ''], myName: '', poseT: 0, stT: 0, last: 0};
+const PRE = 'bullseyebrawl-';
+const v3 = v => [+v.x.toFixed(4), +v.y.toFixed(4), +v.z.toFixed(4)];
+const fromV3 = a => V(a[0], a[1], a[2]);
+function status(t) { $('status').textContent = t; }
+function netSend(m) {
+  if (NET.bc) { m.h = NET.mode === 'host' ? 1 : 0; NET.bc.postMessage(m); return; }
+  if (NET.conn && NET.conn.open) try { NET.conn.send(m); } catch (e) {}
+}
+function netReset() {
+  if (NET.mode === 'off') return;
+  try { netSend({t: 'bye'}); } catch (e) {}
+  const m = NET.mode; NET.mode = 'off';
+  try { NET.conn && NET.conn.close(); } catch (e) {}
+  try { NET.peer && NET.peer.destroy(); } catch (e) {}
+  try { NET.bc && NET.bc.close(); } catch (e) {}
+  NET.conn = NET.peer = NET.bc = null;
+}
+function netLost(why) {
+  if (NET.mode === 'off') return;
+  netReset();
+  G.paused = false; $('pause').style.display = 'none';
+  if (G.state === 'play' || G.state === 'ending' || G.state === 'over') { toMenu(); }
+  $('menu').style.display = 'none'; $('net').style.display = 'flex'; $('netA').style.display = 'block'; $('netB').style.display = 'none';
+  status(why);
+}
+const newCode = () => Array.from({length: 4}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.random() * 24 | 0]).join('');
+function getPeer() { return window.Peer || (window.peerjs && window.peerjs.Peer); }
+function startHost(tries = 0) {
+  netReset();
+  const code = newCode(); NET.mode = 'host'; NET.code = code; NET.names = [NET.myName, ''];
+  const waiting = () => { $('netA').style.display = 'none'; $('netB').style.display = 'block'; $('bigCode').textContent = code; status(''); };
+  if (NET.loop) { NET.bc = new BroadcastChannel(PRE + code); NET.bc.onmessage = e => { if (!e.data.h) hostRecv(e.data); }; waiting(); return; }
+  const Peer = getPeer(); if (!Peer) { status('Online play could not load. Check your connection.'); NET.mode = 'off'; return; }
+  status('Opening the back room…');
+  const peer = new Peer(PRE + code); NET.peer = peer; let opened = false;
+  peer.on('open', () => { opened = true; waiting(); });
+  peer.on('connection', c => {
+    if (NET.conn && NET.conn.open) { c.on('open', () => { c.send({t: 'full'}); setTimeout(() => c.close(), 500); }); return; }
+    NET.conn = c;
+    c.on('data', m => m && hostRecv(m));
+    c.on('close', () => { if (NET.conn === c) netLost('Your opponent left the game.'); });
+  });
+  peer.on('error', e => { if (!opened && e.type === 'unavailable-id' && tries < 5) { peer.destroy(); NET.mode = 'off'; startHost(tries + 1); } else if (!opened) { status('Could not reach the matchmaking service (' + e.type + '). Try again.'); NET.mode = 'off'; } });
+}
+function startJoin(code) {
+  code = (code || '').toUpperCase().trim(); if (code.length !== 4) { status('Type the 4-letter code your friend gave you.'); return; }
+  netReset();
+  NET.mode = 'client'; NET.code = code; NET.joined = false;
+  status('Knocking on the door…');
+  const fail = t => { if (!NET.joined) { status(t); netReset(); } };
+  if (NET.loop) { NET.bc = new BroadcastChannel(PRE + code); NET.bc.onmessage = e => { if (e.data.h) clientRecv(e.data); }; netSend({t: 'hi', n: NET.myName}); setTimeout(() => fail('No game found with code ' + code + '.'), 4000); return; }
+  const Peer = getPeer(); if (!Peer) { status('Online play could not load. Check your connection.'); NET.mode = 'off'; return; }
+  const peer = new Peer(); NET.peer = peer;
+  peer.on('open', () => {
+    const c = peer.connect(PRE + code, {reliable: true}); NET.conn = c;
+    c.on('open', () => netSend({t: 'hi', n: NET.myName}));
+    c.on('data', m => m && clientRecv(m));
+    c.on('close', () => { if (NET.joined) netLost('The host left the game.'); });
+  });
+  peer.on('error', e => { if (!NET.joined) fail(e.type === 'peer-unavailable' ? 'No game found with code ' + code + '.' : 'Connection problem: ' + e.type); else netLost('Lost the connection to your opponent.'); });
+  setTimeout(() => fail('No game found with code ' + code + '.'), 15000);
+}
+function netStart() {
+  netSend({t: 'start', n: NET.names});
+  $('net').style.display = 'none';
+  start('net', 1);
+}
+function hostRecv(m) {
+  NET.last = performance.now();
+  if (m.t === 'hi') { if (NET.joinedOnce && G.state === 'play') return; NET.joinedOnce = true; NET.names[1] = m.n || 'Guest'; netStart(); }
+  else if (m.t === 'bye') netLost('Your opponent left the game.');
+  else if (m.t === 'again') { if (G.state === 'over') netStart(); }
+  else if (m.t === 'pz') applyPose(TH[1], m);
+  else if (m.t === 'throw') {
+    if (G.state !== 'play' || G.turn !== 1 || G.phase !== 'aim' || G.darts <= 0) return;
+    launchVel(TH[1], fromV3(m.f), fromV3(m.v), m.id, false);
+    G.darts--; G.phase = 'flight'; updHUD(); sendState();
+  }
+}
+function clientRecv(m) {
+  NET.last = performance.now();
+  if (m.t === 'full') { status('That game already has two players.'); netReset(); }
+  else if (m.t === 'start') { NET.joined = true; NET.names = m.n; $('net').style.display = 'none'; start('net', 1); }
+  else if (m.t === 'bye') netLost('The host left the game.');
+  else if (G.state === 'menu') return;
+  else if (m.t === 'pz') applyPose(TH[0], m);
+  else if (m.t === 'st') applyState(m);
+  else if (m.t === 'throw') { if (m.o !== owner.i) launchVel(TH[m.o], fromV3(m.f), fromV3(m.v), m.id, false); }
+  else if (m.t === 'land') {
+    const k = flying.findIndex(d => d.id === m.id); if (k < 0) return;
+    const d = flying[k]; flying.splice(k, 1); d.vel = null;
+    const p = fromV3(m.p), dir = fromV3(m.d);
+    d.pos.copy(p); d.obj.position.copy(p); d.obj.lookAt(p.clone().add(dir));
+    const hit = {kind: m.k, part: m.pa};
+    if (m.k === 'person') hit.who = TH[m.w]; else if (m.k === 'waiter') hit.who = waiters[m.w]; else if (m.k === 'board') hit.board = m.b ? boardB : boardA;
+    d.obj.position.addScaledVector(dir, m.k === 'person' || m.k === 'waiter' ? .025 : .012);
+    land(d, hit, p, dir);
+    if (G.pend === m.id) G.pend = 0;
+  }
+  else if (m.t === 'end') { if (m.lo) TH[m.w].loserOut = true; finish(TH[m.w], m.why, true); }
+}
+function sendState() {
+  if (NET.mode !== 'host') return;
+  netSend({t: 'st', tu: G.turn, da: G.darts, ph: G.phase, s: TH.map(T => [T.score, Math.round(T.blood * 10) / 10, T.faceHits, T.bodyHits, T.out ? 1 : 0, T.hist.slice(-8).join('|')]),
+    w: waiters.map(w => [+w.g.position.x.toFixed(3), +w.g.position.z.toFixed(3), +w.g.rotation.y.toFixed(3), w.state === 'hurt' ? 2 : w.state === 'walk' ? 1 : 0, w.trayFull === false ? 0 : 1])});
+}
+function applyState(m) {
+  if (G.state !== 'play' && G.state !== 'ending') return;
+  if (m.tu !== G.turn && G.state === 'play') endTurnSwitch();
+  const waiting = G.pend || flying.some(d => d.owner === owner);
+  if (!waiting) { G.darts = m.da; G.phase = m.ph; }
+  m.s.forEach((a, i) => {
+    const T = TH[i]; T.score = a[0]; T.blood = a[1]; T.faceHits = a[2]; T.bodyHits = a[3]; T.hist = a[5] ? a[5].split('|') : [];
+    if (a[4] && !T.out) { T.out = true; T.blood = 0; S.thud(); setTimeout(S.thud, 400); S.crowd('ooh'); pop(`${T.name.toUpperCase()} PASSED OUT!`, '#ff5a4a'); }
+  });
+  m.w.forEach((a, i) => { waiters[i].net = a; });
+  if (Math.random() < .3) drawChalk();
+}
+function applyPose(T, m) { T.net = m; if (m.th) T.throwT = .35; }
+function netTick(dt) {
+  if (NET.mode === 'off' || G.state === 'menu') return;
+  NET.poseT -= dt;
+  if (NET.poseT <= 0) { NET.poseT = 1 / 15; netSend({t: 'pz', l: +owner.lean.toFixed(3), c: +owner.crouch.toFixed(3), y: +yaw.toFixed(3), p: +pitch.toFixed(3), ch: charging ? 1 : 0}); }
+  if (NET.mode === 'host') { NET.stT -= dt; if (NET.stT <= 0) { NET.stT = .12; sendState(); } }
+  // the opponent's body follows their real lean, duck and aim
+  const T = TH[owner.i ^ 1], m = T.net;
+  if (!m || T.out) return;
+  const k = Math.min(1, dt * 12);
+  T.lean = lerp(T.lean, m.l, k); T.crouch = lerp(T.crouch, m.c, k);
+  const right = T.i === 0 ? V(1, 0, 0) : V(-1, 0, 0);
+  T.p.g.position.copy(T.base).addScaledVector(right, T.lean); T.p.g.position.y = 0;
+  T.p.body.position.y = -T.crouch;
+  for (const s of [T.p.R, T.p.L]) { s.hip.rotation.x = -T.crouch * 2.2; s.kn.rotation.x = T.crouch * 4; }
+  let dr = (m.y + Math.PI) - T.p.g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); T.p.g.rotation.y += dr * k;
+  T.p.head.rotation.x = lerp(T.p.head.rotation.x, -m.p * .7, k);
+  T.p.L.sh.rotation.x = -.35; T.p.L.el.rotation.x = -1.0;
+  const myTurn = G.turn === T.i;
+  T.throwT = Math.max(0, (T.throwT || 0) - dt);
+  if (T.throwT > 0) { const q = 1 - T.throwT / .35; T.p.R.sh.rotation.x = lerp(-1.75, -1.2, q); T.p.R.el.rotation.x = q < .4 ? lerp(-1.9, -.1, q / .4) : -.1; }
+  else if (m.ch && myTurn) { T.p.R.sh.rotation.x = lerp(T.p.R.sh.rotation.x, -1.75, k); T.p.R.el.rotation.x = lerp(T.p.R.el.rotation.x, -1.9, k); }
+  else { T.p.R.sh.rotation.x = lerp(T.p.R.sh.rotation.x, -.15, k * .5); T.p.R.el.rotation.x = lerp(T.p.R.el.rotation.x, -.5, k * .5); }
+  T.handDart.visible = myTurn && G.darts > 0 && T.throwT < .05 && !flying.some(d => d.owner === T);
+}
+addEventListener('beforeunload', () => { if (NET.mode !== 'off') netSend({t: 'bye'}); });
+
 // ---------- main loop ----------
 let last = performance.now(), time = 0;
 const camPos = V(0, 0, 0);
 function frame(now) {
   requestAnimationFrame(frame);
   let dt = Math.min(.05, (now - last) / 1000); last = now;
-  if (G.paused) dt = 0;
+  if (G.paused && NET.mode === 'off') dt = 0;
   step(dt);
   if (!window.__norender) renderer.render(scene, camera);
 }
@@ -1132,7 +1341,7 @@ function updGame(dt) {
       if (Math.random() < dt * (b.body ? 4 : 14)) { const q = b.pt.clone(); (b.body ? T.p.body : T.p.head).localToWorld(q); blood(q, V(rand(-.1, .1), -.2, rand(-.1, .1))); }
       if (b.left <= 0) T.bleeds.splice(i, 1);
     }
-    if (T.blood <= 0 && !T.out && G.state === 'play') {
+    if (T.blood <= 0 && !T.out && G.state === 'play' && NET.mode !== 'client') {
       T.out = true; T.blood = 0; S.thud(); setTimeout(S.thud, 400); S.crowd('ooh');
       const W = TH[T.i ^ 1];
       pop(`${T.name.toUpperCase()} PASSED OUT!`, '#ff5a4a');
@@ -1146,6 +1355,8 @@ function updGame(dt) {
   stepDarts(dt);
   if (G.state === 'ending') { G.endT -= dt; if (G.endT <= 0) showEnd(); return; }
   const cur = TH[G.turn];
+  if (NET.mode === 'client') { netTick(dt); return; }
+  if (NET.mode === 'host') netTick(dt);
   if (G.phase === 'settle') { G.t -= dt; if (G.t <= 0) nextDart(); }
   else if (G.phase === 'switch') { G.t -= dt; if (G.t <= 0) endTurnSwitch(); }
   for (const T of TH) if (!T.human && !T.out && T.cpu && (T.cpu.st === 'throw' || T.cpu.st === 'recover')) cpuUpdate(T, dt);
@@ -1162,7 +1373,7 @@ function updGame(dt) {
     T.p.L.sh.rotation.x = -.35 + Math.sin(time * .7) * .05; T.p.L.el.rotation.x = -1.0;
   }
   // hot-seat: idle human stands holding his pint
-  for (const T of TH) if (T.human && T !== owner && !T.out) { T.p.L.sh.rotation.x = -.35; T.p.L.el.rotation.x = -1.0; T.handDart.visible = false; }
+  for (const T of TH) if (G.mode === 'hot' && T.human && T !== owner && !T.out) { T.p.L.sh.rotation.x = -.35; T.p.L.el.rotation.x = -1.0; T.handDart.visible = false; }
 }
 function updCamera(dt) {
   const T = owner;
@@ -1175,7 +1386,7 @@ function updCamera(dt) {
     return;
   }
   // lean / duck (only the one throwing, or the CPU-mode player at any time)
-  const mayMove = G.state === 'play' && !T.out && (G.mode === 'cpu' || TH[G.turn] === T);
+  const mayMove = G.state === 'play' && !T.out && (G.mode !== 'hot' || TH[G.turn] === T);
   const lt = mayMove ? ((keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0)) * .38 : 0;
   const ct = mayMove && (keys.KeyC || keys.ControlLeft) ? .42 : 0;
   T.lean = lerp(T.lean, lt, Math.min(1, dt * 9)); T.crouch = lerp(T.crouch, ct, Math.min(1, dt * 9));

@@ -13,7 +13,7 @@ export const WEAP = {
   pistol: ['w_pistol', 0.32], torch: ['w_plasma', 0.6], welder: ['w_welder', 0.55], frag: ['w_frag', 0.15],
 };
 export const TURRET_GLB = { pulse: 2.1, shotgunT: 2.0, missile: 2.1, minigun: 2.1, railgun: 3.6, mortar: 2.0 };   // kinds with Meshy models, and their height at level 1
-export const MANIFEST = [...CLS.filter(c => c !== 'assault').map(c => 'marine_' + c), 'marine_anims', ...new Set(Object.values(WEAP).map(w => w[0])), ...Object.keys(TURRET_GLB).flatMap(k => [1, 2, 3].map(l => `t_${k}_${l}`))];
+export const MANIFEST = [...CLS.filter(c => c !== 'assault').map(c => 'marine_' + c), 'marine_anims', 'marine_anims2', ...new Set(Object.values(WEAP).map(w => w[0])), ...Object.keys(TURRET_GLB).flatMap(k => [1, 2, 3].map(l => `t_${k}_${l}`))];
 let done = false;
 export const PROG = { total: 1, got: 0 };   // loading progress, for the cover screen's bar
 export const ready = () => done;
@@ -94,6 +94,8 @@ function clips() {
   if (CLIPS) return CLIPS; const src = A.marine_anims; if (!src) return null; CLIPS = {};
   for (const [k, re] of Object.entries(CLIPKEY)) { const c = src.animations.find(a => re.test(a.name)); if (c) CLIPS[k] = c; }
   if (!CLIPS.idle) { const c = src.animations.find(a => /idle/i.test(a.name)); if (c) CLIPS.idle = c; }
+  // the combat set: a ready stance to fire from while standing, a flinch when hit, a dive behind cover
+  if (A.marine_anims2) for (const [k, re] of Object.entries({ stance: /combat_stance/i, flinch: /gunshot_reaction/i, roll: /roll_behind/i })) { const c = A.marine_anims2.animations.find(a => re.test(a.name)); if (c) CLIPS[k] = c; }
   // the running clips move forward on their own; the game moves the marine, so pin the hips over the feet (keep the bounce)
   for (const c of Object.values(CLIPS)) for (const tr of c.tracks) if (/hips\.position$/i.test(tr.name)) { const v = tr.values, x0 = v[0], z0 = v[2]; for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; } }
   return CLIPS;
@@ -105,7 +107,7 @@ export function marineGLB(cls, from) {
   if (!H[n]) { const b = new THREE.Box3().setFromObject(src.scene); H[n] = b.max.y - b.min.y || 1.85; }
   holder.scale.setScalar(2.1 / H[n]);
   const mixer = new THREE.AnimationMixer(root), act = {};
-  for (const [k, c] of Object.entries(CLIPS)) { const a = mixer.clipAction(c); if (k === 'die' || k === 'throw' || k === 'reload' || k === 'hit') { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } act[k] = a; }
+  for (const [k, c] of Object.entries(CLIPS)) { const a = mixer.clipAction(c); if (k === 'die' || k === 'throw' || k === 'reload' || k === 'hit' || k === 'flinch' || k === 'roll') { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } act[k] = a; }
   const rh = root.getObjectByName('RightHand'), lh = root.getObjectByName('LeftHand');
   const gun = weapon(WEAP[cls] ? cls : 'assault'); if (gun) g.add(gun);
   g.userData = { legL: new THREE.Object3D(), legR: new THREE.Object3D(), arms: new THREE.Group(), glb: true, mixer, act, cur: null, rh, lh, gun, root, cls };
@@ -132,12 +134,17 @@ function aimGun(m) {
 // called every frame for each marine: picks the clip from speed, plays it, keeps the gun in the hands
 export function animGLB(m, sp, opt) {
   const u = m.userData, now = performance.now(), dt = Math.min(0.1, (now - (u.lt || now)) / 1000); u.lt = now;
-  let k = opt && opt.pose ? opt.pose : sp > 6.5 ? 'sprint' : sp > 3.2 ? 'run' : sp > 0.4 ? 'walk' : (opt && opt.fire ? 'walk' : 'idle');
+  if (u.var === undefined) { u.var = 0.92 + Math.random() * 0.16; u.spine = u.root && (u.root.getObjectByName('Spine02') || u.root.getObjectByName('Spine01') || u.root.getObjectByName('Spine')); u.head = u.root && u.root.getObjectByName('Head'); u.ph = Math.random() * 9; }
+  let k = opt && opt.pose ? opt.pose : sp > 6.5 ? 'sprint' : sp > 3.2 ? 'run' : sp > 0.4 ? 'walk' : (opt && opt.fire ? (u.act.stance ? 'stance' : 'walk') : 'idle');   /* standing and shooting: a planted combat stance, not a frozen half-step */
   const far = opt && opt.near ? 0 : m.getWorldPosition(_wp).distanceToSquared(CAM); if (!u.fpArms && far > 4900) { u.acc = (u.acc || 0) + dt; return; } if (far > 900) { u.skip = !u.skip; if (u.skip) { u.acc = (u.acc || 0) + dt; return; } }
   const dtM = Math.min(0.2, dt + (u.acc || 0)); u.acc = 0;
   setPose(m, k); const a = u.act[u.cur];
   if (u.cur === 'walk') a.timeScale = sp > 0.4 ? Math.max(0.7, sp / 2.6) : 0.12; else if (u.cur === 'run' || u.cur === 'sprint') a.timeScale = Math.max(0.8, sp / (u.cur === 'run' ? 5 : 7.5)); else a.timeScale = 1;
-  u.mixer.update(dtM); aimGun(m);
+  u.mixer.update(dtM * u.var);
+  // on top of the clip: the shoulders take each shot's recoil, and the head looks about now and then, so nobody stands like a statue
+  u.ph += dtM; if (!u.fpArms && u.spine && opt && opt.fire && !opt.pose) { u.spine.rotation.x += Math.abs(Math.sin(u.ph * 37)) * 0.05 - 0.02; u.spine.rotation.y += Math.sin(u.ph * 2.1) * 0.06; }
+  if (!u.fpArms && u.head && !(opt && opt.pose)) u.head.rotation.y += Math.sin(u.ph * 0.7) * Math.sin(u.ph * 0.31) * 0.25;
+  aimGun(m);
 }
 
 // ---- turrets: one model per upgrade level. The whole model sits in the "head" so it swings round to aim.
@@ -270,16 +277,23 @@ function splitWings(root) {
   for (const [list, sd] of [[L, -1], [R, 1]]) { const pv = new THREE.Group(); pv.position.set(cx + sd * cut, cy, 0); mesh.add(pv); const w = new THREE.Mesh(pick(list), mesh.material); w.position.set(-(cx + sd * cut), -cy, 0); pv.add(w); hinge.push({ pv, sd }); }
   return hinge;
 }
-export function animAlienGLB(m, t) {
+export function animAlienGLB(m, t, spd, atk) {
   const u = m.userData, dt = Math.max(0, Math.min(0.1, t - (u.lt ?? t))); u.lt = t;
-  if (u.flap) { for (const h of u.flap) h.pv.rotation.z = Math.sin(t * 14) * 0.55 * h.sd; u.body.position.y = Math.sin(t * 3) * 0.25; return; }
+  if (u.var === undefined) { u.var = 0.9 + Math.random() * 0.25; u.roarT = 4 + Math.random() * 10; u.yaw0 = m.rotation.y; u.lean = 0; }   // each one moves a little differently
+  const turn = (() => { let d = m.rotation.y - u.yaw0; d -= Math.round(d / 6.283185) * 6.283185; u.yaw0 = m.rotation.y; return dt > 0 ? d / dt : 0; })();
+  if (u.flap) { const f = 12 + Math.sin(t * 0.7) * 3; for (const h of u.flap) h.pv.rotation.z = Math.sin(t * f) * 0.55 * h.sd; u.body.position.y = Math.sin(t * f) * 0.12 + Math.sin(t * 1.7) * 0.2; u.body.rotation.z = -Math.max(-0.5, Math.min(0.5, turn * 0.25)); u.body.rotation.x = Math.sin(t * 1.1) * 0.08; return; }   // the wraith: wing beats that speed and slow, banking into turns
   if (!u.mixer) { u.body.position.y = Math.sin(t * 1.3) * 0.08; u.body.rotation.z = Math.sin(t * 0.9) * 0.04; u.body.scale.setScalar(1 + Math.sin(t * 2.1) * 0.02); return; }   // no rig (the Hive Tyrant): it breathes and sways
   const far = m.getWorldPosition(_wp).distanceToSquared(CAM); if (far > 6400) { u.acc = (u.acc || 0) + dt; return; } if (far > 1225) { u.skip = !u.skip; if (u.skip) { u.acc = (u.acc || 0) + dt; return; } }   // beyond 80 m: frozen; beyond 35 m: every other frame
-  const dtA = dt + (u.acc || 0); u.acc = 0;
-  let k = u.cur; if (u.type === 'broodqueen') k = Math.sin(t * 0.35) > 0.6 ? 'roar' : 'idle'; else if (dt === 0) k = 'idle'; else k = HEAVY.has(u.type) ? 'walk' : 'run';
-  if (u.body.position.z < -0.15 && u.act.pounce) k = 'pounce';   // the game lunges the body forward on a strike
-  if (k !== u.cur && u.act[k]) { const nx = u.act[k]; nx.reset().play(); if (u.cur && u.act[u.cur]) u.act[u.cur].crossFadeTo(nx, 0.2, false); u.cur = k; }
-  u.mixer.update(dt === 0 ? 1 / 60 : Math.min(0.2, dtA) * (u.type === 'crawler' ? 1.6 : 1.1));
+  const dtA = dt + (u.acc || 0); u.acc = 0; spd = spd ?? 4; const heavy = HEAVY.has(u.type);
+  let k = u.cur, rate = 1;
+  if (u.type === 'broodqueen') { k = atk && u.act.pounce ? 'pounce' : Math.sin(t * 0.35) > 0.6 ? 'roar' : 'idle'; u.body.rotation.z = Math.sin(t * 0.6) * 0.05; }   // the queen: breathes, sways, roars, and strikes when she attacks
+  else if (spd < 0.5) { u.still = (u.still || 0) + dt; k = atk || (u.still > 0.4 && u.act.pounce && u.cur === 'pounce' && u.act.pounce.time < u.act.pounce.getClip().duration * 0.9) ? 'pounce' : u.roarT < 1.2 && u.act.roar ? 'roar' : 'idle'; }   // standing still: it claws at what it is fighting, roars now and then, or waits
+  else { u.still = 0; k = heavy || spd < 3 ? 'walk' : 'run'; if (!u.act[k]) k = u.act.run ? 'run' : 'walk'; const ref = k === 'walk' ? (heavy ? 2.6 : 2.2) : (u.type === 'crawler' ? 6 : 5.5); rate = Math.max(0.6, Math.min(1.9, spd / ref)); if (u.roarT < 0.9 && heavy && u.act.roar) k = 'roar'; }   // the stride matches its real speed, so the feet don't skate
+  if (atk && u.act.pounce) k = 'pounce';
+  if ((u.roarT -= dt) < 0) u.roarT = 7 + Math.random() * 12;
+  if (k !== u.cur && u.act[k]) { const nx = u.act[k]; nx.reset().play(); if (u.cur && u.act[u.cur]) u.act[u.cur].crossFadeTo(nx, k === 'pounce' ? 0.1 : 0.25, false); u.cur = k; }
+  u.lean += (Math.max(-0.35, Math.min(0.35, -turn * 0.12 * Math.min(1, spd / 4))) - u.lean) * Math.min(1, dt * 6); u.body.rotation.z = u.lean;   // leans into its turns
+  u.mixer.update(Math.min(0.2, dtA) * rate * u.var * (u.type === 'crawler' ? 1.35 : 1.05));
 }
 
 // ---- a piece of the hub's ring wall, stretched to exactly the size asked for (length along x, height, depth), base on the ground
@@ -295,7 +309,32 @@ export function mechGLB() {
   const g = new THREE.Group(), body = new THREE.Group(); body.add(o); o.rotation.y = Math.PI; g.add(body); g.userData = { legL: new THREE.Object3D(), legR: new THREE.Object3D(), arms: new THREE.Group(), mech: 1, glbMech: true, body }; return g;
 }
 // ---- vehicles: flying Meshy craft, turned to face +z (the way the game points them at their target)
-export function craftGLB(name, len, ry = 0) { if (!A[name]) return null; const o = fit(name, 'w', len, true), g = new THREE.Group(); o.rotation.y = ry; g.add(o); g.userData = { rotors: [] }; return g; }
+export function craftGLB(name, len, ry = 0) { if (!A[name]) return null; const o = fit(name, 'w', len, true), g = new THREE.Group(); o.rotation.y = ry; g.add(o); g.userData = { rotors: ROTORS[name] ? spinRotors(o.children[0], ROTORS[name]) : [] }; return g; }
+// the Meshy tilt-rotor has its propellers baked into the hull: cut them out into their own meshes that spin about each hub (with a faint blur disc), so it looks like it is flying
+const ROTORS = { v_vtol: { hubs: [[0.02, -0.24], [0.02, 0.24]], y: 0.12, r: 0.23 } };
+const _rotCache = {};
+function spinRotors(inner, cfg) {
+  inner.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(inner.matrixWorld).invert(), pivots = cfg.hubs.map(() => null), v = new THREE.Vector3(), rel = new THREE.Matrix4();
+  const meshes = []; inner.traverse(o => { if (o.isMesh) meshes.push(o); });
+  for (const m of meshes) {
+    rel.multiplyMatrices(inv, m.matrixWorld); const geo = m.geometry, pos = geo.attributes.position, idx = geo.index; const n = idx ? idx.count : pos.count, keep = [], parts = cfg.hubs.map(() => []);
+    const P = i => v.fromBufferAttribute(pos, i).applyMatrix4(rel);
+    for (let t = 0; t < n; t += 3) { const ii = [0, 1, 2].map(k => idx ? idx.getX(t + k) : t + k); let hub = -1;
+      for (let h = 0; h < cfg.hubs.length && hub < 0; h++) { let all = true; for (const i of ii) { P(i); if (v.y < cfg.y || Math.hypot(v.x - cfg.hubs[h][0], v.z - cfg.hubs[h][1]) > cfg.r) { all = false; break; } } if (all) hub = h; }
+      if (hub < 0) keep.push(...ii); else parts[hub].push(...ii); }
+    if (parts.every(q => !q.length)) continue;
+    const g2 = geo.clone(); g2.setIndex(keep); m.geometry = g2;   // the hull without its blades
+    parts.forEach((tri, h) => { if (!tri.length) return; const [hx, hz] = cfg.hubs[h];
+      if (!pivots[h]) { const pv = new THREE.Group(); let top = -1e9; pv.position.set(hx, 0, hz); inner.add(pv); pivots[h] = pv;
+        const disc = new THREE.Mesh(new THREE.CircleGeometry(cfg.r * 0.95, 40), new THREE.MeshBasicMaterial({ color: 0x1a1c1e, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide })); disc.rotation.x = -Math.PI / 2; disc.renderOrder = 2; pv.add(disc); pv.userData.disc = disc; }
+      const pv = pivots[h], bg = new THREE.BufferGeometry(), arr = new Float32Array(tri.length * 3), nor = geo.attributes.normal, uv = geo.attributes.uv, na = nor ? new Float32Array(tri.length * 3) : null, ua = uv ? new Float32Array(tri.length * 2) : null, nm = new THREE.Matrix3().getNormalMatrix(rel), nv = new THREE.Vector3(); let ymax = -1e9;
+      tri.forEach((i, j) => { P(i); arr[j * 3] = v.x - hx; arr[j * 3 + 1] = v.y; arr[j * 3 + 2] = v.z - hz; ymax = Math.max(ymax, v.y); if (na) { nv.fromBufferAttribute(nor, i).applyMatrix3(nm).normalize(); na[j * 3] = nv.x; na[j * 3 + 1] = nv.y; na[j * 3 + 2] = nv.z; } if (ua) { ua[j * 2] = uv.getX(i); ua[j * 2 + 1] = uv.getY(i); } });
+      bg.setAttribute('position', new THREE.BufferAttribute(arr, 3)); if (na) bg.setAttribute('normal', new THREE.BufferAttribute(na, 3)); if (ua) bg.setAttribute('uv', new THREE.BufferAttribute(ua, 2));
+      const mt = (Array.isArray(m.material) ? m.material[0] : m.material).clone(); mt.transparent = true; mt.opacity = 0.62; mt.depthWrite = false;   /* blades a little see-through: a spinning blur */
+      const bm = new THREE.Mesh(bg, mt); bm.castShadow = false; bm.frustumCulled = false; pv.add(bm); pv.userData.disc.position.y = Math.max(pv.userData.disc.position.y || -1e9, ymax - 0.012); });
+  }
+  return pivots.filter(Boolean);
+}
 // ---- the map's sandbag walls: a round Meshy sandbag bunker lying on the ground
 export function bagsGLB() {   // a ring of plump stitched sandbags (Meshy), about waist high so you can shoot over it
   if (A.l_bags2) { const src = A.l_bags2.scene.clone(true), o = new THREE.Group(), w = new THREE.Group(); w.add(src); o.add(w); w.updateMatrixWorld(true); let b = new THREE.Box3().setFromObject(w); const s = b.getSize(new THREE.Vector3()), k = 5.2 / Math.max(s.x, s.z); w.scale.set(k, Math.min(k, 1.25 / (s.y || 1)), k); w.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(w); const c = b.getCenter(new THREE.Vector3()); w.position.set(-c.x, -b.min.y - 0.05, -c.z); return o; }

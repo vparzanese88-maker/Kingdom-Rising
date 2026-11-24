@@ -194,8 +194,8 @@ export function alien(type, plain) {
   g.userData = { body, legs, arms, wings, sacs, tail, head, type, fly: type === 'flyer' };
   return g;
 }
-export function animAlien(m, t) {
-  if (m.userData.glb) return AS.animAlienGLB(m, t);
+export function animAlien(m, t, spd, atk) {
+  if (m.userData.glb) return AS.animAlienGLB(m, t, spd, atk);
   const u = m.userData; if (u.type === 'guardian' || u.type === 'hivecore') { u.body.rotation.y = t * 0.6; return; } if (u.type === 'nest') { u.body.scale.setScalar(1 + Math.sin(t * 2) * 0.04); return; }
   if (u.fly) { u.wings.forEach((p, i) => p.rotation.z = Math.sin(t * 30 + (i > 1 ? 1.2 : 0)) * 0.5 * (i % 2 ? 1 : -1)); u.body.position.y = Math.sin(t * 3) * 0.2; if (u.tail) u.tail.rotation.x = Math.sin(t * 4) * 0.25; return; }
   const sp = u.type === 'brute' || u.type === 'ravager' || u.type === 'queen' ? 5 : 9;

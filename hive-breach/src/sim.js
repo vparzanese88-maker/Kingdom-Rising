@@ -52,6 +52,8 @@ export class Sim {
   stow(p) { const i = this.turrets.findIndex(q => q.carry === p.id); if (i < 0) return; const t = this.turrets[i]; if (t.owner !== p.id) { t.carry = 0; this.settle(t); return; }   // someone else's turret just goes down where you stand
     this.turrets.splice(i, 1); p.kits = Math.min(KITS, (p.kits ?? KITS) + 1); p.scrap = (p.scrap || 0) + scrapCost(t.kind); this.emit({ k: 'stowed', to: p.id, n: TURRETS[t.kind].name }); }
   // a turret on a vehicle mount rides with it
+  // who a turret shoots first: anything at its own feet, then whoever is closest to the hub (on the track or off it: burrowers, ambushers, raiders all count)
+  threat(a, t, d) { const H = this.W.hubP; return (d < 5 ? 1e6 : 0) - Math.hypot(a.x - H.x, a.z - H.z); }
   mountFollow(t, v) { const m = mountAt(v, t.slot); if (!m) { t.veh = 0; this.settle(t); return; } t.x = m.x; t.z = m.z; const n = this.path.near(t.x, t.z); t.s = n.s; t.on = 0; t.inCave = false; t.y = m.y; }
   removePlayer(id) { const p = this.players.get(id); if (!p) return; for (const v of this.vehs) if (v.driver === id) v.driver = 0; this.players.delete(id); this.emit({ k: 'toast', m: p.name + ' left.' }); }
   living() { return [...this.players.values()].filter(p => !p.dead && !(p.buf && p.buf.cloak > 0)); }
@@ -437,7 +439,7 @@ export class Sim {
       t.oc = Math.max(0, (t.oc || 0) - dt); t.od = Math.max(0, (t.od || 0) - dt);
       const st = tStat(t); st.rate *= (t.oc > 0 ? 1.6 : 1) * (t.od > 0 ? 2 : 1); t.cd -= dt; t.tg = 0;
       if (t.kind === 'flamer' || t.kind === 'railgun') {
-        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z), sc = t.kind === 'railgun' ? a.hp : a.s; if (d < st.range && sc > bs) { bs = sc; tg = a; } }   // the sniper tower picks off the toughest alien in range
+        let tg = null, bs = -Infinity; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z), sc = t.kind === 'railgun' ? a.hp : this.threat(a, t, d); if (d < st.range && sc > bs) { bs = sc; tg = a; } }   // the sniper tower picks off the toughest alien in range
         if (!tg) continue; t.tg = tg.id; const want = Math.atan2(-(tg.x - t.x), -(tg.z - t.z)); let dr = want - t.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; t.ry += dr * Math.min(1, dt * 8);
         if (t.cd > 0) continue; t.cd = 1 / st.rate; const fx = -Math.sin(t.ry), fz = -Math.cos(t.ry);
         if (t.kind === 'flamer') { for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const dx = a.x - t.x, dz = a.z - t.z, d = Math.hypot(dx, dz); if (d < st.range && (dx * fx + dz * fz) / (d || 1) > Math.cos(TURRETS.flamer.cone)) this.hurtAlien(a, st.dmg, t.owner, true); } }
@@ -445,7 +447,7 @@ export class Sim {
       } else if (t.kind === 'mines') {
         if (t.cd > 0) continue; for (const a of this.aliens) { if (a.dead || ALIENS[a.type].fly || ALIENS[a.type].static) continue; if (Math.hypot(a.x - t.x, a.z - t.z) < st.range) { this.splash(t.x, t.y + 0.4, t.z, TURRETS.mines.splash, st.dmg, t.owner); t.ch--; t.cd = 1.2; if (t.ch <= 0) { t.hp = 0; this.turrets = this.turrets.filter(q => q !== t); } break; } }
       } else if (t.kind === 'minigun' || t.kind === 'pulse' || t.kind === 'tesla' || t.kind === 'missile' || t.kind === 'autocannon' || t.kind === 'shotgunT') {
-        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < st.range && a.s > bs) { bs = a.s; tg = a; } }
+        let tg = null, bs = -Infinity; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d >= st.range) continue; const sc = this.threat(a, t, d); if (sc > bs) { bs = sc; tg = a; } }
         if (!tg) continue; t.tg = tg.id; const want = Math.atan2(-(tg.x - t.x), -(tg.z - t.z)); let dr = want - t.ry; while (dr > Math.PI) dr -= 6.283; while (dr < -Math.PI) dr += 6.283; t.ry += dr * Math.min(1, dt * 10);
         if (t.cd > 0) continue; t.cd = 1 / st.rate;
         if (t.kind === 'minigun' || t.kind === 'pulse') this.hurtAlien(tg, st.dmg, t.owner);
@@ -471,9 +473,9 @@ export class Sim {
         const h = st.heal * dt; for (const p of living) if (Math.hypot(p.x - t.x, p.z - t.z) < st.range && p.hp < p.mhp) p.hp = Math.min(p.mhp, p.hp + h);
         for (const m of this.allies) if (Math.hypot(m.x - t.x, m.z - t.z) < st.range) m.hp = Math.min(m.mhp, m.hp + h);
       } else if (t.kind === 'mortar') {
-        let tg = null, bs = -1; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d > 6 && d < st.range && a.s > bs) { bs = a.s; tg = a; } }
+        let tg = null, bs = -Infinity; const open = this.hiveOpen(); for (const a of this.aliens) { if (a.dead || a.hidden || (a.type === 'hivecore' && !open)) continue; const d = Math.hypot(a.x - t.x, a.z - t.z); if (d > 6 && d < st.range) { const sc = this.threat(a, t, d); if (sc > bs) { bs = sc; tg = a; } } }
         if (!tg) continue; t.tg = tg.id; t.ry = Math.atan2(-(tg.x - t.x), -(tg.z - t.z)); if (t.cd > 0) continue; t.cd = 1 / st.rate;
-        const d = Math.hypot(tg.x - t.x, tg.z - t.z), dur = 1 + d / 25, lead = tg.spd * dur * 0.7, n = this.path.at(tg.s + lead), px = n.x, pz = n.z;
+        const d = Math.hypot(tg.x - t.x, tg.z - t.z), dur = 1 + d / 25, lead = tg.spd * dur * 0.7, onTrack = !tg.mode || tg.mode === 'path', n = onTrack ? this.path.at(tg.s + lead) : tg, px = n.x, pz = n.z;   /* off the track (burrowers, hunters): aim at the alien itself */
         this.shells.push({ x: px, y: n.y, z: pz, t: dur, d: st.dmg, r: st.splash, owner: t.owner, pool: st.dmg * 0.5 });
         this.emit({ k: 'mortar', a: [t.x, t.y + 2, t.z], b: [+px.toFixed(1), +n.y.toFixed(1), +pz.toFixed(1)], t: +dur.toFixed(2) });
       }

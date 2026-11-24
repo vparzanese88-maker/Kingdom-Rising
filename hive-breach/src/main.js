@@ -415,7 +415,7 @@ function updateGrenades(dt) {
     if (!p.gr) continue; const g = p.gr; g.t -= dt; g.vy -= 16 * dt; g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt;
     const gy = G.W.ground(g.x, g.z, g.y + 0.3) + 0.1; if (g.y < gy) { const hard = g.vy < -4; g.y = gy; g.vy = Math.abs(g.vy) * 0.32; g.vx *= 0.55; g.vz *= 0.55; g.spin[0] *= 0.5; if (hard && g.bounces++ < 3) { burst(g.x, gy, g.z, G.W.def.ground, 4, 2, 0.4, 1.2); audio.sfx('place', Math.max(0.05, vol(dist(g.x, g.z)) * 0.35)); } }   // a thud and a skid off the ground
     p.mesh.rotation.x += g.spin[0] * dt; p.mesh.rotation.z += g.spin[1] * dt; if (p.mesh.userData.led) p.mesh.userData.led.visible = Math.sin(g.t * (g.t < 0.6 ? 40 : 14)) > 0;   // tumbling, the fuse blinking faster at the end
-    p.a = p.b = [g.x, g.y, g.z]; p.t = 0;
+    p.a = p.b = [g.x, g.y, g.z]; p.t = 0; p.mesh.position.set(g.x, g.y, g.z);   // the grenade you see flies where its physics goes
     if (g.t <= 0) { p.dead = true; scene.remove(p.mesh); if (g.own && G.explore && G.ex) G.ex.splash(g.x, g.y, g.z, 5.5, 140); else if (g.own) req({ a: 'boom', x: g.x, y: g.y, z: g.z, r: 5.5, d: 140 * dmgMul(), gren: 1 }); else if (G.mode === 'client') { } }
   }
 }
@@ -900,7 +900,7 @@ function updateBeam(dt, S) {
       (G.W.salvage || []).forEach((w, i) => { if (w.b3 && Math.hypot(w.x - me.x, w.z - me.z) < w.r + 4) tryBox(w.b3, { i, ...w }, 'w'); });
       (G.W.nodes || []).forEach((w, i) => { if (w.b3 && Math.hypot(w.x - me.x, w.z - me.z) < w.r + 4) tryBox(w.b3, { i, ...w }, 'n'); });
       if (S.BP && bpV.b3) tryBox(bpV.b3, { i: 0 }, 'v');
-      if (bq) { best = bq; k = bk; tt = Math.max(0.3, bd); const bx = bk === 't' ? view.turrets.get(bq.id).wbox : bk === 'v' ? bpV.b3 : (bk === 'w' ? G.W.salvage : G.W.nodes)[bq.i].b3; bx.clampPoint(o.clone().addScaledVector(dv, 1.2), pt); fbEnd = pt.toArray(); } }
+      if (bq) { best = bq; k = bk; tt = Math.max(0.3, bd); const bx = bk === 't' ? view.turrets.get(bq.id).wbox : bk === 'v' ? bpV.b3 : (bk === 'w' ? G.W.salvage : G.W.nodes)[bq.i].b3; bx.clampPoint(o.clone().addScaledVector(dv, 1.2), pt); const along = Math.max(0.4, Math.min(max, pt.clone().sub(o).dot(dv))); fbEnd = o.clone().addScaledVector(dv, along).toArray(); } }   /* the beam always runs straight out through the crosshair; it only stops where the target sits along that line */
     G.weldHit = tt < max;   /* touching something: only then the sparks, the light and the sizzle */
     end = fbEnd || o.clone().addScaledVector(dv, Math.min(tt, max)).toArray(); }
   const pw = 1;   /* the welder never runs out */

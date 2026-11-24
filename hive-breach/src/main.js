@@ -75,7 +75,7 @@ function applyQuality() { const q = SET.quality; renderer.setPixelRatio(Math.min
 const G = { pings: [], on: false, mode: 'solo', myId: 'me', name: 'Marine', cls: 'assault', map: 'mars', W: null, sim: null, net: null, snap: null, out: [], time: 0, shop: false, me: null };
 // eases an angle toward a target (shortest way round), fast when far off, never snapping
 function turnTo(cur, tgt, dt, rate) { let d = tgt - cur; d -= Math.round(d / 6.283185) * 6.283185; return cur + d * (1 - Math.exp(-dt * rate)); }
-window.G = G; G.M = M; G.voice = voice; G.scene = scene; G.camera = camera; G.veh = { vtol: vtolModel, rover: roverModel }; G.bloodTest = (...a) => bloodHit(...a); G.setSlot = n => setSlot(n); G.hitAliens = hitAliens; G.viewA = () => view.aliens; G.turretMuzzle = turretMuzzle; G.renderer = renderer; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
+window.G = G; G.state = () => state(); G.M = M; G.voice = voice; G.scene = scene; G.camera = camera; G.veh = { vtol: vtolModel, rover: roverModel }; G.bloodTest = (...a) => bloodHit(...a); G.setSlot = n => setSlot(n); G.hitAliens = hitAliens; G.viewA = () => view.aliens; G.turretMuzzle = turretMuzzle; G.renderer = renderer; G.camera = camera; G.scene = scene; G.audio = () => audio; G.music = () => music;
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } };
 
 // The current battle as plain lists, the same shape whether this game runs it or receives it.
@@ -560,8 +560,14 @@ function syncView(S, dt) {
   for (const p of S.P) {
     if (p.id === G.myId) continue; seen.add(p.id); let v = view.players.get(p.id);
     if (!v || v.cls !== p.cls) { if (v) scene.remove(v.mesh); const mesh = M.marine(CLASSES[p.cls].color, p.cls), tag = nameTag(p.name, CLASSES[p.cls].color); tag.position.y = 2.7; mesh.add(tag); scene.add(mesh); v = { mesh, cls: p.cls, x: p.x, y: p.y, z: p.z, t: 0 }; view.players.set(p.id, v); }
-    const kk = 1 - Math.exp(-dt * 14), ox = v.x, oz = v.z; v.x += (p.x - v.x) * kk; v.y += (p.y - v.y) * kk; v.z += (p.z - v.z) * kk; const sp = Math.hypot(v.x - ox, v.z - oz) / Math.max(dt, 1e-4);
-    v.t += dt * Math.min(sp, 9) * 1.6; M.animMarine(v.mesh, v.t, sp); v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = p.yaw; v.mesh.visible = !p.dead && !p.veh && !G.cine;
+    // network smoothing: a teammate's position arrives ~10 times a second; work out their real velocity from those updates, predict between them,
+    // and animate from that steady speed (from the eased motion between packets it flickered between run, walk and idle)
+    { const now = G.time; if (v.nx !== p.x || v.nz !== p.z) { if (v.nt !== undefined) { const gap = Math.max(0.03, now - v.nt), vx = (p.x - v.nx) / gap, vz = (p.z - v.nz) / gap; if (Math.hypot(vx, vz) < 30) { v.vx = (v.vx || 0) * 0.4 + vx * 0.6; v.vz = (v.vz || 0) * 0.4 + vz * 0.6; } } v.nx = p.x; v.nz = p.z; v.nt = now; }
+      const ahead = Math.min(0.15, now - (v.nt ?? now)), tx = p.x + (v.vx || 0) * ahead, tz = p.z + (v.vz || 0) * ahead, kk = 1 - Math.exp(-dt * 10);
+      if (Math.hypot(tx - v.x, tz - v.z) > 8) { v.x = tx; v.z = tz; } else { v.x += (tx - v.x) * kk; v.z += (tz - v.z) * kk; } v.y += (p.y - v.y) * kk;
+      if (now - (v.nt ?? now) > 0.35) { v.vx = (v.vx || 0) * 0.85; v.vz = (v.vz || 0) * 0.85; }   /* no news: they have stopped */ }
+    const sp = Math.hypot(v.vx || 0, v.vz || 0); v.sps = (v.sps ?? sp) + (sp - (v.sps ?? sp)) * Math.min(1, dt * 6);
+    v.t += dt * Math.min(v.sps, 9) * 1.6; M.animMarine(v.mesh, v.t, v.sps, { fire: p.fire }); v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = turnTo(v.mesh.rotation.y, p.yaw, dt, 14); v.mesh.visible = !p.dead && !p.veh && !G.cine;
     if (p.veh && (!v.vm || v.vk !== p.veh)) { if (v.vm) scene.remove(v.vm); v.vk = p.veh; v.vm = p.veh === 1 ? roverModel() : vtolModel(); scene.add(v.vm); } if (v.vm) { v.vm.visible = !!p.veh; v.vm.position.set(v.x, v.y, v.z); v.vm.rotation.y = p.yaw; if (v.vk === 2) for (const r of v.vm.userData.rotors) r.rotation.y += dt * 30; } M.kneel(v.mesh, p.kn); v.kick = Math.max(0, (v.kick || 0) - dt * 8); v.mesh.userData.arms.rotation.x = v.kick * 0.25;
     if (!v.hpb) { v.hpb = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x40e070, depthTest: false })); v.hpb.center.set(0, 0.5); v.hpb.position.set(-0.9, 2.35, 0); v.hpb.renderOrder = 6; v.mesh.add(v.hpb); }
     const hf = Math.max(0, p.hp / p.mhp); v.hpb.scale.set(1.8 * hf + 0.001, 0.12, 1); v.hpb.material.color.setHex(hf < 0.3 ? 0xff4040 : 0x40e070);
@@ -1090,7 +1096,7 @@ function updBlueprint(S) {
 // the vehicles everyone sees; the one you drive follows your own controls
 const vehV = new Map();
 function vehMesh(kind) {
-  const fitV = (n, len) => { const o = M.AS.fitGLB(n, 'w', len, false); if (!o) return null; const g = new THREE.Group(); o.rotation.y = -Math.PI / 2; g.add(o); g.userData = {}; return g; };   /* Meshy vehicles face along -x; turned so the nose points forward */
+  const fitV = (n, len) => { const o = M.AS.fitGLB(n, 'w', len, false); if (!o) return null; const g = new THREE.Group(); o.rotation.y = -Math.PI / 2; g.add(o); g.userData = {}; const inner = o.children[0]; if (M.AS.WHEELS[n]) { const wh = M.AS.splitWheels(inner, M.AS.WHEELS[n]); g.userData.wheels = wh.pivots; g.userData.wheelR = wh.r * inner.scale.x; } return g; };   /* the tyres turn with the ground speed */   /* Meshy vehicles face along -x; turned so the nose points forward */
   if (kind === 'quad') return fitV('v_quad', 3.6) || roverModel();
   if (kind === 'truck') return fitV('v_flatbed', 7.5) || roverModel();
   if (kind === 'vtol') { const m = vtolModel(); for (const sd of [-1, 1]) { const g = M.gunModel('gunner', CLASSES.gunner.color); g.scale.setScalar(2.2); g.position.set(sd * 2.3, 0.4, 0.4); g.rotation.y = -sd * Math.PI / 2; m.add(g); } return m; }
@@ -1119,7 +1125,8 @@ function updVehs(S, dt) {
   const seen = new Set(), me = G.me;
   for (const sv of S.V || []) { seen.add(sv.id); let v = vehV.get(sv.id); if (!v) { v = { kind: sv.kind, mesh: vehMesh(sv.kind), x: sv.x, y: sv.y, z: sv.z, ry: sv.ry }; scene.add(v.mesh); vehV.set(sv.id, v); }
     const mine0 = me.dv && me.dv.id === sv.id, tx = mine0 ? me.dv.x : sv.x, ty = mine0 ? me.dv.y : sv.y, tz = mine0 ? me.dv.z : sv.z, tr = mine0 ? me.dv.yaw : sv.ry, k = mine0 ? 1 : Math.min(1, dt * 8);
-    v.x += (tx - v.x) * k; v.y += (ty - v.y) * k; v.z += (tz - v.z) * k; let dy = tr - v.ry; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; v.ry += dy * k;
+    const ox = v.x, oz = v.z; v.x += (tx - v.x) * k; v.y += (ty - v.y) * k; v.z += (tz - v.z) * k;
+    if (v.mesh.userData.wheels && dt > 0) { const fwd = (v.x - ox) * -Math.sin(v.ry) + (v.z - oz) * -Math.cos(v.ry); for (const w of v.mesh.userData.wheels) w.rotation.z += fwd / (v.mesh.userData.wheelR || 0.5); }   /* rolling: forward ground travel over the tyre radius */ let dy = tr - v.ry; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; v.ry += dy * k;
     v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.order = 'YXZ'; v.mesh.rotation.y = v.ry; if (sv.kind === 'vtol' && mine0 && me.dv.tilt) { v.mesh.rotation.x = me.dv.tilt[0]; v.mesh.rotation.z = me.dv.tilt[1]; }
     // the rider: whoever drives the quad sits on it, astride the seat, in their class colours
     if (sv.kind === 'quad') { const dp = sv.driver && (S.P || []).find(q => q.id === sv.driver); if (dp && (!v.rider || v.riderCls !== dp.cls)) { if (v.rider) v.mesh.remove(v.rider); const r = M.marine(CLASSES[dp.cls].color, dp.cls); if (r.userData.glb) { M.AS.setPose(r, 'sit', 0); r.userData.mixer.update(0.01); r.userData.sit = 1; if (r.userData.gun) r.userData.gun.visible = false; } r.traverse(o => { o.frustumCulled = false; }); r.position.set(0, 0.72, 0.15); v.mesh.add(r); v.rider = r; v.riderCls = dp.cls; }
@@ -1128,12 +1135,13 @@ function updVehs(S, dt) {
   for (const [id, v] of vehV) if (!seen.has(id)) { scene.remove(v.mesh); vehV.delete(id); }
   updMountMarks(S);
   // get in: walk up to a free vehicle and press E
-  const my = mine(S); if (my && !my.drive && !my.dead && !G.cine) { let best = null, bd = 6; for (const sv of S.V || []) if (!sv.driver) { const d = Math.hypot(sv.x - me.x, sv.z - me.z); if (d < bd) { bd = d; best = sv; } }
+  const my = mine(S); if (my && !my.drive && !my.seatv && !my.dead && !G.cine) { let best = null, bd = 6; for (const sv of S.V || []) if (!sv.driver) { const d = Math.hypot(sv.x - me.x, sv.z - me.z); if (d < bd) { bd = d; best = sv; } }
+    { let bdv = 7.5, nearDriven = null; for (const sv of S.V || []) if (sv.driver && VEHICLES[sv.kind].seats) { const vv = vehV.get(sv.id), d = vv ? Math.hypot(vv.x - me.x, vv.z - me.z) : 99; if (d < bdv) { bdv = d; nearDriven = sv; } } if (nearDriven && (!best || bdv < bd)) best = null; }   /* a teammate's truck or VTOL right here: E rides in it, even with an empty vehicle parked close by */
     if (best) { const lt = G.lookT, onMount = lt && (lt.vh ?? lt.veh) === best.id && !lt.carry;   /* looking at a turret on this vehicle: a quick tap gets in, holding takes the turret off */
       if (onMount) { if (keys[KB.use]) { me.eTap = (me.eTap || 0) + dt; } else { if (me.eTap > 0 && me.eTap < 0.3 && locked()) req({ a: 'drive', id: best.id }); me.eTap = 0; } hits[KB.use] = 0;
         if (!(me.eHold > 0)) prompt(`<b>${keyName(KB.use)}</b> tap: drive the ${VEHICLES[best.kind].name} · <b>hold ${keyName(KB.use)}</b>: take the ${TURRETS[lt.kind].name} off`); }
       else { me.eTap = 0; prompt(`<b>${keyName(KB.use)}</b> drive the ${VEHICLES[best.kind].name} · armour ${Math.round(best.hp)}/${best.mhp}`); if (hits[KB.use] && locked()) { hits[KB.use] = 0; req({ a: 'drive', id: best.id }); } } }
-    else if (!my.seatv) { let bv = null, bd2 = 7; for (const sv of S.V || []) if (sv.driver && VEHICLES[sv.kind].seats) { const vv = vehV.get(sv.id), d = vv ? Math.hypot(vv.x - me.x, vv.z - me.z) : 99; if (d < bd2) { bd2 = d; bv = sv; } }   /* someone's driving it: hop in as a passenger */
+    else if (!my.seatv) { let bv = null, bd2 = 7.5; for (const sv of S.V || []) if (sv.driver && VEHICLES[sv.kind].seats) { const vv = vehV.get(sv.id), d = vv ? Math.hypot(vv.x - me.x, vv.z - me.z) : 99; if (d < bd2) { bd2 = d; bv = sv; } }   /* someone's driving it: hop in as a passenger */
       if (bv) { prompt(`<b>${keyName(KB.use)}</b> ride in the ${VEHICLES[bv.kind].name} (${bv.kind === 'vtol' ? 'door gunner' : 'truck bed'}) · you keep your weapons`); if (hits[KB.use] && locked()) { hits[KB.use] = 0; req({ a: 'board', id: bv.id }); } } } }
 }
 // the queen turning slowly in her card: her model drawn into the card's rectangle of the main canvas, after the world

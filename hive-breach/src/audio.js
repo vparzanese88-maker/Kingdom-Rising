@@ -1,5 +1,6 @@
 // All sounds are made on the spot with the Web Audio API.
 // [f0, f1, dur, wave, vol, delay] is a tone; ['n', filterHz, dur, vol, delay] is a burst of noise.
+const SHOT_KINDS = ['rifle', 'pistol', 'shotgun', 'sniper', 'mini', 'smg', 'rocket', 'boom', 'artillery'];
 const S = {
   rifle: [['n', 2600, 0.07, 0.22], [220, 90, 0.06, 'square', 0.08]],
   smg: [['n', 3400, 0.05, 0.16], [700, 300, 0.04, 'square', 0.05]],
@@ -163,7 +164,7 @@ export class Audio {
     return b;
   }
   shots(kind) {
-    this.sb = this.sb || {}; if (this.sb[kind]) return this.sb[kind];
+    this.sb = this.sb || {}; if (this.sb[kind]) return this.sb[kind]; if (!SHOT_KINDS.includes(kind)) return this.shots('rifle');   // an unknown name never crashes the frame
     const P = {
       rifle: { dur: 0.7, boom: 0.22, mech: 0.3, tr: 0.8, bc0: 8000, bc1: 700, bd: 0.026, bg: 1, lo: 140, ld: 0.08, lg: 1.1, tc: 1200, td: 0.1, tg: 0.1, slap: 0.11, sg: 0.03, drive: 2 },
       pistol: { dur: 0.6, boom: 0.15, mech: 0.35, tr: 0.8, bc0: 9000, bc1: 900, bd: 0.02, bg: 0.9, lo: 180, ld: 0.05, lg: 0.8, tc: 1500, td: 0.1, tg: 0.1, slap: 0.1, sg: 0.06, drive: 2 },

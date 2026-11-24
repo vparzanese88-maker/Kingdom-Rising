@@ -320,6 +320,22 @@ export function mechGLB() {
 // ---- vehicles: flying Meshy craft, turned to face +z (the way the game points them at their target)
 export function craftGLB(name, len, ry = 0) { if (!A[name]) return null; const o = fit(name, 'w', len, true), g = new THREE.Group(); o.rotation.y = ry; g.add(o); g.userData = { rotors: ROTORS[name] ? spinRotors(o.children[0], ROTORS[name]) : [] }; return g; }
 // the Meshy tilt-rotor has its propellers baked into the hull: cut them out into their own meshes that spin about each hub (with a faint blur disc), so it looks like it is flying
+// the Meshy vehicles' wheels are baked into the body too: cut each axle's tyres (both sides) out into a pivot that turns about the axle
+export const WHEELS = { v_quad: { axles: [[-0.30, -0.11], [0.26, -0.11]], r: 0.155, zmin: 0.09 }, v_flatbed: { axles: [[-0.30, -0.15], [0.10, -0.15], [0.34, -0.15]], r: 0.125, zmin: 0.11 } };
+export function splitWheels(inner, cfg) {
+  inner.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(inner.matrixWorld).invert(), v = new THREE.Vector3(), rel = new THREE.Matrix4(), pivots = cfg.axles.map(([x, y]) => { const pv = new THREE.Group(); pv.position.set(x, y, 0); inner.add(pv); return pv; });
+  const meshes = []; inner.traverse(o => { if (o.isMesh && !o.parent.userData.wheel) meshes.push(o); });
+  for (const m of meshes) { rel.multiplyMatrices(inv, m.matrixWorld); const geo = m.geometry, pos = geo.attributes.position, idx = geo.index, n = idx ? idx.count : pos.count, keep = [], parts = cfg.axles.map(() => []), P = i => v.fromBufferAttribute(pos, i).applyMatrix4(rel);
+    for (let t = 0; t < n; t += 3) { const ii = [0, 1, 2].map(k => idx ? idx.getX(t + k) : t + k); let ax = -1;
+      for (let h = 0; h < cfg.axles.length && ax < 0; h++) { let all = true; for (const i of ii) { P(i); if (Math.abs(v.z) < cfg.zmin || Math.hypot(v.x - cfg.axles[h][0], v.y - cfg.axles[h][1]) > cfg.r) { all = false; break; } } if (all) ax = h; }
+      if (ax < 0) keep.push(...ii); else parts[ax].push(...ii); }
+    if (parts.every(q => !q.length)) continue; const g2 = geo.clone(); g2.setIndex(keep); m.geometry = g2;
+    parts.forEach((tri, h) => { if (!tri.length) return; const [hx, hy] = cfg.axles[h], bg = new THREE.BufferGeometry(), arr = new Float32Array(tri.length * 3), nor = geo.attributes.normal, uv = geo.attributes.uv, na = nor ? new Float32Array(tri.length * 3) : null, ua = uv ? new Float32Array(tri.length * 2) : null, nm = new THREE.Matrix3().getNormalMatrix(rel), nv = new THREE.Vector3();
+      tri.forEach((i, j) => { P(i); arr[j * 3] = v.x - hx; arr[j * 3 + 1] = v.y - hy; arr[j * 3 + 2] = v.z; if (na) { nv.fromBufferAttribute(nor, i).applyMatrix3(nm).normalize(); na.set([nv.x, nv.y, nv.z], j * 3); } if (ua) ua.set([uv.getX(i), uv.getY(i)], j * 2); });
+      bg.setAttribute('position', new THREE.BufferAttribute(arr, 3)); if (na) bg.setAttribute('normal', new THREE.BufferAttribute(na, 3)); if (ua) bg.setAttribute('uv', new THREE.BufferAttribute(ua, 2));
+      const wm = new THREE.Mesh(bg, m.material); wm.castShadow = true; pivots[h].add(wm); pivots[h].userData.wheel = 1; }); }
+  return { pivots: pivots.filter(p => p.children.length), r: cfg.r };
+}
 const ROTORS = { v_vtol: { hubs: [[0.02, -0.24], [0.02, 0.24]], y: 0.12, r: 0.23 } };
 const _rotCache = {};
 function spinRotors(inner, cfg) {

@@ -53,7 +53,15 @@ addEventListener('keydown', () => { audio.unlock(); music.start(); });
 
 // ---------------------------------------------------------------- input
 const keys = {}, hits = {}; let mouseL = false, mouseR = false, clickL = false, clickR = false;
-addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return; if (!keys[e.code]) hits[e.code] = 1; keys[e.code] = 1; if (['Tab', 'Space'].includes(e.code)) e.preventDefault(); });
+addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return; if (!keys[e.code]) hits[e.code] = 1; keys[e.code] = 1; if (['Tab', 'Space'].includes(e.code)) e.preventDefault();
+  // Ctrl is every shooter's crouch key: it crouches here too, and while playing, Ctrl/Cmd shortcuts are swallowed so Ctrl+S, Ctrl+D, Ctrl+R and friends can't fire mid-fight
+  if (e.code === 'ControlLeft' || e.code === 'ControlRight') { if (!keys[KB.kneel]) hits[KB.kneel] = 1; keys[KB.kneel] = 1; }
+  if (G.on && (e.ctrlKey || e.metaKey) && !['KeyC', 'KeyV'].includes(e.code) || e.code === 'ControlLeft' || e.code === 'ControlRight') e.preventDefault(); });
+addEventListener('keyup', e => { if (e.code === 'ControlLeft' || e.code === 'ControlRight') keys[KB.kneel] = 0; });
+// Ctrl+W (close tab) can't be blocked by a web page, except in fullscreen with the keyboard locked (Chrome, Edge): lock it whenever the game goes fullscreen,
+// and ask before the tab closes during a mission everywhere else
+document.addEventListener('fullscreenchange', () => { try { if (document.fullscreenElement && navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyT', 'KeyN', 'KeyQ', 'Tab']).catch(() => { }); else if (navigator.keyboard && navigator.keyboard.unlock) navigator.keyboard.unlock(); } catch (er) { } });
+addEventListener('beforeunload', e => { if (G.on && !G.over) { e.preventDefault(); e.returnValue = ''; } });
 addEventListener('keyup', e => { keys[e.code] = 0; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = 0; mouseL = mouseR = false; });
 const locked = () => document.pointerLockElement === canvas;

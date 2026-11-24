@@ -7,7 +7,7 @@ import { RELICS, ITEMS } from './levels.js';
 import { Toss, tossHit } from './toss.js';
 
 const COLORS = [0x2f6fd8, 0xd8762c, 0x8a3ab5, 0xd8c12c, 0x2fb5a6, 0xd83a7a, 0x6a8a2a];
-const PRE = 'goblinpeak-', VER = 12;     // bump when what players send each other changes
+const PRE = 'goblinpeak-', VER = 14;     // bump when what players send each other changes
 export class Net {
   constructor(G) { this.G = G; this.id = Math.random().toString(36).slice(2, 8); this.name = 'Hero'; this.on = false; this.isHost = false; this.code = ''; this.conns = []; this.peers = new Map(); this.acc = 0; this.ropes = []; this.status = ''; this.loop = new URLSearchParams(location.search).get('net') === 'loop'; this.lob = { map: 'l1', mode: 'race', racing: false }; this.fin = {}; this.endT = 0; }
   makeCode() { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let s = ''; for (let i = 0; i < 5; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
@@ -34,7 +34,10 @@ export class Net {
     if (m.t === 's') { let q = this.peers.get(m.from); if (!q) { q = this.spawnPeer(m); G.ui.toast(m.n + ' joined the climb.', 4); if (this.isHost) this.snapshot(m.from); } q.n = m.n; q.tx = m.p[0]; q.ty = m.p[1]; q.tz = m.p[2]; q.yaw = m.yaw; q.mode = m.dn ? 'crouch' : m.m; q.sp = m.sp; q.down = !!m.dn; q.pr = m.pr || 0; q.seen = G.time; if (q.r !== m.r) { q.r = m.r; q.x = q.tx; q.y = q.ty; q.z = q.tz; this.place(q); } }
     else if (m.t === 'boost' && m.to === this.id) { P.vel.y = 17; P.grounded = false; P.jumps = 1; P.pos.y += 0.1; G.audio.sfx('bounce'); G.ui.toast((this.nameOf(m.from)) + ' gave you a boost!', 3); }
     else if (m.t === 'pull' && m.to === this.id && m.r === G.world.def.id) { P.climb = P.swing = null; P.zip = { x: m.p[0], y: m.p[1] + 1.4, z: m.p[2], t: 0, last: 1e9, stuck: 0, sp: 24, pop: 6, sx: m.p[0], sy: m.p[1] + 1.4, sz: m.p[2] }; P.grounded = false; G.audio.sfx('whip'); G.ui.toast(this.nameOf(m.from) + ' is hauling you up with the whip!', 3); }
-    else if (m.t === 'push' && m.to === this.id) { if (G.count > 0 || this.pvpT > 0) return; this.pvpT = m.w ? 1.8 : 1.0; if (m.w) { P.climb = P.swing = P.zip = null; if (P.knock(m.d[0], m.d[1], m.k || 8, 4.5, true)) G.ui.toast(this.nameOf(m.from) + ' yanked you back with the whip!', 2); } else if (P.knock(m.d[0], m.d[1], G.mode === 'race' ? 11 : 9, G.mode === 'race' ? 6 : 5, G.mode !== 'race')) G.ui.toast(this.nameOf(m.from) + ' punched you!', 2); }
+    else if (m.t === 'push' && m.to === this.id) { if (G.count > 0 || this.pvpT > 0) return; this.pvpT = m.w ? 1.8 : 1.0; if (m.w) { if (P.inv > 0) return; const who = this.nameOf(m.from);
+        if (P.climb) { P.pos.y -= 0.5; G.audio.sfx('hit'); G.ui.toast(who + "'s whip made you slip!", 2); }                       // climbing: slip a foot or two, keep your grip
+        else if (!P.grounded) { this.frz = { t: 0.1, p: P.pos.clone(), v: P.vel.clone() }; G.audio.sfx('hit'); G.ui.toast(who + "'s whip caught you!", 1.5); }   // in the air: held for a tenth of a second
+        else if (P.knock(m.d[0], m.d[1], m.k || 8, 4.5, true)) G.ui.toast(who + ' yanked you back with the whip!', 2); } else if (P.knock(m.d[0], m.d[1], G.mode === 'race' ? 11 : 9, G.mode === 'race' ? 6 : 5, G.mode !== 'race')) G.ui.toast(this.nameOf(m.from) + ' punched you!', 2); }
     else if (m.t === 'tm') { const q = this.peers.get(m.from); if (q) { q.best = m.b || {}; q.run = m.r || {}; q.done = m.d || {}; } }
     else if (m.t === 'lob') { if (!this.isHost) this.lob = m.l; }
     else if (m.t === 'go') { this.lob.racing = true; this.fin = {}; this.endT = 0; G.startRace(m.map, m.mode, this.slot(), this.count()); }
@@ -57,7 +60,7 @@ export class Net {
     else if (m.t === 'up' && m.to === this.id) { if (P.down > 0) { P.down = 0; P.inv = 2.5; P.daze = 0; G.audio.sfx('camp'); G.ui.toast(this.nameOf(m.from) + ' helped you up!', 3); } }
     else if (m.t === 'call') { G.callMark = { x: m.p[0], y: m.p[1], z: m.p[2], r: m.r, n: m.n, t: 20 }; G.audio.sfx('item'); G.ui.toast(m.dn ? `${m.n} has been knocked dizzy and needs helping up!` : `${m.n} is calling for help` + (m.r === G.world.def.id ? ': follow the arrow.' : ` on ${(this.region(m.r) || G.world).def.name}.`), 6); }
     else if (m.t === 'rope') this.makeRope(m.r, m.p[0], m.p[1], m.p[2]);
-    else if (m.t === 'camp') { const W = G.regions ? G.regions[m.r] : (G.world.def.id === m.r ? G.world : null), c = W && W.camps[m.i - 1]; if (c && !c.lit) { c.setLit(true); G.save.camp[m.r] = Math.max(G.save.camp[m.r] || 0, m.i); G.ui.toast(this.nameOf(m.from) + ' lit a campfire: ' + (c.sec.name || 'camp') + '. Its rope net is down for you too.', 5); } }
+    else if (m.t === 'camp') { const W = G.regions ? G.regions[m.r] : (G.world.def.id === m.r ? G.world : null), c = W && W.camps[m.i - 1]; if (c && !c.lit && G.mode !== 'race') { c.setLit(true); G.save.camp[m.r] = Math.max(G.save.camp[m.r] || 0, m.i); G.ui.toast(this.nameOf(m.from) + ' lit a campfire: ' + (c.sec.name || 'camp') + '. Its rope net is down for you too.', 5); } }
   }
   // Finds are shared: a tool, relic or lowland adventure one hero gets, every hero gets.
   gotItem(k, from) { const G = this.G; if (G.save.items[k]) return; G.save.items[k] = 1; for (const W of this.worlds()) for (const e of W.ents) if (e.item === k && 'open' in e) e.open = true; if (from) { G.audio.sfx('item'); G.ui.toast(`${this.nameOf(from)} found ${ITEMS[k].name}. You have it too!  ${ITEMS[k].text}`, 10); } }
@@ -120,6 +123,7 @@ export class Net {
     return any;
   }
   update(dt) {
+    if (this.frz) { const f = this.frz, P = this.G.player; f.t -= dt; if (f.t > 0) { P.pos.copy(f.p); P.vel.set(0, 0, 0); } else { P.vel.copy(f.v); this.frz = null; } }
     this.pvpT = (this.pvpT || 0) - dt; const G = this.G, P = G.player, W = G.world, I = G.input; this.tmAcc = (this.tmAcc || 0) + dt; if (this.on && this.tmAcc > 1) { this.tmAcc = 0; this.send({ t: 'tm', b: G.save.best, r: G.save.run, d: G.save.done }); }
     for (const r of this.ropes) { r.t -= dt; if (r.t <= 0) { r.b.solid = false; r.W.scene.remove(r.m, r.peg); r.dead = true; } } if (this.ropes.some(r => r.dead)) this.ropes = this.ropes.filter(r => !r.dead);
     if (!this.on) return;

@@ -283,6 +283,8 @@ export class World {
   }
   b_camp(s) {
     const sp = this.spiral, idx = ++this.campN, f = this.ground(s, 9, -2.5); const cmp = this.add(new Camp(this, f.x, f.z, idx)); cmp.sec = s; this.camps.push(cmp);
+    { const ft = this.ground(s, 13, -(s.w - 2.6)), yaw = Math.atan2(-ft.nx, -ft.nz), tn = M.tent(0x8a5a3a); tn.position.set(ft.x, this.T.hAt(ft.x, ft.z), ft.z); tn.rotation.y = yaw; this.scene.add(tn); this.addCyl(ft.x, this.T.hAt(ft.x, ft.z) + 1.1, ft.z, 1.3, 1.1, null);
+      const fg = this.ground(s, 10.6, -(s.w - 3.4)); this.add(new NPC(this, fg.x, fg.z, { name: 'Camp Trader', model: M.goblin({ hat: 0xe2b33a, shirt: 0x3b6fb5 }), prompt: 'Buy upgrades', reach: 3.2, lines: [], after: g => g.ui.shop() })); }
 
     // the rope net down the cliff
     const phi = s.p0 + (21 / s.len) * (s.p1 - s.p0), dY = sp.trailY(phi) - sp.groundY(phi - TAU), cw = clamp(Math.abs(dY) / 1.6, 1.5, sp.P - s.w - 5), l0 = s.w - 1.5, l1 = s.w + cw + 2.5, c = sp.frame(phi, (l0 + l1) / 2, 0), hl = (l1 - l0) / 2;
@@ -466,7 +468,7 @@ export class World {
     if (got) G.addCoins(got, true);
     // story triggers along the trail
     if (this.spiral) {
-      const sp = this.spiral; sp.toRoute(p.x, p.z, rt); this.route = rt; if (P.grounded && !P.steep && rt.phi >= -0.3 && rt.phi <= sp.PHI + 0.3 && Math.abs(p.y - sp.groundY(rt.phi)) < 4.5 && Math.abs(rt.lat) < sp.width(rt.phi) + 0.8 && !this.inNet(p.x, p.z)) { P.routePhi = rt.phi; if (Math.abs(p.y - sp.trailY(rt.phi)) < 1.2 && Math.abs(rt.lat) < sp.width(rt.phi) - 1.2 && !G.fall) { const sf = P.safe = P.safe || {}; sf.x = p.x; sf.y = p.y; sf.z = p.z; sf.r = this.def.id; sf.yaw = P.yaw; } }
+      const sp = this.spiral; sp.toRoute(p.x, p.z, rt); this.route = rt; if (P.grounded && !P.steep && rt.phi >= -0.3 && rt.phi <= sp.PHI + 0.3 && Math.abs(p.y - sp.groundY(rt.phi)) < 4.5 && Math.abs(rt.lat) < sp.width(rt.phi) + 0.8 && !this.inNet(p.x, p.z)) { P.routePhi = rt.phi; if (Math.abs(p.y - sp.trailY(rt.phi)) < 1.2 && Math.abs(rt.lat) < sp.width(rt.phi) - 1.2 && !G.fall && (!G.drop || !P.safe || P.safe.phi === undefined || rt.phi >= P.safe.phi - 0.03)) { const sf = P.safe = P.safe || {}; sf.phi = rt.phi; sf.x = p.x; sf.y = p.y; sf.z = p.z; sf.r = this.def.id; sf.yaw = P.yaw; } }
       if (Math.abs(rt.lat) < 9 && Math.abs(p.y - sp.trailY(rt.phi)) < 7) for (const tr of this.triggers) {
         if (rt.phi < tr.p0 || rt.phi > tr.p1) continue; if (tr.key) { if (G.save.seen[tr.key]) continue; G.save.seen[tr.key] = 1; } else { if (tr.last && t - tr.last < tr.repeat) continue; tr.last = t; } tr.fn();
       }

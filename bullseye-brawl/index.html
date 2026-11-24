@@ -62,7 +62,7 @@ button:hover{background:#4a2c18}
 <div id="hud">
   <div id="score">
     <div class="side" id="s0"><div class="nm"></div><div class="pts">0</div><div class="bar"><i></i></div><div class="face"></div></div>
-    <div class="mid">FIRST<br>TO<br>100</div>
+    <div class="mid">FIRST<br>TO<br>300</div>
     <div class="side" id="s1"><div class="nm"></div><div class="pts">0</div><div class="bar"><i></i></div><div class="face"></div></div>
   </div>
   <div id="cross"></div>
@@ -82,7 +82,7 @@ button:hover{background:#4a2c18}
     <div class="row"><button data-d="0">Vs CPU: Easy</button><button data-d="1">Vs CPU: Normal</button><button data-d="2">Vs CPU: Hard</button></div>
     <div class="row"><button id="online">Play online 1 v 1</button><button id="hot">2 Players (same computer)</button></div>
     <div class="how">
-      <b>First to 100 points wins.</b> Three darts a turn. Treble ring = triple, outer ring = double, bull 25, bullseye 50.<br>
+      <b>First to 300 points wins.</b> Three darts a turn. Treble ring = triple, outer ring = double, bull 25, bullseye 50.<br>
       You stand beside your board and throw at the board across the bar, right where your opponent stands. <b>Nothing stops you throwing at him instead.</b> Body shots hurt. Darts in the face bleed, and <b>about three to the face and he bleeds out and passes out: you win</b>. He can do the same to you, so watch him and lean (A / D) or duck (C) when he lines one up on you.<br>
       Hold left click to wind up and let go to throw: let go on the green line and the dart lands on the crosshair, early drops low, late flies high. Shift holds your breath to steady your hand. You can hit anyone in the bar, but <b>hit the same person three times and the police come and beat you with clubs</b> until you pass out.
     </div>
@@ -309,7 +309,7 @@ function drawChalk() {
     x.fillStyle = '#1c2621'; x.fillRect(0, 0, w, h);
     for (let i = 0; i < 300; i++) { x.fillStyle = `rgba(255,255,255,${Math.random() * .04})`; x.fillRect(Math.random() * w, Math.random() * h, rand(10, 60), rand(2, 8)); }
     x.fillStyle = '#e8eee6'; x.textAlign = 'center'; x.font = `54px 'Permanent Marker', cursive`;
-    x.fillText('FIRST TO 100', w / 2, 80);
+    x.fillText('FIRST TO 300', w / 2, 80);
     x.fillRect(40, 108, w - 80, 4); x.fillRect(w / 2 - 2, 120, 4, h - 160);
     if (G.T) for (let i = 0; i < 2; i++) {
       const T = G.T[i], cx = i ? w * .75 : w * .25;
@@ -882,7 +882,7 @@ function land(d, hit, p, dir) {
       pop(sc.s ? (sc.label + (sc.s >= 20 || /BULL/.test(sc.label) ? '' : '') + (sc.s && !/^\d+$/.test(sc.label) ? ` · ${sc.s}` : '')) : 'MISS', sc.s >= 50 || sc.label.startsWith('TREBLE') ? '#7affa0' : '#ffd27a');
       if (sc.s >= 40 || sc.s === 50) S.crowd('cheer');
       if (!O.human && sc.s >= 40 && Math.random() < .5) say(O.name, pick(['Get in!', 'Read it and weep.', 'That\'s how it\'s done, sunshine.', 'Smell that? That\'s class.']));
-      if (O.score >= 100) finish(O, `${O.name} reached ${O.score}.`);
+      if (O.score >= 300) finish(O, `${O.name} reached ${O.score}.`);
     }
   } else if (hit.kind === 'wall' || hit.kind === 'floor') {
     stuck.push(d); S.thud(); pop('MISS', '#c8b090'); O.hist.push('-');
@@ -949,7 +949,7 @@ function cpuUpdate(T, dt) {
     // don't throw through a waiter
     if (waiters.some(w => Math.abs(w.g.position.x) < 1.5 && w.state === 'walk')) { c.t = .3; return; }
     const behind = foe.score - T.score;
-    let faceP = [.03, .06, .1][G.diff] + Math.min(4, T.grudge) * [.06, .09, .12][G.diff] + (behind > 30 ? .1 : 0) + (foe.faceHits >= 2 ? .1 : 0);
+    let faceP = [.03, .06, .1][G.diff] + Math.min(4, T.grudge) * [.06, .09, .12][G.diff] + (behind > 80 ? .1 : 0) + (foe.faceHits >= 2 ? .1 : 0);
     faceP = Math.min(.55, faceP);
     c.face = Math.random() < faceP && !foe.out;
     if (c.face) {

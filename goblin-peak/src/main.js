@@ -128,7 +128,12 @@ class Game {
   // Fall too far off the mountain and you are put back at your last lit campfire (or the trailhead).
   lucky(dt) {
     const P = this.player, W = this.world, S = this.save, COST = 15, WAIT = 8; if (P.dazeT > 0 && (P.dazeT -= dt) <= 0) P.daze = 0; if (this.callMark) this.callMark.t -= dt;
-    if (!this.fall) { const sf = P.safe; if (sf && sf.r === W.def.id && !W.def.hub && P.pos.y < sf.y - 12 && !this.locked && !P.zep) { this.fall = { r: sf.r, t: WAIT }; this.audio.sfx('nope'); this.fallCost(); } return; }
+    if (!this.fall) { const sf = P.safe; if (sf && sf.r === W.def.id && !W.def.hub && P.pos.y < sf.y - 12 && !this.locked && !P.zep) {
+        // Only a real fall counts: gliding, swinging or dropping down to a later stretch of the trail is just climbing.
+        this.drop = (this.drop || 0) + dt; const rt = W.route, sp = W.spiral, onward = rt && sp && sf.phi !== undefined && rt.phi >= sf.phi - 0.03 && Math.abs(P.pos.y - sp.groundY(rt.phi)) < 6;
+        if (onward && P.grounded) { sf.y = P.pos.y; sf.x = P.pos.x; sf.z = P.pos.z; sf.phi = rt.phi; this.drop = 0; }
+        else if (!onward && (P.grounded || P.swim || this.drop > 4) || this.drop > 9) { this.drop = 0; this.fall = { r: sf.r, t: WAIT }; this.audio.sfx('nope'); this.fallCost(); }
+      } else this.drop = 0; return; }
     const f = this.fall, n = S.camp[W.def.id] || 0, c = n && W.camps[n - 1], where = c ? (c.sec.name || 'your campfire') : 'the trailhead'; f.t -= dt;
     if (f.r !== W.def.id) { this.fall = null; this.ui.show('lucky', false); return; }
     const pay = this.input.hit('KeyR') && S.coins >= COST && !this.locked; this.ui.show('lucky', true);

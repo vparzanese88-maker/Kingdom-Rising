@@ -35,7 +35,7 @@ export const CLASSES = {
   },
   sniper: {
     name: 'Sniper', color: 0x4aa8a0, hp: 100, speed: 8.2, role: 'Long-range spotter',
-    gun: { name: 'XR-9 Rail Rifle', dmg: 160, rate: 0.85, mag: 5, reserve: 40, reload: 2.5, spread: 0.035, scoped: 0.0006, kind: 'hit', sound: 'sniper', recoil: 0.09, near: 400, far: 400, max: 260, pierce: 3 },
+    gun: { name: 'XR-9 Rail Rifle', semi: 1, dmg: 130, rate: 3.2, mag: 10, reserve: 60, reload: 2.4, spread: 0.035, scoped: 0.0006, kind: 'hit', sound: 'sniper', recoil: 0.09, near: 400, far: 400, max: 260, pierce: 3 },
     throw: { kind: 'frag', name: 'Frag grenade', n: 2 },
     team: 'Spotter: aliens you hit show on the minimap and take more damage.',
     sentry: 'railgun', defense: 'nest', third: 'uav',
@@ -214,14 +214,14 @@ export const VEHICLES = {
   // unlock: harvested material needed before the commander can build it (harvesters pull it from the ground; then it still costs scrap parts)
   // mounts: the fixed turret spots on each vehicle, [right, up, back] in metres from its centre (the nose points forward); turrets only go on these
   quad: { name: 'Quad Bike', unlock: 90, parts: 50, hp: 1300, text: 'Fast four-wheeler with a platform on the back for 1 turret.', mounts: [[0, 1.55, 1.3]] },
-  truck: { name: 'Gun Truck', unlock: 360, parts: 130, hp: 2600, seats: [[0.7, 1.75, 0.6], [-0.7, 1.75, 0.6]], text: 'Armoured truck with a .50 cal that follows your aim and a flatbed for 2 turrets.', mounts: [[0, 1.75, 1.25], [0, 1.75, 2.7]] },
-  vtol: { name: 'VTOL Gunship', unlock: 900, parts: 240, hp: 2600, seats: [[-1.25, -0.9, -0.4], [1.25, -0.9, -0.4]], text: 'Flies (jump climbs, crouch descends), twin door miniguns and 3 turret mounts.', mounts: [[-5.4, -0.85, 0.2], [5.4, -0.85, 0.2], [0, 0.15, 3.1]] },
+  truck: { name: 'Gun Truck', unlock: 360, parts: 130, hp: 2600, seats: [[0.95, 1.75, 1.7, 1], [-0.95, 1.75, 1.7, -1]], text: 'Armoured truck with a .50 cal that follows your aim and a flatbed for 2 turrets.', mounts: [[0, 1.75, 1.25], [0, 1.75, 2.7]] },
+  vtol: { name: 'VTOL Gunship', unlock: 900, parts: 240, hp: 2600, seats: [[-1.15, -0.45, -0.6, -1], [1.15, -0.45, -0.6, 1]], text: 'Flies (jump climbs, crouch descends), twin door miniguns and 3 turret mounts.', mounts: [[-5.4, -0.85, 0.2], [5.4, -0.85, 0.2], [0, 0.15, 3.1]] },
 };
 // only gun turrets ride on a vehicle mount (no walls, bunkers, beacons, pads or mines)
 export const mountable = k => { const T = TURRETS[k]; return !!T && T.key === 'sentry' && !T.onPath && !T.mine; };
 // where mount i of vehicle v sits in the world (v: {kind, x, y, z, ry})
 // passenger seats ([right, up, back], like mounts): the truck bed behind the cab, the VTOL's two side doors
-export function seatAt(v, i) { const m = VEHICLES[v.kind] && (VEHICLES[v.kind].seats || [])[i]; if (!m) return null; const c = Math.cos(v.ry), s = Math.sin(v.ry); return { x: v.x + m[0] * c + m[2] * s, y: v.y + m[1], z: v.z - m[0] * s + m[2] * c }; }
+export function seatAt(v, i) { const m = VEHICLES[v.kind] && (VEHICLES[v.kind].seats || [])[i]; if (!m) return null; const c = Math.cos(v.ry), s = Math.sin(v.ry); return { x: v.x + m[0] * c + m[2] * s, y: v.y + m[1], z: v.z - m[0] * s + m[2] * c, ry: v.ry - (m[3] || 1) * Math.PI / 2 }; }   // seats: [x, hip height, z, side]; ry faces out of that side
 export function mountAt(v, i) { const m = VEHICLES[v.kind] && VEHICLES[v.kind].mounts[i]; if (!m) return null; const c = Math.cos(v.ry), s = Math.sin(v.ry); return { x: v.x + m[0] * c + m[2] * s, y: v.y + m[1], z: v.z - m[0] * s + m[2] * c }; }
 export const ALLIES = {
   pulsesynth: { name: 'Pulse Synth', hp: 650, dmg: 24, rate: 4, range: 20, speed: 5.6, color: 0x8a2020, gun: 'assault', model: 'synth', weapon: 'pulse', unlock: 0, text: 'A chrome robot soldier with a pulse rifle.' },

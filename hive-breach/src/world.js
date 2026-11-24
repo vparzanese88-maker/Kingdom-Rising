@@ -288,7 +288,7 @@ export function buildWorld(scene, mapId, diff = 0) {
   for (const l of W.lore || []) W.wrecks.push({ x: l.x, z: l.z, r: 4 }); for (const l of W.loot || []) W.wrecks.push({ x: l.x, z: l.z, r: 4 });
   // bullets: big props stop them (a grid of colliders with heights, looked up by cell)
   const cell = 16, grid = new Map(); for (const c of W.colliders) { c.gy = c.gy ?? T.raw(c.x, c.z); c.h = c.h ?? 3; const x0 = Math.floor((c.x - c.r) / cell), x1 = Math.floor((c.x + c.r) / cell), z0 = Math.floor((c.z - c.r) / cell), z1 = Math.floor((c.z + c.r) / cell); for (let a = x0; a <= x1; a++) for (let b = z0; b <= z1; b++) { const k = a + ',' + b; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(c); } }
-  const CR = W.caveRoof; T.block = (x, y, z) => { if (CR && y > CR.y && y < CR.y + 7 && (x - CR.x) ** 2 + (z - CR.z) ** 2 < CR.r * CR.r) return true; const l = grid.get(Math.floor(x / cell) + ',' + Math.floor(z / cell)); if (!l) return false; for (const c of l) if (y < c.gy + c.h && y > c.gy - 1 && (x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true; return false; };
+  const CR = W.caveRoof; T.block = (x, y, z) => { if (CR && y > CR.y && y < CR.y + 7 && (x - CR.x) ** 2 + (z - CR.z) ** 2 < CR.r * CR.r) return true; const l = grid.get(Math.floor(x / cell) + ',' + Math.floor(z / cell)); if (!l) return false; for (const c of l) { const d2 = (x - c.x) ** 2 + (z - c.z) ** 2; if (y < c.gy + c.h && y > c.gy - 1 && d2 < c.r * c.r && !(c.ring && d2 < (c.r - 0.8) ** 2)) return true; } return false; };   /* a sandbag ring is hollow: you shoot out of it */
   // a picture of the land for the maps: shaded relief in the planet's own colours, glowing chasms, the track as a road with its bridges and tunnels, the hub, rocks and wrecks
   W.miniBg = mapPicture(W, T, path, mapId);
   mergeStatic(g, new Set([ground, liq, W.dome, W.hive, W.hub, W.healRing, W.hiveShield, W.caveLight, hemi, sun, sun.target, ...(W.nodeG || []), ...(W.salvMesh || [])]));
@@ -524,7 +524,7 @@ function battlefield(g, W, T, D, mapId, path) {
     const q = path.at(s);
     for (const sd of [-1, 1]) {
       if (R() < 0.35) continue; const off = 14 + R() * 26, x = q.x - q.tz * sd * off, z = q.z + q.tx * sd * off; if (!free(x, z, 12)) continue; const k = R();
-      if (k < 0.3) { const m = M.sandbags(R); m.position.set(x, T.raw(x, z), z); m.rotation.y = Math.atan2(q.tx, q.tz) + (sd > 0 ? Math.PI / 2 : -Math.PI / 2); settle(m, T, 0.2); g.add(m);   /* down onto the lowest ground under the ring: none hover on slopes */ W.colliders.push({ x, z, r: 2.5, h: 1.1 }); (W.bags = W.bags || []).push({ x, z }); }   // the map's own sandbag walls: cover anyone can use
+      if (k < 0.3) { const m = M.sandbags(R); m.position.set(x, T.raw(x, z), z); m.rotation.y = Math.atan2(q.tx, q.tz) + (sd > 0 ? Math.PI / 2 : -Math.PI / 2); settle(m, T, 0.2); g.add(m);   /* down onto the lowest ground under the ring: none hover on slopes */ W.colliders.push({ x, z, r: 2.5, h: 1.1, ring: 1 }); (W.bags = W.bags || []).push({ x, z }); }   // the map's own sandbag walls: cover anyone can use
       else if (k < 0.45) put(M.tankTrap, x, z, [1, 1.8]);
       else if (k < 0.62) put(M.corpse, x, z);
       else if (k < 0.8) put(M.carcass, x, z);

@@ -576,7 +576,9 @@ function syncView(S, dt) {
       if (Math.hypot(tx - v.x, tz - v.z) > 8) { v.x = tx; v.z = tz; } else { v.x += (tx - v.x) * kk; v.z += (tz - v.z) * kk; } v.y += (p.y - v.y) * kk;
       if (now - (v.nt ?? now) > 0.35) { v.vx = (v.vx || 0) * 0.85; v.vz = (v.vz || 0) * 0.85; }   /* no news: they have stopped */ }
     const sp = Math.hypot(v.vx || 0, v.vz || 0); v.sps = (v.sps ?? sp) + (sp - (v.sps ?? sp)) * Math.min(1, dt * 6);
-    v.t += dt * Math.min(v.sps, 9) * 1.6; M.animMarine(v.mesh, v.t, v.sps, { fire: p.fire }); v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = turnTo(v.mesh.rotation.y, p.yaw, dt, 14); v.mesh.visible = !p.dead && !p.veh && !G.cine;
+    const sv0 = p.seatv && (S.V || []).find(q => q.id === p.seatv), vv0 = sv0 && vehV.get(sv0.id), st0 = vv0 && seatAt({ kind: sv0.kind, x: vv0.x, y: vv0.y, z: vv0.z, ry: vv0.ry }, p.seat);
+    if (st0) { const u = v.mesh.userData; if (u.glb) { M.AS.setPose(v.mesh, 'sit', 0.2); u.mixer.update(dt); u.sit = 1; } v.x = st0.x; v.y = st0.y; v.z = st0.z; v.mesh.position.set(st0.x, st0.y - 0.5, st0.z); v.mesh.rotation.y = st0.ry; }   /* a passenger sits in the seat, facing out, locked to the vehicle */
+    else { if (v.mesh.userData.sit) v.mesh.userData.sit = 0; v.t += dt * Math.min(v.sps, 9) * 1.6; M.animMarine(v.mesh, v.t, v.sps, { fire: p.fire }); v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = turnTo(v.mesh.rotation.y, p.yaw, dt, 14); } v.mesh.visible = !p.dead && !p.veh && !G.cine;
     if (p.veh && (!v.vm || v.vk !== p.veh)) { if (v.vm) scene.remove(v.vm); v.vk = p.veh; v.vm = p.veh === 1 ? roverModel() : vtolModel(); scene.add(v.vm); } if (v.vm) { v.vm.visible = !!p.veh; v.vm.position.set(v.x, v.y, v.z); v.vm.rotation.y = p.yaw; if (v.vk === 2) for (const r of v.vm.userData.rotors) r.rotation.y += dt * 30; } M.kneel(v.mesh, p.kn); v.kick = Math.max(0, (v.kick || 0) - dt * 8); v.mesh.userData.arms.rotation.x = v.kick * 0.25;
     if (!v.hpb) { v.hpb = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x40e070, depthTest: false })); v.hpb.center.set(0, 0.5); v.hpb.position.set(-0.9, 2.35, 0); v.hpb.renderOrder = 6; v.mesh.add(v.hpb); }
     const hf = Math.max(0, p.hp / p.mhp); v.hpb.scale.set(1.8 * hf + 0.001, 0.12, 1); v.hpb.material.color.setHex(hf < 0.3 ? 0xff4040 : 0x40e070);
@@ -667,7 +669,7 @@ function hitAliens(o, d, maxD) {
   for (const v of (G.explore && G.ex ? G.ex.wild : view.aliens.values())) {
     // point-blank: an alien within about 3 m that you're roughly aiming at is hit, wherever its little hit spheres happen to be mid-lunge
     { const sc0 = v.mesh ? v.mesh.scale.x : 1, A0 = ALIENS[v.type] || {}, hy = v.y + Math.max(0.35, (A0.h || 1) * 0.45) * Math.min(1, sc0 + 0.3), dx = v.x - o.x, dy = hy - o.y, dz = v.z - o.z, hd = Math.hypot(dx, dz);
-      if (hd < 3.2) { const dl = Math.hypot(dx, dy, dz) || 1, cs = (dx * d.x + dy * d.y + dz * d.z) / dl; if (cs > (hd < 1.6 ? 0.62 : 0.8) && dl < maxD + 1) { out.push({ v, t: Math.max(0, dl - 0.5), head: false }); continue; } } }
+      if (hd < 3.2) { const dl = Math.hypot(dx, dy, dz) || 1, cs = (dx * d.x + dy * d.y + dz * d.z) / dl; if (cs > (hd < 1.6 ? 0.62 : 0.8) && dl < Math.max(maxD + 1, 3.6)) { out.push({ v, t: Math.max(0, dl - 0.5), head: false }); continue; }   /* point blank: never stopped by the dirt at your feet */ } }
     const mhb = v.mesh && v.mesh.userData.hb; if (mhb) { const hb = mhb; // a Meshy alien: a chain of spheres along its body, and its head at the front
       const sc = v.mesh.scale.x, ry = v.mesh.rotation.y, ax = Math.sin(ry), az = Math.cos(ry), cx = v.x + ax * hb.cz * sc, cy = v.y + hb.cy * sc, cz = v.z + az * hb.cz * sc, rad = Math.max(0.35, Math.min(hb.wid, hb.hgt) * 0.42) * sc;
       let bt = -1; for (const k of [-0.36, -0.12, 0.12, 0.36]) { const t = sphereHit(o, d, cx + ax * k * hb.len * sc, cy, cz + az * k * hb.len * sc, rad); if (t >= 0 && (bt < 0 || t < bt)) bt = t; }
@@ -692,7 +694,7 @@ function hitAlien(o, d, maxD) {
 function muzzle() { const gg = G.me && G.me.slot === 1 ? view2.pistol : view2.gun, p = gg && gg.userData.glb ? new THREE.Vector3(0, 0.02, -(gg.userData.len * 0.68)) : new THREE.Vector3(0.05, 0.02, -0.75); (G.me && G.me.slot === 1 ? view2.pistol : view2.gun).localToWorld(p); return [p.x, p.y, p.z]; }
 function shoot(st) {
   const C = CLASSES[G.cls], g = curGun(), me = G.me, myb = (mine(state()) || {}).buf || {}, lv = 0, power = 1; if (!(myb.storm > 0)) me.ammo--; me.cd = 1 / st.rate; me.kick = 1; me.shotN = (me.shotN || 0) + 1;
-  if (((g.pellets && !g.semi) || G.cls === 'sniper') && me.ammo > 0) me.pumpAt = 0.32;
+  if ((g.pellets && !g.semi) && me.ammo > 0) me.pumpAt = 0.32;   /* the rail rifle is semi-automatic now: no bolt between shots */
   audio.gun(g.sound, 1, power, 0);
   // recoil: the view climbs and drifts; kneeling halves it; part of it settles back
   const rk0 = g.recoil * (myb.fortify > 0 ? 0.1 : 1) * (me.prone ? 0.3 : me.kneel ? 0.5 : 1) * (1 + 0.08 * lv) * (0.75 + Math.random() * 0.5); me.pitch = Math.min(1.5, me.pitch + rk0); me.yaw += (Math.random() - 0.5) * rk0 * 0.8; me.rcv = (me.rcv || 0) + rk0 * 0.55;
@@ -702,7 +704,8 @@ function shoot(st) {
   else smoke(mz[0], mz[1], mz[2], 3, 0.4);
   if (g.kind === 'rocket') {
     const r = aimRay(0); const v = r.d.clone().multiplyScalar(48);
-    const rk = { x: r.o.x + r.d.x * 0.8, y: r.o.y + r.d.y * 0.8 - 0.15, z: r.o.z + r.d.z * 0.8, vx: v.x, vy: v.y, vz: v.z, t: g.life, mesh: null, napalm: myb.napalm > 0 };
+    const rk = { x: r.o.x, y: r.o.y - 0.15, z: r.o.z, vx: v.x, vy: v.y, vz: v.z, t: g.life, mesh: null, napalm: myb.napalm > 0 };   /* it starts at your eye and checks its path from there, so an alien a step away is hit too */
+    { const pb = hitAliens(r.o, r.d, 3.5); if (pb.length) { const q = pb[0], tt = Math.max(0.2, q.t - 0.3); rk.x = r.o.x + r.d.x * tt; rk.y = r.o.y + r.d.y * tt; rk.z = r.o.z + r.d.z * tt; rk.vx = rk.vy = rk.vz = 0.001; rk.t = 0.0005; } }   /* point blank: it bursts on the alien in your face */
     // where it will land, so friends can see it fly there
     const sim = { ...rk }; let tt = 0; while (tt < g.life) { if (stepRocket(sim, 0.02)) break; tt += 0.02; }
     send({ k: 'rk', a: mz, b: [sim.x, sim.y, sim.z], t: Math.max(0.05, tt) });
@@ -973,10 +976,13 @@ function muzzleTool() { const p = new THREE.Vector3(0, 0.02, -0.7); ((G.me.slot 
 function flame(x, y, z, vx, vz) { const m = M.mat(Math.random() < 0.5 ? 0xff8020 : 0xffd040, { e: 0xff6000, ei: 1.5 }); let p = FX.parts.find(q => !q.alive); if (!p) { if (FX.parts.length > (G.maxParts || 220)) return; p = { mesh: new THREE.Mesh(partGeo, m) }; scene.add(p.mesh); FX.parts.push(p); } p.alive = true; p.smoke = false; p.mesh.visible = true; p.mesh.material = m; p.mesh.position.set(x, y, z); p.mesh.scale.setScalar(2 + Math.random() * 2); p.vx = vx; p.vy = 1 + Math.random() * 2; p.vz = vz; p.life = 0.45 + Math.random() * 0.25; p.gy = -99; }
 function casing(x, y, z, vx, vy, vz) { const m = M.mat(0xc8a040, { m: 0.8, r: 0.3 }); let p = FX.parts.find(q => !q.alive); if (!p) { if (FX.parts.length > (G.maxParts || 220)) return; p = { mesh: new THREE.Mesh(partGeo, m) }; scene.add(p.mesh); FX.parts.push(p); } p.alive = true; p.smoke = false; p.mesh.visible = true; p.mesh.material = m; p.mesh.position.set(x, y, z); p.mesh.scale.set(0.18, 0.18, 0.4); p.vx = vx + (Math.random() - 0.5); p.vy = vy + Math.random(); p.vz = vz + (Math.random() - 0.5); p.life = 1.2; p.casing = 1; p.gy = G.W.ground(x, z, y) + 0.03; }
 function stepRocket(r, dt) {
-  r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt; r.t -= dt;
+  const px = r.x, py = r.y, pz = r.z; r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt; r.t -= dt;
   if (G.W.T.solid(r.x, r.y, r.z) || r.t <= 0 || Math.abs(r.x) > BOUNDS + 5 || Math.abs(r.z) > BOUNDS + 5) return true;
-  for (const c of G.W.colliders) if (Math.hypot(r.x - c.x, r.z - c.z) < c.r && r.y < G.W.top(c.x, c.z) + 5) return true;
-  for (const v of view.aliens.values()) { const A = ALIENS[v.type], big = v.type === 'ravager' ? 1.7 : 1; if (Math.hypot(r.x - v.x, r.y - (v.y + (A.fly ? 0 : A.h * 0.6 * big)), r.z - v.z) < A.r * 1.2) return true; }
+  if (G.W.T.block && G.W.T.block(r.x, r.y, r.z)) return true;   /* props by their real height; a sandbag ring is hollow */
+  // aliens: tested along the whole step (a fast rocket never skips through one), against their real size
+  const sx = r.x - px, sy = r.y - py, sz = r.z - pz, sl = sx * sx + sy * sy + sz * sz || 1;
+  for (const v of view.aliens.values()) { const A = ALIENS[v.type], sc = v.mesh ? v.mesh.scale.x : 1, cy = v.y + (A.fly ? 0 : A.h * 0.55 * sc), rad = Math.max(0.6, A.r * 1.25 * sc), u = Math.max(0, Math.min(1, ((v.x - px) * sx + (cy - py) * sy + (v.z - pz) * sz) / sl));
+    if (Math.hypot(px + sx * u - v.x, py + sy * u - cy, pz + sz * u - v.z) < rad) { r.x = px + sx * u; r.y = py + sy * u; r.z = pz + sz * u; return true; } }
   return false;
 }
 // what this player's game tells the others about (shots, rockets, grenades)
@@ -1215,7 +1221,8 @@ function updateMe(dt, S) {
   G.punch = Math.max(0, (G.punch || 0) - dt * 30); const fov = me.scope ? 20 : me.ads ? SET.fov * 0.55 : SET.fov + (run > 1 && me.moving ? 6 : 0) - G.punch * 0.6 - me.kh * 3; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 14); camera.updateProjectionMatrix(); }
   camera.position.set(me.x + (Math.random() - 0.5) * sh, (my.dead ? 3.5 : 1.7 - me.kh * 0.75) + me.y + Math.sin(me.bob) * 0.05 + (Math.random() - 0.5) * sh, me.z);
   camera.rotation.set(me.pitch, me.yaw, 0, 'YXZ');
-  if (my.seatv && !my.dead) { const sv = (S.V || []).find(q => q.id === my.seatv), vv = sv && vehV.get(sv.id), dv2 = G.me.dv; if (vv) { const st = seatAt({ kind: sv.kind, x: vv.x, y: vv.y, z: vv.z, ry: vv.ry }, my.seat); if (st) { me.x = st.x; me.y = st.y; me.z = st.z; me.vy = 0; } }   /* riding: you stand where the seat is (the truck bed, a VTOL door) */
+  if (!my.seatv) { me.seatRy = undefined; me.seatV = 0; }
+  if (my.seatv && !my.dead) { const sv = (S.V || []).find(q => q.id === my.seatv), vv = sv && vehV.get(sv.id), dv2 = G.me.dv; if (vv) { const st = seatAt({ kind: sv.kind, x: vv.x, y: vv.y, z: vv.z, ry: vv.ry }, my.seat); if (st) { if (me.seatRy === undefined || me.seatV !== my.seatv) { me.yaw = st.ry; me.pitch = -0.12; me.seatV = my.seatv; } else me.yaw += st.ry - me.seatRy; me.seatRy = st.ry; me.x = st.x; me.y = st.y - 0.95; me.z = st.z; me.vy = 0; me.kneel = false; me.prone = false; } }   /* riding: seated on the bed's edge or in the VTOL's door, facing out of the side (look and shoot anywhere); the view turns with the vehicle */
     prompt(`Riding in the ${sv ? VEHICLES[sv.kind].name : 'vehicle'} · shoot as normal · <b>${keyName(KB.use)}</b> get out`); if (hits[KB.use] && locked()) { hits[KB.use] = 0; req({ a: 'unboard' }); } void dv2; }
   // carrying a turret: the camera swings back over the shoulder so you can see where it's going
   me.braced = G.cls === 'gunner' && (S.T.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - me.x, t.z - me.z) < TURRETS.sandbag.range) || (G.W.bags || []).some(b => Math.hypot(b.x - me.x, b.z - me.z) < 3.6));
@@ -1284,7 +1291,7 @@ function updateMe(dt, S) {
     if (me.slot === 3 && clickL && !me.place && me.cd <= 0) { clickL = false; me.cd = 0.8; throwItem(my); }
     if (hits[KB.grenade] && !me.place && (me.gcd || 0) <= 0) { me.gcd = 0.8; throwItem(my); }
     if (!me.place) {
-      const g = curGun(); if (me.holdFire && !mouseL && !mouseR) me.holdFire = false; if (clickL) me.semiQ = G.time; const semi = g.semi && me.slot === 0, trig = (mouseL || (semi && G.time - (me.semiQ ?? -9) < 0.4)) && !me.holdFire;   /* hold the trigger for automatic fire on every gun (a quick click is still buffered) */   // the Engineer's auto shotgun fires once per click (a click made while it cycles still fires)
+      const g = curGun(); if (me.holdFire && !mouseL && !mouseR) me.holdFire = false; if (clickL) me.semiQ = G.time; const semi = g.semi && me.slot === 0, trueSemi = semi && G.cls === 'sniper', trig = ((trueSemi ? false : mouseL) || (semi && G.time - (me.semiQ ?? -9) < 0.4)) && !me.holdFire;   /* the Sniper's rail rifle is truly semi-automatic: one shot per click (10 in the magazine) */   /* hold the trigger for automatic fire on every gun (a quick click is still buffered) */   // the Engineer's auto shotgun fires once per click (a click made while it cycles still fires)
       if (g.spin) { const want = (trig || mouseR) && me.rel <= 0 && !me.holdFire; if (want && me.spin === 0) audio.sfx('spin', 0.8); me.spin = want ? Math.min(1, me.spin + dt / g.spin) : Math.max(0, me.spin - dt * 1.5); }
       if (me.shells && trig && me.ammo > 0) { me.shells = false; me.pumpAt = 0.05; }
       if (me.slot <= 1 && trig && !me.carry && me.cd <= 0 && me.rel <= 0 && !me.shells && (!g.spin || me.spin >= 1)) { if (me.ammo > 0) { shoot(st); me.semiQ = -9; } else if (me.reserve >= 1 && !me.shells) startReload(st, S); else { me.cd = 0.4; audio.sfx('empty'); if (G.time - (G.emptyT || 0) > 3) { G.emptyT = G.time; toast('OUT OF AMMO: get back to the hub, or find a Gunner\'s ammo crate.', 3); } } }

@@ -265,7 +265,7 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 #info .gk{font:600 1em "Share Tech Mono",monospace;color:var(--gold);min-width:2.6em;white-space:nowrap;padding-top:.15em}
 #info .gi b{font-size:1.08em;color:#fff}#info .gi p{margin:.15em 0;color:#d8e6f0;line-height:1.3}#info .gi small{color:#9ec0d4;font-size:.85em}
 @media (max-width:800px){#info{overflow:auto!important}#info .gg{grid-template-columns:repeat(2,1fr);grid-auto-rows:auto}}
-#squad{position:fixed;left:10px;bottom:230px;z-index:12;width:250px;font:600 12px 'Chakra Petch',sans-serif;color:#cfe6f2;pointer-events:none}#squad .sm{display:grid;grid-template-columns:12px 1fr auto;gap:2px 6px;align-items:center;background:rgba(6,14,22,.72);border-left:3px solid var(--c);padding:4px 7px;margin-top:4px}#squad .dot{width:10px;height:10px;transform:rotate(45deg);background:var(--c)}#squad .nm b{color:#fff}#squad .nm small{color:#9fb8c8;margin-left:4px}#squad .ds{color:#9fb8c8}#squad .bars{grid-column:2/4;display:grid;grid-template-columns:1fr 54px;gap:6px;align-items:center}#squad .hb{height:5px;background:#2a0c0c}#squad .hb i{display:block;height:100%;background:#4ce07a}#squad .hb i.lo{background:#ff5040}#squad .am{font-size:11px;color:#ffd060;text-align:right}#squad .down{color:#ff5040}
+#squad{position:fixed;left:10px;top:max(250px,42vh);max-height:30vh;overflow:hidden;z-index:12;width:250px;font:600 12px 'Chakra Petch',sans-serif;color:#cfe6f2;pointer-events:none}#squad .sm{display:grid;grid-template-columns:12px 1fr auto;gap:2px 6px;align-items:center;background:rgba(6,14,22,.72);border-left:3px solid var(--c);padding:4px 7px;margin-top:4px}#squad .dot{width:10px;height:10px;transform:rotate(45deg);background:var(--c)}#squad .nm b{color:#fff}#squad .nm small{color:#9fb8c8;margin-left:4px}#squad .ds{color:#9fb8c8}#squad .bars{grid-column:2/4;display:grid;grid-template-columns:1fr 54px;gap:6px;align-items:center}#squad .hb{height:5px;background:#2a0c0c}#squad .hb i{display:block;height:100%;background:#4ce07a}#squad .hb i.lo{background:#ff5040}#squad .am{font-size:11px;color:#ffd060;text-align:right}#squad .down{color:#ff5040}
 #tmarks .tm{position:fixed;z-index:11;transform:translate(-50%,-100%);pointer-events:none;text-align:center;font:700 11px 'Chakra Petch',sans-serif;color:#fff;text-shadow:0 0 3px #000,0 0 6px #000;white-space:nowrap}#tmarks .tm .hb{width:46px;height:4px;background:rgba(40,10,10,.8);margin:2px auto 0}#tmarks .tm .hb i{display:block;height:100%;background:#4ce07a}#tmarks .tm .ar{display:block;margin:0 auto 1px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid var(--c)}#tmarks .tm.edge .ar{border-top-width:12px}
 #comm{position:fixed;right:18px;top:205px;z-index:21;width:150px;padding:6px;background:rgba(6,14,22,.85);border:1px solid rgba(95,216,255,.55);box-shadow:0 0 18px rgba(95,216,255,.25);pointer-events:none;animation:commIn .25s ease-out}#comm .cimg{position:relative;width:138px;height:138px;overflow:hidden;border:1px solid rgba(95,216,255,.35)}#comm img{width:100%;height:100%;display:block;filter:contrast(1.05) saturate(.9)}#comm .scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 4px);mix-blend-mode:multiply}#comm.talk .cimg{box-shadow:inset 0 0 0 2px rgba(96,255,144,.6)}#commSig{display:block;width:138px;height:44px;margin-top:5px;background:rgba(0,24,16,.85);border:1px solid rgba(96,255,144,.55);box-shadow:0 0 10px rgba(96,255,144,.25)}#comm.gen #commSig{border-color:rgba(160,190,255,.3)}#commN{font:700 12px/1.25 'Chakra Petch',sans-serif;letter-spacing:.08em;color:#5fd8ff;margin-top:5px;text-align:center}#comm.gen{border-color:rgba(160,190,255,.6)}#comm.gen #commN{color:#a8c4ff}
 #qcard{position:fixed;right:178px;top:205px;z-index:13;width:170px;height:170px;border:1px solid rgba(255,90,60,.7);box-shadow:0 0 18px rgba(255,60,30,.3);pointer-events:none;animation:commIn .25s ease-out}#qcardL{position:absolute;left:0;right:0;bottom:-20px;text-align:center;font:700 11px 'Chakra Petch',sans-serif;letter-spacing:.12em;color:#ff7a50;background:rgba(6,14,22,.85);padding:2px 0}@keyframes commIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
@@ -275,18 +275,18 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 {
 "imports": {
 "three": "./vendor/three.module.min.js",
-"./src/assets.js": "./src/assets.js?v=1795497583",
-"./src/audio.js": "./src/audio.js?v=1795497583",
-"./src/data.js": "./src/data.js?v=1795497583",
-"./src/explore.js": "./src/explore.js?v=1795497583",
-"./src/icons.js": "./src/icons.js?v=1795497583",
-"./src/main.js": "./src/main.js?v=1795497583",
-"./src/models.js": "./src/models.js?v=1795497583",
-"./src/music.js": "./src/music.js?v=1795497583",
-"./src/net.js": "./src/net.js?v=1795497583",
-"./src/sim.js": "./src/sim.js?v=1795497583",
-"./src/voice.js": "./src/voice.js?v=1795497583",
-"./src/world.js": "./src/world.js?v=1795497583"
+"./src/assets.js": "./src/assets.js?v=1795499215",
+"./src/audio.js": "./src/audio.js?v=1795499215",
+"./src/data.js": "./src/data.js?v=1795499215",
+"./src/explore.js": "./src/explore.js?v=1795499215",
+"./src/icons.js": "./src/icons.js?v=1795499215",
+"./src/main.js": "./src/main.js?v=1795499215",
+"./src/models.js": "./src/models.js?v=1795499215",
+"./src/music.js": "./src/music.js?v=1795499215",
+"./src/net.js": "./src/net.js?v=1795499215",
+"./src/sim.js": "./src/sim.js?v=1795499215",
+"./src/voice.js": "./src/voice.js?v=1795499215",
+"./src/world.js": "./src/world.js?v=1795499215"
 }
 }
 </script>
@@ -353,6 +353,6 @@ body{font:16px/1.45 "Chakra Petch","Segoe UI",system-ui,sans-serif}
 </div></div>
 
 <script src="./vendor/peerjs.min.js"></script>
-<script type="module" src="./src/main.js?v=1795497583"></script>
+<script type="module" src="./src/main.js?v=1795499215"></script>
 </body>
 </html>

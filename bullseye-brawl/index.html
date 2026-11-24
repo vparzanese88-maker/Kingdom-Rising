@@ -58,6 +58,7 @@ button:hover{background:#4a2c18}
 <canvas id="fx"></canvas>
 <div id="red"></div>
 <div id="black"></div>
+<div id="nowplay" style="position:fixed;left:12px;bottom:22px;font-size:14px;color:#ffe2b0;text-shadow:0 1px 3px #000;opacity:0;transition:opacity .6s;pointer-events:none;background:#0008;padding:5px 10px;border-radius:6px"></div>
 
 <div id="hud">
   <div id="score">
@@ -373,12 +374,13 @@ for (const [x, z] of [[-1.5, 2.25], [1.5, -2.25]]) {
   mesh(new THREE.CylinderGeometry(.04, .035, .13, 10), std(0xd09a3a, {roughness: .1, transparent: true, opacity: .8}), x, 1.135, z);
 }
 // jukebox
+let jbTop = null, jbLight = null;
 {
   const g = new THREE.Group(); g.position.set(-RX + .4, 0, -2.2); g.rotation.y = Math.PI / 3; scene.add(g);
   mesh(BOX(.8, 1.3, .5), std(0x5a1a10, {roughness: .4}), 0, .65, 0, g);
-  const top = mesh(new THREE.CylinderGeometry(.4, .4, .5, 16, 1, false, 0, Math.PI), std(0xff9a2a, {emissive: 0xff6a10, emissiveIntensity: 1.4}), 0, 1.3, 0, g); top.rotation.z = Math.PI / 2; top.rotation.y = Math.PI / 2;
+  const top = mesh(new THREE.CylinderGeometry(.4, .4, .5, 16, 1, false, 0, Math.PI), std(0xff9a2a, {emissive: 0xff6a10, emissiveIntensity: 1.4}), 0, 1.3, 0, g); top.rotation.z = Math.PI / 2; top.rotation.y = Math.PI / 2; jbTop = top;
   mesh(BOX(.6, .3, .02), std(0x111111, {emissive: 0x4a90ff, emissiveIntensity: .7}), 0, .9, .26, g);
-  const l = new THREE.PointLight(0xff8a30, 2, 3, 2); l.position.set(0, 1.4, .5); g.add(l);
+  const l = new THREE.PointLight(0xff8a30, 2, 3, 2); l.position.set(0, 1.4, .5); g.add(l); jbLight = l;
 }
 
 // ---------- people ----------
@@ -579,9 +581,9 @@ function initAudio() {
   const mg = AC.createGain(); mg.gain.value = .35;
   const lfo = AC.createOscillator(), lg = AC.createGain(); lfo.frequency.value = .23; lg.gain.value = .12; lfo.connect(lg); lg.connect(mg.gain); lfo.start();
   src.connect(bp); bp.connect(mg); mg.connect(master); src.start();
-  musicG = AC.createGain(); musicG.gain.value = .14;
-  const mlp = AC.createBiquadFilter(); mlp.type = 'lowpass'; mlp.frequency.value = 1600; musicG.connect(mlp); mlp.connect(master);
-  startMusic();
+  musicG = AC.createGain(); musicG.gain.value = .3;
+  const mlp = AC.createBiquadFilter(); mlp.type = 'lowpass'; mlp.frequency.value = 4200; musicG.connect(mlp); mlp.connect(master);
+  playSong(0);
 }
 function env(g, t, a, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec); }
 function noiseBuf(len) { const b = AC.createBuffer(1, AC.sampleRate * len, AC.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; }
@@ -628,24 +630,142 @@ const S = {
   },
   grunt() { if (!AC) return; S.scream(.75, .3); }
 };
-// jukebox blues loop
-function startMusic() {
-  const bpm = 88, beat = 60 / bpm, E = 82.41;
-  const prog = [0, 0, 0, 0, 5, 5, 0, 0, 7, 5, 0, 7];
-  const walk = [0, 4, 7, 9, 10, 9, 7, 4];
-  let next = AC.currentTime + .2, step = 0;
-  const swing = i => (i % 2 ? beat * .66 : beat * .34) * 1;
-  setInterval(() => {
-    while (next < AC.currentTime + .4) {
-      const bar = Math.floor(step / 8) % 12, k = step % 8, root = prog[bar];
-      const f = E * Math.pow(2, (root + walk[k]) / 12);
-      tone(next, 'triangle', f, 0, beat * .45, .5, musicG);
-      if (k % 2 === 1) noise(next, .08, 'highpass', 5000, 1, .12, .002, musicG);
-      if (k === 2 || k === 6) noise(next, .14, 'bandpass', 1800, .8, .25, .002, musicG);
-      if (k === 0 || k === 5) for (const iv of [4, 10, 15]) tone(next + .01, 'sine', E * 2 * Math.pow(2, (root + iv) / 12), 0, beat * 1.2, .09, musicG);
-      next += swing(k); step++;
-    }
-  }, 100);
+// ---------- jukebox: several songs, all played live by little synths ----------
+// chord quality -> intervals
+const QUAL = {'': [0, 4, 7], 'm': [0, 3, 7], '7': [0, 4, 7, 10], 'm7': [0, 3, 7, 10], 'maj7': [0, 4, 7, 11], '6': [0, 4, 7, 9]};
+const N = s => 440 * Math.pow(2, (s - 9) / 12); // semitones from middle C
+// each song: bpm, beats per bar, steps per beat, swing, key (semitone from C), bars [root, quality],
+// bass [step, interval], drums per bar, chord stabs, optional lead [bar, step, semitone, len]
+const SONGS = [
+  {title: 'Smoky Room Shuffle', glow: 0xff6a10, bpm: 92, bpb: 4, spb: 2, swing: .64, key: 4,
+    bars: [[0, '7'], [0, '7'], [0, '7'], [0, '7'], [5, '7'], [5, '7'], [0, '7'], [0, '7'], [7, '7'], [5, '7'], [0, '7'], [7, '7']],
+    bass: [[0, 0], [1, 4], [2, 7], [3, 9], [4, 10], [5, 9], [6, 7], [7, 4]], bassT: 'triangle', kick: [0, 4], snare: [2, 6], hat: [1, 3, 5, 7], hatLen: .05,
+    chord: [[0, 2], [5, 2]], chordT: 'keys', lead: null},
+  {title: 'Rockabilly Rumble', glow: 0xff2a3a, bpm: 168, bpb: 4, spb: 2, swing: .58, key: 9,
+    bars: [[0, '6'], [0, '6'], [0, '6'], [0, '6'], [5, '6'], [5, '6'], [0, '6'], [0, '6'], [7, '7'], [5, '7'], [0, '6'], [7, '7']],
+    bass: [[0, 0], [2, 4], [4, 7], [6, 9], [7, 7]], bassT: 'slap', kick: [0, 4], snare: [2, 6], hat: [0, 1, 2, 3, 4, 5, 6, 7], hatLen: .03,
+    chord: [[1, 1], [3, 1], [5, 1], [7, 1]], chordT: 'guitar',
+    lead: [[0, 0, 16, 1], [0, 1, 19, 1], [0, 2, 21, 2], [0, 4, 19, 1], [0, 5, 16, 1], [0, 6, 12, 2], [2, 0, 16, 1], [2, 1, 19, 1], [2, 2, 21, 1], [2, 3, 22, 1], [2, 4, 21, 2], [2, 6, 19, 2],
+      [4, 0, 21, 2], [4, 2, 24, 2], [4, 4, 21, 4], [6, 0, 16, 2], [6, 2, 12, 2], [6, 4, 16, 4], [8, 0, 23, 4], [9, 0, 21, 4], [10, 0, 19, 2], [10, 2, 16, 2], [10, 4, 12, 4], [11, 0, 11, 8]]},
+  {title: 'Lonesome Barroom Waltz', glow: 0xffc040, bpm: 132, bpb: 3, spb: 1, swing: .5, key: 7,
+    bars: [[0, ''], [0, ''], [5, ''], [0, ''], [7, '7'], [7, '7'], [0, ''], [0, ''], [0, ''], [0, '7'], [5, ''], [5, ''], [0, ''], [7, '7'], [0, ''], [0, '']],
+    bass: [[0, 0]], bassT: 'triangle', bassAlt: 7, kick: [0], snare: [], hat: [1, 2], hatLen: .04,
+    chord: [[1, 1], [2, 1]], chordT: 'keys',
+    lead: [[0, 0, 16, 2], [0, 2, 14, 1], [1, 0, 12, 3], [2, 0, 17, 2], [2, 2, 16, 1], [3, 0, 14, 3], [4, 0, 14, 2], [4, 2, 17, 1], [5, 0, 19, 3], [6, 0, 16, 3], [7, 0, 12, 3],
+      [8, 0, 19, 2], [8, 2, 21, 1], [9, 0, 22, 3], [10, 0, 21, 2], [10, 2, 19, 1], [11, 0, 17, 3], [12, 0, 16, 2], [12, 2, 14, 1], [13, 0, 11, 3], [14, 0, 12, 6]]},
+  {title: 'Midnight at the Crooked Rail', glow: 0x6a8aff, bpm: 104, bpb: 4, spb: 2, swing: .66, key: 5,
+    bars: [[2, 'm7'], [7, '7'], [0, 'maj7'], [0, 'maj7'], [7, 'm7'], [0, '7'], [5, 'maj7'], [5, 'maj7'], [10, 'm7'], [3, '7'], [8, 'maj7'], [1, 'maj7'], [2, 'm7'], [7, '7'], [0, 'maj7'], [9, '7']],
+    bass: [[0, 0], [2, 4], [4, 7], [6, 5]], bassT: 'upright', kick: [], snare: [], ride: [0, 2, 3, 4, 6, 7], hat: [2, 6], hatLen: .02,
+    chord: [[0, 3], [5, 2]], chordT: 'rhodes',
+    lead: [[0, 0, 26, 2], [0, 3, 24, 1], [0, 4, 21, 3], [1, 0, 19, 2], [1, 2, 22, 2], [1, 4, 21, 4], [2, 0, 19, 6], [4, 0, 26, 2], [4, 3, 24, 1], [4, 4, 22, 3], [5, 0, 21, 2], [5, 2, 24, 2], [5, 4, 22, 4], [6, 0, 21, 6],
+      [8, 0, 29, 2], [8, 3, 27, 1], [8, 4, 24, 3], [9, 0, 22, 4], [9, 4, 25, 4], [10, 0, 24, 6], [12, 0, 21, 2], [12, 2, 24, 2], [12, 4, 26, 4], [13, 0, 23, 4], [14, 0, 24, 8]]},
+  {title: 'Surf Stomp', glow: 0x3affd0, bpm: 172, bpb: 4, spb: 2, swing: .5, key: 4,
+    bars: [[0, 'm'], [0, 'm'], [8, ''], [8, ''], [5, 'm'], [5, 'm'], [7, ''], [7, '']],
+    bass: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 7], [7, 0]], bassT: 'pick', kick: [0, 3, 4], snare: [2, 6], hat: [0, 1, 2, 3, 4, 5, 6, 7], hatLen: .025,
+    chord: [], chordT: 'guitar',
+    lead: [[0, 0, 16, 1], [0, 1, 16, 1], [0, 2, 19, 1], [0, 3, 16, 1], [0, 4, 23, 2], [0, 6, 21, 2], [1, 0, 19, 1], [1, 1, 19, 1], [1, 2, 16, 1], [1, 3, 19, 1], [1, 4, 21, 4],
+      [2, 0, 20, 1], [2, 1, 20, 1], [2, 2, 23, 1], [2, 3, 20, 1], [2, 4, 27, 2], [2, 6, 24, 2], [3, 0, 23, 8], [4, 0, 21, 1], [4, 1, 21, 1], [4, 2, 24, 1], [4, 3, 21, 1], [4, 4, 28, 2], [4, 6, 24, 2],
+      [5, 0, 21, 4], [5, 4, 19, 4], [6, 0, 23, 2], [6, 2, 26, 2], [6, 4, 23, 2], [6, 6, 19, 2], [7, 0, 23, 8]], leadT: 'surf'},
+  {title: 'Back Alley Funk', glow: 0xd04aff, bpm: 100, bpb: 4, spb: 4, swing: .54, key: 2,
+    bars: [[0, 'm7'], [0, 'm7'], [5, '7'], [0, 'm7']],
+    bass: [[0, 0], [3, 12], [6, 10], [7, 0], [10, 7], [12, 10], [14, 12], [15, 0]], bassT: 'pick', kick: [0, 7, 10], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14, 3, 11], hatLen: .02,
+    chord: [[2, 1], [6, 1], [9, 1], [13, 1]], chordT: 'guitar', lead: null}
+];
+let song = null, songIdx = 0, mStep = 0, mNext = 0, mTimer = null, nowT = 0;
+function playSong(i) {
+  if (!AC) return;
+  songIdx = (i + SONGS.length) % SONGS.length; song = SONGS[songIdx]; mStep = 0; mNext = AC.currentTime + .15;
+  if (jbTop) { jbTop.material.emissive.setHex(song.glow); jbTop.material.color.setHex(song.glow); jbLight.color.setHex(song.glow); }
+  const e = $('nowplay'); e.innerHTML = `♫ Now playing: <b>${song.title}</b>`; e.style.opacity = 1; nowT = 5;
+  if (!mTimer) mTimer = setInterval(musicTick, 60);
+}
+function stopSong() {
+  song = null;
+  if (AC) { const t = AC.currentTime; noise(t, .25, 'bandpass', 2500, 2, .25, .01, musicG).frequency.exponentialRampToValueAtTime(300, t + .25); }
+}
+function inst(kind, t, f, len, vol) {
+  const g = AC.createGain(); g.connect(musicG);
+  const o = AC.createOscillator();
+  if (kind === 'triangle' || kind === 'upright' || kind === 'slap' || kind === 'pick') {
+    o.type = kind === 'pick' ? 'sawtooth' : 'triangle'; o.frequency.value = f;
+    const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = kind === 'pick' ? 700 : kind === 'slap' ? 1400 : 500; o.connect(lp); lp.connect(g);
+    env(g, t, kind === 'upright' ? .01 : .004, vol, kind === 'slap' ? len * .5 : len);
+    if (kind === 'slap') noise(t, .02, 'highpass', 2000, 1, vol * .3, .001, musicG);
+  } else if (kind === 'keys' || kind === 'rhodes') {
+    o.type = 'sine'; o.frequency.value = f; o.connect(g);
+    const o2 = AC.createOscillator(); o2.type = kind === 'rhodes' ? 'sine' : 'triangle'; o2.frequency.value = f * (kind === 'rhodes' ? 2.001 : 1.002);
+    const g2 = AC.createGain(); g2.gain.value = kind === 'rhodes' ? .35 : .5; o2.connect(g2); g2.connect(g); o2.start(t); o2.stop(t + len + .1);
+    env(g, t, .005, vol, len);
+  } else if (kind === 'guitar' || kind === 'surf' || kind === 'lead') {
+    o.type = kind === 'lead' ? 'square' : 'sawtooth'; o.frequency.value = f;
+    const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(kind === 'guitar' ? 2600 : 3200, t); lp.frequency.exponentialRampToValueAtTime(900, t + len); lp.Q.value = 2;
+    o.connect(lp); lp.connect(g);
+    if (kind === 'surf' || kind === 'lead') { const v = AC.createOscillator(), vg = AC.createGain(); v.frequency.value = kind === 'surf' ? 9 : 5.5; vg.gain.value = f * .012; v.connect(vg); vg.connect(o.frequency); v.start(t); v.stop(t + len + .1); }
+    env(g, t, .004, vol, len);
+  }
+  o.start(t); o.stop(t + len + .15);
+}
+function musicTick() {
+  if (!AC || !song) return;
+  const S2 = song, beat = 60 / S2.bpm, stepLen = beat / S2.spb, spBar = S2.bpb * S2.spb;
+  while (mNext < AC.currentTime + .3) {
+    const barI = Math.floor(mStep / spBar), k = mStep % spBar, bar = S2.bars[barI % S2.bars.length];
+    const root = S2.key + bar[0], ivs = QUAL[bar[1]];
+    const minor = bar[1].startsWith('m') && bar[1] !== 'maj7';
+    const t = mNext;
+    for (const [st, iv] of S2.bass) if (st === k) { let i2 = iv; if (minor && i2 === 4) i2 = 3; if (minor && i2 === 9) i2 = 8; inst(S2.bassT, t, N(root + i2 - 24), stepLen * (S2.bassT === 'upright' ? 1.8 : .9), .55); }
+    if (S2.bassAlt && k === 0 && barI % 2) inst(S2.bassT, t, N(root + S2.bassAlt - 24), stepLen * .9, .5);
+    if (S2.kick.includes(k)) tone(t, 'sine', 150, 45, .18, .7, musicG);
+    if (S2.snare.includes(k)) { noise(t, .12, 'bandpass', 1900, .7, .35, .002, musicG); tone(t, 'triangle', 220, 140, .06, .2, musicG); }
+    if (S2.hat.includes(k)) noise(t, S2.hatLen, 'highpass', 7000, 1, .14, .001, musicG);
+    if (S2.ride && S2.ride.includes(k)) { noise(t, .25, 'highpass', 6000, 1, .07, .001, musicG); tone(t, 'sine', 5200, 0, .25, .02, musicG); }
+    for (const [st, len] of S2.chord) if (st === k) ivs.forEach((iv, j) => inst(S2.chordT, t + (S2.chordT === 'guitar' ? j * .012 : 0), N(root + iv + (S2.chordT === 'guitar' ? -12 : 0)), stepLen * len * .9, S2.chordT === 'guitar' ? .08 : .1));
+    if (S2.lead) { const cyc = barI % S2.bars.length; for (const [b, st, semi, len] of S2.lead) if (b === cyc && st === k) inst(S2.leadT || 'lead', t, N(S2.key + semi - 12 + (S2.leadT === 'surf' ? 0 : 0)), stepLen * len * .95, S2.leadT === 'surf' ? .13 : .09); }
+    const sw = S2.spb === 1 ? 1 : (k % 2 === 0 ? S2.swing * 2 : (1 - S2.swing) * 2);
+    mNext += stepLen * sw; mStep++;
+  }
+}
+// someone gets up after every game and puts a new song on
+const JB_FRONT = V(-RX + .4 + Math.sin(Math.PI / 3) * .62, 0, -2.2 + Math.cos(Math.PI / 3) * .62);
+let jb = null, gamesDone = 0;
+function jukeboxRun() {
+  if (jb) return;
+  const p = patrons.slice().sort((a, b) => a.g.position.distanceTo(JB_FRONT) - b.g.position.distanceTo(JB_FRONT)).find(q => !q.bleedT) || patrons[0];
+  // the next song in order, so both players in an online game hear the same one
+  jb = {p, st: 'stand', t: .6, home: p.g.position.clone(), homeRy: p.g.rotation.y, seatY: p.body.position.y, next: songIdx + 1};
+  p.busy = true;
+}
+function updJukebox(dt) {
+  if (nowT > 0) { nowT -= dt; if (nowT <= 0) $('nowplay').style.opacity = 0; }
+  if (!jb) return;
+  const p = jb.p, R = p.R, L = p.L; jb.t -= dt;
+  const walkTo = (target, done) => {
+    const d = target.clone().sub(p.g.position); d.y = 0; const len = d.length();
+    if (len < .05) return done();
+    p.g.position.addScaledVector(d.normalize(), Math.min(len, 1.1 * dt));
+    let dr = Math.atan2(d.x, d.z) - p.g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); p.g.rotation.y += dr * Math.min(1, dt * 7);
+    jb.ph = (jb.ph || 0) + dt * 8; const k = Math.sin(jb.ph);
+    R.hip.rotation.x = k * .45; L.hip.rotation.x = -k * .45; R.kn.rotation.x = Math.max(0, -k) * .6; L.kn.rotation.x = Math.max(0, k) * .6;
+    R.sh.rotation.x = -.5; R.el.rotation.x = -.8; L.sh.rotation.x = -k * .3; L.el.rotation.x = -.4;
+  };
+  const stance = k => { for (const s of [R, L]) { s.hip.rotation.x = lerp(-1.5, 0, k); s.kn.rotation.x = lerp(1.5, 0, k); } p.body.position.y = lerp(jb.seatY, 0, k); };
+  if (jb.st === 'stand') { stance(smooth(1 - Math.max(0, jb.t) / .6)); if (jb.t <= 0) { jb.st = 'go'; stopSong(); } }
+  else if (jb.st === 'go') walkTo(JB_FRONT, () => { jb.st = 'face'; jb.t = .4; });
+  else if (jb.st === 'face') {
+    const d = V(-RX + .4, 0, -2.2).sub(p.g.position); let dr = Math.atan2(d.x, d.z) - p.g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); p.g.rotation.y += dr * Math.min(1, dt * 7);
+    R.hip.rotation.x = L.hip.rotation.x = R.kn.rotation.x = L.kn.rotation.x = 0;
+    if (jb.t <= 0) { jb.st = 'press'; jb.t = 1.6; S.clink(); }
+  } else if (jb.st === 'press') {
+    const k = Math.sin(Math.min(1, (1.6 - jb.t) / .5) * Math.PI);
+    L.sh.rotation.x = -1.2 * k; L.el.rotation.x = -.3 * k; p.head.rotation.x = .25 * k;
+    if (jb.t < .9 && !jb.pressed) { jb.pressed = true; if (AC) { tone(AC.currentTime, 'square', 300, 120, .08, .15); tone(AC.currentTime + .15, 'sine', 900, 0, .1, .1); } }
+    if (jb.t <= 0) { jb.st = 'back'; playSong(jb.next); p.head.rotation.x = 0; }
+  } else if (jb.st === 'back') walkTo(jb.home, () => { jb.st = 'sit'; jb.t = .6; });
+  else if (jb.st === 'sit') {
+    let dr = jb.homeRy - p.g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); p.g.rotation.y += dr * Math.min(1, dt * 8);
+    stance(smooth(Math.max(0, jb.t) / .6));
+    if (jb.t <= 0) { p.g.rotation.y = jb.homeRy; stance(0); p.R.sh.rotation.x = p.rest[0]; p.R.el.rotation.x = p.rest[1]; p.L.sh.rotation.x = p.rest[0]; p.L.el.rotation.x = p.rest[1]; p.busy = false; jb = null; }
+  }
 }
 
 // ---------- HUD ----------
@@ -685,6 +805,7 @@ function splatScreen(n = 6, big = 1) {
 const screenDrips = [];
 
 // ---------- game flow ----------
+addEventListener('pointerdown', () => { initAudio(); if (AC.state === 'suspended') AC.resume(); }, {once: true});
 document.querySelectorAll('#menu button[data-d]').forEach(b => b.onclick = () => start('cpu', +b.dataset.d));
 $('hot').onclick = () => start('hot', 1);
 $('online').onclick = () => { initAudio(); $('menu').style.display = 'none'; $('net').style.display = 'flex'; $('netA').style.display = 'block'; $('netB').style.display = 'none'; $('status').textContent = ''; try { $('nm').value = localStorage.getItem('bb-name') || ''; } catch (e) {} };
@@ -763,6 +884,7 @@ function endTurnSwitch() {
 function finish(winner, why, fromNet) {
   if (G.state !== 'play') return;
   if (NET.mode === 'client' && !fromNet) return;
+  setTimeout(jukeboxRun, 1500);
   if (NET.mode === 'host') netSend({t: 'end', w: winner.i, why, lo: winner.loserOut ? 1 : 0});
   G.state = 'ending'; G.endT = winner.loserOut ? 3 : 1.6;
   G.winner = winner; G.why = why;
@@ -1108,6 +1230,7 @@ function updWaiter(w, dt, time) {
 
 // ---------- patrons update ----------
 function updPatron(p, dt, time) {
+  if (p.busy) return;
   p.t -= dt;
   const R = p.R;
   if (p.task === 'idle') {
@@ -1392,6 +1515,7 @@ function step(dt) {
   // ambient
   for (const p of patrons) updPatron(p, dt, time);
   for (const w of waiters) updWaiter(w, dt, time);
+  updJukebox(dt);
   for (const q of bystanders) updBystander(q, dt);
   for (const w of waiters) updBystander(w, dt);
   barman.R.sh.rotation.z = -.07 + Math.sin(time * 3) * .25; barman.head.rotation.y = Math.sin(time * .4) * .5;
@@ -1544,7 +1668,7 @@ document.fonts && document.fonts.ready.then(() => { drawChalk(); });
 TH[0].name = 'You'; TH[1].name = 'Big Mick'; TH[0].short = 'YOU'; TH[1].short = 'MICK'; drawChalk();
 requestAnimationFrame(frame);
 // debugging hook for automated checks
-window.__bb = {THREE, bystanders, draw() { renderer.render(scene, camera); }, sim(sec) { for (let i = 0; i < sec * 60; i++) step(1 / 60); }, flying, G, TH, start, waiters, camera, throwAt(p, pw = .78) { const e = camera.position.clone(), d = p.clone().sub(e); yaw = Math.atan2(-d.x, -d.z); pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); camera.rotation.set(pitch, yaw, 0); power = pw; humanThrow(); }, foeHead, boardPoint, boardA};
+window.__bb = {playSongT: i => playSong(i), jbState: () => jb && jb.st, song: () => song && song.title, finish, THREE, bystanders, draw() { renderer.render(scene, camera); }, sim(sec) { for (let i = 0; i < sec * 60; i++) step(1 / 60); }, flying, G, TH, start, waiters, camera, throwAt(p, pw = .78) { const e = camera.position.clone(), d = p.clone().sub(e); yaw = Math.atan2(-d.x, -d.z); pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); camera.rotation.set(pitch, yaw, 0); power = pw; humanThrow(); }, foeHead, boardPoint, boardA};
 </script>
 </body>
 </html>

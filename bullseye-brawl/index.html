@@ -736,7 +736,7 @@ function showEnd() {
   const w = G.winner, you = G.mode === 'cpu';
   $('endRes').textContent = you ? (w.i === 0 ? 'You win!' : `${w.name} wins`) : `${w.name} wins!`;
   $('endWhy').textContent = G.why;
-  $('end').style.display = 'flex'; updHUD();
+  $('end').style.display = 'flex'; hud.style.display = 'none'; updHUD();
 }
 
 // ---------- throwing ----------
@@ -893,8 +893,8 @@ function cpuUpdate(T, dt) {
     // don't throw through a waiter
     if (waiters.some(w => Math.abs(w.g.position.x) < 1.5 && w.state === 'walk')) { c.t = .3; return; }
     const behind = foe.score - T.score;
-    let faceP = [.03, .06, .1][G.diff] + T.grudge * .12 + (behind > 30 ? .12 : 0) + (foe.faceHits >= 2 ? .15 : 0);
-    faceP = Math.min(.75, faceP);
+    let faceP = [.03, .06, .1][G.diff] + Math.min(4, T.grudge) * [.06, .09, .12][G.diff] + (behind > 30 ? .1 : 0) + (foe.faceHits >= 2 ? .1 : 0);
+    faceP = Math.min(.55, faceP);
     c.face = Math.random() < faceP && !foe.out;
     if (c.face) {
       say(T.name, pick(['Hold still, pretty boy.', 'Here\'s one for your face!', 'Let\'s see how YOU like it.', 'Eyes on the board, mate. Mine are on you.', 'Don\'t move...']));
@@ -921,7 +921,7 @@ function cpuUpdate(T, dt) {
       const from = new THREE.Vector3(); T.handDart.getWorldPosition(from);
       const sig = SIG[G.diff] * (1 + (100 - T.blood) / 80);
       let tgt = c.face ? c.lock.clone() : boardPoint(T.board, c.aim[0], c.aim[1]);
-      tgt.x += gauss() * sig * (c.face ? .7 : 1); tgt.y += gauss() * sig * (c.face ? .7 : 1);
+      tgt.x += gauss() * sig * (c.face ? 1.5 : 1); tgt.y += gauss() * sig * (c.face ? 1.5 : 1);
       launch(T, from, tgt, 1 + gauss() * .006);
       G.darts--; G.phase = 'flight'; updHUD();
     }
@@ -1072,7 +1072,7 @@ function frame(now) {
   let dt = Math.min(.05, (now - last) / 1000); last = now;
   if (G.paused) dt = 0;
   step(dt);
-  renderer.render(scene, camera);
+  if (!window.__norender) renderer.render(scene, camera);
 }
 function step(dt) {
   time += dt;
@@ -1225,7 +1225,7 @@ document.fonts && document.fonts.ready.then(() => { drawChalk(); });
 TH[0].name = 'You'; TH[1].name = 'Big Mick'; TH[0].short = 'YOU'; TH[1].short = 'MICK'; drawChalk();
 requestAnimationFrame(frame);
 // debugging hook for automated checks
-window.__bb = {sim(sec) { for (let i = 0; i < sec * 60; i++) step(1 / 60); }, flying, G, TH, start, waiters, camera, throwAt(p, pw = .78) { const e = camera.position.clone(), d = p.clone().sub(e); yaw = Math.atan2(-d.x, -d.z); pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); camera.rotation.set(pitch, yaw, 0); power = pw; humanThrow(); }, foeHead, boardPoint, boardA};
+window.__bb = {draw() { renderer.render(scene, camera); }, sim(sec) { for (let i = 0; i < sec * 60; i++) step(1 / 60); }, flying, G, TH, start, waiters, camera, throwAt(p, pw = .78) { const e = camera.position.clone(), d = p.clone().sub(e); yaw = Math.atan2(-d.x, -d.z); pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); camera.rotation.set(pitch, yaw, 0); power = pw; humanThrow(); }, foeHead, boardPoint, boardA};
 </script>
 </body>
 </html>

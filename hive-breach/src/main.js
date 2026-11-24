@@ -10,7 +10,7 @@ const assetsP = M.AS.loadAll();   /* Meshy models stream in behind the cover scr
   const leave = () => { if (!cv.classList.contains('ready')) return; try { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { } cv.remove(); document.body.classList.remove('covered'); removeEventListener('keydown', key); };
   const key = e => { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'Escape') leave(); };
   cv.addEventListener('click', leave); addEventListener('keydown', key); }
-import { VEHICLES, mountable, mountAt, seatAt } from './data.js';
+import { VEHICLES, mountable, mountAt, seatAt, VARIANTS } from './data.js';
 import { DIFFS, PLANET_ORDER, scrapCost, techMul, SIDEARM, SPECIALS, MISSILE, CLASSES, TURRETS, MAX_TURRETS, UPGRADES, UPG_PRICES, ALIENS, WAVES, MAPS, BOUNDS, ALLIES, DROP_EVERY, DROP_COST, SQUAD, SQUAD_COST } from './data.js';
 import { buildWorld, placeError, LIQUID } from './world.js';
 import { Sim, upgradeCost, tStat } from './sim.js';
@@ -288,11 +288,16 @@ function updateMeteors(dt) {
     if (m.t < 1) { p.mesh.visible = true; const f = 1 - m.t; p.mesh.position.set(p.a[0] + (p.b[0] - p.a[0]) * f, p.a[1] + (p.b[1] - p.a[1]) * f, p.a[2] + (p.b[2] - p.a[2]) * f); burst(p.mesh.position.x, p.mesh.position.y, p.mesh.position.z, 0xff8020, 2, 2, 0.4, 1.5); }
     p.t = 0; if (m.t <= 0) { p.dead = true; scene.remove(p.mesh, m.ring, m.disc); } }
 }
-const died = new Set(), corpses = [], splats = [];
+const died = new Set(), corpses = [], splats = [], _cv = new THREE.Vector3();
+// alien bodies are pooled per type: a dead one's model is reused for the next spawn instead of cloning a rigged model mid-fight (that was a lag spike when packs spawned)
+const alienPool = {};
+function takeAlien(type) { const pl = alienPool[type]; const m = pl && pl.length ? pl.pop() : M.alien(type); m.visible = true; m.rotation.set(0, 0, 0); m.scale.setScalar(1); const u = m.userData; if (u.mixer) { u.mixer.stopAllAction(); u.cur = null; } u.lt = undefined; u.var = undefined; u.acc = 0; if (u.body) { u.body.position.set(0, 0, 0); u.body.rotation.set(0, 0, 0); } if (u.mats) for (const mt of u.mats) mt.emissiveIntensity = 0.5; return m; }
+function freeAlien(m, type) { scene.remove(m); if (!type || type === 'broodqueen' || type === 'hivecore') return; (alienPool[type] ??= []).length < 40 && alienPool[type].push(m); }
+G.alienPool = alienPool; G.prewarmAliens = (types, n = 6) => { for (const t of types) for (let i = (alienPool[t] || []).length; i < n; i++) (alienPool[t] ??= []).push(M.alien(t)); };
 function updateCorpses(dt) {
   for (const c of corpses) { c.t += dt; const u = c.m.userData; if (u.glb && u.act && u.act.die) { if (!c.go) { c.go = 1; const d = u.act.die; d.reset().play(); if (u.cur && u.act[u.cur] && u.act[u.cur] !== d) u.act[u.cur].crossFadeTo(d, 0.12, false); u.cur = 'die'; } u.mixer.update(dt); if (u.mats) for (const mt of u.mats) mt.emissiveIntensity = Math.max(0.2, 1.5 - c.t * 3);
-      for (const at of [0.35, 0.8, 1.4]) if (c.t >= at && !(c.gnd & (1 << at * 10))) { c.gnd = (c.gnd || 0) | (1 << at * 10); c.m.updateMatrixWorld(true); const bx = new THREE.Box3().setFromObject(c.m, true); if (!bx.isEmpty() && c.t < 6) { const gy = G.W.ground(c.m.position.x, c.m.position.z, c.m.position.y + 1); c.m.position.y += Math.min(0, gy - bx.min.y + 0.05); } }   /* the death clip rolls the body over but keeps its hips up: drop it onto the ground */ if (c.t > 6) c.m.position.y -= dt * 0.7; if (c.t > 8) { scene.remove(c.m); c.dead = true; } continue; }   // the body lies there a few seconds, then sinks   // a Meshy alien plays its death clip, then sinks into the ground
-    const f = Math.min(1, c.t / 0.35); c.m.rotation.z = c.side * f * 1.5; c.m.userData.legs.forEach(l => l.rotation.x = Math.sin(c.t * 30) * 0.4 * (1 - f)); if (c.t > 2) c.m.position.y -= dt * 0.8; if (c.t > 3.5) { scene.remove(c.m); c.dead = true; } }
+      for (const at of [0.35, 0.8, 1.4]) if (c.t >= at && !(c.gnd & (1 << at * 10))) { c.gnd = (c.gnd || 0) | (1 << at * 10); c.m.updateMatrixWorld(true); if (!u.bones) { u.bones = []; c.m.traverse(o => { if (o.isBone) u.bones.push(o); }); } let lo = Infinity; for (const bn of u.bones) { bn.getWorldPosition(_cv); if (_cv.y < lo) lo = _cv.y; } if (lo < Infinity && c.t < 6) { const gy = G.W.ground(c.m.position.x, c.m.position.z, c.m.position.y + 1); c.m.position.y += Math.min(0, gy - lo + 0.12 * c.m.scale.y); } }   /* the lowest bone, not a per-vertex box: cheap even when a whole pack dies at once */   /* the death clip rolls the body over but keeps its hips up: drop it onto the ground */ if (c.t > 6) c.m.position.y -= dt * 0.7; if (c.t > 8) { freeAlien(c.m, c.type); c.dead = true; } continue; }   // the body lies there a few seconds, then sinks   // a Meshy alien plays its death clip, then sinks into the ground
+    const f = Math.min(1, c.t / 0.35); c.m.rotation.z = c.side * f * 1.5; c.m.userData.legs.forEach(l => l.rotation.x = Math.sin(c.t * 30) * 0.4 * (1 - f)); if (c.t > 2) c.m.position.y -= dt * 0.8; if (c.t > 3.5) { freeAlien(c.m, c.type); c.dead = true; } }
   if (corpses.some(c => c.dead)) corpses.splice(0, corpses.length, ...corpses.filter(c => !c.dead));
   updBlood(dt); updSparks(dt);
   for (const s of splats) { s.t -= dt; s.m.material.opacity = Math.min(0.9, s.t / 4); if (s.t <= 0) { scene.remove(s.m); s.m.geometry.dispose(); s.m.material.dispose(); s.dead = true; } }
@@ -502,7 +507,7 @@ function syncView(S, dt) {
   const k = G.sim ? 1 : 1 - Math.exp(-dt * 12), seen = new Set();
   for (const a of S.A) {
     seen.add(a.id); let v = view.aliens.get(a.id);
-    if (!v) { const mesh = M.alien(a.type); mesh.position.set(a.x, a.y, a.z); mesh.rotation.y = a.ry; scene.add(mesh); const bar = new THREE.Group(); const bg = new THREE.Mesh(barGeo, barBg), fg = new THREE.Mesh(barGeo, barFg); fg.position.z = 0.01; bg.renderOrder = fg.renderOrder = 4; bar.add(bg, fg); scene.add(bar); v = { mesh, bar, fg, x: a.x, y: a.y, z: a.z, t: Math.random() * 9, type: a.type }; view.aliens.set(a.id, v); }
+    if (!v) { const mesh = takeAlien(a.type); mesh.position.set(a.x, a.y, a.z); mesh.rotation.y = a.ry; scene.add(mesh); const bar = new THREE.Group(); const bg = new THREE.Mesh(barGeo, barBg), fg = new THREE.Mesh(barGeo, barFg); fg.position.z = 0.01; bg.renderOrder = fg.renderOrder = 4; bar.add(bg, fg); scene.add(bar); v = { mesh, bar, fg, x: a.x, y: a.y, z: a.z, t: Math.random() * 9, type: a.type }; view.aliens.set(a.id, v); }
     if (v.hp !== undefined && a.hp < v.hp - 0.5) v.pop = 0.1; v.x += (a.x - v.x) * k; v.y += (a.y - v.y) * k; v.z += (a.z - v.z) * k; v.hp = a.hp; v.mhp = a.mhp; v.id = a.id; v.hunt = huntOf(a);
     v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.y = turnTo(v.mesh.rotation.y, a.ry, dt, ALIENS[a.type].r > 3 ? 2.5 : 9);   /* turn smoothly (big beasts slowly): no snapping round when the target changes */
     { const sp = dt > 0 ? Math.hypot(v.x - (v.px ?? v.x), v.z - (v.pz ?? v.z)) / dt : 0; v.px = v.x; v.pz = v.z; v.spd = (v.spd ?? sp) + (Math.min(sp, 30) - (v.spd ?? sp)) * Math.min(1, dt * 6); }   /* its real ground speed, smoothed: the stride matches it and it stops running when it stands still */
@@ -513,7 +518,7 @@ function syncView(S, dt) {
     const A = ALIENS[a.type], sc = a.type === 'broodqueen' ? 6 : a.type === 'royal' ? 1.8 : a.type === 'hivecore' ? 6 : a.type === 'guardian' ? 2.5 : A.boss ? (a.type === 'queen' ? 4 : 2.5) : 1.2, f = Math.max(0, a.hp / a.mhp);
     v.bar.visible = f < 0.999; if (v.bar.visible) { v.bar.position.set(v.x, v.y + BAR_Y[ALIENS[a.type].base || a.type], v.z); v.bar.quaternion.copy(camera.quaternion); v.bar.scale.set(sc, sc, 1); v.fg.scale.x = f; v.fg.position.x = -(1 - f) / 2; }
   }
-  for (const [id, v] of view.aliens) if (!seen.has(id)) { scene.remove(v.bar); if (v.mark) scene.remove(v.mark); view.aliens.delete(id); if (died.has(id) && v.type !== 'hivecore') { died.delete(id); corpses.push({ m: v.mesh, t: 0, side: Math.random() < 0.5 ? -1 : 1 }); if (corpses.length > 30) { const o = corpses.shift(); scene.remove(o.m); } } else scene.remove(v.mesh); }
+  for (const [id, v] of view.aliens) if (!seen.has(id)) { scene.remove(v.bar); if (v.mark) scene.remove(v.mark); view.aliens.delete(id); if (died.has(id) && v.type !== 'hivecore') { died.delete(id); corpses.push({ m: v.mesh, t: 0, side: Math.random() < 0.5 ? -1 : 1, type: v.type }); if (corpses.length > 30) { const o = corpses.shift(); freeAlien(o.m, o.type); } } else freeAlien(v.mesh, v.type); }
   seen.clear();
   for (const t of S.T) {
     seen.add(t.id); let v = view.turrets.get(t.id);
@@ -1510,7 +1515,7 @@ requestAnimationFrame(frame);
 function clearWorld() { for (const m of [view.aliens, view.turrets, view.players, view.pods, view.allies]) { for (const v of m.values()) { scene.remove(v.mesh || v); if (v.bar) scene.remove(v.bar); } m.clear(); } if (G.W) scene.remove(G.W.group); }
 function begin(mapId) {
   if (G.ex && G.ex.dispose) G.ex.dispose(); G.ex = null; G.explore = false; G.cine = false; G.fobT = 0; G.fobMsg = 0; G.lairWarn = false; document.body.classList.remove('explore', 'cine'); $('end').hidden = true;
-  clearWorld(); G.map = mapId; G.diff = G.diff || 0; G.W = buildWorld(scene, mapId, G.diff); newMe(); makeWeather(); applyQuality(); G.on = true; if (G.vx) { for (const m of G.vx.M.values()) scene.remove(m); for (const m of [...G.vx.Z, ...G.vx.K, ...(G.vx.S || [])]) scene.remove(m); for (const mp of [G.vx.D, G.vx.Q]) if (mp) for (const m of mp.values()) scene.remove(m); G.vx = null; }
+  clearWorld(); G.map = mapId; G.diff = G.diff || 0; G.W = buildWorld(scene, mapId, G.diff); for (const k in alienPool) delete alienPool[k]; { const VR = VARIANTS[G.W.id] || {}; ['crawler', 'spitter', 'brute', 'flyer', 'mite', 'royal', 'ravager'].map(t => VR[t] || t).forEach((t, i) => setTimeout(() => G.prewarmAliens([t], 6), 400 + i * 250)); }   /* a stock of each breed, built a few at a time while you load in */ newMe(); makeWeather(); applyQuality(); G.on = true; if (G.vx) { for (const m of G.vx.M.values()) scene.remove(m); for (const m of [...G.vx.Z, ...G.vx.K, ...(G.vx.S || [])]) scene.remove(m); for (const mp of [G.vx.D, G.vx.Q]) if (mp) for (const m of mp.values()) scene.remove(m); G.vx = null; }
   $('kit').innerHTML = `<h3>${CLASSES[G.cls].name}</h3>` + kitHTML(G.cls) + '<p class="small">H hides this card.</p>'; $('kit').hidden = false; setTimeout(() => $('kit').hidden = true, 12000);
   $('title').hidden = true; $('hud').hidden = false; canvas.requestPointerLock();
   setT('mapName', G.W.def.name);

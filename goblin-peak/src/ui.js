@@ -24,7 +24,7 @@ export class UI {
     if (d.n < l.text.length) { d.n = l.text.length; $('dlgText').textContent = l.text; return; }
     if (++d.i < d.lines.length) this.line(); else { this.dlg = null; this.show('dialog', false); this.G.locked = false; this.G.input.clear(); if (d.cb) d.cb(); }
   }
-  shop() { this.shopOpen = true; this.G.locked = true; this.show('shop', true); this.drawShop(); this.G.save.seen.nib = 1; }
+  shop() { this.shopSkip = true; this.shopOpen = true; this.G.locked = true; this.show('shop', true); this.drawShop(); this.G.save.seen.nib = 1; }
   drawShop() {
     const S = this.G.save; let h = '';
     SHOP.forEach((it, i) => { const lv = it.stock ? 0 : it.item ? (S.items[it.item] ? 1 : 0) : S.upg[it.id] || 0, max = lv >= it.cost.length, lock = it.needs && !S.items[it.needs], c = it.cost[lv]; h += `<div class="row ${max || lock || S.coins < c ? 'dim' : ''}"><b>${(i + 1) % 10}</b><div><strong>${it.name}</strong> <i>${it.stock ? 'you have ' + (S.bombs || 0) : '★'.repeat(lv) + '☆'.repeat(it.cost.length - lv)}</i><br>${lock ? 'You do not have anything to fit this to yet.' : it.text}</div><span>${max ? 'Sold out' : lock ? '-' : c + ' coins'}</span></div>`; });
@@ -93,6 +93,7 @@ export class UI {
     if (this.areaT > 0 && (this.areaT -= dt) <= 0) this.show('area', false);
     if (this.barkT > 0) { if ((this.barkT -= dt) <= 0) this.show('bark', false); } else if (this.barkQ.length && !this.dlg) { const [who, text] = this.barkQ.shift(); $('barkWho').textContent = who; $('barkText').textContent = text; this.barkT = 2.5 + text.length * 0.045; this.show('bark', true); G.audio.sfx('talk'); }
     if (this.dlg) { const d = this.dlg, l = d.lines[d.i]; if (d.n < l.text.length) { const n0 = Math.floor(d.n); d.n = Math.min(l.text.length, d.n + dt * 55); if (Math.floor(d.n) !== n0) { $('dlgText').textContent = l.text.slice(0, Math.floor(d.n)); if (Math.floor(d.n) % 3 === 0) G.audio.sfx('talk'); } } if (I.hit('KeyE') || I.hit('Space') || I.hit('Enter')) this.advance(); }
+    else if (this.shopOpen && this.shopSkip) this.shopSkip = false;
     else if (this.shopOpen) { for (let i = 0; i < 10; i++) if (I.hit('Digit' + ((i + 1) % 10))) this.buy(i); if (I.hit('KeyE') || I.hit('Escape') || I.hit('Enter')) this.closeShop(); }
     else if (this.doneCb) { if (I.hit('KeyE') || I.hit('Enter') || I.hit('Space')) this.closeDone(); }
     else if (I.hit('KeyM')) this.toggleMap();

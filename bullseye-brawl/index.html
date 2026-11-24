@@ -84,8 +84,8 @@ button:hover{background:#4a2c18}
     <div class="row"><button id="online">Play online 1 v 1</button><button id="hot">2 Players (same computer)</button></div>
     <div class="how">
       <b>First to 300 points wins.</b> Three darts a turn. Treble ring = triple, outer ring = double, bull 25, bullseye 50.<br>
-      You stand beside your board and throw at the board across the bar, right where your opponent stands. <b>Nothing stops you throwing at him instead.</b> Body shots hurt. Darts in the face bleed, and <b>about three to the face and he bleeds out and passes out: you win</b>. He can do the same to you, so watch him and lean (A / D) or duck (C) when he lines one up on you.<br>
-      Hold left click to wind up and let go to throw: let go on the green line and the dart lands on the crosshair, early drops low, late flies high. Shift holds your breath to steady your hand. You can hit anyone in the bar, but <b>hit the same person three times and the police come and beat you with clubs</b> until you pass out.
+      You stand beside your board and throw at the board across the bar, right where your opponent stands. <b>Nothing stops you throwing at him instead</b>, but darts won't kill him. Lean (A / D) or duck (C) when he lines one up on you.<br>
+      Hold left click to wind up and let go to throw: let go on the green line and the dart lands on the crosshair, early drops low, late flies high. Shift holds your breath to steady your hand. You can hit anyone in the bar, your opponent too, but <b>hit the same person twice and the police come and beat you to death with their clubs</b>: you lose.
     </div>
   </div>
 </div>
@@ -779,7 +779,7 @@ function updHUD() {
     const T = TH[i], e = $('s' + i);
     e.querySelector('.nm').textContent = T.name; e.querySelector('.pts').textContent = T.score;
     e.querySelector('.bar i').style.width = Math.max(0, T.blood) + '%';
-    e.querySelector('.face').textContent = T.out ? 'PASSED OUT' : (T.faceHits ? `darts to the face: ${T.faceHits}` : (T.bodyHits ? `body hits: ${T.bodyHits}` : ''));
+    e.querySelector('.face').textContent = T.out ? 'DEAD' : (T.faceHits ? `darts to the face: ${T.faceHits}` : (T.bodyHits ? `body hits: ${T.bodyHits}` : ''));
     e.classList.toggle('on', G.turn === i && G.state === 'play');
   }
   const cur = TH[G.turn];
@@ -848,7 +848,7 @@ function start(mode, diff) {
   $('black').style.opacity = 0; $('red').style.opacity = 0;
   $('menu').style.display = 'none'; $('end').style.display = 'none'; hud.style.display = 'block';
   setOwner(mode === 'net' && NET.mode === 'client' ? TH[1] : TH[0]);
-  G.pend = 0; dartId = 0; resetBystanders(); TH.forEach(T => T.copped = false);
+  G.pend = 0; dartId = 0; resetBystanders(); TH.forEach(T => { T.copped = false; T.hits = [0, 0]; });
   for (const w of waiters) { for (const o of w.darts) o.parent && o.parent.remove(o); w.darts = []; }
   drawChalk(); updHUD();
   bigTurn(mode === 'cpu' ? `You vs ${TH[1].name}` : mode === 'net' ? `${TH[0].name} vs ${TH[1].name}` : 'Player 1, you\'re up');
@@ -1012,6 +1012,7 @@ function land(d, hit, p, dir) {
     const V2 = hit.who; V2.p[hit.part === 'head' ? 'head' : 'body'].attach(d.obj);
     hurt(V2, hit.part, p, dir, O);
     O.hist.push(hit.part === 'head' ? 'FACE' : 'body');
+    countHit(V2, O, hit.part === 'head' ? 'FACE SHOT! ' : '');
   } else if (hit.kind === 'waiter') {
     const w = hit.who; w[hit.part === 'head' ? 'head' : 'body'].attach(d.obj); w.darts.push(d.obj);
     S.squelch(); S.scream(1.15, .5); S.crowd('ooh'); pop('YOU HIT THE WAITER', '#ff9a7a'); O.hist.push('waiter');
@@ -1033,11 +1034,11 @@ function hurt(T, part, p, dir, from) {
   S.squelch();
   for (let i = 0; i < (face ? 26 : 10); i++) blood(p, dir.clone().multiplyScalar(-rand(.3, 1.4)).add(V(rand(-.8, .8), rand(0, 1.6), rand(-.8, .8))));
   if (face) {
-    T.faceHits++; T.blood -= 12; T.bleeds.push({rate: 4, left: 5.5, pt: T.p.head.worldToLocal(p.clone())});
+    T.faceHits++; T.bleeds.push({rate: 0, left: 5.5, pt: T.p.head.worldToLocal(p.clone())});
     const spot = mesh(new THREE.CircleGeometry(.03, 8), std(0x6a0303, {roughness: .2}), 0, 0, 0, T.p.head); spot.position.copy(T.p.head.worldToLocal(p.clone())); spot.lookAt(T.p.head.localToWorld(spot.position.clone().multiplyScalar(2))); spot.userData.isDart = true;
-    pop(T.faceHits >= 3 ? 'FACE SHOT! HE\'S GOING DOWN' : 'FACE SHOT!', '#ff5a4a'); S.crowd('ooh');
+    pop('FACE SHOT!', '#ff5a4a'); S.crowd('ooh');
   } else {
-    T.bodyHits++; T.blood -= 6; T.bleeds.push({rate: 1.2, left: 3, pt: T.p.body.worldToLocal(p.clone()), body: true});
+    T.bodyHits++; T.bleeds.push({rate: 0, left: 3, pt: T.p.body.worldToLocal(p.clone()), body: true});
     pop('BODY SHOT', '#ff9a7a');
   }
   S.scream(T.i === 1 ? .85 : 1, face ? 1.0 : .5);
@@ -1073,7 +1074,7 @@ function cpuUpdate(T, dt) {
     const behind = foe.score - T.score;
     let faceP = [.03, .06, .1][G.diff] + Math.min(4, T.grudge) * [.06, .09, .12][G.diff] + (behind > 80 ? .1 : 0) + (foe.faceHits >= 2 ? .1 : 0);
     faceP = Math.min(.55, faceP);
-    c.face = Math.random() < faceP && !foe.out;
+    c.face = Math.random() < faceP && !foe.out && !(foe.hits && foe.hits[T.i]);
     if (c.face) {
       say(T.name, pick(['Hold still, pretty boy.', 'Here\'s one for your face!', 'Let\'s see how YOU like it.', 'Eyes on the board, mate. Mine are on you.', 'Don\'t move...']));
       c.aim = null;
@@ -1377,7 +1378,7 @@ function applyState(m) {
   if (!waiting) { G.darts = m.da; G.phase = m.ph; }
   m.s.forEach((a, i) => {
     const T = TH[i]; T.score = a[0]; T.blood = a[1]; T.faceHits = a[2]; T.bodyHits = a[3]; T.hist = a[5] ? a[5].split('|') : [];
-    if (a[4] && !T.out) { T.out = true; T.blood = 0; S.thud(); setTimeout(S.thud, 400); S.crowd('ooh'); pop(`${T.name.toUpperCase()} PASSED OUT!`, '#ff5a4a'); }
+    if (a[4] && !T.out) { T.out = true; T.blood = 0; S.thud(); setTimeout(S.thud, 400); S.crowd('ooh'); pop(`${T.name.toUpperCase()} IS DEAD`, '#ff5a4a'); }
   });
   m.w.forEach((a, i) => { waiters[i].net = a; });
   if (Math.random() < .3) drawChalk();
@@ -1413,10 +1414,13 @@ addEventListener('beforeunload', () => { if (NET.mode !== 'off') netSend({t: 'by
 const bystanders = [...patrons, barman];
 function bystanderHit(q, O, p, part) {
   q.flinch = 1; q.bleedT = part === 'head' ? 6 : 3; q.bleedPt = (part === 'head' ? q.head : q.body).worldToLocal(p.clone()); q.bleedHead = part === 'head';
+  countHit(q, O, q.state ? 'YOU HIT THE WAITER! ' : q === barman ? 'YOU HIT THE BARMAN! ' : 'YOU HIT A CUSTOMER! ');
+}
+// hit the same person twice and the cops come for you
+function countHit(q, O, label) {
   q.hits = q.hits || [0, 0]; q.hits[O.i]++;
-  const n = q.hits[O.i];
-  if (n >= 3) { if (NET.mode !== 'client') callCops(O); }
-  else pop(n === 2 ? 'HIT HIM AGAIN AND THE COPS COME' : (q.state ? 'YOU HIT THE WAITER' : 'YOU HIT A CUSTOMER'), '#ff9a7a');
+  if (q.hits[O.i] >= 2) { if (NET.mode !== 'client') callCops(O); }
+  else setTimeout(() => G.state === 'play' && !G.cops && pop(label + 'HIT HIM AGAIN AND THE COPS COME', '#ff9a7a'), 50);
 }
 const cops = [];
 for (let i = 0; i < 2; i++) {
@@ -1440,7 +1444,7 @@ function callCops(O) {
     c.path = [V(-2.2 + i * .3, 0, 2.2), T.i === 0 ? V(-1.6, 0, 1.8 - i * .3) : V(-1.6 + i * .3, 0, -1.4), spot];
     c.swing = i * .3; c.beat = false;
   });
-  pop('POLICE!', '#6ab0ff'); bigTurn('You hit the same person three times. Here come the cops.');
+  pop('POLICE!', '#6ab0ff'); bigTurn(`${O === owner ? 'You' : O.name} hit the same person twice. Here come the cops.`);
   say('Police', pick(['POLICE! Drop the darts, sunshine!', 'Right, you. Darts down. NOW.', 'We had a complaint about a lunatic with darts.']));
   siren();
 }
@@ -1482,7 +1486,7 @@ function copHit(T, c) {
   if (Math.random() < .5) S.grunt();
   const hp = V(0, 1.4 + T.p.body.position.y, 0); T.p.g.updateMatrixWorld(true); hp.applyMatrix4(T.p.g.matrixWorld);
   for (let i = 0; i < 6; i++) blood(hp, V(rand(-1, 1), rand(0, 1.4), rand(-1, 1)));
-  if (NET.mode !== 'client') T.blood -= 9;
+  if (NET.mode !== 'client') T.blood -= 11;
   T.copped = true;
   if (T === owner) { splatScreen(2, .8); shake = .45; $('red').style.opacity = .7; }
   else { T.p.R.sh.rotation.x = -2.4; T.p.L.sh.rotation.x = -2.6; T.p.head.rotation.x = .3; }
@@ -1574,10 +1578,10 @@ function updGame(dt) {
     if (T.blood <= 0 && !T.out && G.state === 'play' && NET.mode !== 'client') {
       T.out = true; T.blood = 0; S.thud(); setTimeout(S.thud, 400); S.crowd('ooh');
       const W = TH[T.i ^ 1];
-      pop(`${T.name.toUpperCase()} PASSED OUT!`, '#ff5a4a');
+      pop(T.copped ? `${T.name.toUpperCase()} ${T === owner && G.mode !== 'hot' ? 'ARE' : 'IS'} DEAD` : `${T.name.toUpperCase()} PASSED OUT!`, '#ff5a4a');
       if (T === owner) { T.p.g.visible = false; }
       W.loserOut = true;
-      finish(W, T.copped ? (T === owner ? 'You hit the same person three times. The police beat you unconscious with their clubs.' : `${T.name} hit the same person three times, so the police beat him unconscious with their clubs.`) : T.human && G.mode === 'cpu' ? `You took too many darts to the face, bled out and passed out on the floor.` : `${T.name} took ${T.faceHits} dart${T.faceHits === 1 ? '' : 's'} to the face, bled out and passed out on the floor.`);
+      finish(W, T.copped ? (T === owner ? 'You hit the same person twice. The police beat you to death with their clubs.' : `${T.name} hit the same person twice, so the police beat him to death with their clubs.`) : T.human && G.mode === 'cpu' ? `You took too many darts to the face, bled out and passed out on the floor.` : `${T.name} took ${T.faceHits} dart${T.faceHits === 1 ? '' : 's'} to the face, bled out and passed out on the floor.`);
       updHUD();
     }
   }

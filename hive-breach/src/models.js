@@ -80,7 +80,7 @@ export function synth(weapon) {
 }
 // the war mech: a big two-legged walker with a minigun on its left arm and a rocket pod on its right
 export function warMech() {
-  { const mg = AS.mechGLB(); if (mg) return mg; }
+  { const mg = AS.mech2GLB() || AS.mechGLB(); if (mg) return mg; }
   const g = new THREE.Group(), hull = mat(0x5a6670, { m: 0.6, r: 0.45 }), dark = mat(0x23282e, { m: 0.5, r: 0.5 }), stripe = mat(0xd09030), glow = mat(0x60e0ff, { e: 0x30a0ff, ei: 2.5 });
   const legL = new THREE.Group(), legR = new THREE.Group(); legL.position.set(-0.75, 2.3, 0); legR.position.set(0.75, 2.3, 0); g.add(legL, legR);
   for (const L of [legL, legR]) { B(L, 0.55, 1.2, 0.7, hull, 0, -0.55, 0.1); S(L, 0.3, dark, 0, -1.2, 0.15); const sh = B(L, 0.45, 1.1, 0.5, hull, 0, -1.7, -0.05); sh.rotation.x = 0.2; B(L, 0.8, 0.25, 1.2, dark, 0, -2.22, -0.1); }

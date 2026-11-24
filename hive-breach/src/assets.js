@@ -145,7 +145,7 @@ export function animGLB(m, sp, opt) {
   // on top of the clip: the shoulders take each shot's recoil, and the head looks about now and then, so nobody stands like a statue
   u.ph += dtM; if (!u.fpArms && u.spine && opt && opt.fire && !opt.pose) { u.spine.rotation.x += Math.abs(Math.sin(u.ph * 37)) * 0.05 - 0.02; u.spine.rotation.y += Math.sin(u.ph * 2.1) * 0.06; }
   if (!u.fpArms && u.head && !(opt && opt.pose)) u.head.rotation.y += Math.sin(u.ph * 0.7) * Math.sin(u.ph * 0.31) * 0.25;
-  aimGun(m);
+  if (u.mech2) placeMechGuns(m); else aimGun(m);
 }
 
 // ---- turrets: one model per upgrade level. The whole model sits in the "head" so it swings round to aim.
@@ -239,7 +239,7 @@ export function fpArms(cls, gun, mode = 'two', fitTo) {
 // Each one is sized to match the simple model it replaces (same length and the same height off the ground), so hit boxes still fit.
 export const ALIEN_GLB = { crawler: 'a_crawler', spitter: 'a_spitter', brute: 'a_brute', ravager: 'a_ravager', queen: 'a_queen', royal: 'a_royal', broodqueen: 'a_broodqueen', flyer: 'a_flyer' };
 export const ALIEN_FILES = Object.values(ALIEN_GLB);
-export const SCENE_FILES = ['p_station', 'p_pod2', 'p_seat', 'p_seat2', 'h_reactor', 'h_wall', 'r_synth', 'r_mech', 'v_dropship', 's_scrap', 'l_sandbags', 'l_bags2', 'v_vtol', 'v_rover', 'v_quad', 'v_flatbed', 'p_bridge', 'p_tunnel', 'l_watchtower', 'l_hivemound', 'h_gatetower', 'h_barracks', 'h_comms', 'h_floodlight', 'r_tank'];
+export const SCENE_FILES = ['p_station', 'p_pod2', 'p_seat', 'p_seat2', 'h_reactor', 'h_wall', 'r_synth', 'r_mech', 'r_mech2', 'v_dropship', 's_scrap', 'l_sandbags', 'l_bags2', 'v_vtol', 'v_rover', 'v_quad', 'v_flatbed', 'p_bridge', 'p_tunnel', 'l_watchtower', 'l_hivemound', 'h_gatetower', 'h_barracks', 'h_comms', 'h_floodlight', 'r_tank'];
 const BIG = new Set(['brute', 'ravager', 'queen', 'broodqueen']);
 const ACLIP = { run: /run/i, walk: /walk/i, pounce: /pounce|skill/i, roar: /roar/i, idle: /idle/i, die: /death|dead/i }, HEAVY = new Set(['brute', 'ravager', 'queen']);
 export function alienGLB(type, ref) {
@@ -306,6 +306,24 @@ export function wallPiece(len, h, d) {
 }
 
 // ---- the War Mech: a big Meshy walker; it bobs and sways as it strides (its minigun arm and rocket pod are part of the model)
+// ---- the War Mech: a humanoid Meshy walker on its own rig and clips, a heavy minigun on its right hand and a rocket launcher on its left, firing from each hand
+export function mech2GLB() {
+  const src = A.r_mech2; if (!src) return null;
+  const root = SU.clone(src.scene), g = new THREE.Group(), holder = new THREE.Group(); holder.rotation.y = Math.PI; holder.add(root); g.add(holder); fixBounds(root);
+  const b = new THREE.Box3().setFromObject(src.scene); holder.scale.setScalar(5.4 / ((b.max.y - b.min.y) || 1));
+  const mixer = new THREE.AnimationMixer(root), act = {};
+  for (const [k, re] of [['walk', /walk/i], ['stance', /combat/i], ['idle', /idle/i], ['run', /run/i]]) { const c = src.animations.find(a => re.test(a.name)); if (!c) continue;
+    if (!c.userData) c.userData = {}; if (!c.userData.pinned) { c.userData.pinned = 1; for (const tr of c.tracks) if (/hips\.position$/i.test(tr.name)) { const v = tr.values, x0 = v[0], z0 = v[2]; for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; } } }   // stride in place: the game moves it
+    act[k] = mixer.clipAction(c); }
+  root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+  const guns = ['gunner', 'heavy'].map(k => { const w = weapon(k); if (w) { w.scale.multiplyScalar(2.6); g.add(w); } return w; });
+  g.userData = { legL: new THREE.Object3D(), legR: new THREE.Object3D(), arms: new THREE.Group(), glb: true, mech2: true, mech: 1, var: 0.72, mixer, act, cur: null, root, rh: root.getObjectByName('RightHand'), lh: root.getObjectByName('LeftHand'), guns };
+  setPose(g, 'idle'); mixer.update(0.01); placeMechGuns(g); return g;
+}
+// each gun rides on its hand, pointing where the mech faces
+function placeMechGuns(m) { const u = m.userData; m.updateMatrixWorld(true); _inv.copy(m.matrixWorld).invert(); [[u.rh, u.guns[0]], [u.lh, u.guns[1]]].forEach(([h, gun]) => { if (!h || !gun) return; h.getWorldPosition(_a).applyMatrix4(_inv); gun.position.set(_a.x, _a.y - 0.05, _a.z - 0.35); gun.rotation.set(0, 0, 0); }); }
+// where a War Mech's gun on one hand (0 right, 1 left) fires from, in world space
+export function mechMuzzle(m, side) { const u = m.userData, gun = u.guns && u.guns[side]; if (!gun) return null; gun.updateMatrixWorld(true); return gun.localToWorld(new THREE.Vector3(0, 0.05, -0.9)); }
 let MECHCLIPS = null;
 export function mechGLB() {
   // the War Mech is rigged on the same humanoid skeleton as the marines: it strides with their walk-and-shoot clip and plants into their combat stance, just 5 m tall (its minigun arm and rocket pod are part of the model)

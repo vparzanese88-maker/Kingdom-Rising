@@ -316,7 +316,7 @@ export function mech2GLB() {
     if (!c.userData) c.userData = {}; if (!c.userData.pinned) { c.userData.pinned = 1; for (const tr of c.tracks) if (/hips\.position$/i.test(tr.name)) { const v = tr.values, x0 = v[0], z0 = v[2]; for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; } } }   // stride in place: the game moves it
     act[k] = mixer.clipAction(c); }
   root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
-  const guns = ['gunner', 'heavy'].map(k => { const w = weapon(k); if (w) { w.scale.multiplyScalar(2.6); g.add(w); } return w; });
+  const guns = ['gunner', 'gunner'].map(k => { const w = weapon(k); if (w) { w.scale.multiplyScalar(2.6); g.add(w); } return w; });
   g.userData = { legL: new THREE.Object3D(), legR: new THREE.Object3D(), arms: new THREE.Group(), glb: true, mech2: true, mech: 1, var: 0.72, mixer, act, cur: null, root, rh: root.getObjectByName('RightHand'), lh: root.getObjectByName('LeftHand'), guns };
   setPose(g, 'idle'); mixer.update(0.01); placeMechGuns(g); return g;
 }

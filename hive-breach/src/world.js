@@ -87,7 +87,7 @@ export function makeTerrain(D, path, hubP, hiveP) {
     if (r > HUB_R - WALL_T - RAMP_W && r <= HUB_R - WALL_T) for (const p of H.ramps) { const f = ad(a, p.a0) / (p.a1 - p.a0); if (f >= 0 && f <= 1) return { ramp: 1, h: H.y + WALL_H * f }; }
     return r < HUB_R - WALL_T ? { yard: 1 } : null; };
   T.plats = []; T.stairs = [];
-  const onStructs = (x, z, y) => { let best = -1e9; for (const p of T.plats) { let ux = x - p.x, uz = z - p.z; if (p.cx !== undefined) { const u = ux * p.cx + uz * p.cz; uz = -ux * p.cz + uz * p.cx; ux = u; }   /* a platform can be turned (the hub's landing pad) */ if (Math.abs(ux) < p.hw && Math.abs(uz) < p.hw && y >= p.y - 1.6) best = Math.max(best, p.y); }
+  const onStructs = (x, z, y) => { let best = -1e9; for (const p of T.plats) { let ux = x - p.x, uz = z - p.z; if (p.cx !== undefined) { const u = ux * p.cx + uz * p.cz; uz = -ux * p.cz + uz * p.cx; ux = u; }   /* a platform can be turned (the hub's landing pad) */ if (Math.abs(ux) < p.hw && Math.abs(uz) < (p.hd ?? p.hw) && y >= p.y - 1.6) best = Math.max(best, p.y); }   /* hd: a long platform (a truck bed) */
     for (const st of T.stairs) { const dx = x - st.x, dz = z - st.z, u = dx * st.cx + dz * st.cz, v = -dx * st.cz + dz * st.cx; if (u >= 0 && u <= st.len && Math.abs(v) < st.hw) { const hh = st.y0 + (st.y1 - st.y0) * u / st.len; if (y >= hh - 1.3) best = Math.max(best, hh); } } return best; };
   T.onStructs = onStructs;
   // walking height at (x, z) for something now at height y (so you can be on a bridge or under it, on a tunnel roof or inside)

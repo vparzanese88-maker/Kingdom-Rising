@@ -220,6 +220,7 @@ function fx(e) {
     case 'bp': toast(`${e.n} hologram on the vehicle pad: weld it (3) to build it. It uses scrap as you weld.`, 4); audio.sfx('place', 0.8); break;
     case 'board': if (e.to === G.myId) { toast(`Riding in the ${e.n}: shoot as normal, ${keyName(KB.use)} gets you out`, 3); audio.sfx('place', 0.7); } break;
     case 'vehready': toast(`${e.n} ready in the hub: walk up and press E to drive`, 4); break;
+    case 'bump': { const d = dist(e.x, e.z); audio.sfx(e.big ? 'boom' : 'place', vol(d) * (e.big ? 0.5 : 0.7)); burst(e.x, G.W.ground(e.x, e.z, 99) + 0.6, e.z, 0x6aff40, e.big ? 14 : 8, 5, 0.5); if (e.to === G.myId && G.me.dv) { G.me.dv.sp *= e.f; G.shake = Math.max(G.shake || 0, e.big ? 0.6 : 0.25); if (!e.f) toast(e.big ? 'Something big stopped you dead!' : 'Too many of them: you are bogged down!', 1.6); } break; }   // a vehicle hitting aliens: slowed, or stopped dead
     case 'exitveh': if (e.to === G.myId) { G.me.dv = null; G.me.x = e.x; G.me.z = e.z; G.me.y = G.W.top(e.x, e.z); toast('Your vehicle is gone! Bail out!', 2.5); } break;
     case 'nodeup': toast('Harvester online: it pulls material from the ground to unlock vehicles', 3); audio.sfx('upg', vol(dist(G.W.nodes[e.i].x, G.W.nodes[e.i].z)) + 0.3); break;
     case 'nodedown': { const nd = G.W.nodes[e.i]; boomFx(nd.x, nd.y + 2, nd.z, 5); toast('A harvester was destroyed! Rebuild it with the welder (3)', 3); } break;
@@ -1211,9 +1212,17 @@ function updateMe(dt, S) {
   // carrying a turret: the camera swings back over the shoulder so you can see where it's going
   me.braced = G.cls === 'gunner' && (S.T.some(t => t.kind === 'sandbag' && !t.carry && !(t.b > 0) && Math.hypot(t.x - me.x, t.z - me.z) < TURRETS.sandbag.range) || (G.W.bags || []).some(b => Math.hypot(b.x - me.x, b.z - me.z) < 3.6));
   { // sniper nests are platforms you can stand on; E at the foot climbs up, E on top climbs down
-    const T0 = G.W.T; T0.plats = T0.plats.filter(p => !p.nest || S.T.some(t => t.id === p.nest && !t.carry)); for (const t of S.T) if (t.kind === 'nest' && !t.carry && !(t.b > 0) && !T0.plats.some(p => p.nest === t.id)) T0.plats.push({ x: t.x, z: t.z, hw: 1.55, y: t.y + 5.4, nest: t.id });
-    const nb = S.T.find(t => t.kind === 'nest' && !t.carry && !(t.b > 0) && Math.hypot(t.x - me.x, t.z - me.z) < 3);
-    if (nb && live && !me.carry) { const up = me.y > nb.y + 4; prompt(up ? `<b>${keyName(KB.use)}</b> climb down the Sniper Nest` : `<b>${keyName(KB.use)}</b> climb the Sniper Nest`); if (hits[KB.use]) { hits[KB.use] = false; if (up) { me.x = nb.x + 2.2; me.z = nb.z + 1.6; me.y = G.W.top(me.x, me.z); } else { me.x = nb.x; me.z = nb.z; me.y = nb.y + 5.45; } me.vy = 0; audio.sfx('step_metal', 0.8); } }
+    // the Sniper Nest and the Sniper Tower are both towers to stand on: E at the foot climbs up, E on top climbs down (pick a Sniper Tower up from a few steps back)
+    const climbH = t => t.kind === 'nest' ? 5.4 : 3.6 * ([1, 1.15, 1.3][t.lvl - 1] || 1) + 0.1, climbable = t => (t.kind === 'nest' || t.kind === 'railgun') && !t.carry && !(t.b > 0) && !(t.vh ?? t.veh);
+    const T0 = G.W.T; T0.plats = T0.plats.filter(p => !p.nest || S.T.some(t => t.id === p.nest && climbable(t) && Math.abs(p.y - (t.y + climbH(t))) < 0.05)); for (const t of S.T) if (climbable(t) && !T0.plats.some(p => p.nest === t.id)) T0.plats.push({ x: t.x, z: t.z, hw: t.kind === 'nest' ? 1.55 : 1.05, y: t.y + climbH(t), nest: t.id });
+    const nb = S.T.find(t => climbable(t) && Math.hypot(t.x - me.x, t.z - me.z) < (t.kind === 'nest' ? 3 : 2.3)), nbN = nb && (nb.kind === 'nest' ? 'Sniper Nest' : 'Sniper Tower');
+    if (nb && live && !me.carry) { const up = me.y > nb.y + climbH(nb) - 1.2; prompt(up ? `<b>${keyName(KB.use)}</b> climb down the ${nbN}` : `<b>${keyName(KB.use)}</b> climb the ${nbN}`); if (hits[KB.use]) { hits[KB.use] = false; if (up) { me.x = nb.x + 2.2; me.z = nb.z + 1.6; me.y = G.W.top(me.x, me.z); } else { me.x = nb.x; me.z = nb.z; me.y = nb.y + climbH(nb) + 0.05; } me.vy = 0; audio.sfx('step_metal', 0.8); } }
+    // the truck's flatbed is a moving platform: jump up onto it, and it carries you with it while you stand there
+    T0.plats = T0.plats.filter(p => !p.bed); for (const sv of S.V || []) { if (sv.kind !== 'truck') continue; const vv = vehV.get(sv.id); if (!vv) continue; const c = Math.cos(vv.ry), sn = Math.sin(vv.ry), top = vv.y + 1.75;
+      const bed = { x: vv.x + 1.6 * sn, z: vv.z + 1.6 * c, hw: 1.15, hd: 1.65, cx: c, cz: -sn, y: top, bed: sv.id }; T0.plats.push(bed);
+      const on = !my.drive && !my.seatv && Math.abs(me.y - top) < 0.2 && T0.onStructs(me.x, me.z, me.y + 0.1) >= top - 0.05; const lp = vv.lastP;
+      if (on && lp && G.time - lp.t < 0.2) { const dr = vv.ry - lp.ry, ox = me.x - lp.x, oz = me.z - lp.z, cr = Math.cos(dr), sr = Math.sin(dr); me.x = vv.x + ox * cr + oz * sr; me.z = vv.z - ox * sr + oz * cr; me.yaw += dr; me.y = top; }   /* ride along: move and turn with the truck */
+      vv.lastP = { x: vv.x, z: vv.z, ry: vv.ry, t: G.time }; }
   }
   me.tp = Math.max(0, Math.min(1, (me.tp || 0) + (me.carry && !my.dead ? dt : -dt) * 3));
   if (me.tp > 0) { const e = me.tp * me.tp * (3 - 2 * me.tp), fx = -Math.sin(me.yaw) * Math.cos(me.pitch), fy = Math.sin(me.pitch), fz = -Math.cos(me.yaw) * Math.cos(me.pitch), rx = Math.cos(me.yaw), rz = -Math.sin(me.yaw);
